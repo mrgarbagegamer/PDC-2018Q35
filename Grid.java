@@ -1,7 +1,6 @@
 public class Grid
 {
     private boolean[][] grid = new boolean[][]{};
-    private int[] rowCount = new int[]{15, 14, 15, 14, 15, 14, 15};
     private int numRows = 6;
     private int numCols = 15;
     private int clickCount = 0;

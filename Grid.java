@@ -112,6 +112,43 @@ public class Grid
         return clickCount;
     }
 
+    public void printGrid()
+    {
+        for (int i = 0; i <= 6; i++)
+        {
+            if (i % 2 == 0)
+            {
+                for (int j = 0; j <= 15; j++)
+                {
+                    if (grid[i][j])
+                    {
+                        System.out.print("1 ");
+                    }
+                    else
+                    {
+                        System.out.print("0 ");
+                    }
+                }
+            }
+            else
+            {
+                System.out.print(" ");
+                for (int j = 0; j <= 14; j++)
+                {
+                    if (grid[i][j])
+                    {
+                        System.out.print("1 ");
+                    }
+                    else
+                    {
+                        System.out.print("0 ");
+                    }
+                }
+            }
+            System.out.println();
+        }
+    }
+
     public boolean[][] getGrid()
     {
         return grid;

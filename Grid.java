@@ -1,6 +1,6 @@
 public class Grid
 {
-    private boolean[][] grid = new boolean[][]{};
+    private boolean[][] grid = new boolean[][]{new boolean[16], new boolean[15], new boolean[16], new boolean[15], new boolean[16], new boolean[15], new boolean[16]};
     private int numRows = 6;
     private int numCols = 15;
     private int clickCount = 0;

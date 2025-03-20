@@ -12,7 +12,7 @@ public class Grid
 
     public void initialize()
     {
-        // Set grid[2][8], grid[3][6], grid[3][8], and grid[4,7] to true
+        // Initialize for Q13/Kermit
         grid[0] = new boolean[16];
         grid[1] = new boolean[15];
         grid[2] = new boolean[16];
@@ -21,10 +21,14 @@ public class Grid
         grid[5] = new boolean[15];
         grid[6] = new boolean[16];
 
-        grid[2][8] = true;
-        grid[3][6] = true;
-        grid[3][8] = true;
-        grid[4][7] = true;
+        for (int i = 1; i <= 14; i++)
+        {
+            grid[2][i] = true;
+            grid[4][i] = true;
+        }
+        grid[3][0] = true;
+        grid[3][14] = true;
+
         clickCount = 0;
     }
 

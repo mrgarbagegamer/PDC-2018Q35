@@ -7,7 +7,7 @@ public class Solver2
     {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 5; // Number of clicks to test for a solution (must be > 1)
+        int n = 7; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         List<int[]> clicks = new ArrayList<>();

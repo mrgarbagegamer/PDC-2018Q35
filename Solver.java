@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class Solver 
@@ -8,8 +9,11 @@ public class Solver
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
         int n = 7; // Number of clicks to test for a solution (must be > 1)
-
+        
         // Start the recursive search for a solution
+        Date d1 = new Date();
+        System.out.println("Start time: " + d1.toString());
+
         List<int[]> clicks = new ArrayList<>();
         Grid grid = new Grid();
         if (findSolution(grid, numRows, numCols, n, clicks)) {
@@ -20,9 +24,12 @@ public class Solver
         } else {
             System.out.println("No solution found with " + n + " clicks.");
         }
+
+        Date d2 = new Date();
+        System.out.println("End time: " + d2.toString());
     }
 
-    private static boolean findSolution(Grid grid, int numRows, int[] numCols, int remainingClicks, List<int[]> clicks) {
+    public static boolean findSolution(Grid grid, int numRows, int[] numCols, int remainingClicks, List<int[]> clicks) {
         if (remainingClicks == 0) {
             // Base case: Check if the grid is solved
             return grid.isSolved();
@@ -52,7 +59,7 @@ public class Solver
         return false;
     }
 
-    private static void copyGridState(Grid source, Grid target) {
+    public static void copyGridState(Grid source, Grid target) {
         boolean[][] sourceGrid = source.getGrid();
         boolean[][] targetGrid = target.getGrid();
 

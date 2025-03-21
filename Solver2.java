@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class Solver2 
@@ -10,6 +11,9 @@ public class Solver2
         int n = 7; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
+        Date d1 = new Date();
+        System.out.println("Start time: " + d1.toString());
+
         List<int[]> clicks = new ArrayList<>();
         Grid grid = new Grid();
         boolean[][] visited = new boolean[numRows][16]; // Track visited elements
@@ -21,9 +25,12 @@ public class Solver2
         } else {
             System.out.println("No solution found with " + n + " clicks.");
         }
+
+        Date d2 = new Date();
+        System.out.println("End time: " + d2.toString());
     }
 
-    private static boolean findSolution(Grid grid, int numRows, int[] numCols, int remainingClicks, List<int[]> clicks, boolean[][] visited) {
+    public static boolean findSolution(Grid grid, int numRows, int[] numCols, int remainingClicks, List<int[]> clicks, boolean[][] visited) {
         if (remainingClicks == 0) {
             // Base case: Check if the grid is solved
             return grid.isSolved();

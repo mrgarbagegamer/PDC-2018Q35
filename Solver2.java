@@ -6,7 +6,7 @@ public class Solver2 {
     public static void main(String[] args) {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 1; // Number of clicks to test for a solution (must be > 1)
+        int n = 7; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         Date d1 = new Date();
@@ -14,16 +14,28 @@ public class Solver2 {
 
         List<int[]> clicks = new ArrayList<>();
         Grid grid = new Grid();
-        if (findSolution(grid, numRows, numCols, n, clicks)) {
+        // exactly n clicks
+        /* if (findSolution(grid, numRows, numCols, n, clicks)) {
             System.out.println("Solution found with clicks at:");
             for (int[] click : clicks) {
                 System.out.println("Click: (" + click[0] + ", " + click[1] + ")");
             }
         }
-
         else
         {
             System.out.println("No solution found with " + n + " clicks.");
+        } */
+
+        // up to n clicks
+        for (int i = 1; i <= n; i++) {
+            clicks.clear();
+            if (findSolution(grid, numRows, numCols, i, clicks)) {
+                System.out.println("Solution found with " + i + " clicks at:");
+                for (int[] click : clicks) {
+                    System.out.println("Click: (" + click[0] + ", " + click[1] + ")");
+                }
+                break;
+            }
         }
         
         Date d2 = new Date();

@@ -27,6 +27,7 @@ public class Solver2 {
         } */
 
         // up to n clicks
+        boolean solved = false;
         for (int i = 1; i <= n; i++) {
             clicks.clear();
             if (findSolution(grid, numRows, numCols, i, clicks)) {
@@ -34,8 +35,13 @@ public class Solver2 {
                 for (int[] click : clicks) {
                     System.out.println("Click: (" + click[0] + ", " + click[1] + ")");
                 }
+                solved = true;
                 break;
             }
+        }
+
+        if (!solved) {
+            System.out.println("No solution found with up to " + n + " clicks.");
         }
         
         Date d2 = new Date();

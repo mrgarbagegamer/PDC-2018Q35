@@ -54,7 +54,7 @@ public class Solver2 {
             return grid.isSolved();
         }
 
-        if (countTrueCells(grid) > remainingClicks * 6 || countTrueCells(grid) < remainingClicks * 2) {
+        if (countTrueCells(grid) > remainingClicks * 6) {
             return false; // Prune: Not enough clicks left to solve the grid
         }
 

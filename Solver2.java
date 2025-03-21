@@ -54,7 +54,7 @@ public class Solver2 {
             return grid.isSolved();
         }
 
-        if (countTrueCells(grid) > remainingClicks * 6) {
+        if (grid.getTrueCount() > remainingClicks * 6) {
             return false; // Prune: Not enough clicks left to solve the grid
         }
 
@@ -90,18 +90,5 @@ public class Solver2 {
             }
         }
         return false;
-    }
-
-    private static int countTrueCells(Grid grid) {
-        boolean[][] gridState = grid.getGrid();
-        int count = 0;
-        for (boolean[] row : gridState) {
-            for (boolean cell : row) {
-                if (cell) {
-                    count++;
-                }
-            }
-        }
-        return count;
     }
 }

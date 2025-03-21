@@ -4,6 +4,7 @@ public class Grid
     private int numRows = 6;
     private int numCols = 15;
     private int clickCount = 0;
+    private int trueCount = 0;
 
     public Grid()
     {
@@ -60,7 +61,7 @@ public class Grid
             grid[i][14] = true;
         }
         
-
+        trueCount = 50;
         clickCount = 0;
     }
 
@@ -109,6 +110,14 @@ public class Grid
 
             if ((first >= 0 && first <= numRows) && (second >= 0 && second <= numCols))
             {
+                if (grid[first][second])
+                {
+                    trueCount--;
+                }
+                else
+                {
+                    trueCount++;
+                }
                 grid[first][second] = !grid[first][second];
             }
         }
@@ -188,5 +197,10 @@ public class Grid
     public boolean[][] getGrid()
     {
         return grid;
+    }
+
+    public int getTrueCount()
+    {
+        return trueCount;
     }
 }

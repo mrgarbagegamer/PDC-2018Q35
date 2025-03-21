@@ -65,9 +65,8 @@ public class Grid
         clickCount = 0;
     }
 
-    public void click(int row, int col)
+    public int[][] getAffectedPieces(int row, int col)
     {
-        clickCount++;
         int[][] affectedPieces = new int[6][2];
 
         if (row % 2 == 0)
@@ -102,6 +101,16 @@ public class Grid
             affectedPieces[5][0] = row + 1;
             affectedPieces[5][1] = col + 1;
         }
+
+        return affectedPieces;
+    }
+
+    public void click(int row, int col)
+    {
+        clickCount++;
+        int[][] affectedPieces = new int[6][2];
+
+        affectedPieces = getAffectedPieces(row, col);
 
         for (int i = 0; i < 6; i++)
         {

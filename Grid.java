@@ -21,13 +21,145 @@ public class Grid
         grid[5] = new boolean[15];
         grid[6] = new boolean[16];
 
-        for (int i = 1; i <= 14; i++)
-        {
-            grid[2][i] = true;
-            grid[4][i] = true;
-        }
+        // One step away from solution:
+        /* grid[2][13] = true;
+        grid[2][14] = true;
+        grid[3][12] = true;
+        grid[3][14] = true;
+        grid[4][13] = true;
+        grid[4][14] = true; */
+
+        // Two steps away from solution:
+        /* grid[2][11] = true;
+        grid[2][12] = true;
+        grid[2][13] = true;
+        grid[2][14] = true;
+        grid[3][10] = true;
+        grid[3][14] = true;
+        grid[4][11] = true;
+        grid[4][12] = true;
+        grid[4][13] = true;
+        grid[4][14] = true; */
+
+        // Three steps away from solution:
+        /* grid[2][9] = true;
+        grid[2][10] = true;
+        grid[2][11] = true;
+        grid[2][12] = true;
+        grid[2][13] = true;
+        grid[2][14] = true;
+        grid[3][8] = true;
+        grid[3][14] = true;
+        grid[4][9] = true;
+        grid[4][10] = true;
+        grid[4][11] = true;
+        grid[4][12] = true;
+        grid[4][13] = true;
+        grid[4][14] = true; */
+
+        // Four steps away from solution:
+        /* grid[2][7] = true;
+        grid[2][8] = true;
+        grid[2][9] = true;
+        grid[2][10] = true;
+        grid[2][11] = true;
+        grid[2][12] = true;
+        grid[2][13] = true;
+        grid[2][14] = true;
+        grid[3][6] = true;
+        grid[3][14] = true;
+        grid[4][7] = true;
+        grid[4][8] = true;
+        grid[4][9] = true;
+        grid[4][10] = true;
+        grid[4][11] = true;
+        grid[4][12] = true;
+        grid[4][13] = true;
+        grid[4][14] = true; */
+
+        // Five steps away from solution:
+        /* grid[2][5] = true;
+        grid[2][6] = true;
+        grid[2][7] = true;
+        grid[2][8] = true;
+        grid[2][9] = true;
+        grid[2][10] = true;
+        grid[2][11] = true;
+        grid[2][12] = true;
+        grid[2][13] = true;
+        grid[2][14] = true;
+        grid[3][4] = true;
+        grid[3][14] = true;
+        grid[4][5] = true;
+        grid[4][6] = true;
+        grid[4][7] = true;
+        grid[4][8] = true;
+        grid[4][9] = true;
+        grid[4][10] = true;
+        grid[4][11] = true;
+        grid[4][12] = true;
+        grid[4][13] = true;
+        grid[4][14] = true; */
+
+        // Six steps away from solution:
+        /* grid[2][3] = true;
+        grid[2][4] = true;
+        grid[2][5] = true;
+        grid[2][6] = true;
+        grid[2][7] = true;
+        grid[2][8] = true;
+        grid[2][9] = true;
+        grid[2][10] = true;
+        grid[2][11] = true;
+        grid[2][12] = true;
+        grid[2][13] = true;
+        grid[2][14] = true;
+        grid[3][2] = true;
+        grid[3][14] = true;
+        grid[4][3] = true;
+        grid[4][4] = true;
+        grid[4][5] = true;
+        grid[4][6] = true;
+        grid[4][7] = true;
+        grid[4][8] = true;
+        grid[4][9] = true;
+        grid[4][10] = true;
+        grid[4][11] = true;
+        grid[4][12] = true;
+        grid[4][13] = true;
+        grid[4][14] = true; */
+
+        // Seven steps away from solution:
+        /* grid[2][1] = true;
+        grid[2][2] = true;
+        grid[2][3] = true;
+        grid[2][4] = true;
+        grid[2][5] = true;
+        grid[2][6] = true;
+        grid[2][7] = true;
+        grid[2][8] = true;
+        grid[2][9] = true;
+        grid[2][10] = true;
+        grid[2][11] = true;
+        grid[2][12] = true;
+        grid[2][13] = true;
+        grid[2][14] = true;
         grid[3][0] = true;
         grid[3][14] = true;
+        grid[4][1] = true;
+        grid[4][2] = true;
+        grid[4][3] = true;
+        grid[4][4] = true;
+        grid[4][5] = true;
+        grid[4][6] = true;
+        grid[4][7] = true;
+        grid[4][8] = true;
+        grid[4][9] = true;
+        grid[4][10] = true;
+        grid[4][11] = true;
+        grid[4][12] = true;
+        grid[4][13] = true;
+        grid[4][14] = true; */
 
         clickCount = 0;
     }

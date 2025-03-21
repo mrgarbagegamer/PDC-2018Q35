@@ -6,7 +6,7 @@ public class Solver2 {
     public static void main(String[] args) {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 11; // Number of clicks to test for a solution (must be > 1)
+        int n = 12; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         Date d1 = new Date();
@@ -65,10 +65,6 @@ public class Solver2 {
                     continue; // Skip if this element has already been clicked
                 }
 
-                if (!affectsTrueCells(grid, row, col)) {
-                    continue; // Skip if this click does not affect any true cells
-                }
-
                 // Perform the click
                 grid.click(row, col);
                 clicks.add(new int[] {row, col});
@@ -90,24 +86,6 @@ public class Solver2 {
     private static boolean isAlreadyClicked(List<int[]> clicks, int row, int col) {
         for (int[] click : clicks) {
             if (click[0] == row && click[1] == col) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean affectsTrueCells(Grid grid, int row, int col)
-    {
-        int[][] affectedPieces = grid.getAffectedPieces(row, col);
-        boolean[][] gridState = grid.getGrid();
-
-        for (int[] piece : affectedPieces)
-        {
-            int first = piece[0];
-            int second = piece[1];
-
-            if ((first >= 0 && first <= 6) && (second >= 0 && second <= gridState[0].length - 1) && gridState[first][second])
-            {
                 return true;
             }
         }

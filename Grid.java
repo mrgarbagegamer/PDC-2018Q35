@@ -22,12 +22,12 @@ public class Grid
         grid[6] = new boolean[16];
 
         // One step away from solution:
-        /* grid[2][13] = true;
+        grid[2][13] = true;
         grid[2][14] = true;
         grid[3][12] = true;
         grid[3][14] = true;
         grid[4][13] = true;
-        grid[4][14] = true; */
+        grid[4][14] = true;
 
         // Two steps away from solution:
         /* grid[2][11] = true;

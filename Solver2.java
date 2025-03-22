@@ -6,7 +6,7 @@ public class Solver2 {
     public static void main(String[] args) {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 12; // Number of clicks to test for a solution (must be > 1)
+        int n = 11; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         Date d1 = new Date();
@@ -15,7 +15,7 @@ public class Solver2 {
         List<int[]> clicks = new ArrayList<>();
         Grid grid = new Grid();
         // exactly n clicks
-        if (findSolution(grid, numRows, numCols, n, clicks)) {
+        /* if (findSolution(grid, numRows, numCols, n, clicks)) {
             System.out.println("Solution found with clicks at:");
             for (int[] click : clicks) {
                 System.out.println("Click: (" + click[0] + ", " + click[1] + ")");
@@ -24,10 +24,10 @@ public class Solver2 {
         else
         {
             System.out.println("No solution found with " + n + " clicks.");
-        }
+        } */
 
         // up to n clicks
-        /* boolean solved = false;
+        boolean solved = false;
         for (int i = 1; i <= n; i++) {
             clicks.clear();
             if (findSolution(grid, numRows, numCols, i, clicks)) {
@@ -38,11 +38,15 @@ public class Solver2 {
                 solved = true;
                 break;
             }
+            else if (i != n)
+            {
+                System.out.println("No solution found for " + i + " clicks.");
+            }
         }
 
         if (!solved) {
             System.out.println("No solution found with up to " + n + " clicks.");
-        } */
+        }
         
         Date d2 = new Date();
         System.out.println("End time: " + d2.toString());
@@ -55,6 +59,11 @@ public class Solver2 {
         }
 
         if (grid.getTrueCount() > remainingClicks * 6) {
+            return false; // Prune: Not enough clicks left to solve the grid
+        }
+
+        if (grid.getTrueCount() == 1 && remainingClicks == 1)
+        {
             return false; // Prune: Not enough clicks left to solve the grid
         }
 

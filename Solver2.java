@@ -6,7 +6,7 @@ public class Solver2 {
     public static void main(String[] args) {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 11; // Number of clicks to test for a solution (must be > 1)
+        int n = 12; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         Date d1 = new Date();
@@ -15,7 +15,7 @@ public class Solver2 {
         List<int[]> clicks = new ArrayList<>();
         Grid grid = new Grid();
         // exactly n clicks
-        /* if (findSolution(grid, numRows, numCols, n, clicks)) {
+        if (findSolution(grid, numRows, numCols, n, clicks)) {
             System.out.println("Solution found with clicks at:");
             for (int[] click : clicks) {
                 System.out.println("Click: (" + click[0] + ", " + click[1] + ")");
@@ -24,10 +24,10 @@ public class Solver2 {
         else
         {
             System.out.println("No solution found with " + n + " clicks.");
-        } */
+        }
 
         // up to n clicks
-        boolean solved = false;
+        /* boolean solved = false;
         for (int i = 1; i <= n; i++) {
             clicks.clear();
             if (findSolution(grid, numRows, numCols, i, clicks)) {
@@ -46,7 +46,7 @@ public class Solver2 {
 
         if (!solved) {
             System.out.println("No solution found with up to " + n + " clicks.");
-        }
+        } */
         
         Date d2 = new Date();
         System.out.println("End time: " + d2.toString());
@@ -67,9 +67,25 @@ public class Solver2 {
             return false; // Prune: Not enough clicks left to solve the grid
         }
 
+        // Identify the earliest click in the clicks array to use as a reference point
+        int earliestRow = 0;
+        int earliestCol = 0;
+
+        for (int i = 0; i < clicks.size(); i++) {
+            int[] click = clicks.get(i);
+            if (i == 0 || (click[0] < earliestRow || (click[0] == earliestRow && click[1] < earliestCol))) {
+                earliestRow = click[0];
+                earliestCol = click[1];
+            }
+        }
+
         // Iterate through all possible clicks
-        for (int row = 0; row < numRows; row++) {
+        for (int row = earliestRow; row < numRows; row++) {
             for (int col = 0; col < numCols[row] - 1; col++) {
+                if (row == earliestRow && col <= earliestCol) {
+                    continue; // Skip elements that are before the earliest click
+                }
+                
                 if (isAlreadyClicked(clicks, row, col)) {
                     continue; // Skip if this element has already been clicked
                 }

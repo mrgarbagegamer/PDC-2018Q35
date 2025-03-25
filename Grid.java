@@ -1,7 +1,7 @@
 public class Grid
 {
     private boolean[][] grid = new boolean[][]{new boolean[16], new boolean[15], new boolean[16], new boolean[15], new boolean[16], new boolean[15], new boolean[16]};
-    private int numRows = 6;
+    private int numRows = 7;
     private int numCols = 15;
     private int clickCount = 0;
     private int trueCount = 0;
@@ -108,7 +108,7 @@ public class Grid
             int first = affectedPieces[i][0];
             int second = affectedPieces[i][1];
 
-            if ((first >= 0 && first <= numRows) && (second >= 0 && second <= numCols))
+            if ((first >= 0 && first < numRows) && (second >= 0 && second < numCols))
             {
                 if (grid[first][second])
                 {

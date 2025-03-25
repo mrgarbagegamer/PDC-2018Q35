@@ -6,7 +6,7 @@ public class Solver2 {
     public static void main(String[] args) {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 13; // Number of clicks to test for a solution (must be > 1)
+        int n = 12; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         Date d1 = new Date();
@@ -81,7 +81,7 @@ public class Solver2 {
 
         // Iterate through all possible clicks
         for (int row = earliestRow; row < numRows; row++) {
-            for (int col = 0; col < numCols[row]; col++) {
+            for (int col = 0; col < numCols[row] - 1; col++) {
                 if (row == earliestRow && col <= earliestCol) {
                     continue; // Skip elements that are before the earliest click
                 }

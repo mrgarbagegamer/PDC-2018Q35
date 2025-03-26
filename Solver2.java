@@ -6,7 +6,7 @@ public class Solver2 {
     public static void main(String[] args) {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 12; // Number of clicks to test for a solution (must be > 1)
+        int n = 13; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         Date d1 = new Date();
@@ -15,7 +15,7 @@ public class Solver2 {
         List<int[]> clicks = new ArrayList<>();
         Grid grid = new Grid();
         // exactly n clicks
-        if (findSolution(grid, numRows, numCols, n, clicks)) {
+        if (findSolution(grid, numRows, numCols, n, clicks, 0, 0)) {
             System.out.println("Solution found with clicks at:");
             for (int[] click : clicks) {
                 System.out.println("Click: (" + click[0] + ", " + click[1] + ")");
@@ -52,7 +52,7 @@ public class Solver2 {
         System.out.println("End time: " + d2.toString());
     }
 
-    public static boolean findSolution(Grid grid, int numRows, int[] numCols, int remainingClicks, List<int[]> clicks) {
+    public static boolean findSolution(Grid grid, int numRows, int[] numCols, int remainingClicks, List<int[]> clicks, int prevEarliestRow, int prevEarliestCol) {
         if (remainingClicks == 0) {
             // Base case: Check if the grid is solved
             return grid.isSolved();
@@ -79,6 +79,14 @@ public class Solver2 {
             }
         }
 
+        // a little fun debug line :]
+        if (earliestRow != prevEarliestRow || earliestCol != prevEarliestCol) {
+            Date d3 = new Date();
+            System.out.println("Earliest click changed at: " + d3.toString());
+            System.out.println("Earliest click is now at: (" + earliestRow + ", " + earliestCol + ")");
+        }
+
+
         // Iterate through all possible clicks
         for (int row = earliestRow; row < numRows; row++) {
             for (int col = 0; col < numCols[row] - 1; col++) {
@@ -95,7 +103,7 @@ public class Solver2 {
                 clicks.add(new int[] {row, col});
 
                 // Recurse with one less click remaining
-                if (findSolution(grid, numRows, numCols, remainingClicks - 1, clicks)) {
+                if (findSolution(grid, numRows, numCols, remainingClicks - 1, clicks, earliestRow, earliestCol)) {
                     return true;
                 }
 

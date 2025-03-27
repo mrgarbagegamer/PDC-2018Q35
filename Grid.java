@@ -65,6 +65,21 @@ public class Grid
         clickCount = 0;
     }
 
+    public Grid clone()
+    {
+        Grid newGrid = new Grid();
+        newGrid.clickCount = this.clickCount;
+        newGrid.trueCount = this.trueCount;
+        for (int i = 0; i < numRows; i++)
+        {
+            for (int j = 0; j < grid[i].length; j++)
+            {
+                newGrid.grid[i][j] = this.grid[i][j];
+            }
+        }
+        return newGrid;
+    }
+
     public void click(int row, int col)
     {
         clickCount++;

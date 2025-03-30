@@ -2,18 +2,20 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class Solver2 {
-    public static void main(String[] args) {
+public class SolverThreaded
+{
+    public static void main(String[] args) 
+    {
         int numRows = 7; // Total rows in the grid
         int[] numCols = {16, 15, 16, 15, 16, 15, 16}; // Number of columns for each row
-        int n = 13; // Number of clicks to test for a solution (must be > 1)
+        int n = 12; // Number of clicks to test for a solution (must be > 1)
 
         // Start the recursive search for a solution
         Date d1 = new Date();
         System.out.println("Start time: " + d1.toString());
 
         List<int[]> clicks = new ArrayList<>();
-        Grid grid = new Grid();
+        Grid grid = new Grid22();
         // exactly n clicks
         if (findSolution(grid, numRows, numCols, n, clicks, 0, 0)) {
             System.out.println("Solution found with clicks at:");
@@ -67,24 +69,28 @@ public class Solver2 {
             return false; // Prune: Not enough clicks left to solve the grid
         }
 
+        
+
         // Identify the earliest click in the clicks array to use as a reference point
         int earliestRow = 0;
         int earliestCol = 0;
 
         for (int i = 0; i < clicks.size(); i++) {
             int[] click = clicks.get(i);
-            if (i == 0 || (click[0] < earliestRow || (click[0] == earliestRow && click[1] < earliestCol))) {
-                earliestRow = click[0];
-                earliestCol = click[1];
+            if (i == 0 ||  // the very first click in our clicks array so therefore it is the earliest
+               (click[0] < earliestRow ||  // if the row in the click is less than the previously recorded earliestRow, it is now the earliest
+                    (click[0] == earliestRow && click[1] < earliestCol))) { // this last one is when row in the earliest and the row in the click are the same, then we compare the column values and whichever is less is the earliest
+                earliestRow = click[0]; // the row value in this click array (0 is always row)
+                earliestCol = click[1]; // the col value in this click array (1 is always column)
             }
         }
-
+        /*
         // a little fun debug line :]
         if (earliestRow != prevEarliestRow || earliestCol != prevEarliestCol) {
             Date d3 = new Date();
             System.out.println("Earliest click changed at: " + d3.toString());
             System.out.println("Earliest click is now at: (" + earliestRow + ", " + earliestCol + ")");
-        }
+        } */
 
 
         // Iterate through all possible clicks

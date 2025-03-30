@@ -1,206 +1,147 @@
-public class Grid
-{
-    private boolean[][] grid = new boolean[][]{new boolean[16], new boolean[15], new boolean[16], new boolean[15], new boolean[16], new boolean[15], new boolean[16]};
-    private int numRows = 7;
-    private int numCols = 15;
-    private int clickCount = 0;
-    private int trueCount = 0;
+public abstract class Grid {
+    // constants
+    public static final int NUM_ROWS = 7;
+    public static final int LAST_ROW = (NUM_ROWS - 1);
 
-    public Grid()
-    {
+    // odd column values
+    public static final int ODD_NUM_COLS = 15;
+    public static final int LAST_ODD_COL = (ODD_NUM_COLS - 1);
+
+    // even column values
+    public static final int EVEN_NUM_COLS = 16;
+    public static final int LAST_EVEN_COL = (EVEN_NUM_COLS - 1);
+
+    // Initializing the grid of seven rows with alernating columns of 16 and 15
+    boolean[][] grid = new boolean[][] {
+            new boolean[Grid.ODD_NUM_COLS],
+            new boolean[Grid.EVEN_NUM_COLS],
+            new boolean[Grid.ODD_NUM_COLS],
+            new boolean[Grid.EVEN_NUM_COLS],
+            new boolean[Grid.ODD_NUM_COLS],
+            new boolean[Grid.EVEN_NUM_COLS],
+            new boolean[Grid.ODD_NUM_COLS]
+    };
+
+    int trueCount = 0;
+
+    public Grid() {
         initialize();
     }
 
-    public void initialize()
-    {
-        // Initialize for Q22/Shrek
-        grid[0] = new boolean[16];
-        grid[1] = new boolean[15];
-        grid[2] = new boolean[16];
-        grid[3] = new boolean[15];
-        grid[4] = new boolean[16];
-        grid[5] = new boolean[15];
-        grid[6] = new boolean[16];
+    abstract void initialize();
 
-        for (int i = 0; i <= 6; i += 6)
-        {
-            grid[i][1] = true;
-            grid[i][2] = true;
-            grid[i][4] = true;
-            grid[i][5] = true;
-            grid[i][7] = true;
-            grid[i][8] = true;
-            grid[i][10] = true;
-            grid[i][11] = true;
-            grid[i][13] = true;
-            grid[i][14] = true;
+    void copyColumnValues(boolean[] source, boolean[] target) {
+        for (int i = 0; i < source.length; i++) {
+            target[i] = source[i];
         }
-        
-        grid[0][1] = true;
-        grid[0][2] = true;
-        grid[0][4] = true;
-        grid[0][5] = true;
-        grid[0][7] = true;
-        grid[0][8] = true;
-        grid[0][10] = true;
-        grid[0][11] = true;
-        grid[0][13] = true;
-        grid[0][14] = true;
-
-        for (int i = 1; i <= 5; i += 2)
-        {
-            grid[i][0] = true;
-            grid[i][2] = true;
-            grid[i][3] = true;
-            grid[i][5] = true;
-            grid[i][6] = true;
-            grid[i][8] = true;
-            grid[i][9] = true;
-            grid[i][11] = true;
-            grid[i][12] = true;
-            grid[i][14] = true;
-        }
-        
-        trueCount = 50;
-        clickCount = 0;
     }
 
-    public Grid clone()
-    {
-        Grid newGrid = new Grid();
-        newGrid.clickCount = this.clickCount;
-        newGrid.trueCount = this.trueCount;
-        for (int i = 0; i < numRows; i++)
-        {
-            for (int j = 0; j < grid[i].length; j++)
-            {
-                newGrid.grid[i][j] = this.grid[i][j];
-            }
-        }
-        return newGrid;
-    }
-
-    public void click(int row, int col)
-    {
-        clickCount++;
+    public void click(int row, int col) {
         int[][] affectedPieces = new int[6][2];
 
-        if (row % 2 == 0)
+        if (row % 2 == 0) // even rows with 16 columns
         {
-            numCols = 16;
+            // given a cell is (2, 7)
+
             affectedPieces[0][0] = row - 1;
             affectedPieces[0][1] = col - 1;
+            // (row - 1, col - 1) (1, 6)
+
             affectedPieces[1][0] = row - 1;
             affectedPieces[1][1] = col;
+            // (row - 1, col) (1, 7)
+
             affectedPieces[2][0] = row;
             affectedPieces[2][1] = col - 1;
+            // (row, col - 1) (2, 6)
+
             affectedPieces[3][0] = row;
             affectedPieces[3][1] = col + 1;
+            // (row, col + 1) (2, 8)
+
             affectedPieces[4][0] = row + 1;
             affectedPieces[4][1] = col - 1;
+            // (row + 1, col - 1) (3, 6)
+
             affectedPieces[5][0] = row + 1;
             affectedPieces[5][1] = col;
-        }
-        else
+            // (row + 1, col) (3, 7)
+
+            // [[1, 6], [1, 7], [2, 6], [2, 8], [3, 6], [3, 7]]
+
+        } else // odd rows with 15 columns
         {
-            numCols = 15;
+            // given a cell is (3, 7)
+
             affectedPieces[0][0] = row - 1;
             affectedPieces[0][1] = col;
+            // (row - 1, col) (2, 7)
+
             affectedPieces[1][0] = row - 1;
             affectedPieces[1][1] = col + 1;
+            // (row - 1, col + 1) (2, 8)
+
             affectedPieces[2][0] = row;
             affectedPieces[2][1] = col - 1;
+            // (row, col - 1) (3, 6)
+
             affectedPieces[3][0] = row;
             affectedPieces[3][1] = col + 1;
+            // (row, col + 1) (3, 8)
+
             affectedPieces[4][0] = row + 1;
             affectedPieces[4][1] = col;
+            // (row + 1, col) (4, 7)
+
             affectedPieces[5][0] = row + 1;
             affectedPieces[5][1] = col + 1;
+            // (row + 1, col + 1) (4, 8)
         }
 
-        for (int i = 0; i < 6; i++)
-        {
-            int first = affectedPieces[i][0];
-            int second = affectedPieces[i][1];
+        for (int i = 0; i < affectedPieces.length; i++) {
+            int affectedRow = affectedPieces[i][0];
+            int affectedCol = affectedPieces[i][1];
 
-            if ((first >= 0 && first < numRows) && (second >= 0 && second < numCols))
-            {
-                if (grid[first][second])
-                {
+            if ((affectedRow >= 0 && affectedRow < Grid.NUM_ROWS) && 
+                (affectedCol >= 0 && affectedCol < grid[affectedRow].length)) {
+                if (grid[affectedRow][affectedCol]) {
                     trueCount--;
-                }
-                else
-                {
+                } else {
                     trueCount++;
                 }
-                grid[first][second] = !grid[first][second];
+
+                grid[affectedRow][affectedCol] = !grid[affectedRow][affectedCol];
             }
         }
     }
 
-    public boolean isSolved()
-    {
-        boolean solved = true;
+    public boolean isSolved() {
+        boolean isSolved = false;
 
-        for (int i = 0; i <= 6; i += 2)
+        if (trueCount == 0)
         {
-            for (int j = 0; j <= 15; j++)
-            {
-                if (grid[i][j] == true)
-                {
-                    solved = false;
-                }
-            }
+            isSolved = true;
         }
 
-        for (int i = 1; i <= 5; i += 2)
-        {
-            for (int j = 0; j <= 14; j++)
-            {
-                if (grid[i][j] == true)
-                {
-                    solved = false;
-                }
-            }
-        }
-
-        return solved;
+        return isSolved;
     }
 
-    public int getClickCount()
-    {
-        return clickCount;
-    }
-
-    public void printGrid()
-    {
-        for (int i = 0; i <= 6; i++)
-        {
-            if (i % 2 == 0)
-            {
-                for (int j = 0; j <= 15; j++)
-                {
-                    if (grid[i][j])
-                    {
+    public void printGrid() {
+        for (int i = 0; i <= 6; i++) {
+            if (i % 2 == 0) {
+                for (int j = 0; j <= 15; j++) {
+                    if (grid[i][j]) {
                         System.out.print("1 ");
-                    }
-                    else
-                    {
+                    } else {
                         System.out.print("0 ");
                     }
                 }
-            }
-            else
-            {
+            } else {
                 System.out.print(" ");
-                for (int j = 0; j <= 14; j++)
-                {
-                    if (grid[i][j])
-                    {
+                for (int j = 0; j <= 14; j++) {
+                    if (grid[i][j]) {
                         System.out.print("1 ");
-                    }
-                    else
-                    {
+                    } else {
                         System.out.print("0 ");
                     }
                 }
@@ -209,13 +150,11 @@ public class Grid
         }
     }
 
-    public boolean[][] getGrid()
-    {
+    public boolean[][] getGrid() {
         return grid;
     }
 
-    public int getTrueCount()
-    {
+    public int getTrueCount() {
         return trueCount;
     }
 }

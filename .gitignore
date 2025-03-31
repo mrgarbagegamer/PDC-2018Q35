@@ -1,2 +1,4 @@
 test.java
 .vscode/*
+*.class
+*.txt

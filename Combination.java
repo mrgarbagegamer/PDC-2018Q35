@@ -9,16 +9,16 @@ public class Combination {
         return result;
     }
 
-    private static void generateCombinations(List<Node> arr, int k, int start, List<Node> current, List<List<Node>> result) {
-        if (current.size() == k) {
-            result.add(new ArrayList<>(current));
+    private static void generateCombinations(List<Node> nodeList, int k, int start, List<Node> currentCombination, List<List<Node>> result) {
+        if (currentCombination.size() == k) {
+            result.add(new ArrayList<>(currentCombination));
             return;
         }
 
-        for (int i = start; i < arr.size(); i++) {
-            current.add(arr.get(i));
-            generateCombinations(arr, k, i + 1, current, result);
-            current.remove(current.size() - 1);
+        for (int i = start; i < nodeList.size(); i++) {
+            currentCombination.add(nodeList.get(i));
+            generateCombinations(nodeList, k, i + 1, currentCombination, result);
+            currentCombination.remove(currentCombination.size() - 1);
         }
     }
 

@@ -1,7 +1,5 @@
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Queue;
-import java.util.LinkedList;
 
 public class StartYourMonkeys {
 
@@ -16,21 +14,24 @@ public class StartYourMonkeys {
         }
     }
 
-    public void main(String[] args) {
-        int defaultNumClicks = 9;
-        int numClicks = 0;
+    public static void main(String[] args) {
+        int defaultNumClicks  = 9;
+        int defaultNumThreads = 10;
+
+        int numClicks  = 0;
+        int numThreads = 10;
 
         // retrieve the passed in number of clicks if any or set a default value
-        if (args.length >= 1) {
-            try {
-                numClicks = Integer.parseInt(args[1]);
-            } catch (Exception e) {
-                numClicks = defaultNumClicks;
-            }
+        try {
+            numClicks  = Integer.parseInt(args[1]);
+            numThreads = Integer.parseInt(args[2]);
+        } catch (Exception e) {
+            numClicks  = defaultNumClicks;
+            numThreads = defaultNumThreads;
         }
 
         // the initial grid for the problem we are looking to solve
-        Grid problemGrid = new Grid22();
+        Grid puzzleGrid = new Grid22();
 
         // generate the list of possible clicks for our grid
         List<Click> possibleClicks = new ArrayList<>();
@@ -39,45 +40,30 @@ public class StartYourMonkeys {
         // create the queue to hold the generated combinations
         CombinationQueue combinationQueue = new CombinationQueue();
 
-        
+        // start generating different click combinations
+        CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks);
+        cb.start();
 
+        // create the numThreads to start playing the game
+        TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
-        
+        for(int i=0; i < numThreads; i++){
+            String threadName = String.format("Monkey-%d", i);
+            monkeys[i] = new TestClickCombination(threadName, combinationQueue, puzzleGrid);
+            monkeys[i].start();
+        }
 
-    }
-}
+        // wait for our monkeys to finish working
+        for(int i=0; i < numThreads; i++){
+            try {
+                monkeys[i].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 
-class Click {
-    int row;
-    int col;
+        System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", combinationQueue.getWinningMonkey(), combinationQueue.getClicksCombination());
 
-    Click(int row, int col) {
-        this.row = row;
-        this.col = col;
-    }
-
-    public String toString() {
-        return String.format("<%d,%d>", row, col);
-    }
-}
-
-class CombinationQueue {
-    private Queue<List<Click>> combinationQueue = new LinkedList<>();
-    private boolean solutionFound = false;
-
-    boolean isItSolved() {
-        return this.solutionFound;
-    }
-
-    synchronized void solutionFound() {
-        this.solutionFound = true;
-    }
-
-    synchronized boolean add(List<Click> combinationClicks) {
-        return this.combinationQueue.add(combinationClicks);
-    }
-
-    synchronized List<Click> remove() {
-        return this.combinationQueue.remove();
+        puzzleGrid.printGrid();
     }
 }

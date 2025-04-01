@@ -29,7 +29,7 @@ public class TestClickCombination extends Thread {
             }
 
             if(!solved){
-                System.out.printf("%s - Tried and failed:\n[%s]\n", this.getName(), combinationClicks);
+                System.out.printf("%s - Tried and failed: [%s]\n", this.getName(), combinationClicks);
             }
         }
     }

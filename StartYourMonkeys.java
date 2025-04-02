@@ -17,17 +17,21 @@ public class StartYourMonkeys {
     public static void main(String[] args) {
         int defaultNumClicks  = 9;
         int defaultNumThreads = 10;
+        int defaultNumHahses  = 0;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;
+        int numHashes  = defaultNumHahses;
 
         // retrieve the passed in number of clicks if any or set a default value
         try {
             numClicks  = Integer.parseInt(args[0]);
             numThreads = Integer.parseInt(args[1]);
+            numHashes  = Integer.parseInt(args[2]);
         } catch (Exception e) {
             numClicks  = defaultNumClicks;
             numThreads = defaultNumThreads;
+            numHashes  = defaultNumHahses;
         }
 
 
@@ -39,7 +43,8 @@ public class StartYourMonkeys {
         CombinationQueue combinationQueue = new CombinationQueue();
 
         // start generating different click combinations
-        CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks);
+        CombinationGenerator cb = new CombinationGenerator(combinationQueue, numClicks, "grid22hashes");
+        cb.loadHashsets(numHashes);
         cb.start();
 
         // create the numThreads to start playing the game

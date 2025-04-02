@@ -1,36 +1,119 @@
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Random;
+import java.io.*;
+
 
 public class CombinationGenerator extends Thread {
     private CombinationQueue combinationQueue;
-    private List<Click> possibleClicks;
     private int numClicks;
+    private String baseFilename;
+    private ArrayList<HashSet<ArrayList<Click>>> listOfCombinationHashset = new ArrayList<HashSet<ArrayList<Click>>>();
 
-    public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks) {
+    private static final int MAX_ENTRIES_PER_HASHSET = 100000;
+
+    public CombinationGenerator(CombinationQueue combinationQueue, int numClicks, String baseFilename) {
         this.combinationQueue = combinationQueue;
-        this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
+        this.baseFilename = baseFilename;
+    }
+
+    public void loadHashsets(int count){
+        if( count == 0 ){
+            this.listOfCombinationHashset.add( new HashSet<ArrayList<Click>>() );
+            return;
+        }
+
+        for(int i=1; i <= count; i++){
+            File file = new File(String.format("%s-%d", this.baseFilename, count));
+            if(file.exists()){
+                ObjectInputStream ois = null;
+                try{
+                    ois = new ObjectInputStream(new FileInputStream(file));
+
+                    @SuppressWarnings("unchecked")
+                    HashSet<ArrayList<Click>> combinationClickSet = (HashSet<ArrayList<Click>>)ois.readObject();
+
+                    this.listOfCombinationHashset.add(i, combinationClickSet);
+
+                    System.out.println("HashSet deserialized successfully.");
+                } catch (IOException | ClassNotFoundException e) {
+                    e.printStackTrace();
+                } finally{
+                    try{
+                        ois.close();
+                    } catch( Exception e){}
+                }
+            }
+        }
     }
 
     public void run() {
-        this.generateCombinations(this.possibleClicks, numClicks, 0, new ArrayList<>());
+        Random generator = new Random();
+
+        while (!this.combinationQueue.isItSolved()) {
+            HashSet<Click> clickCombinationSet = new HashSet<>();
+
+            for(int i=0; clickCombinationSet.size() <this.numClicks; i++){
+                int row = generator.nextInt(Grid.NUM_ROWS);
+                int col = 0;
+                
+                if(row % 2 == 0){
+                    generator.nextInt(Grid.EVEN_NUM_COLS);
+                }
+                else{
+                    generator.nextInt(Grid.ODD_NUM_COLS);
+                }
+
+                clickCombinationSet.add(new Click(row, col));
+            }
+
+            Comparator<Click> rowComparator = Comparator.comparingInt(Click::getRow);
+            Comparator<Click> colComparator = Comparator.comparingInt(Click::getCol);
+
+            ArrayList<Click> clickCombination = new ArrayList<>(clickCombinationSet);
+            clickCombination.sort(rowComparator.thenComparing(colComparator));
+
+            boolean found = false;
+            int currentHashIndex = 0;
+            for(int i=0; i < this.listOfCombinationHashset.size(); i++){
+                if(this.listOfCombinationHashset.get(i).contains(clickCombination) ){
+                    found = true;
+                    currentHashIndex = i;
+                    break;
+                }
+            }
+
+            if(!found){
+                HashSet<ArrayList<Click>> combinationHashSet = this.listOfCombinationHashset.get(currentHashIndex);
+
+                if(combinationHashSet.size() < MAX_ENTRIES_PER_HASHSET){
+                    combinationHashSet.add((ArrayList<Click>) clickCombination);
+                }else{
+                    HashSet<ArrayList<Click>> newCombinationHashSet = new HashSet<ArrayList<Click>>();
+                    newCombinationHashSet.add((ArrayList<Click>) clickCombination);
+                    this.listOfCombinationHashset.add(newCombinationHashSet);
+
+                    this.writeHashSet(currentHashIndex+1, combinationHashSet) ;
+                }
+
+                this.combinationQueue.add(clickCombination);
+            }
+        }
     }
 
-    private void generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) {
-        // check if problem has been solved
-        if (this.combinationQueue.isItSolved()) {
-            return;
-        }
+    private void writeHashSet(int index, HashSet<ArrayList<Click>> combinationHashSet){
+        ObjectOutputStream out = null;
 
-        if (currentCombination.size() == k) {
-            this.combinationQueue.add(new ArrayList<>(currentCombination));
-            return;
-        }
+        try{
+            File file = new File(String.format("%s-%d", baseFilename, index ));
+            FileOutputStream fileOut = new FileOutputStream(file);
 
-        for (int i = start; i < nodeList.size() && !this.combinationQueue.isItSolved(); i++) {
-            currentCombination.add(nodeList.get(i));
-            generateCombinations(nodeList, k, i + 1, currentCombination);
-            currentCombination.remove(currentCombination.size() - 1);
-        }
+            out = new ObjectOutputStream(fileOut);
+            out.writeObject(combinationHashSet);
+       } catch (IOException i) {
+           i.printStackTrace();
+       }
     }
 }

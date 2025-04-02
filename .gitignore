@@ -1,4 +1,5 @@
 test.java
 .vscode/*
 *.class
+output/*
 

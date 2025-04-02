@@ -44,7 +44,7 @@ public class CombinationQueue {
                 System.out.printf("%s - Empty queue waiting...\n", Thread.currentThread().getName());
                 wait();
             } catch (InterruptedException e) {
-                // do nothing
+                e.printStackTrace();
             }
         }
 

@@ -1,6 +1,6 @@
 import java.io.Serializable;
 
-public class Click implements Serializable{
+public class Click implements Serializable {
     int row;
     int col;
 
@@ -9,16 +9,41 @@ public class Click implements Serializable{
         this.col = col;
     }
 
-    public int getRow(){
+    public int getRow() {
         return this.row;
     }
 
-    public int getCol(){
+    public int getCol() {
         return this.col;
     }
 
     public String toString() {
         return String.format("<%d,%d>", row, col);
     }
-}
 
+    @Override
+    public boolean equals(Object obj) {
+        boolean equals = false;
+
+        if (this == obj) {
+            equals = true;
+        } else if (obj == null || getClass() != obj.getClass()) {
+            equals = false;
+        } else {
+            Click anotherClick = (Click) obj;
+            equals = (this.row == anotherClick.row && this.col == anotherClick.col);
+        }
+
+        return equals;
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+
+        hash = 31 * hash + this.row;
+        hash = 31 * hash + this.col;
+
+        return hash;
+    }
+}

@@ -1,4 +1,5 @@
 import java.io.Serializable;
+import java.util.Objects;
 
 public class Click implements Serializable {
     int row;
@@ -39,6 +40,7 @@ public class Click implements Serializable {
 
     @Override
     public int hashCode() {
+        /* 
         int rowHash = 7;
         int colHash = 11;
 
@@ -46,5 +48,7 @@ public class Click implements Serializable {
         colHash = 31 * colHash + this.col;
 
         return (rowHash+colHash);
+        */
+        return Objects.hash(this.row, this.col);
     }
 }

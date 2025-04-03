@@ -39,11 +39,12 @@ public class Click implements Serializable {
 
     @Override
     public int hashCode() {
-        int hash = 7;
+        int rowHash = 7;
+        int colHash = 11;
 
-        hash = 31 * hash + this.row;
-        hash = 31 * hash + this.col;
+        rowHash = 31 * rowHash + this.row;
+        colHash = 31 * colHash + this.col;
 
-        return hash;
+        return (rowHash+colHash);
     }
 }

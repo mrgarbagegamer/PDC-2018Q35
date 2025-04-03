@@ -38,9 +38,8 @@ public class CombinationGenerator extends Thread {
             ArrayList<Click> clickCombination = new ArrayList<>(clickCombinationSet);
             clickCombination.sort(rowComparator.thenComparing(colComparator));
 
-            this.combinationHashSet.add((ArrayList<Click>) clickCombination);
-
-            if (this.combinationHashSet.contains(clickCombination)) {
+            if (!this.combinationHashSet.contains(clickCombination)) {
+                this.combinationHashSet.add((ArrayList<Click>) clickCombination);
                 this.combinationQueue.add(clickCombination);
             }
         }

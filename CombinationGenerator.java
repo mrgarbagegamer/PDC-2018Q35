@@ -1,47 +1,43 @@
+import java.util.List;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Random;
 
 public class CombinationGenerator extends Thread {
     private CombinationQueue combinationQueue;
     private int numClicks;
-    private HashSet<ArrayList<Click>> combinationHashSet = new HashSet<ArrayList<Click>>();
+    private List<List<Click>> allCombinationsList;
+    private List<Click> possibleClicks;
 
-    public CombinationGenerator(CombinationQueue combinationQueue, int numClicks) {
+    public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks) {
         this.combinationQueue = combinationQueue;
+        this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
+
+        this.allCombinationsList = new ArrayList<>();
+    }
+
+   public List<List<Click>> generateCombinations(List<Click> possibleClicks, int k) {
+        List<List<Click>> clickCombinations = new ArrayList<>();
+
+        generateCombinationsHelper(possibleClicks, k, 0, new ArrayList<>(), clickCombinations);
+
+        return clickCombinations;
+    }
+
+    private void generateCombinationsHelper(List<Click> possibleClicks, int k, int start, List<Click> currentCombination, List<List<Click>> combinationsFound) {
+        if (currentCombination.size() == k) {
+            combinationsFound.add(new ArrayList<>(currentCombination));
+            return;
+        }
+
+        for (int i = start; i < possibleClicks.size(); i++) {
+            currentCombination.add(possibleClicks.get(i));
+            generateCombinationsHelper(possibleClicks, k, i + 1, currentCombination, combinationsFound);
+            currentCombination.remove(currentCombination.size() - 1); // Backtrack
+        }
     }
 
     public void run() {
-        Random generator = new Random();
-
-        while (!this.combinationQueue.isItSolved()) {
-            HashSet<Click> clickCombinationSet = new HashSet<>();
-
-            while (clickCombinationSet.size() < this.numClicks) {
-                int row = generator.nextInt(Grid.NUM_ROWS);
-                int col = 0;
-
-                if (row % 2 == 0) {
-                    col = generator.nextInt(Grid.EVEN_NUM_COLS);
-                } else {
-                    col = generator.nextInt(Grid.ODD_NUM_COLS);
-                }
-
-                clickCombinationSet.add(new Click(row, col));
-            }
-
-            Comparator<Click> rowComparator = Comparator.comparingInt(Click::getRow);
-            Comparator<Click> colComparator = Comparator.comparingInt(Click::getCol);
-
-            ArrayList<Click> clickCombination = new ArrayList<>(clickCombinationSet);
-            clickCombination.sort(rowComparator.thenComparing(colComparator));
-
-            if (!this.combinationHashSet.contains(clickCombination)) {
-                this.combinationHashSet.add((ArrayList<Click>) clickCombination);
-                this.combinationQueue.add(clickCombination);
-            }
-        }
+        List<Click>
+        generateCombinationsHelper(this.possibleClicks, k, 0, new ArrayList<>(), clickCombinations);
     }
 }

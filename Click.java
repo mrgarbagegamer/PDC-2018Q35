@@ -18,6 +18,7 @@ public class Click implements Serializable {
         return this.col;
     }
 
+    @Override
     public String toString() {
         return String.format("<%d,%d>", row, col);
     }
@@ -40,15 +41,6 @@ public class Click implements Serializable {
 
     @Override
     public int hashCode() {
-        /* 
-        int rowHash = 7;
-        int colHash = 11;
-
-        rowHash = 31 * rowHash + this.row;
-        colHash = 31 * colHash + this.col;
-
-        return (rowHash+colHash);
-        */
         return Objects.hash(this.row, this.col);
     }
 }

@@ -1,6 +1,9 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -25,9 +28,12 @@ public class TestClickCombination extends Thread {
         while (!solved) {
             String clickCombinationFile = this.combinationQueue.getClicksCombinationFile();
 
+            File file = new File(clickCombinationFile);
+
             BufferedReader reader = null;
             try {
-                reader = new BufferedReader(new FileReader(clickCombinationFile));
+                // reader = new BufferedReader(new FileReader(clickCombinationFile));
+                reader = new BufferedReader(new FileReader(file));
                 String line = null;
 
                 List<Click> combinationClicks = new ArrayList<>();
@@ -37,12 +43,12 @@ public class TestClickCombination extends Thread {
                     Matcher clickMatcher = clickPattern.matcher(line);
 
                     while (clickMatcher.find()) {
-                        String clickCoords   = clickMatcher.group();
+                        String clickCoords = clickMatcher.group();
                         String[] rowColArray = clickCoords.split(",");
                         int row = Integer.parseInt(rowColArray[0]);
                         int col = Integer.parseInt(rowColArray[1]);
 
-                        combinationClicks.add( new Click(row, col) );
+                        combinationClicks.add(new Click(row, col));
                     }
 
                     for (int i = 0; (i < combinationClicks.size()) && (!solved); i++) {
@@ -70,6 +76,11 @@ public class TestClickCombination extends Thread {
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
+                }
+
+                // remove the file after we process it
+                if (file.exists()) {
+                    file.delete();
                 }
             }
         }

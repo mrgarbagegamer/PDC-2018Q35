@@ -57,7 +57,7 @@ public class CombinationFileGenerator extends Thread {
         String fileSeparator = System.getProperty("file.separator");
         while (!this.combinationQueue.isItSolved()) {
 
-            String outputFile = String.format("%s%s-%d.%s", this.filepath, fileSeparator, this.baseFilename, fileCount);
+            String outputFile = String.format("%s%s%s%s%s-%d", this.filepath, fileSeparator, "data", fileSeparator, this.baseFilename, fileCount);
             fileCount++;
 
             BufferedWriter writer = null;

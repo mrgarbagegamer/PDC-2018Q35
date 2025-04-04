@@ -15,25 +15,20 @@ public class StartYourMonkeys {
     }
 
     public static void main(String[] args) {
-        int defaultNumClicks  = 9;
+        int defaultNumClicks = 9;
         int defaultNumThreads = 10;
-        int defaultNumHahses  = 0;
 
-        int numClicks  = defaultNumClicks;
+        int numClicks = defaultNumClicks;
         int numThreads = defaultNumThreads;
-        int numHashes  = defaultNumHahses;
 
         // retrieve the passed in number of clicks if any or set a default value
         try {
-            numClicks  = Integer.parseInt(args[0]);
+            numClicks = Integer.parseInt(args[0]);
             numThreads = Integer.parseInt(args[1]);
-            numHashes  = Integer.parseInt(args[2]);
         } catch (Exception e) {
-            numClicks  = defaultNumClicks;
+            numClicks = defaultNumClicks;
             numThreads = defaultNumThreads;
-            numHashes  = defaultNumHahses;
         }
-
 
         // generate the list of possible clicks for our grid
         List<Click> possibleClicks = new ArrayList<>();
@@ -42,15 +37,21 @@ public class StartYourMonkeys {
         // create the queue to hold the generated combinations
         CombinationQueue combinationQueue = new CombinationQueue();
 
+        // current working directory
+        String currentDir = System.getProperty("user.dir");
+
+        // output file name for the generated files
+        String basefilename = "grid22combination";
+
         // start generating different click combinations
-        CombinationGenerator cb = new CombinationGenerator(combinationQueue, numClicks, "grid22hashes");
-        cb.loadHashsets(numHashes);
+        CombinationFileGenerator cb = new CombinationFileGenerator(combinationQueue, possibleClicks, numClicks,
+                basefilename, currentDir);
         cb.start();
 
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
-        for(int i=0; i < numThreads; i++){
+        for (int i = 0; i < numThreads; i++) {
             Grid puzzleGrid = new Grid22();
             String threadName = String.format("Monkey-%d", i);
 
@@ -59,7 +60,7 @@ public class StartYourMonkeys {
         }
 
         // wait for our monkeys to finish working
-        for(int i=0; i < numThreads; i++){
+        for (int i = 0; i < numThreads; i++) {
             try {
                 monkeys[i].join();
             } catch (InterruptedException e) {
@@ -67,20 +68,27 @@ public class StartYourMonkeys {
             }
         }
 
-        List<Click> winningCombination = combinationQueue.getClicksCombination();
+        if (combinationQueue.isItSolved()) {
+            List<Click> winningCombination = combinationQueue.getWinningCombination();
 
-        System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", combinationQueue.getWinningMonkey(), winningCombination);
+            System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n",
+                    combinationQueue.getWinningMonkey(),
+                    winningCombination);
 
-        // create a new grid and test out the winning combination
-        Grid puzzleGrid = new Grid22();
-        boolean solved = false;
-        for (int i = 0; (i < winningCombination.size()) && (!solved); i++) {
-            Click click = winningCombination.get(i);
+            // create a new grid and test out the winning combination
+            Grid puzzleGrid = new Grid22();
+            boolean solved = false;
+            for (int i = 0; (i < winningCombination.size()) && (!solved); i++) {
+                Click click = winningCombination.get(i);
 
-            puzzleGrid.click(click.row, click.col);
-            solved = puzzleGrid.isSolved();
-        }        
+                puzzleGrid.click(click.row, click.col);
+                solved = puzzleGrid.isSolved();
+            }
 
-        puzzleGrid.printGrid();
+            puzzleGrid.printGrid();
+        } else {
+            System.out.println("Finished processing with no winning combination!");
+        }
+
     }
 }

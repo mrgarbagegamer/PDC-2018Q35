@@ -3,11 +3,10 @@ import java.util.Queue;
 import java.util.LinkedList;
 
 public class CombinationQueue {
-    private Queue<List<Click>> combinationQueue = new LinkedList<>();
+    private Queue<String> combinationFileQueue = new LinkedList<>();
     private boolean solutionFound = false;
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
-
 
     boolean isItSolved() {
         return this.solutionFound;
@@ -19,26 +18,26 @@ public class CombinationQueue {
         this.winningCombination = winningCombination;
     }
 
-    public String getWinningMonkey(){
+    public String getWinningMonkey() {
         return this.winningMonkey;
     }
 
-    public List<Click> getWinningCombination(){
+    public List<Click> getWinningCombination() {
         return this.winningCombination;
     }
 
-    synchronized boolean add(List<Click> combinationClicks) {
-        boolean success = this.combinationQueue.add(combinationClicks);
+    synchronized boolean add(String newClickCombinationsFile) {
+        boolean success = this.combinationFileQueue.add(newClickCombinationsFile);
         this.notifyAll();
 
         return success;
     }
 
-    synchronized List<Click> getClicksCombination() {
-        List<Click> combinationClicks = null;
+    synchronized String getClicksCombinationFile() {
+        String clickCombinationFile = null;
 
-        while (combinationClicks == null) {
-            combinationClicks = this.combinationQueue.poll();
+        while (clickCombinationFile == null) {
+            clickCombinationFile = this.combinationFileQueue.poll();
 
             try {
                 System.out.printf("%s - Empty queue waiting...\n", Thread.currentThread().getName());
@@ -48,6 +47,6 @@ public class CombinationQueue {
             }
         }
 
-        return combinationClicks;
+        return clickCombinationFile;
     }
 }

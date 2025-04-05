@@ -9,7 +9,7 @@ public class CombinationFileGenerator extends Thread {
     private String filepath;
     private List<Click> possibleClicks;
 
-    private static final int MAX_ENTRIES_PER_FILE = 100000;
+    private static final int MAX_ENTRIES_PER_FILE = 10000;
 
     public CombinationFileGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks,
             String baseFilename, String filepath) {
@@ -18,10 +18,6 @@ public class CombinationFileGenerator extends Thread {
         this.baseFilename = baseFilename;
         this.filepath = filepath;
         this.possibleClicks = possibleClicks;
-    }
-
-    public void generateCombinations(BufferedWriter writer) {
-        generateCombinationsRecursive(writer, 0, new ArrayList<>());
     }
 
     private void generateCombinationsRecursive(BufferedWriter writer, int index, List<Click> current) {
@@ -66,7 +62,8 @@ public class CombinationFileGenerator extends Thread {
                 writer = new BufferedWriter(new FileWriter(outputFile));
 
                 for (int i = 0; i < MAX_ENTRIES_PER_FILE; i++) {
-                    this.generateCombinations(writer);
+                    System.out.println("i = " + i);
+                    generateCombinationsRecursive(writer, 0, new ArrayList<>());
                 }
 
                 writer.close();

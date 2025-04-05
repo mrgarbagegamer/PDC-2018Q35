@@ -30,9 +30,10 @@ public class CombinationQueue {
 
     synchronized boolean add(List<Click> combinationClicks) {
         while( this.combinationQueue.size() == MAX_SIZE ){
+            this.notifyAll();
+
             try {
-                System.out.printf("%s - Queue is now full waiting...\n");
-                wait();
+                wait(1000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -51,12 +52,13 @@ public class CombinationQueue {
             combinationClicks = this.combinationQueue.poll();
 
             try {
-                System.out.printf("%s - Empty queue waiting...\n", Thread.currentThread().getName());
                 wait();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
+
+        this.notifyAll();
 
         return combinationClicks;
     }

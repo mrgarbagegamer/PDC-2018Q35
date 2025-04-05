@@ -8,6 +8,7 @@ public class CombinationQueue {
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
 
+    private static final int MAX_SIZE = 100000;
 
     boolean isItSolved() {
         return this.solutionFound;
@@ -28,6 +29,15 @@ public class CombinationQueue {
     }
 
     synchronized boolean add(List<Click> combinationClicks) {
+        while( this.combinationQueue.size() == MAX_SIZE ){
+            try {
+                System.out.printf("%s - Queue is now full waiting...\n");
+                wait();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+
         boolean success = this.combinationQueue.add(combinationClicks);
         this.notifyAll();
 
@@ -44,7 +54,7 @@ public class CombinationQueue {
                 System.out.printf("%s - Empty queue waiting...\n", Thread.currentThread().getName());
                 wait();
             } catch (InterruptedException e) {
-                // do nothing
+                e.printStackTrace();
             }
         }
 

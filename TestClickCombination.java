@@ -21,6 +21,10 @@ public class TestClickCombination extends Thread {
                 Click click = combinationClicks.get(i);
 
                 this.puzzleGrid.click(click.row, click.col);
+                if (this.puzzleGrid.getTrueCount() > (combinationClicks.size() - i - 1) * 6) {
+                    // this means we have more true's than clicks left to process, so we can stop early
+                    break;
+                }
                 solved = this.puzzleGrid.isSolved();
 
                 if(solved){

@@ -8,7 +8,8 @@ public class CombinationQueue {
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
 
-    private static final int MAX_SIZE = 100000;
+    private static final int MAX_SIZE = 1000000;
+    private static final int WAIT_MS = 5;
 
     boolean isItSolved() {
         return this.solutionFound;
@@ -33,7 +34,7 @@ public class CombinationQueue {
             this.notifyAll();
 
             try {
-                wait(1000);
+                wait(WAIT_MS);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

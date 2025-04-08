@@ -16,7 +16,7 @@ public class StartYourMonkeys {
 
     public static void main(String[] args) {
         int defaultNumClicks  = 15;
-        int defaultNumThreads = 12;
+        int defaultNumThreads = 24;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;

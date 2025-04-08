@@ -8,7 +8,7 @@ public class CombinationQueue {
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
 
-    private static final int MAX_SIZE = 1000000;
+    private static final int MAX_SIZE = 50000000;
     private static final int WAIT_MS = 5;
 
     boolean isItSolved() {

@@ -117,6 +117,28 @@ public abstract class Grid {
         return trueAdjacents;
     }
 
+    public ArrayList<Integer[]> findTrueAdjacentsAfter(int row, int col) 
+    {
+        int[] cell = {row, col};
+        ArrayList<Integer[]> trueAdjacents = findTrueAdjacents();
+        ArrayList<Integer[]> filteredAdjacents = new ArrayList<>();
+
+        for (Integer[] adj : trueAdjacents) 
+        {
+            // Compare if adjacent cell is after the clicked cell
+            if (adj[0] > cell[0] || (adj[0] == cell[0] && adj[1] > cell[1])) 
+            {
+                filteredAdjacents.add(adj);
+            }
+        }
+
+        if (filteredAdjacents.size() > 0)
+        {
+            return filteredAdjacents;
+        }
+        return null;
+    }
+
     public boolean isSolved() 
     {
         boolean isSolved = false;

@@ -50,6 +50,19 @@ public abstract class Grid {
         return trueCells;
     }
 
+    private Integer[] findFirstTrueCell()
+    {
+        for (int row = 0; row < grid.length; row++) {
+            for (int col = 0; col < grid[row].length; col++) {
+                if (grid[row][col]) {
+                    Integer[] firstTrue = new Integer[] { row, col };
+                    return firstTrue;
+                }
+            }
+        }
+        return null;
+    }
+
     public ArrayList<Integer[]> findAdjacents(int row, int col) {
         ArrayList<Integer[]> affectedPieces = new ArrayList<>();
 
@@ -99,7 +112,7 @@ public abstract class Grid {
         {
             return null;
         }
-        Integer[] firstTrueCell = findTrueCells().get(0);
+        Integer[] firstTrueCell = findFirstTrueCell();
         ArrayList<Integer[]> trueAdjacents = new ArrayList<>();
 
         ArrayList<Integer[]> adjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);

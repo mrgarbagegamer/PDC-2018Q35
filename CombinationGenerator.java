@@ -27,9 +27,9 @@ public class CombinationGenerator extends Thread {
         if (currentCombination.size() == k) {
             
             boolean hasTrueAdjacent = false;
-            ArrayList<Integer[]> trueAdjacents = puzzleGrid.findTrueAdjacents();
+            ArrayList<Integer[]> trueAdjacents = puzzleGrid.findFirstTrueAdjacents();
             for (Click click : currentCombination) {
-                // Check if any of the cells in the combination is a true adjacent
+                // Check if any of the cells in the combination is a first true adjacent
                 for (Integer[] adj : trueAdjacents) {
                     if (click.row == adj[0] && click.col == adj[1]) {
                         hasTrueAdjacent = true;
@@ -40,7 +40,7 @@ public class CombinationGenerator extends Thread {
                     break;
                 }
             }
-            if (!hasTrueAdjacent) { // Check if any cell in the combination contains a true adjacent and return if not
+            if (!hasTrueAdjacent) { // Check if any cell in the combination contains a first true adjacent and return if not
                 return;
             }
             this.combinationQueue.add(new ArrayList<>(currentCombination));

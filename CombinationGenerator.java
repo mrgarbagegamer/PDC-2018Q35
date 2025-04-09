@@ -1,5 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Date; // Used for debug line
 
 public class CombinationGenerator extends Thread {
     private CombinationQueue combinationQueue;
@@ -41,6 +42,8 @@ public class CombinationGenerator extends Thread {
                 }
             }
             if (!hasTrueAdjacent) { // Check if any cell in the combination contains a first true adjacent and return if not
+                Date date = new Date(); // debug line
+                System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + date); // debug line
                 return;
             }
             this.combinationQueue.add(new ArrayList<>(currentCombination));

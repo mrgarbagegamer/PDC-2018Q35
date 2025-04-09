@@ -41,8 +41,8 @@ public class TestClickCombination extends Thread
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
                 }
 
-                ArrayList<Integer[]> trueAdjacents = this.puzzleGrid.findTrueAdjacentsAfter(click.row, click.col);
-                if (trueAdjacents == null) // Check if any true adjacents exist after the current click
+                ArrayList<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
+                if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
                 {
                     break;
                 }
@@ -51,7 +51,7 @@ public class TestClickCombination extends Thread
                     boolean hasTrueAdjacent = false;
                     for (Click c : combinationClicks.subList(i + 1, combinationClicks.size())) // iterate through all remaining true adjacents to see if any are in the combination
                     {
-                        for (Integer[] adj : trueAdjacents) 
+                        for (Integer[] adj : firstTrueAdjacents) 
                         {
                             if (c.row == adj[0] && c.col == adj[1]) 
                             {

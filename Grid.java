@@ -93,23 +93,20 @@ public abstract class Grid {
         }
     }
 
-    public ArrayList<Integer[]> findTrueAdjacents() 
+    public ArrayList<Integer[]> findFirstTrueAdjacents() 
     {
-        ArrayList<Integer[]> trueCells = findTrueCells();
+        Integer[] firstTrueCell = findTrueCells().get(0);
         ArrayList<Integer[]> trueAdjacents = new ArrayList<>();
 
-        for (Integer[] cell : trueCells) 
+        ArrayList<Integer[]> adjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
+        for (Integer[] adj : adjacents) 
         {
-            ArrayList<Integer[]> adjacents = findAdjacents(cell[0], cell[1]);
-            for (Integer[] adj : adjacents) 
+            if ((adj[0] >= 0 && adj[0] < Grid.NUM_ROWS) &&
+                (adj[1] >= 0 && adj[1] < grid[adj[0]].length)) 
             {
-                if ((adj[0] >= 0 && adj[0] < Grid.NUM_ROWS) &&
-                    (adj[1] >= 0 && adj[1] < grid[adj[0]].length)) 
+                if (grid[adj[0]][adj[1]]) 
                 {
-                    if (grid[adj[0]][adj[1]]) 
-                    {
-                        trueAdjacents.add(adj);
-                    }
+                    trueAdjacents.add(adj);
                 }
             }
         }
@@ -117,13 +114,13 @@ public abstract class Grid {
         return trueAdjacents;
     }
 
-    public ArrayList<Integer[]> findTrueAdjacentsAfter(int row, int col) 
+    public ArrayList<Integer[]> findFirstTrueAdjacentsAfter(int row, int col) 
     {
         int[] cell = {row, col};
-        ArrayList<Integer[]> trueAdjacents = findTrueAdjacents();
+        ArrayList<Integer[]> firstTrueAdjacents = findFirstTrueAdjacents();
         ArrayList<Integer[]> filteredAdjacents = new ArrayList<>();
 
-        for (Integer[] adj : trueAdjacents) 
+        for (Integer[] adj : firstTrueAdjacents) 
         {
             // Compare if adjacent cell is after the clicked cell
             if (adj[0] > cell[0] || (adj[0] == cell[0] && adj[1] > cell[1])) 

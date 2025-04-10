@@ -53,6 +53,7 @@ public abstract class Grid {
                     trueCells.add(new Integer[] { row, col });
                     if (trueCells.size() == this.trueCount)
                     {
+                        cycledThroughAllCells = true;
                         break;
                     }
                 }

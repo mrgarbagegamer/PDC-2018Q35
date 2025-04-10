@@ -37,12 +37,26 @@ public abstract class Grid {
         }
     }
 
-    public ArrayList<Integer[]> findTrueCells() {
+    private ArrayList<Integer[]> findTrueCells() {
+        if (this.trueCount == 0)
+        {
+            return null;
+        }
+        int trueCount = 0;
+        boolean cycledThroughAllCells = false;
         ArrayList<Integer[]> trueCells = new ArrayList<Integer[]>();
-        for (int row = 0; row < grid.length; row++) {
-            for (int col = 0; col < grid[row].length; col++) {
-                if (grid[row][col]) {
+        for (int row = 0; (row < grid.length) && (!cycledThroughAllCells); row++) 
+        {
+            for (int col = 0; (col < grid[row].length) && (!cycledThroughAllCells); col++) 
+            {
+                if (grid[row][col]) 
+                {
                     trueCells.add(new Integer[] { row, col });
+                    trueCount++;
+                    if (trueCount == this.trueCount)
+                    {
+                        break;
+                    }
                 }
             }
         }
@@ -52,9 +66,17 @@ public abstract class Grid {
 
     private Integer[] findFirstTrueCell()
     {
-        for (int row = 0; row < grid.length; row++) {
-            for (int col = 0; col < grid[row].length; col++) {
-                if (grid[row][col]) {
+        if (this.trueCount == 0)
+        {
+            return null;
+        }
+        
+        for (int row = 0; row < grid.length; row++) 
+        {
+            for (int col = 0; col < grid[row].length; col++) 
+            {
+                if (grid[row][col]) 
+                {
                     Integer[] firstTrue = new Integer[] { row, col };
                     return firstTrue;
                 }
@@ -108,7 +130,7 @@ public abstract class Grid {
 
     public ArrayList<Integer[]> findFirstTrueAdjacents() 
     {
-        if (findTrueCells().size() == 0) 
+        if (trueCount == 0) 
         {
             return null;
         }

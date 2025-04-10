@@ -1,33 +1,43 @@
 import java.util.List;
 import java.util.ArrayList;
 
-public class StartYourMonkeys {
+public class StartYourMonkeys 
+{
 
-    private static void populateClickList(List<Click> possibleClicks) {
+    private static void populateClickList(List<Click> possibleClicks) 
+    {
         int numRows = 7; // Total rows in the grid
         int[] numCols = { 16, 15, 16, 15, 16, 15, 16 }; // Number of columns for each row
 
-        for (int row = 0; row < numRows; row++) {
-            for (int col = 0; col < numCols[row]; col++) {
+        for (int row = 0; row < numRows; row++) 
+        {
+            for (int col = 0; col < numCols[row]; col++) 
+            {
                 possibleClicks.add(new Click(row, col));
             }
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) 
+    {
         int defaultNumClicks  = 15;
         int defaultNumThreads = 24;
+        int defaultQuestionNumber = 22;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;
+        int questionNumber = defaultQuestionNumber;
 
-        // retrieve the passed in number of clicks if any or set a default value
-        try {
+        // retrieve the arguments if any or set a default value
+        try 
+        {
             numClicks  = Integer.parseInt(args[0]);
             numThreads = Integer.parseInt(args[1]);
+            questionNumber = Integer.parseInt(args[2]);
         } catch (Exception e) {
             numClicks  = defaultNumClicks;
             numThreads = defaultNumThreads;
+            questionNumber = defaultQuestionNumber;
         }
 
 
@@ -39,15 +49,45 @@ public class StartYourMonkeys {
         CombinationQueue combinationQueue = new CombinationQueue();
 
         // start generating different click combinations
-        Grid generatorPuzzleGrid = new Grid13();
+        Grid generatorPuzzleGrid = null;
+
+        if (questionNumber == 35) 
+        {
+            generatorPuzzleGrid = new Grid35();
+        }
+        else if (questionNumber == 13)
+        {
+            generatorPuzzleGrid = new Grid13();
+        
+        }
+        else 
+        {
+            generatorPuzzleGrid = new Grid22();
+        }
+
+
         CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks, generatorPuzzleGrid);
         cb.start();
 
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
-        for(int i=0; i < numThreads; i++){
-            Grid puzzleGrid = new Grid13();
+        for(int i=0; i < numThreads; i++)
+        {
+            Grid puzzleGrid = null;
+            if (questionNumber == 35) 
+            {
+                puzzleGrid = new Grid35();
+            }
+            else if (questionNumber == 13)
+            {
+                puzzleGrid = new Grid13();
+            }
+            else 
+            {
+                puzzleGrid = new Grid22();
+            }
+
             String threadName = String.format("Monkey-%d", i);
 
             monkeys[i] = new TestClickCombination(threadName, combinationQueue, puzzleGrid);
@@ -55,10 +95,13 @@ public class StartYourMonkeys {
         }
 
         // wait for our monkeys to finish working
-        for(int i=0; i < numThreads; i++){
-            try {
+        for(int i=0; i < numThreads; i++)
+        {
+            try 
+            {
                 monkeys[i].join();
-            } catch (InterruptedException e) {
+            } catch (InterruptedException e) 
+            {
                 e.printStackTrace();
             }
         }
@@ -71,9 +114,23 @@ public class StartYourMonkeys {
 
         System.out.println("\n--------------------------------------\n");
         // create a new grid and test out the winning combination
-        Grid puzzleGrid = new Grid13();
+
+        Grid puzzleGrid = null;
+        if (questionNumber == 35) 
+        {
+            puzzleGrid = new Grid35();
+        }
+        else if (questionNumber == 13)
+        {
+            puzzleGrid = new Grid13();
+        }
+        else 
+        {
+            puzzleGrid = new Grid22();
+        }
         boolean solved = false;
-        for (int i = 0; (i < winningCombination.size()) && (!solved); i++) {
+        for (int i = 0; (i < winningCombination.size()) && (!solved); i++) 
+        {
             Click click = winningCombination.get(i);
 
             puzzleGrid.click(click.row, click.col);

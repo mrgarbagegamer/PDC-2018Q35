@@ -42,7 +42,6 @@ public abstract class Grid {
         {
             return null;
         }
-        int trueCount = 0;
         boolean cycledThroughAllCells = false;
         ArrayList<Integer[]> trueCells = new ArrayList<Integer[]>();
         for (int row = 0; (row < grid.length) && (!cycledThroughAllCells); row++) 
@@ -52,8 +51,7 @@ public abstract class Grid {
                 if (grid[row][col]) 
                 {
                     trueCells.add(new Integer[] { row, col });
-                    trueCount++;
-                    if (trueCount == this.trueCount)
+                    if (trueCells.size() == this.trueCount)
                     {
                         break;
                     }

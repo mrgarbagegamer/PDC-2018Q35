@@ -72,6 +72,17 @@ public class CombinationGenerator extends Thread
             }
         }
 
+        // If there are no first true adjacents after the cell that is at the end of nodelist, we can stop exploring this branch:
+        if (currentCombination.size() > 0) 
+        {
+            Click lastClick = currentCombination.get(currentCombination.size() - 1);
+            ArrayList<Integer[]> firstTrueAdjacents = puzzleGrid.findFirstTrueAdjacentsAfter(lastClick.row, lastClick.col);
+            if (firstTrueAdjacents == null) 
+            {
+                return false; // Stop exploring this branch
+            }
+        }
+
         return true; // Continue exploring
     }
 }

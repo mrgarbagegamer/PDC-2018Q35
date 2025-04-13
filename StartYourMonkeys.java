@@ -22,7 +22,7 @@ public class StartYourMonkeys
     {
         int defaultNumClicks  = 15;
         int defaultNumThreads = 24;
-        int defaultQuestionNumber = 22;
+        int defaultQuestionNumber = 35;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;
@@ -51,14 +51,18 @@ public class StartYourMonkeys
         // start generating different click combinations
         Grid generatorPuzzleGrid = null;
 
-        if (questionNumber == 35) 
+        if (questionNumber == 13) 
         {
-            generatorPuzzleGrid = new Grid35();
+            generatorPuzzleGrid = new Grid13();
         }
 
-        else 
+        else if (questionNumber == 22)
         {
             generatorPuzzleGrid = new Grid22();
+        }
+        else 
+        {
+            generatorPuzzleGrid = new Grid35();
         }
 
 
@@ -71,14 +75,15 @@ public class StartYourMonkeys
         for(int i=0; i < numThreads; i++)
         {
             Grid puzzleGrid = null;
-            if (questionNumber == 35) 
+            if (questionNumber == 13)
             {
-                puzzleGrid = new Grid35();
-            }
-
-            else 
+                puzzleGrid = new Grid13();
+            } else if (questionNumber == 22)
             {
                 puzzleGrid = new Grid22();
+            } else 
+            {
+                puzzleGrid = new Grid35();
             }
 
             String threadName = String.format("Monkey-%d", i);
@@ -106,15 +111,17 @@ public class StartYourMonkeys
         // create a new grid and test out the winning combination
 
         Grid puzzleGrid = null;
-        if (questionNumber == 35) 
+        if (questionNumber == 13)
+        {
+            puzzleGrid = new Grid13();
+        } else if (questionNumber == 22)
+        {
+            puzzleGrid = new Grid22();
+        } else
         {
             puzzleGrid = new Grid35();
         }
 
-        else 
-        {
-            puzzleGrid = new Grid22();
-        }
         boolean solved = false;
         for (int i = 0; (i < winningCombination.size()) && (!solved); i++) 
         {

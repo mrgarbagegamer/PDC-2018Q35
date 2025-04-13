@@ -146,6 +146,11 @@ public abstract class Grid {
             }
         }
 
+        if (trueAdjacents.size() == 0) 
+        {
+            return null;
+        }
+
         return trueAdjacents;
     }
 

@@ -22,7 +22,7 @@ public class CombinationGenerator extends Thread
         this.generateCombinations(this.possibleClicks, numClicks, 0, new ArrayList<>());
     }
 
-    private boolean generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) // Returns false to break the previous layer of iteration if no true adjacents are found
+    private boolean generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) // Returns false to break the previous layer of iteration if no true adjacents are found 
     {
         // Check if the problem has been solved
         if (this.combinationQueue.isItSolved()) 
@@ -34,6 +34,13 @@ public class CombinationGenerator extends Thread
         {
             boolean hasTrueAdjacent = false;
             ArrayList<Integer[]> trueAdjacents = puzzleGrid.findFirstTrueAdjacents();
+
+            // Skip combinations with no true adjacents
+            if (trueAdjacents == null) 
+            {
+                return false; // Prune this branch
+            }
+
             for (Click click : currentCombination) 
             {
                 // Check if any of the cells in the combination is a first true adjacent

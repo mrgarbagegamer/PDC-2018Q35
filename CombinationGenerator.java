@@ -72,14 +72,32 @@ public class CombinationGenerator extends Thread
             }
         }
 
-        // If there are no first true adjacents after the cell that is at the end of nodelist, we can stop exploring this branch:
+        // If there are no first true adjacents in the remaining cells, we can skip the branch
         if (currentCombination.size() > 0) 
         {
-            Click lastClick = currentCombination.get(currentCombination.size() - 1);
-            ArrayList<Integer[]> firstTrueAdjacents = puzzleGrid.findFirstTrueAdjacentsAfter(lastClick.row, lastClick.col);
-            if (firstTrueAdjacents == null) 
+            boolean hasTrueAdjacent = false;
+            ArrayList<Integer[]> trueAdjacents = puzzleGrid.findFirstTrueAdjacents();
+            for (Click click : currentCombination) 
             {
-                return false; // Stop exploring this branch
+                // Check if any of the cells in the combination is a first true adjacent
+                for (Integer[] adj : trueAdjacents) 
+                {
+                    if (click.row == adj[0] && click.col == adj[1]) 
+                    {
+                        hasTrueAdjacent = true;
+                        break;
+                    }
+                }
+                if (hasTrueAdjacent) 
+                {
+                    break;
+                }
+            }
+            if (!hasTrueAdjacent) 
+            {
+                Date date = new Date(); // Debug line
+                System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + date); // Debug line
+                return false; // Stop exploring further combinations in this layer
             }
         }
 

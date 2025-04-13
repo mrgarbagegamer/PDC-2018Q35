@@ -166,7 +166,7 @@ public abstract class Grid {
         for (Integer[] adj : firstTrueAdjacents) 
         {
             // Compare if adjacent cell is after the clicked cell
-            if (this.after(cell, adj))
+            if (this.after(adj, cell))
             {
                 filteredAdjacents.add(adj);
             }

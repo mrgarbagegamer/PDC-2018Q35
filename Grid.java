@@ -149,9 +149,21 @@ public abstract class Grid {
         return trueAdjacents;
     }
 
+    public boolean after(Integer[] x, Integer[] y) // Returns true if x is after y and false otherwise
+    {
+        if (x[0] > y[0]) 
+        {
+            return true;
+        } else if (x[0] == y[0]) 
+        {
+            return x[1] > y[1];
+        }
+        return false;
+    }
+
     public ArrayList<Integer[]> findFirstTrueAdjacentsAfter(int row, int col) 
     {
-        int[] cell = {row, col};
+        Integer[] cell = {row, col};
         ArrayList<Integer[]> firstTrueAdjacents = findFirstTrueAdjacents();
         ArrayList<Integer[]> filteredAdjacents = new ArrayList<>();
 
@@ -163,7 +175,7 @@ public abstract class Grid {
         for (Integer[] adj : firstTrueAdjacents) 
         {
             // Compare if adjacent cell is after the clicked cell
-            if (adj[0] > cell[0] || (adj[0] == cell[0] && adj[1] > cell[1])) 
+            if (this.after(cell, adj))
             {
                 filteredAdjacents.add(adj);
             }

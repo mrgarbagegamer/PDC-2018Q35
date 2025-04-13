@@ -22,7 +22,7 @@ public class Grid13 extends Grid
         this.grid[3][0] = true;
         this.grid[3][14] = true;
 
-        this.trueCount = 4;
+        this.trueCount = 30;
     }
 
     public Grid clone() 

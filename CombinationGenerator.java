@@ -8,6 +8,7 @@ public class CombinationGenerator extends Thread
     private List<Click> possibleClicks;
     private int numClicks;
     private Grid puzzleGrid;
+    private ArrayList<Integer[]> trueAdjacents;
 
     public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Grid puzzleGrid) 
     {
@@ -15,6 +16,7 @@ public class CombinationGenerator extends Thread
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.puzzleGrid = puzzleGrid;
+        this.trueAdjacents = puzzleGrid.findFirstTrueAdjacents();
     }
 
     public void run() 
@@ -33,8 +35,6 @@ public class CombinationGenerator extends Thread
         if (currentCombination.size() == k) 
         {
             boolean hasTrueAdjacent = false;
-            ArrayList<Integer[]> trueAdjacents = puzzleGrid.findFirstTrueAdjacents();
-
             // Skip combinations with no true adjacents
             if (trueAdjacents == null) 
             {

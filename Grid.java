@@ -1,4 +1,6 @@
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 public abstract class Grid {
     // constants
     public static final int NUM_ROWS = 7;
@@ -24,6 +26,47 @@ public abstract class Grid {
     };
 
     int trueCount = 0;
+    
+    private static final Map<Integer, ArrayList<Integer[]>> adjacencyMap = new HashMap<>();
+
+    static 
+    {
+        for (int row = 0; row < NUM_ROWS; row++) 
+        {
+            for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
+            {
+                ArrayList<Integer[]> adjacents = computeAdjacents(row, col);
+                adjacencyMap.put(row * 100 + col, adjacents);
+            }
+        }
+    }
+
+    public static ArrayList<Integer[]> computeAdjacents(int row, int col) {
+        ArrayList<Integer[]> affectedPieces = new ArrayList<>();
+
+        if (row % 2 == 0) { // even rows with 16 columns
+            affectedPieces.add(new Integer[] { row - 1, col - 1 });
+            affectedPieces.add(new Integer[] { row - 1, col });
+            affectedPieces.add(new Integer[] { row, col - 1 });
+            affectedPieces.add(new Integer[] { row, col + 1 });
+            affectedPieces.add(new Integer[] { row + 1, col - 1 });
+            affectedPieces.add(new Integer[] { row + 1, col });
+        } else { // odd rows with 15 columns
+            affectedPieces.add(new Integer[] { row - 1, col });
+            affectedPieces.add(new Integer[] { row - 1, col + 1 });
+            affectedPieces.add(new Integer[] { row, col - 1 });
+            affectedPieces.add(new Integer[] { row, col + 1 });
+            affectedPieces.add(new Integer[] { row + 1, col });
+            affectedPieces.add(new Integer[] { row + 1, col + 1 });
+        }
+
+        affectedPieces.removeIf(piece -> piece[0] < 0 || piece[0] >= Grid.NUM_ROWS || piece[1] < 0 || piece[1] >= ((piece[0] % 2 == 0) ? Grid.EVEN_NUM_COLS : Grid.ODD_NUM_COLS));
+        return affectedPieces;
+    }
+
+    public static ArrayList<Integer[]> findAdjacents(int row, int col) {
+        return adjacencyMap.get(row * 100 + col);
+    }
 
     public Grid() {
         initialize();
@@ -84,46 +127,20 @@ public abstract class Grid {
         return null;
     }
 
-    public ArrayList<Integer[]> findAdjacents(int row, int col) {
-        ArrayList<Integer[]> affectedPieces = new ArrayList<>();
-
-        if (row % 2 == 0) { // even rows with 16 columns
-            affectedPieces.add(new Integer[] { row - 1, col - 1 });
-            affectedPieces.add(new Integer[] { row - 1, col });
-            affectedPieces.add(new Integer[] { row, col - 1 });
-            affectedPieces.add(new Integer[] { row, col + 1 });
-            affectedPieces.add(new Integer[] { row + 1, col - 1 });
-            affectedPieces.add(new Integer[] { row + 1, col });
-        } else { // odd rows with 15 columns
-            affectedPieces.add(new Integer[] { row - 1, col });
-            affectedPieces.add(new Integer[] { row - 1, col + 1 });
-            affectedPieces.add(new Integer[] { row, col - 1 });
-            affectedPieces.add(new Integer[] { row, col + 1 });
-            affectedPieces.add(new Integer[] { row + 1, col });
-            affectedPieces.add(new Integer[] { row + 1, col + 1 });
-        }
-
-        return affectedPieces;
-    }
-
     public void click(int row, int col) {
         ArrayList<Integer[]> affectedPieces = findAdjacents(row, col);
 
         for (Integer[] piece : affectedPieces) {
             int affectedRow = piece[0];
             int affectedCol = piece[1];
-
-            if ((affectedRow >= 0 && affectedRow < Grid.NUM_ROWS) &&
-                (affectedCol >= 0 && affectedCol < grid[affectedRow].length)) {
-                if (grid[affectedRow][affectedCol]) 
-                {
-                    trueCount--;
-                } else {
-                    trueCount++;
-                }
-
-                grid[affectedRow][affectedCol] = !grid[affectedRow][affectedCol];
+            if (grid[affectedRow][affectedCol]) 
+            {
+                trueCount--;
+            } else {
+                trueCount++;
             }
+
+            grid[affectedRow][affectedCol] = !grid[affectedRow][affectedCol];
         }
     }
 
@@ -139,11 +156,7 @@ public abstract class Grid {
         ArrayList<Integer[]> adjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
         for (Integer[] adj : adjacents) 
         {
-            if ((adj[0] >= 0 && adj[0] < Grid.NUM_ROWS) &&
-                (adj[1] >= 0 && adj[1] < grid[adj[0]].length)) 
-            {
-                trueAdjacents.add(adj);
-            }
+            trueAdjacents.add(adj);
         }
 
         if (trueAdjacents.size() == 0) 

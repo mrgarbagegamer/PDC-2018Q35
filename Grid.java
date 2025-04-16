@@ -25,8 +25,6 @@ public abstract class Grid {
             new boolean[Grid.ODD_NUM_COLS]
     };
 
-    int trueCount = 0;
-
     public Map<Integer, ArrayList<Integer[]>> trueCells = new HashMap<>();
 
     private static final Map<Integer, ArrayList<Integer[]>> adjacencyMap = new HashMap<>();
@@ -117,13 +115,11 @@ public abstract class Grid {
 
             // Update the trueCells map
             if (currentState) {
-                trueCount--;
                 trueCells.get(pieceRow * 100 + pieceCol).removeIf(cell -> cell[0] == pieceRow && cell[1] == pieceCol);
                 if (trueCells.get(pieceRow * 100 + pieceCol).isEmpty()) {
                     trueCells.remove(pieceRow * 100 + pieceCol);
                 }
             } else {
-                trueCount++;
                 trueCells.computeIfAbsent(pieceRow * 100 + pieceCol, k -> new ArrayList<>()).add(piece);
             }
         }
@@ -131,10 +127,6 @@ public abstract class Grid {
 
     public ArrayList<Integer[]> findFirstTrueAdjacents() 
     {
-        if (trueCount == 0) 
-        {
-            return null;
-        }
         Integer[] firstTrueCell = findFirstTrueCell();
         ArrayList<Integer[]> trueAdjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
 

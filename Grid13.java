@@ -30,19 +30,17 @@ public class Grid13 extends Grid
         this.grid[3][14] = true;
         this.trueCells.computeIfAbsent(314, k -> new ArrayList<>()).add(new Integer[] {3, 14});
 
-        this.trueCount = 30;
-        this.click(3,1);
-        this.click(3,3);
-        this.click(3,5);
-        this.click(3,7);
-        this.click(3,9);
+        // this.click(3,1);
+        // this.click(3,3);
+        // this.click(3,5);
+        // this.click(3,7);
+        // this.click(3,9);
     }
 
     public Grid clone() 
     {
         Grid newGrid = new Grid13();
         // For each value in the grid, copy it to the new grid
-        newGrid.trueCount = this.trueCount;
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
             for (int col = 0; col < this.grid[row].length; col++) 

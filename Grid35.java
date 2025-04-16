@@ -27,16 +27,12 @@ public class Grid35 extends Grid
 
         this.grid[4][7] = true;
         this.trueCells.computeIfAbsent(4, k -> new ArrayList<>()).add(new Integer[] {4, 7});
-
-        // The starting number of cells which are set to true
-        this.trueCount = 4;
     }
 
     public Grid clone() 
     {
         Grid newGrid = new Grid35();
         // For each value in the grid, copy it to the new grid
-        newGrid.trueCount = this.trueCount;
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
             for (int col = 0; col < this.grid[row].length; col++) 

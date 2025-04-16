@@ -40,15 +40,12 @@ public class Grid22 extends Grid
             }
         }
 
-        // The starting number of cells which are set to true
-        this.trueCount = 50;
     }
 
     public Grid clone() 
     {
         Grid newGrid = new Grid22();
         // For each value in the grid, copy it to the new grid
-        newGrid.trueCount = this.trueCount;
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
             for (int col = 0; col < this.grid[row].length; col++) 

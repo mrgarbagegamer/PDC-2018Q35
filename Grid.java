@@ -82,48 +82,22 @@ public abstract class Grid {
         }
     }
 
-    private ArrayList<Integer[]> findTrueCells() {
-        if (this.trueCount == 0)
-        {
-            return null;
+    public ArrayList<Integer[]> findTrueCells() {
+        ArrayList<Integer[]> trueCellsList = new ArrayList<>();
+        for (Map.Entry<Integer, ArrayList<Integer[]>> entry : trueCells.entrySet()) {
+            trueCellsList.addAll(entry.getValue());
         }
-        boolean cycledThroughAllCells = false;
-        ArrayList<Integer[]> trueCells = new ArrayList<Integer[]>();
-        for (int row = 0; (row < grid.length) && (!cycledThroughAllCells); row++) 
-        {
-            for (int col = 0; (col < grid[row].length) && (!cycledThroughAllCells); col++) 
-            {
-                if (grid[row][col]) 
-                {
-                    trueCells.add(new Integer[] { row, col });
-                    if (trueCells.size() == this.trueCount)
-                    {
-                        cycledThroughAllCells = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        return trueCells;
+        return trueCellsList;
     }
 
     private Integer[] findFirstTrueCell()
     {
-        if (this.trueCount == 0)
+        // Return the first element in the trueCells map
+        for (Map.Entry<Integer, ArrayList<Integer[]>> entry : trueCells.entrySet()) 
         {
-            return null;
-        }
-        
-        for (int row = 0; row < grid.length; row++) 
-        {
-            for (int col = 0; col < grid[row].length; col++) 
+            if (!entry.getValue().isEmpty()) 
             {
-                if (grid[row][col]) 
-                {
-                    Integer[] firstTrue = new Integer[] { row, col };
-                    return firstTrue;
-                }
+                return entry.getValue().get(0);
             }
         }
         return null;
@@ -132,17 +106,26 @@ public abstract class Grid {
     public void click(int row, int col) {
         ArrayList<Integer[]> affectedPieces = findAdjacents(row, col);
 
+        // Flip the state of the affected pieces (if the cell is true, remove it from the trueCells map, otherwise add it)
         for (Integer[] piece : affectedPieces) {
-            int affectedRow = piece[0];
-            int affectedCol = piece[1];
-            if (grid[affectedRow][affectedCol]) 
-            {
+            int pieceRow = piece[0];
+            int pieceCol = piece[1];
+            boolean currentState = grid[pieceRow][pieceCol];
+
+            // Toggle the state
+            grid[pieceRow][pieceCol] = !currentState;
+
+            // Update the trueCells map
+            if (currentState) {
                 trueCount--;
+                trueCells.get(pieceRow * 100 + pieceCol).remove(piece);
+                if (trueCells.get(pieceRow * 100 + pieceCol).isEmpty()) {
+                    trueCells.remove(pieceRow * 100 + pieceCol);
+                }
             } else {
                 trueCount++;
+                trueCells.computeIfAbsent(pieceRow * 100 + pieceCol, k -> new ArrayList<>()).add(piece);
             }
-
-            grid[affectedRow][affectedCol] = !grid[affectedRow][affectedCol];
         }
     }
 
@@ -153,13 +136,7 @@ public abstract class Grid {
             return null;
         }
         Integer[] firstTrueCell = findFirstTrueCell();
-        ArrayList<Integer[]> trueAdjacents = new ArrayList<>();
-
-        ArrayList<Integer[]> adjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
-        for (Integer[] adj : adjacents) 
-        {
-            trueAdjacents.add(adj);
-        }
+        ArrayList<Integer[]> trueAdjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
 
         if (trueAdjacents.size() == 0) 
         {
@@ -212,11 +189,11 @@ public abstract class Grid {
     {
         boolean isSolved = false;
 
-        if (trueCount == 0) 
+        // Check if the size of trueCells is 0, meaning no cells are true
+        if (trueCells.size() == 0) 
         {
             isSolved = true;
         }
-
         return isSolved;
     }
 
@@ -261,6 +238,6 @@ public abstract class Grid {
 
     public int getTrueCount() 
     {
-        return trueCount;
+        return trueCells.size();
     }
 }

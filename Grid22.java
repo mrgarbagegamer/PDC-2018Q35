@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 public class Grid22 extends Grid 
 {
     void initialize() 
@@ -11,41 +12,32 @@ public class Grid22 extends Grid
         this.grid[5] = new boolean[Grid.ODD_NUM_COLS];
         this.grid[6] = new boolean[Grid.EVEN_NUM_COLS];
 
-        // top row values
+        // Top row values
         int topRow = 0;
-        this.grid[topRow][1] = true;
-        this.grid[topRow][2] = true;
-        this.grid[topRow][4] = true;
-        this.grid[topRow][5] = true;
-        this.grid[topRow][7] = true;
-        this.grid[topRow][8] = true;
-        this.grid[topRow][10] = true;
-        this.grid[topRow][11] = true;
-        this.grid[topRow][13] = true;
-        this.grid[topRow][14] = true;
+        int[] topRowCols = {1, 2, 4, 5, 7, 8, 10, 11, 13, 14};
+        for (int col : topRowCols) {
+            this.grid[topRow][col] = true;
+            this.trueCells.computeIfAbsent(topRow * 100 + col, k -> new ArrayList<>()).add(new Integer[] {topRow, col});
+        }
 
-        // recreate the top row values for the bottom row
+        // Recreate the top row values for the bottom row
         int bottomRow = this.grid.length - 1;
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
+        for (int col : topRowCols) {
+            this.trueCells.computeIfAbsent(bottomRow * 100 + col, k -> new ArrayList<>()).add(new Integer[] {bottomRow, col});
+        }
 
-        // set the values for the row 1, which will be the same as rows 1, 3, and 5
-        int rowOne = 1, rowThree = 3, rowFive = 5;
-        this.grid[rowOne][0] = true;
-        this.grid[rowOne][2] = true;
-        this.grid[rowOne][3] = true;
-        this.grid[rowOne][5] = true;
-        this.grid[rowOne][6] = true;
-        this.grid[rowOne][8] = true;
-        this.grid[rowOne][9] = true;
-        this.grid[rowOne][11] = true;
-        this.grid[rowOne][12] = true;
-        this.grid[rowOne][14] = true;
+        // Set the values for row 1, which will be the same as rows 1, 3, and 5
+        int[] rowOneCols = {0, 2, 3, 5, 6, 8, 9, 11, 12, 14};
+        int[] rowsToCopy = {1, 3, 5};
+        for (int row : rowsToCopy) {
+            for (int col : rowOneCols) {
+                this.grid[row][col] = true;
+                this.trueCells.computeIfAbsent(row * 100 + col, k -> new ArrayList<>()).add(new Integer[] {row, col});
+            }
+        }
 
-        // reproduce the same settings for the columns from row 1 to rows 3, and 5
-        this.copyColumnValues(this.grid[rowOne], this.grid[rowThree]);
-        this.copyColumnValues(this.grid[rowOne], this.grid[rowFive]);
-
-        // the starting number of cells which are set to true
+        // The starting number of cells which are set to true
         this.trueCount = 50;
     }
 

@@ -26,7 +26,9 @@ public abstract class Grid {
     };
 
     int trueCount = 0;
-    
+
+    public Map<Integer, ArrayList<Integer[]>> trueCells = new HashMap<>();
+
     private static final Map<Integer, ArrayList<Integer[]>> adjacencyMap = new HashMap<>();
 
     static 

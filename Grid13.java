@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 public class Grid13 extends Grid 
 {
     void initialize() 
@@ -11,16 +12,20 @@ public class Grid13 extends Grid
         this.grid[5] = new boolean[Grid.ODD_NUM_COLS];
         this.grid[6] = new boolean[Grid.EVEN_NUM_COLS];
 
-        for (int i = 2; i <= 4; i += 2)
+        for (int row = 2; row <= 4; row += 2)
         {
-            for (int j = 1; j <= 14; j++)
+            for (int col = 1; col <= 14; col++)
             {
-                this.grid[i][j] = true;
+                this.grid[row][col] = true;
+                // Add the true cells to the trueCells map
+                this.trueCells.putIfAbsent(row * 100 + col, new ArrayList<>()).add(new Integer[] { row, col });
             }
         }
 
         this.grid[3][0] = true;
+        this.trueCells.putIfAbsent(300, new ArrayList<>()).add(new Integer[] {3, 0});
         this.grid[3][14] = true;
+        this.trueCells.putIfAbsent(314, new ArrayList<>()).add(new Integer[] {3, 14});
 
         this.trueCount = 30;
     }

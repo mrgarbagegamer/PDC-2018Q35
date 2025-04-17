@@ -10,7 +10,7 @@ public class CombinationGenerator extends Thread
     private List<Click> possibleClicks;
     private int numClicks;
     private Grid puzzleGrid;
-    private Set<Integer[]> trueAdjacents;
+    private Set<String> trueAdjacents;
 
     public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Grid puzzleGrid) 
     {
@@ -18,7 +18,16 @@ public class CombinationGenerator extends Thread
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.puzzleGrid = puzzleGrid;
-        this.trueAdjacents = puzzleGrid.findFirstTrueAdjacents();
+        Set<Integer[]> trueAdjSet = puzzleGrid.findFirstTrueAdjacents();
+        
+        if (trueAdjSet != null) 
+        {
+            this.trueAdjacents = new HashSet<>();
+            for (Integer[] adj : trueAdjSet) 
+            {
+                this.trueAdjacents.add(adj[0] + "," + adj[1]);
+            }
+        }
     }
 
     public void run() 
@@ -42,14 +51,8 @@ public class CombinationGenerator extends Thread
                 return false; // Prune this branch
             }
 
-            Set<String> trueAdjSet = new HashSet<>();
-            for (Integer[] adj : trueAdjacents) 
-            {
-                trueAdjSet.add(adj[0] + "," + adj[1]);
-            }
-
             boolean hasTrueAdjacent = currentCombination.stream().anyMatch(click -> 
-                trueAdjSet.contains(click.row + "," + click.col)
+                trueAdjacents.contains(click.row + "," + click.col)
             );
 
             if (!hasTrueAdjacent) 

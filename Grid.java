@@ -1,8 +1,9 @@
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-public abstract class Grid 
-{
+import java.util.Set;
+
+public abstract class Grid {
     // constants
     public static final int NUM_ROWS = 7;
     public static final int LAST_ROW = (NUM_ROWS - 1);
@@ -29,7 +30,7 @@ public abstract class Grid
 
     public Map<Integer, Integer[]> trueCells = new HashMap<>();
 
-    private static final Map<Integer, ArrayList<Integer[]>> adjacencyMap = new HashMap<>();
+    private static final Map<Integer, Set<Integer[]>> adjacencyMap = new HashMap<>();
 
     static 
     {
@@ -37,15 +38,15 @@ public abstract class Grid
         {
             for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
             {
-                ArrayList<Integer[]> adjacents = computeAdjacents(row, col);
+                Set<Integer[]> adjacents = computeAdjacents(row, col);
                 adjacencyMap.put(row * 100 + col, adjacents);
             }
         }
     }
 
-    public static ArrayList<Integer[]> computeAdjacents(int row, int col) 
+    public static Set<Integer[]> computeAdjacents(int row, int col) 
     {
-        ArrayList<Integer[]> affectedPieces = new ArrayList<>();
+        HashSet<Integer[]> affectedPieces = new HashSet<>();
 
         if (row % 2 == 0) // even rows with 16 columns
         { 
@@ -69,7 +70,7 @@ public abstract class Grid
         return affectedPieces;
     }
 
-    public static ArrayList<Integer[]> findAdjacents(int row, int col) 
+    public static Set<Integer[]> findAdjacents(int row, int col) 
     {
         return adjacencyMap.get(row * 100 + col);
     }
@@ -89,9 +90,9 @@ public abstract class Grid
         }
     }
 
-    public ArrayList<Integer[]> findTrueCells() 
+    public Set<Integer[]> findTrueCells() 
     {
-        ArrayList<Integer[]> trueCellsList = new ArrayList<>();
+        HashSet<Integer[]> trueCellsList = new HashSet<>();
         for (Map.Entry<Integer, Integer[]> entry : trueCells.entrySet()) 
         {
             trueCellsList.add(entry.getValue());
@@ -111,7 +112,7 @@ public abstract class Grid
 
     public void click(int row, int col) 
     {
-        ArrayList<Integer[]> affectedPieces = findAdjacents(row, col);
+        Set<Integer[]> affectedPieces = findAdjacents(row, col);
 
         // Flip the state of the affected pieces (if the cell is true, remove it from the trueCells map, otherwise add it)
         for (Integer[] piece : affectedPieces) 
@@ -138,10 +139,10 @@ public abstract class Grid
         }
     }
 
-    public ArrayList<Integer[]> findFirstTrueAdjacents() 
+    public Set<Integer[]> findFirstTrueAdjacents() 
     {
         Integer[] firstTrueCell = findFirstTrueCell();
-        ArrayList<Integer[]> trueAdjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
+        Set<Integer[]> trueAdjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
 
         if (trueAdjacents.size() == 0) 
         {
@@ -163,11 +164,11 @@ public abstract class Grid
         return false;
     }
 
-    public ArrayList<Integer[]> findFirstTrueAdjacentsAfter(int row, int col) 
+    public Set<Integer[]> findFirstTrueAdjacentsAfter(int row, int col) 
     {
         Integer[] cell = {row, col};
-        ArrayList<Integer[]> firstTrueAdjacents = findFirstTrueAdjacents();
-        ArrayList<Integer[]> filteredAdjacents = new ArrayList<>();
+        Set<Integer[]> firstTrueAdjacents = findFirstTrueAdjacents();
+        Set<Integer[]> filteredAdjacents = new HashSet<>();
 
         if (firstTrueAdjacents == null) 
         {

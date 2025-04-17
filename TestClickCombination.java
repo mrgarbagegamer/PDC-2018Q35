@@ -1,5 +1,7 @@
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 public class TestClickCombination extends Thread 
 {
@@ -51,18 +53,15 @@ public class TestClickCombination extends Thread
                 }
                 else
                 {
-                    boolean hasTrueAdjacent = false;
-                    for (Click c : combinationClicks.subList(i + 1, combinationClicks.size())) // iterate through all remaining true adjacents to see if any are in the combination
+                    Set<String> adjSet = new HashSet<>();
+                    for (Integer[] adj : firstTrueAdjacents) 
                     {
-                        for (Integer[] adj : firstTrueAdjacents) 
-                        {
-                            if (c.row == adj[0] && c.col == adj[1]) 
-                            {
-                                hasTrueAdjacent = true;
-                                break;
-                            }
-                        }
+                        adjSet.add(adj[0] + "," + adj[1]);
                     }
+
+                    boolean hasTrueAdjacent = combinationClicks.subList(i + 1, combinationClicks.size()).stream()
+                        .anyMatch(c -> adjSet.contains(c.row + "," + c.col));
+
                     if (!hasTrueAdjacent) 
                     {
                         break;

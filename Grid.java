@@ -18,13 +18,13 @@ public abstract class Grid
     // Initializing the grid of seven rows with alternating columns of 16 and 15
     boolean[][] grid = new boolean[][] 
     {
-            new boolean[Grid.ODD_NUM_COLS],
             new boolean[Grid.EVEN_NUM_COLS],
             new boolean[Grid.ODD_NUM_COLS],
             new boolean[Grid.EVEN_NUM_COLS],
             new boolean[Grid.ODD_NUM_COLS],
             new boolean[Grid.EVEN_NUM_COLS],
-            new boolean[Grid.ODD_NUM_COLS]
+            new boolean[Grid.ODD_NUM_COLS],
+            new boolean[Grid.EVEN_NUM_COLS]
     };
 
     public Map<Integer, ArrayList<Integer[]>> trueCells = new HashMap<>();
@@ -257,6 +257,7 @@ public abstract class Grid
             }
 
             // Copy trueCells map
+            newGrid.trueCells = new HashMap<>();
             for (Map.Entry<Integer, ArrayList<Integer[]>> entry : this.trueCells.entrySet()) {
                 newGrid.trueCells.put(entry.getKey(), new ArrayList<>(entry.getValue()));
             }

@@ -4,13 +4,6 @@ public class Grid35 extends Grid
     void initialize() 
     {
         // Initialize for Q35
-        this.grid[0] = new boolean[Grid.EVEN_NUM_COLS];
-        this.grid[1] = new boolean[Grid.ODD_NUM_COLS];
-        this.grid[2] = new boolean[Grid.EVEN_NUM_COLS];
-        this.grid[3] = new boolean[Grid.ODD_NUM_COLS];
-        this.grid[4] = new boolean[Grid.EVEN_NUM_COLS];
-        this.grid[5] = new boolean[Grid.ODD_NUM_COLS];
-        this.grid[6] = new boolean[Grid.EVEN_NUM_COLS];
 
         // reset the trueCells map
         this.trueCells.clear();

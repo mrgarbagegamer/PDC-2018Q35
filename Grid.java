@@ -16,13 +16,13 @@ public abstract class Grid {
 
     // Initializing the grid of seven rows with alternating columns of 16 and 15
     boolean[][] grid = new boolean[][] {
-            new boolean[Grid.ODD_NUM_COLS],
-            new boolean[Grid.EVEN_NUM_COLS],
-            new boolean[Grid.ODD_NUM_COLS],
-            new boolean[Grid.EVEN_NUM_COLS],
-            new boolean[Grid.ODD_NUM_COLS],
-            new boolean[Grid.EVEN_NUM_COLS],
-            new boolean[Grid.ODD_NUM_COLS]
+        new boolean[Grid.EVEN_NUM_COLS],
+        new boolean[Grid.ODD_NUM_COLS],
+        new boolean[Grid.EVEN_NUM_COLS],
+        new boolean[Grid.ODD_NUM_COLS],
+        new boolean[Grid.EVEN_NUM_COLS],
+        new boolean[Grid.ODD_NUM_COLS],
+        new boolean[Grid.EVEN_NUM_COLS]
     };
 
     public Map<Integer, ArrayList<Integer[]>> trueCells = new HashMap<>();

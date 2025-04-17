@@ -227,4 +227,26 @@ public abstract class Grid {
     {
         return trueCells.size();
     }
+
+    public Grid clone() {
+        try {
+            Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
+
+            // Copy grid values
+            for (int row = 0; row < NUM_ROWS; row++) {
+                for (int col = 0; col < this.grid[row].length; col++) {
+                    newGrid.grid[row][col] = this.grid[row][col];
+                }
+            }
+
+            // Copy trueCells map
+            for (Map.Entry<Integer, ArrayList<Integer[]>> entry : this.trueCells.entrySet()) {
+                newGrid.trueCells.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+            }
+
+            return newGrid;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to clone Grid", e);
+        }
+    }
 }

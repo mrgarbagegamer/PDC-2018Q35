@@ -41,6 +41,7 @@ public class TestClickCombination extends Thread
                 {
                     System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", this.getName(), combinationClicks);
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
+                    return;
                 }
 
                 ArrayList<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);

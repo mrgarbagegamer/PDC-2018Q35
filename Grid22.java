@@ -4,13 +4,6 @@ public class Grid22 extends Grid
     void initialize() 
     {
         // Initialize for Q22/Shrek
-        this.grid[0] = new boolean[Grid.EVEN_NUM_COLS];
-        this.grid[1] = new boolean[Grid.ODD_NUM_COLS];
-        this.grid[2] = new boolean[Grid.EVEN_NUM_COLS];
-        this.grid[3] = new boolean[Grid.ODD_NUM_COLS];
-        this.grid[4] = new boolean[Grid.EVEN_NUM_COLS];
-        this.grid[5] = new boolean[Grid.ODD_NUM_COLS];
-        this.grid[6] = new boolean[Grid.EVEN_NUM_COLS];
 
         // Top row values
         int topRow = 0;

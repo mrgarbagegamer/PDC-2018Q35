@@ -1,4 +1,3 @@
-import java.util.HashMap;
 public class Grid13 extends Grid 
 {
     void initialize() 
@@ -38,29 +37,4 @@ public class Grid13 extends Grid
         // this.click(3,7);
         // this.click(3,9);
     }
-
-    public Grid clone() 
-    {
-        Grid newGrid = new Grid13();
-        // For each value in the grid, copy it to the new grid
-        for (int row = 0; row < Grid.NUM_ROWS; row++) 
-        {
-            for (int col = 0; col < this.grid[row].length; col++) 
-            {
-                newGrid.grid[row][col] = this.grid[row][col];
-            }
-        }
-        newGrid.trueCells = new HashMap<>();
-        // Add the true cells to the new grid's trueCells map
-        for (Integer key : this.trueCells.keySet()) 
-        {
-            // clone the Integer[] array to avoid reference issues
-            Integer[] cell = this.trueCells.get(key);
-            Integer[] newCell = {cell[0], cell[1]};
-            newGrid.trueCells.put(key, newCell);
-        }
-
-        return newGrid;
-    }
-
 }

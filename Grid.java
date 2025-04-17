@@ -230,4 +230,34 @@ public abstract class Grid {
     {
         return trueCells.size();
     }
+
+    public Grid clone() {
+        try {
+            Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
+
+            // For each value in the grid, copy it to the new grid
+            for (int row = 0; row < Grid.NUM_ROWS; row++) 
+            {
+                for (int col = 0; col < this.grid[row].length; col++) 
+                {
+                    newGrid.grid[row][col] = this.grid[row][col];
+                }
+            }
+            
+            newGrid.trueCells = new HashMap<>();
+
+            // Add the true cells to the new grid's trueCells map
+            for (Integer key : this.trueCells.keySet()) 
+            {
+                // clone the Integer[] array to avoid reference issues
+                Integer[] cell = this.trueCells.get(key);
+                Integer[] newCell = {cell[0], cell[1]};
+                newGrid.trueCells.put(key, newCell);
+            }
+
+            return newGrid;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to clone Grid", e);
+        }
+    }
 }

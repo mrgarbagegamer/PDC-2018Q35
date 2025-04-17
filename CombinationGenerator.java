@@ -42,14 +42,14 @@ public class CombinationGenerator extends Thread
                 return false; // Prune this branch
             }
 
-            Set<Integer[]> trueAdjSet = new HashSet<>();
+            Set<String> trueAdjSet = new HashSet<>();
             for (Integer[] adj : trueAdjacents) 
             {
-                trueAdjSet.add(adj);
+                trueAdjSet.add(adj[0] + "," + adj[1]);
             }
 
             boolean hasTrueAdjacent = currentCombination.stream().anyMatch(click -> 
-                trueAdjSet.contains(new Integer[] {click.row, click.col})
+                trueAdjSet.contains(click.row + "," + click.col)
             );
 
             if (!hasTrueAdjacent) 

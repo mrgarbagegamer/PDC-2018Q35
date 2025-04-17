@@ -1,5 +1,4 @@
 import java.util.List;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -43,7 +42,7 @@ public class TestClickCombination extends Thread
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
                 }
 
-                ArrayList<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
+                Set<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
                 if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
                 {
                     break;

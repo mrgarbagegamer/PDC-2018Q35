@@ -1,4 +1,4 @@
-import java.util.ArrayList;
+import java.util.HashSet;
 public class Grid22 extends Grid 
 {
     void initialize() 
@@ -12,7 +12,7 @@ public class Grid22 extends Grid
         {
             this.grid[topRow][col] = true;
             Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+            this.trueCells.put(topRow * 100 + col, new HashSet<Integer[]>() {{ add(cell); }});
         }
 
         // Recreate the top row values for the bottom row
@@ -21,7 +21,7 @@ public class Grid22 extends Grid
         for (int col : topRowCols) 
         {
             Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+            this.trueCells.put(topRow * 100 + col, new HashSet<Integer[]>() {{ add(cell); }});
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -33,7 +33,7 @@ public class Grid22 extends Grid
             {
                 this.grid[row][col] = true;
                 Integer[] cell = {row, col};
-                this.trueCells.put(row * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+                this.trueCells.put(row * 100 + col, new HashSet<Integer[]>() {{ add(cell); }});
             }
         }
 

@@ -10,7 +10,7 @@ public class CombinationGenerator extends Thread
     private List<Click> possibleClicks;
     private int numClicks;
     private Grid puzzleGrid;
-    private ArrayList<Integer[]> trueAdjacents;
+    private Set<Integer[]> trueAdjacents;
 
     public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Grid puzzleGrid) 
     {

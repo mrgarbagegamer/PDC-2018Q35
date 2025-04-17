@@ -1,4 +1,4 @@
-import java.util.ArrayList;
+import java.util.HashSet;
 public class Grid13 extends Grid 
 {
     void initialize() 
@@ -12,15 +12,15 @@ public class Grid13 extends Grid
                 this.grid[row][col] = true;
                 Integer[] cell = {row, col};
                 // Add the true cells to the trueCells map
-                this.trueCells.put(row * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+                this.trueCells.put(row * 100 + col, new HashSet<Integer[]>() {{ add(cell); }});
             }
         }
 
         this.grid[3][0] = true;
-        this.trueCells.put(300, new ArrayList<Integer[]>() {{ add(new Integer[] {3, 0}); }});
+        this.trueCells.put(300, new HashSet<Integer[]>() {{ add(new Integer[] {3, 0}); }});
 
         this.grid[3][14] = true;
-        this.trueCells.put(300, new ArrayList<Integer[]>() {{ add(new Integer[] {3, 14}); }});
+        this.trueCells.put(300, new HashSet<Integer[]>() {{ add(new Integer[] {3, 14}); }});
 
     }
 

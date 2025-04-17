@@ -1,7 +1,8 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-public abstract class Grid {
+public abstract class Grid 
+{
     // constants
     public static final int NUM_ROWS = 7;
     public static final int LAST_ROW = (NUM_ROWS - 1);
@@ -15,7 +16,8 @@ public abstract class Grid {
     public static final int LAST_EVEN_COL = (EVEN_NUM_COLS - 1);
 
     // Initializing the grid of seven rows with alternating columns of 16 and 15
-    boolean[][] grid = new boolean[][] {
+    boolean[][] grid = new boolean[][] 
+    {
         new boolean[Grid.EVEN_NUM_COLS],
         new boolean[Grid.ODD_NUM_COLS],
         new boolean[Grid.EVEN_NUM_COLS],
@@ -41,17 +43,20 @@ public abstract class Grid {
         }
     }
 
-    public static ArrayList<Integer[]> computeAdjacents(int row, int col) {
+    public static ArrayList<Integer[]> computeAdjacents(int row, int col) 
+    {
         ArrayList<Integer[]> affectedPieces = new ArrayList<>();
 
-        if (row % 2 == 0) { // even rows with 16 columns
+        if (row % 2 == 0) // even rows with 16 columns
+        { 
             affectedPieces.add(new Integer[] { row - 1, col - 1 });
             affectedPieces.add(new Integer[] { row - 1, col });
             affectedPieces.add(new Integer[] { row, col - 1 });
             affectedPieces.add(new Integer[] { row, col + 1 });
             affectedPieces.add(new Integer[] { row + 1, col - 1 });
             affectedPieces.add(new Integer[] { row + 1, col });
-        } else { // odd rows with 15 columns
+        } else // odd rows with 15 columns
+        { 
             affectedPieces.add(new Integer[] { row - 1, col });
             affectedPieces.add(new Integer[] { row - 1, col + 1 });
             affectedPieces.add(new Integer[] { row, col - 1 });
@@ -64,25 +69,31 @@ public abstract class Grid {
         return affectedPieces;
     }
 
-    public static ArrayList<Integer[]> findAdjacents(int row, int col) {
+    public static ArrayList<Integer[]> findAdjacents(int row, int col) 
+    {
         return adjacencyMap.get(row * 100 + col);
     }
 
-    public Grid() {
+    public Grid() 
+    {
         initialize();
     }
 
     abstract void initialize();
 
-    void copyColumnValues(boolean[] source, boolean[] target) {
-        for (int i = 0; i < source.length; i++) {
+    void copyColumnValues(boolean[] source, boolean[] target) 
+    {
+        for (int i = 0; i < source.length; i++) 
+        {
             target[i] = source[i];
         }
     }
 
-    public ArrayList<Integer[]> findTrueCells() {
+    public ArrayList<Integer[]> findTrueCells() 
+    {
         ArrayList<Integer[]> trueCellsList = new ArrayList<>();
-        for (Map.Entry<Integer, Integer[]> entry : trueCells.entrySet()) {
+        for (Map.Entry<Integer, Integer[]> entry : trueCells.entrySet()) 
+        {
             trueCellsList.add(entry.getValue());
         }
         return trueCellsList;
@@ -98,11 +109,13 @@ public abstract class Grid {
         return null;
     }
 
-    public void click(int row, int col) {
+    public void click(int row, int col) 
+    {
         ArrayList<Integer[]> affectedPieces = findAdjacents(row, col);
 
         // Flip the state of the affected pieces (if the cell is true, remove it from the trueCells map, otherwise add it)
-        for (Integer[] piece : affectedPieces) {
+        for (Integer[] piece : affectedPieces) 
+        {
             int pieceRow = piece[0];
             int pieceCol = piece[1];
             boolean currentState = grid[pieceRow][pieceCol];
@@ -111,12 +124,14 @@ public abstract class Grid {
             grid[pieceRow][pieceCol] = !currentState;
 
             // Update the trueCells map
-            if (currentState) {
+            if (currentState) 
+            {
                 if (trueCells.containsKey(pieceRow * 100 + pieceCol)) 
                 {
                     trueCells.remove(pieceRow * 100 + pieceCol);
                 } 
-            } else {
+            } else 
+            {
                 Integer[] cell = {pieceRow, pieceCol};
                 trueCells.putIfAbsent(pieceRow * 100 + pieceCol, cell);
             }
@@ -232,7 +247,8 @@ public abstract class Grid {
     }
 
     public Grid clone() {
-        try {
+        try 
+        {
             Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
 
             // For each value in the grid, copy it to the new grid
@@ -256,7 +272,8 @@ public abstract class Grid {
             }
 
             return newGrid;
-        } catch (Exception e) {
+        } catch (Exception e) 
+        {
             throw new RuntimeException("Failed to clone Grid", e);
         }
     }

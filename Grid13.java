@@ -20,15 +20,17 @@ public class Grid13 extends Grid
             for (int col = 1; col <= 14; col++)
             {
                 this.grid[row][col] = true;
+                Integer[] cell = {row, col};
                 // Add the true cells to the trueCells map
-                this.trueCells.computeIfAbsent(row * 100 + col, k -> new ArrayList<>()).add(new Integer[] { row, col });
+                this.trueCells.put(row * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
             }
         }
 
         this.grid[3][0] = true;
-        this.trueCells.computeIfAbsent(300, k -> new ArrayList<>()).add(new Integer[] {3, 0});
+        this.trueCells.put(300, new ArrayList<Integer[]>() {{ add(new Integer[] {3, 0}); }});
+
         this.grid[3][14] = true;
-        this.trueCells.computeIfAbsent(314, k -> new ArrayList<>()).add(new Integer[] {3, 14});
+        this.trueCells.put(314, new ArrayList<Integer[]>() {{ add(new Integer[] {3, 14}); }});
 
         // this.click(3,1);
         // this.click(3,3);

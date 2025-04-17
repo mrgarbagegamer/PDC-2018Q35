@@ -1,6 +1,8 @@
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Date; // Used for debug line
+import java.util.HashSet;
+import java.util.Set;
 
 public class CombinationGenerator extends Thread 
 {
@@ -34,29 +36,22 @@ public class CombinationGenerator extends Thread
 
         if (currentCombination.size() == k) 
         {
-            boolean hasTrueAdjacent = false;
             // Skip combinations with no true adjacents
             if (trueAdjacents == null) 
             {
                 return false; // Prune this branch
             }
 
-            for (Click click : currentCombination) 
+            Set<Integer[]> trueAdjSet = new HashSet<>();
+            for (Integer[] adj : trueAdjacents) 
             {
-                // Check if any of the cells in the combination is a first true adjacent
-                for (Integer[] adj : trueAdjacents) 
-                {
-                    if (click.row == adj[0] && click.col == adj[1]) 
-                    {
-                        hasTrueAdjacent = true;
-                        break;
-                    }
-                }
-                if (hasTrueAdjacent) 
-                {
-                    break;
-                }
+                trueAdjSet.add(adj);
             }
+
+            boolean hasTrueAdjacent = currentCombination.stream().anyMatch(click -> 
+                trueAdjSet.contains(new Integer[] {click.row, click.col})
+            );
+
             if (!hasTrueAdjacent) 
             {
                 Date date = new Date(); // Debug line

@@ -36,9 +36,10 @@ public class CombinationGenerator extends Thread
         ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 8 threads
         customPool.submit(() -> 
             possibleClicks.parallelStream().forEach(click -> {
+                int index = possibleClicks.indexOf(click);
                 List<Click> currentCombination = new ArrayList<>();
                 currentCombination.add(click);
-                generateCombinations(possibleClicks, numClicks, possibleClicks.indexOf(click) + 1, currentCombination);
+                generateCombinations(possibleClicks, numClicks, index + 1, currentCombination);
             })
         ).join();
         customPool.shutdown();

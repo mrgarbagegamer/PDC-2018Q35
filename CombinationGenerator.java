@@ -3,6 +3,8 @@ import java.util.List;
 import java.util.Date; // Used for debug line
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.ForkJoinPool;
 
 public class CombinationGenerator extends Thread 
 {
@@ -32,51 +34,61 @@ public class CombinationGenerator extends Thread
 
     public void run() 
     {
-        this.generateCombinations(this.possibleClicks, numClicks, 0, new ArrayList<>());
+        ForkJoinPool pool = new ForkJoinPool();
+        pool.invoke(new CombinationTask(possibleClicks, numClicks, 0, new ArrayList<>()));
     }
 
-    private boolean generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) // Returns false to break the previous layer of iteration if no true adjacents are found 
+    private class CombinationTask extends RecursiveTask<Boolean> 
     {
-        // Check if the problem has been solved
-        if (this.combinationQueue.isItSolved()) 
+        private List<Click> nodeList;
+        private int k;
+        private int start;
+        private List<Click> currentCombination;
+
+        public CombinationTask(List<Click> nodeList, int k, int start, List<Click> currentCombination) 
         {
-            return false; // Stop further exploration
+            this.nodeList = nodeList;
+            this.k = k;
+            this.start = start;
+            this.currentCombination = currentCombination;
         }
 
-        if (currentCombination.size() == k) 
+        @Override
+        protected Boolean compute()
         {
-            // Skip combinations with no true adjacents
-            if (trueAdjacents == null) 
+            // Check if the problem has been solved
+            if (combinationQueue.isItSolved()) 
             {
-                return false; // Prune this branch
+                return false;
             }
 
-            boolean hasTrueAdjacent = currentCombination.stream().anyMatch(click -> 
-                trueAdjacents.contains(click.row + "," + click.col)
-            );
-
-            if (!hasTrueAdjacent) 
+            // Base case: If the combination size is k
+            if (currentCombination.size() == k) 
             {
-                Date date = new Date(); // Debug line
-                System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + date); // Debug line
-                return false; // Stop exploring further combinations in this layer
+                if (trueAdjacents == null || currentCombination.stream().noneMatch(click -> trueAdjacents.contains(click.row + "," + click.col))) 
+                {
+                    // System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + (new Date())); // Debug line
+                    return false; // Prune this branch
+                }
+                combinationQueue.add(new ArrayList<>(currentCombination));
+                return true;
             }
-            this.combinationQueue.add(new ArrayList<>(currentCombination));
-            return true; // Continue exploring
+
+            // Parallelize recursive calls
+            List<CombinationTask> subTasks = new ArrayList<>();
+            for (int i = start; i < nodeList.size(); i++) 
+            {
+                currentCombination.add(nodeList.get(i));
+                CombinationTask task = new CombinationTask(nodeList, k, i + 1, new ArrayList<>(currentCombination));
+                subTasks.add(task);
+                currentCombination.remove(currentCombination.size() - 1);
+            }
+
+            // Invoke all subtasks in parallel
+            invokeAll(subTasks);
+
+            // Check if any subtask returned false (indicating termination)
+            return subTasks.stream().allMatch(RecursiveTask::join);
         }
-
-        for (int i = start; i < nodeList.size() && !this.combinationQueue.isItSolved(); i++) 
-        {
-            currentCombination.add(nodeList.get(i));
-            boolean shouldContinue = generateCombinations(nodeList, k, i + 1, currentCombination);
-            currentCombination.remove(currentCombination.size() - 1);
-
-            if (!shouldContinue) 
-            {
-                break;
-            }
-        }
-
-        return true; // Continue exploring
     }
 }

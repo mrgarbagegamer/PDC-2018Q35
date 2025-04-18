@@ -1,10 +1,11 @@
 import java.util.List;
 import java.util.Queue;
 import java.util.LinkedList;
+import java.util.ArrayList;
 
 public class CombinationQueue 
 {
-    private Queue<List<Click>> combinationQueue = new LinkedList<>();
+    public Queue<List<Click>> combinationQueue = new LinkedList<>();
     private boolean solutionFound = false;
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
@@ -49,10 +50,14 @@ public class CombinationQueue
             }
         }
 
-        boolean success = this.combinationQueue.add(combinationClicks);
+        synchronized (combinationQueue) {
+            combinationQueue.add(new ArrayList<>(combinationClicks));
+            System.out.printf("Added combination to the queue. Queue size is now %d\n", combinationQueue.size());
+        }
+
         this.notifyAll();
 
-        return success;
+        return true;
     }
 
     synchronized List<Click> getClicksCombination() 

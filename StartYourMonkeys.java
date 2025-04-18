@@ -22,7 +22,7 @@ public class StartYourMonkeys
     {
         int defaultNumClicks  = 15;
         int defaultNumThreads = 24;
-        int defaultQuestionNumber = 22;
+        int defaultQuestionNumber = 35;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;
@@ -49,20 +49,23 @@ public class StartYourMonkeys
         CombinationQueue combinationQueue = new CombinationQueue();
 
         // start generating different click combinations
-        Grid generatorPuzzleGrid = null;
+        Grid baseGrid = null;
 
-        if (questionNumber == 35) 
+        if (questionNumber == 13) 
         {
-            generatorPuzzleGrid = new Grid35();
+            baseGrid = new Grid13();
         }
 
+        else if (questionNumber == 22)
+        {
+            baseGrid = new Grid22();
+        }
         else 
         {
-            generatorPuzzleGrid = new Grid22();
+            baseGrid = new Grid35();
         }
 
-
-        CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks, generatorPuzzleGrid);
+        CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks, baseGrid.clone());
         cb.start();
 
         // create the numThreads to start playing the game
@@ -70,20 +73,9 @@ public class StartYourMonkeys
 
         for(int i=0; i < numThreads; i++)
         {
-            Grid puzzleGrid = null;
-            if (questionNumber == 35) 
-            {
-                puzzleGrid = new Grid35();
-            }
-
-            else 
-            {
-                puzzleGrid = new Grid22();
-            }
-
             String threadName = String.format("Monkey-%d", i);
 
-            monkeys[i] = new TestClickCombination(threadName, combinationQueue, puzzleGrid);
+            monkeys[i] = new TestClickCombination(threadName, combinationQueue, baseGrid.clone());
             monkeys[i].start();
         }
 
@@ -105,16 +97,8 @@ public class StartYourMonkeys
 
         // create a new grid and test out the winning combination
 
-        Grid puzzleGrid = null;
-        if (questionNumber == 35) 
-        {
-            puzzleGrid = new Grid35();
-        }
+        Grid puzzleGrid = baseGrid.clone();
 
-        else 
-        {
-            puzzleGrid = new Grid22();
-        }
         boolean solved = false;
         for (int i = 0; (i < winningCombination.size()) && (!solved); i++) 
         {

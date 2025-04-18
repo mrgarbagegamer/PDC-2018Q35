@@ -31,10 +31,10 @@ public class Grid13 extends Grid
         this.grid[3][14] = true;
         this.trueCells.put(314, (new Integer[] {3, 14}));
 
-        // this.click(3,1);
-        // this.click(3,3);
-        // this.click(3,5);
-        // this.click(3,7);
-        // this.click(3,9);
+        this.click(3,1);
+        this.click(3,3);
+        this.click(3,5);
+        this.click(3,7);
+        this.click(3,9);
     }
 }

@@ -247,18 +247,16 @@ public abstract class Grid {
         return trueCells.size();
     }
 
-    public Grid clone() {
+    public Grid clone() 
+    {
         try 
         {
             Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
 
-            // For each value in the grid, copy it to the new grid
-            for (int row = 0; row < Grid.NUM_ROWS; row++) 
+            // Copy grid values
+            for (int row = 0; row < NUM_ROWS; row++) 
             {
-                for (int col = 0; col < this.grid[row].length; col++) 
-                {
-                    newGrid.grid[row][col] = this.grid[row][col];
-                }
+                System.arraycopy(this.grid[row], 0, newGrid.grid[row], 0, this.grid[row].length);
             }
             
             newGrid.trueCells = new HashMap<>();

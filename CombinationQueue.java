@@ -1,79 +1,53 @@
 import java.util.List;
-import java.util.Queue;
-import java.util.LinkedList;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
-public class CombinationQueue 
-{
-    private Queue<List<Click>> combinationQueue = new LinkedList<>();
-    private boolean solutionFound = false;
+public class CombinationQueue {
+    private BlockingQueue<List<Click>> combinationQueue;
+    private volatile boolean solutionFound = false;
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
 
-    private static final int MAX_SIZE = 50000000;
-    private static final int WAIT_MS = 5;
+    // Constructor to set the maximum size of the queue
+    public CombinationQueue(int maxSize) {
+        this.combinationQueue = new LinkedBlockingQueue<>(maxSize); // Bounded queue
+    }
 
-    boolean isItSolved() 
-    {
+    boolean isItSolved() {
         return this.solutionFound;
     }
 
-    synchronized void solutionFound(String monkeyName, List<Click> winningCombination) 
-    {
+    synchronized void solutionFound(String monkeyName, List<Click> winningCombination) {
         this.solutionFound = true;
         this.winningMonkey = monkeyName;
         this.winningCombination = winningCombination;
     }
 
-    public String getWinningMonkey()
-    {
+    public String getWinningMonkey() {
         return this.winningMonkey;
     }
 
-    public List<Click> getWinningCombination()
-    {
+    public List<Click> getWinningCombination() {
         return this.winningCombination;
     }
 
-    synchronized boolean add(List<Click> combinationClicks) 
-    {
-        while( this.combinationQueue.size() == MAX_SIZE )
-        {
-            this.notifyAll();
-
-            try 
-            {
-                wait(WAIT_MS);
-            } catch (InterruptedException e) 
-            {
-                e.printStackTrace();
-            }
+    boolean add(List<Click> combinationClicks) {
+        try {
+            return this.combinationQueue.offer(combinationClicks, 10, TimeUnit.MILLISECONDS); // Waits up to 1 second
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
-
-        boolean success = this.combinationQueue.add(combinationClicks);
-        this.notifyAll();
-
-        return success;
     }
 
-    synchronized List<Click> getClicksCombination() 
-    {
-        List<Click> combinationClicks = null;
-
-        while (combinationClicks == null) 
-        {
-            combinationClicks = this.combinationQueue.poll();
-
-            try 
-            {
-                wait();
-            } catch (InterruptedException e) 
-            {
-                e.printStackTrace();
-            }
+    List<Click> getClicksCombination() {
+        try {
+            // Blocks if the queue is empty until an element becomes available
+            return this.combinationQueue.take();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); // Restore interrupted status
+            return null;
         }
-
-        this.notifyAll();
-
-        return combinationClicks;
     }
 }

@@ -3,6 +3,7 @@ import java.util.List;
 import java.util.Date; // Used for debug line
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 public class CombinationGenerator extends Thread 
 {
@@ -32,10 +33,18 @@ public class CombinationGenerator extends Thread
 
     public void run() 
     {
-        this.generateCombinations(this.possibleClicks, numClicks, 0, new ArrayList<>());
+        ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 8 threads
+        customPool.submit(() -> 
+            possibleClicks.parallelStream().forEach(click -> {
+                List<Click> currentCombination = new ArrayList<>();
+                currentCombination.add(click);
+                generateCombinations(possibleClicks, numClicks, possibleClicks.indexOf(click) + 1, currentCombination);
+            })
+        ).join();
+        customPool.shutdown();
     }
 
-    private boolean generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) // Returns false to break the previous layer of iteration if no true adjacents are found 
+    private boolean generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) 
     {
         // Check if the problem has been solved
         if (this.combinationQueue.isItSolved()) 
@@ -46,20 +55,12 @@ public class CombinationGenerator extends Thread
         if (currentCombination.size() == k) 
         {
             // Skip combinations with no true adjacents
-            if (trueAdjacents == null) 
-            {
-                return false; // Prune this branch
-            }
-
-            boolean hasTrueAdjacent = currentCombination.stream().anyMatch(click -> 
-                trueAdjacents.contains(click.row + "," + click.col)
-            );
-
-            if (!hasTrueAdjacent) 
+            if (trueAdjacents == null || !currentCombination.stream().anyMatch(click -> 
+                trueAdjacents.contains(click.row + "," + click.col))) 
             {
                 Date date = new Date(); // Debug line
                 System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + date); // Debug line
-                return false; // Stop exploring further combinations in this layer
+                return false; // Prune this branch
             }
             this.combinationQueue.add(new ArrayList<>(currentCombination));
             return true; // Continue exploring

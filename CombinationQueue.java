@@ -1,7 +1,6 @@
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 public class CombinationQueue {
     private BlockingQueue<List<Click>> combinationQueue;
@@ -34,7 +33,8 @@ public class CombinationQueue {
 
     boolean add(List<Click> combinationClicks) {
         try {
-            return this.combinationQueue.offer(combinationClicks, 1, TimeUnit.MILLISECONDS); // Waits up to 1 milliseconds
+            this.combinationQueue.put(combinationClicks);
+            return true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;

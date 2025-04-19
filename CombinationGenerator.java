@@ -62,8 +62,7 @@ public class CombinationGenerator extends Thread
         if (currentCombination.size() == k) 
         {
             // Skip combinations with no true adjacents
-            if (trueAdjacents == null || !currentCombination.stream().anyMatch(click -> 
-                trueAdjacents.contains(click.row + "," + click.col))) 
+            if (trueAdjacents == null || !hasTrueAdjacent(currentCombination)) 
             {
                 Date date = new Date(); // Debug line
                 System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + date); // Debug line
@@ -86,5 +85,18 @@ public class CombinationGenerator extends Thread
         }
 
         return true; // Continue exploring
+    }
+
+    private boolean hasTrueAdjacent(List<Click> currentCombination) 
+    {
+        for (Click click : currentCombination) 
+        {
+            // Check if the current click exists in trueAdjacents
+            if (trueAdjacents.contains(click.row + "," + click.col)) 
+            {
+                return true; // Found a true adjacent
+            }
+        }
+        return false; // No true adjacents found
     }
 }

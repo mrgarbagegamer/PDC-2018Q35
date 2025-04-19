@@ -34,7 +34,7 @@ public class CombinationQueue {
 
     boolean add(List<Click> combinationClicks) {
         try {
-            return this.combinationQueue.offer(combinationClicks, 1, TimeUnit.MILLISECONDS); // Waits up to 1 millisecond
+            return this.combinationQueue.offer(combinationClicks, 1, TimeUnit.MILLISECONDS); // Waits up to 1 milliseconds
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;

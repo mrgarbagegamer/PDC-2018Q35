@@ -130,10 +130,13 @@ public abstract class Grid {
             // Update the trueCells map
             if (currentState) 
             {
-                trueCells.get(pieceRow * 100 + pieceCol).remove(piece);
-                if (trueCells.get(pieceRow * 100 + pieceCol).isEmpty()) 
-                {
-                    trueCells.remove(pieceRow * 100 + pieceCol);
+                // Check if the key exists in the map before accessing it
+                Set<Integer[]> cellSet = trueCells.get(pieceRow * 100 + pieceCol);
+                if (cellSet != null) {
+                    cellSet.remove(piece);
+                    if (cellSet.isEmpty()) {
+                        trueCells.remove(pieceRow * 100 + pieceCol);
+                    }
                 }
             } else 
             {

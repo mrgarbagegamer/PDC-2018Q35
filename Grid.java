@@ -245,22 +245,23 @@ public abstract class Grid {
         return trueCells.size();
     }
 
-    public Grid clone() {
+    public Grid clone() 
+    {
         try 
         {
             Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
 
             // Copy grid values
-            for (int row = 0; row < NUM_ROWS; row++) {
-                for (int col = 0; col < this.grid[row].length; col++) {
-                    newGrid.grid[row][col] = this.grid[row][col];
-                }
+            for (int row = 0; row < NUM_ROWS; row++) 
+            {
+                System.arraycopy(this.grid[row], 0, newGrid.grid[row], 0, this.grid[row].length);
             }
 
             // Copy trueCells map
             newGrid.trueCells = new HashMap<>();
-            for (Map.Entry<Integer, Set<Integer[]>> entry : this.trueCells.entrySet()) {
-                newGrid.trueCells.put(entry.getKey(), new HashSet<Integer[]>(entry.getValue()));
+            for (Map.Entry<Integer, Set<Integer[]>> entry : this.trueCells.entrySet()) 
+            {
+                newGrid.trueCells.put(entry.getKey(), new HashSet<>(entry.getValue()));
             }
 
             return newGrid;

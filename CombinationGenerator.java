@@ -4,6 +4,7 @@ import java.util.Date; // Used for debug line
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import java.util.stream.IntStream;
 
 public class CombinationGenerator extends Thread 
 {
@@ -35,8 +36,8 @@ public class CombinationGenerator extends Thread
     {
         ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 8 threads
         customPool.submit(() -> 
-            possibleClicks.parallelStream().forEach(click -> {
-                int index = possibleClicks.indexOf(click);
+            IntStream.range(0, possibleClicks.size()).parallel().forEach(index -> {
+                Click click = possibleClicks.get(index);
                 List<Click> currentCombination = new ArrayList<>();
                 currentCombination.add(click);
                 generateCombinations(possibleClicks, numClicks, index + 1, currentCombination);
@@ -53,11 +54,15 @@ public class CombinationGenerator extends Thread
             return false; // Stop further exploration
         }
 
+        if (nodeList.size() - start < k - currentCombination.size()) 
+        {
+            return false; // Not enough elements left to form a combination of size k
+        }
+
         if (currentCombination.size() == k) 
         {
             // Skip combinations with no true adjacents
-            if (trueAdjacents == null || !currentCombination.stream().anyMatch(click -> 
-                trueAdjacents.contains(click.row + "," + click.col))) 
+            if (trueAdjacents == null || !hasTrueAdjacent(currentCombination)) 
             {
                 Date date = new Date(); // Debug line
                 System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + date); // Debug line
@@ -80,5 +85,18 @@ public class CombinationGenerator extends Thread
         }
 
         return true; // Continue exploring
+    }
+
+    private boolean hasTrueAdjacent(List<Click> currentCombination) 
+    {
+        for (Click click : currentCombination) 
+        {
+            // Check if the current click exists in trueAdjacents
+            if (trueAdjacents.contains(click.row + "," + click.col)) 
+            {
+                return true; // Found a true adjacent
+            }
+        }
+        return false; // No true adjacents found
     }
 }

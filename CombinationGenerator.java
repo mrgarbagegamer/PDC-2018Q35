@@ -34,13 +34,15 @@ public class CombinationGenerator extends Thread
 
     public void run() 
     {
-        ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 8 threads
+        ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 16 threads
         customPool.submit(() -> 
             IntStream.range(0, possibleClicks.size()).parallel().forEach(index -> {
-                Click click = possibleClicks.get(index);
-                List<Click> currentCombination = new ArrayList<>();
-                currentCombination.add(click);
-                generateCombinations(possibleClicks, numClicks, index + 1, currentCombination);
+                if (!this.combinationQueue.isItSolved()) { // Check if solution is found
+                    Click click = possibleClicks.get(index);
+                    List<Click> currentCombination = new ArrayList<>();
+                    currentCombination.add(click);
+                    generateCombinations(possibleClicks, numClicks, index + 1, currentCombination);
+                }
             })
         ).join();
         customPool.shutdown();

@@ -1,7 +1,6 @@
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
 
 public class CombinationQueue {
     private BlockingQueue<List<Click>> combinationQueue;

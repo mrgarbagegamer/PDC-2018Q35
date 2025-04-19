@@ -44,7 +44,7 @@ public class CombinationQueue {
     List<Click> getClicksCombination() {
         try {
             // Blocks if the queue is empty until an element becomes available
-            return this.combinationQueue.poll(1, TimeUnit.MILLISECONDS); // Waits up to 1 millisecond
+            return this.combinationQueue.take(); // Waits up to 1 millisecond
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupted status
             return null;

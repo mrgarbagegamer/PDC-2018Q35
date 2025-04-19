@@ -4,6 +4,7 @@ import java.util.Date; // Used for debug line
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import java.util.stream.IntStream;
 
 public class CombinationGenerator extends Thread 
 {
@@ -35,8 +36,8 @@ public class CombinationGenerator extends Thread
     {
         ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 8 threads
         customPool.submit(() -> 
-            possibleClicks.parallelStream().forEach(click -> {
-                int index = possibleClicks.indexOf(click);
+            IntStream.range(0, possibleClicks.size()).parallel().forEach(index -> {
+                Click click = possibleClicks.get(index);
                 List<Click> currentCombination = new ArrayList<>();
                 currentCombination.add(click);
                 generateCombinations(possibleClicks, numClicks, index + 1, currentCombination);
@@ -51,6 +52,11 @@ public class CombinationGenerator extends Thread
         if (this.combinationQueue.isItSolved()) 
         {
             return false; // Stop further exploration
+        }
+
+        if (nodeList.size() - start < k - currentCombination.size()) 
+        {
+            return false; // Not enough elements left to form a combination of size k
         }
 
         if (currentCombination.size() == k) 

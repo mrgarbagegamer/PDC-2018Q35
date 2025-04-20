@@ -23,6 +23,11 @@ public class Grid13 extends Grid
         this.grid[3][14] = true;
 
         this.trueCount = 30;
+        // this.click(3,1);
+        // this.click(3,3);
+        // this.click(3,5);
+        // this.click(3,7);
+        // this.click(3,9);
     }
 
     public Grid clone() 

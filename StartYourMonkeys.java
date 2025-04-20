@@ -46,7 +46,7 @@ public class StartYourMonkeys {
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
         for(int i=0; i < numThreads; i++){
-            Grid puzzleGrid = new Grid22();
+            Grid puzzleGrid = new Grid13();
             String threadName = String.format("Monkey-%d", i);
 
             monkeys[i] = new TestClickCombination(threadName, combinationQueue, puzzleGrid);
@@ -62,12 +62,15 @@ public class StartYourMonkeys {
             }
         }
 
-        List<Click> winningCombination = combinationQueue.getClicksCombination();
+        List<Click> winningCombination = combinationQueue.getWinningCombination();
 
+        System.out.println("\n--------------------------------------\n");
+        
         System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", combinationQueue.getWinningMonkey(), winningCombination);
 
+        System.out.println("\n--------------------------------------\n");
         // create a new grid and test out the winning combination
-        Grid puzzleGrid = new Grid22();
+        Grid puzzleGrid = new Grid13();
         boolean solved = false;
         for (int i = 0; (i < winningCombination.size()) && (!solved); i++) {
             Click click = winningCombination.get(i);

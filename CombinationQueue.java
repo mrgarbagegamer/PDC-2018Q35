@@ -11,7 +11,7 @@ public class CombinationQueue {
     private static final int MAX_SIZE = 1000000;
     private static final int WAIT_MS = 5;
 
-    boolean isItSolved() {
+    synchronized boolean isItSolved() {
         return this.solutionFound;
     }
 
@@ -49,11 +49,11 @@ public class CombinationQueue {
     synchronized List<Click> getClicksCombination() {
         List<Click> combinationClicks = null;
 
-        while (combinationClicks == null) {
+        while (combinationClicks == null && !this.solutionFound) {
             combinationClicks = this.combinationQueue.poll();
 
             try {
-                wait();
+                wait(10);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }

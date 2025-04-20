@@ -39,7 +39,7 @@ public class StartYourMonkeys {
         CombinationQueue combinationQueue = new CombinationQueue();
 
         // start generating different click combinations
-        Grid generatorPuzzleGrid = new Grid22();
+        Grid generatorPuzzleGrid = new Grid13();
         CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks, generatorPuzzleGrid);
         cb.start();
 

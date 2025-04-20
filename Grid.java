@@ -37,7 +37,7 @@ public abstract class Grid {
         }
     }
 
-    private ArrayList<Integer[]> findTrueCells() {
+    public ArrayList<Integer[]> findTrueCells() {
         ArrayList<Integer[]> trueCells = new ArrayList<Integer[]>();
         for (int row = 0; row < grid.length; row++) {
             for (int col = 0; col < grid[row].length; col++) {
@@ -106,10 +106,7 @@ public abstract class Grid {
                 if ((adj[0] >= 0 && adj[0] < Grid.NUM_ROWS) &&
                     (adj[1] >= 0 && adj[1] < grid[adj[0]].length)) 
                 {
-                    if (grid[adj[0]][adj[1]]) 
-                    {
-                        trueAdjacents.add(adj);
-                    }
+                    trueAdjacents.add(adj);
                 }
             }
         }

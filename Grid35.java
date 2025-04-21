@@ -12,6 +12,9 @@ public class Grid35 extends Grid
         this.grid[5] = new boolean[Grid.ODD_NUM_COLS];
         this.grid[6] = new boolean[Grid.EVEN_NUM_COLS];
 
+        // reset the trueCells map
+        this.trueCells.clear();
+
         // Set specific cells to true and add them to trueCells
         this.grid[2][8] = true;
         this.trueCells.computeIfAbsent(2, k -> new ArrayList<>()).add(new Integer[] {2, 8});

@@ -12,6 +12,9 @@ public class Grid13 extends Grid
         this.grid[5] = new boolean[Grid.ODD_NUM_COLS];
         this.grid[6] = new boolean[Grid.EVEN_NUM_COLS];
 
+        // reset the trueCells map
+        this.trueCells.clear();
+
         for (int row = 2; row <= 4; row += 2)
         {
             for (int col = 1; col <= 14; col++)

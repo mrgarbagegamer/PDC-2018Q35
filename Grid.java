@@ -90,7 +90,7 @@ public abstract class Grid {
         return trueCellsList;
     }
 
-    private Integer[] findFirstTrueCell()
+    public Integer[] findFirstTrueCell()
     {
         // Return the first element in the trueCells map
         for (Map.Entry<Integer, ArrayList<Integer[]>> entry : trueCells.entrySet()) 
@@ -118,7 +118,7 @@ public abstract class Grid {
             // Update the trueCells map
             if (currentState) {
                 trueCount--;
-                trueCells.get(pieceRow * 100 + pieceCol).remove(piece);
+                trueCells.get(pieceRow * 100 + pieceCol).removeIf(cell -> cell[0] == pieceRow && cell[1] == pieceCol);
                 if (trueCells.get(pieceRow * 100 + pieceCol).isEmpty()) {
                     trueCells.remove(pieceRow * 100 + pieceCol);
                 }

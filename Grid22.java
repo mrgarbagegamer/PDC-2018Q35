@@ -12,6 +12,9 @@ public class Grid22 extends Grid
         this.grid[5] = new boolean[Grid.ODD_NUM_COLS];
         this.grid[6] = new boolean[Grid.EVEN_NUM_COLS];
 
+        // reset the trueCells map
+        this.trueCells.clear();
+
         // Top row values
         int topRow = 0;
         int[] topRowCols = {1, 2, 4, 5, 7, 8, 10, 11, 13, 14};

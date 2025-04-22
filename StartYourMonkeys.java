@@ -22,7 +22,7 @@ public class StartYourMonkeys
     {
         int defaultNumClicks  = 15;
         int defaultNumThreads = 24;
-        int defaultQuestionNumber = 35;
+        int defaultQuestionNumber = 22;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;
@@ -51,18 +51,17 @@ public class StartYourMonkeys
         // start generating different click combinations
         Grid baseGrid = null;
 
-        if (questionNumber == 13) 
+        if (questionNumber == 35) 
+        {
+            baseGrid = new Grid35();
+        }
+        else if (questionNumber == 13)
         {
             baseGrid = new Grid13();
         }
-
-        else if (questionNumber == 22)
-        {
-            baseGrid = new Grid22();
-        }
         else 
         {
-            baseGrid = new Grid35();
+            baseGrid = new Grid22();
         }
 
         CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks, baseGrid.clone());
@@ -91,10 +90,13 @@ public class StartYourMonkeys
             }
         }
 
-        List<Click> winningCombination = combinationQueue.getClicksCombination();
+        List<Click> winningCombination = combinationQueue.getWinningCombination();
 
+        System.out.println("\n--------------------------------------\n");
+        
         System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", combinationQueue.getWinningMonkey(), winningCombination);
 
+        System.out.println("\n--------------------------------------\n");
         // create a new grid and test out the winning combination
 
         Grid puzzleGrid = baseGrid.clone();

@@ -17,13 +17,13 @@ public class TestClickCombination extends Thread
 
     public void run() 
     {
-        boolean solved = false;
+        boolean iSolvedIt = false;
 
-        while(!solved)
+        while(!iSolvedIt && !this.combinationQueue.isItSolved())
         {
             List<Click> combinationClicks = this.combinationQueue.getClicksCombination();
 
-            for (int i = 0; (i < combinationClicks.size()) && (!solved); i++) 
+            for (int i = 0; (!iSolvedIt) && (!this.combinationQueue.isItSolved()) && (i < combinationClicks.size()); i++) 
             {
                 Click click = combinationClicks.get(i);
 
@@ -35,11 +35,14 @@ public class TestClickCombination extends Thread
                     break;
                 }
                 
-                solved = this.puzzleGrid.isSolved();
+                
+                iSolvedIt = this.puzzleGrid.isSolved();
 
-                if(solved)
+                if(iSolvedIt)
                 {
+                    System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", this.getName(), combinationClicks);
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
+                    return;
                 }
 
                 Set<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
@@ -64,15 +67,16 @@ public class TestClickCombination extends Thread
                     }
                 }
 
-
             }
 
             
-            if(!solved)
+            if(!iSolvedIt && !this.combinationQueue.isItSolved())
             {
                 System.out.printf("%s - Tried and failed: [%s]\n", this.getName(), combinationClicks);
             }
-            
+
+            // reset the grid for the next combination
+            this.puzzleGrid.initialize();
         }
     }
 

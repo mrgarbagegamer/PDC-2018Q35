@@ -70,11 +70,10 @@ public class StartYourMonkeys
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
-        for(int i=0; i < numThreads; i++)
+        for (int i = 0; i < numThreads; i++) 
         {
             String threadName = String.format("Monkey-%d", i);
-
-            monkeys[i] = new TestClickCombination(threadName, combinationQueue, baseGrid.clone());
+            monkeys[i] = new TestClickCombination(threadName, combinationQueue, baseGrid.clone(), cb); // Pass CombinationGenerator
             monkeys[i].start();
         }
 
@@ -90,7 +89,15 @@ public class StartYourMonkeys
             }
         }
 
+
+
         List<Click> winningCombination = combinationQueue.getWinningCombination();
+
+        if (cb.isGenerationComplete() && winningCombination == null) 
+        {
+            System.out.println("No solution found. Exiting.");
+            return;
+        }
 
         System.out.println("\n--------------------------------------\n");
         

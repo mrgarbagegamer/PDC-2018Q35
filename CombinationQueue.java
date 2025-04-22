@@ -42,13 +42,20 @@ public class CombinationQueue {
         }
     }
 
-    List<Click> getClicksCombination() {
-        try {
-            // Blocks if the queue is empty until an element becomes available
-            return this.combinationQueue.take();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); // Restore interrupted status
-            return null;
+    synchronized List<Click> getClicksCombination(CombinationGenerator combinationGenerator) {
+        while (true) {
+            try {
+                // Check if the queue is empty and generation is complete
+                if (combinationQueue.isEmpty() && combinationGenerator.isGenerationComplete()) {
+                    return null; // No more combinations to process
+                }
+
+                // Wait for an element to become available in the queue
+                return this.combinationQueue.take();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt(); // Restore interrupted status
+                return null;
+            }
         }
     }
 }

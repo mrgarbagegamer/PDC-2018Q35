@@ -6,12 +6,13 @@ public class TestClickCombination extends Thread
 {
     private CombinationQueue combinationQueue;
     private Grid puzzleGrid;
+    private CombinationGenerator combinationGenerator; // Reference to CombinationGenerator
 
-    public TestClickCombination(String threadName, CombinationQueue combinationQueue, Grid puzzleGrid) 
+    public TestClickCombination(String threadName, CombinationQueue combinationQueue, Grid puzzleGrid, CombinationGenerator combinationGenerator) 
     {
         this.combinationQueue = combinationQueue;
         this.puzzleGrid = puzzleGrid;
-
+        this.combinationGenerator = combinationGenerator; // Initialize reference
         this.setName(threadName);
     }
 
@@ -19,9 +20,20 @@ public class TestClickCombination extends Thread
     {
         boolean iSolvedIt = false;
 
-        while(!iSolvedIt && !this.combinationQueue.isItSolved())
+        while (!iSolvedIt && !this.combinationQueue.isItSolved()) 
         {
-            List<Click> combinationClicks = this.combinationQueue.getClicksCombination();
+            List<Click> combinationClicks = this.combinationQueue.getClicksCombination(combinationGenerator);
+
+            if (combinationClicks == null) 
+            {
+                // Exit if the queue is empty and generation is complete
+                if (combinationGenerator.isGenerationComplete()) 
+                {
+                    System.out.println(this.getName() + " - No more combinations to process. Exiting.");
+                    break;
+                }
+                continue;
+            }
 
             for (int i = 0; (!iSolvedIt) && (!this.combinationQueue.isItSolved()) && (i < combinationClicks.size()); i++) 
             {
@@ -31,14 +43,12 @@ public class TestClickCombination extends Thread
 
                 if (this.puzzleGrid.getTrueCount() > (combinationClicks.size() - i - 1) * 6) 
                 {
-                    // this means we have more true's than clicks left to process, so we can stop early
                     break;
                 }
-                
-                
+
                 iSolvedIt = this.puzzleGrid.isSolved();
 
-                if(iSolvedIt)
+                if (iSolvedIt) 
                 {
                     System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", this.getName(), combinationClicks);
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
@@ -46,11 +56,10 @@ public class TestClickCombination extends Thread
                 }
 
                 Set<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
-                if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
+                if (firstTrueAdjacents == null) 
                 {
                     break;
-                }
-                else
+                } else 
                 {
                     Set<String> adjSet = new HashSet<>();
                     for (Integer[] adj : firstTrueAdjacents) 
@@ -66,18 +75,14 @@ public class TestClickCombination extends Thread
                         break;
                     }
                 }
-
             }
 
-            
-            if(!iSolvedIt && !this.combinationQueue.isItSolved())
-            {
+            if (!iSolvedIt && !this.combinationQueue.isItSolved()) {
                 System.out.printf("%s - Tried and failed: [%s]\n", this.getName(), combinationClicks);
             }
 
-            // reset the grid for the next combination
+            // Reset the grid for the next combination
             this.puzzleGrid.initialize();
         }
     }
-
 }

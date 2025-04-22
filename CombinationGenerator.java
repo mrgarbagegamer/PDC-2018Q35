@@ -13,6 +13,7 @@ public class CombinationGenerator extends Thread
     private int numClicks;
     private Grid puzzleGrid;
     private Set<String> trueAdjacents;
+    private volatile boolean generationComplete = false; // New field
 
     public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Grid puzzleGrid) 
     {
@@ -32,6 +33,11 @@ public class CombinationGenerator extends Thread
         }
     }
 
+    public boolean isGenerationComplete() 
+    {
+        return generationComplete;
+    }
+
     public void run() 
     {
         ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 16 threads
@@ -46,6 +52,9 @@ public class CombinationGenerator extends Thread
             })
         ).join();
         customPool.shutdown();
+
+        // Mark generation as complete
+        generationComplete = true;
     }
 
     private boolean generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) 

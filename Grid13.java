@@ -36,5 +36,7 @@ public class Grid13 extends Grid
         // this.click(3,5);
         // this.click(3,7);
         // this.click(3,9);
+        // this.click(3,11);
+        // this.click(3,13);
     }
 }

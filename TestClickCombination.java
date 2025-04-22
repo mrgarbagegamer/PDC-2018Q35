@@ -6,13 +6,11 @@ public class TestClickCombination extends Thread
 {
     private CombinationQueue combinationQueue;
     private Grid puzzleGrid;
-    private CombinationGenerator combinationGenerator; // Reference to CombinationGenerator
 
-    public TestClickCombination(String threadName, CombinationQueue combinationQueue, Grid puzzleGrid, CombinationGenerator combinationGenerator) 
+    public TestClickCombination(String threadName, CombinationQueue combinationQueue, Grid puzzleGrid) 
     {
         this.combinationQueue = combinationQueue;
         this.puzzleGrid = puzzleGrid;
-        this.combinationGenerator = combinationGenerator; // Initialize reference
         this.setName(threadName);
     }
 
@@ -22,12 +20,12 @@ public class TestClickCombination extends Thread
 
         while (!iSolvedIt && !this.combinationQueue.isItSolved()) 
         {
-            List<Click> combinationClicks = this.combinationQueue.getClicksCombination(combinationGenerator);
+            List<Click> combinationClicks = this.combinationQueue.getClicksCombination();
 
             if (combinationClicks == null) 
             {
                 // Exit if the queue is empty and generation is complete
-                if (combinationGenerator.isGenerationComplete()) 
+                if (combinationQueue.isGenerationComplete()) 
                 {
                     System.out.println(this.getName() + " - No more combinations to process. Exiting.");
                     break;

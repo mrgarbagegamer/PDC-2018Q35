@@ -7,6 +7,7 @@ public class CombinationQueue {
     private volatile boolean solutionFound = false;
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
+    private volatile boolean generationComplete = false; // New field
 
     // Constructor to set the maximum size of the queue
     public CombinationQueue(int maxSize) {
@@ -42,13 +43,13 @@ public class CombinationQueue {
         }
     }
 
-    synchronized List<Click> getClicksCombination(CombinationGenerator combinationGenerator) {
+    synchronized List<Click> getClicksCombination() {
         while (true) {
             try {
                 // Check if the queue is empty and generation is complete
                 if (combinationQueue.isEmpty()) 
                 {
-                    if (combinationGenerator.isGenerationComplete()) 
+                    if (this.generationComplete) 
                     {
                         return null; // No more combinations to process
                     }
@@ -65,5 +66,14 @@ public class CombinationQueue {
                 return null;
             }
         }
+    }
+    public synchronized void markGenerationComplete()
+    {
+        this.generationComplete = true;
+    }
+
+    public synchronized boolean isGenerationComplete() 
+    {
+        return this.generationComplete;
     }
 }

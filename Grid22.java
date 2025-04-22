@@ -5,6 +5,16 @@ public class Grid22 extends Grid
     {
         // Initialize for Q22/Shrek
 
+        // reset the trueCells map and set all cells to false
+        for (int row = 0; row < Grid.NUM_ROWS; row++) 
+        {
+            for (int col = 0; col < this.grid[row].length; col++) 
+            {
+                this.grid[row][col] = false;
+            }
+        }
+        this.trueCells.clear();
+
         // Top row values
         int topRow = 0;
         int[] topRowCols = {1, 2, 4, 5, 7, 8, 10, 11, 13, 14};
@@ -12,7 +22,7 @@ public class Grid22 extends Grid
         {
             this.grid[topRow][col] = true;
             Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, new HashSet<Integer[]>() {{ add(cell); }});
+            this.trueCells.put(topRow * 100 + col, cell);
         }
 
         // Recreate the top row values for the bottom row
@@ -21,7 +31,7 @@ public class Grid22 extends Grid
         for (int col : topRowCols) 
         {
             Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, new HashSet<Integer[]>() {{ add(cell); }});
+            this.trueCells.put(topRow * 100 + col, cell);
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -33,10 +43,8 @@ public class Grid22 extends Grid
             {
                 this.grid[row][col] = true;
                 Integer[] cell = {row, col};
-                this.trueCells.put(row * 100 + col, new HashSet<Integer[]>() {{ add(cell); }});
+                this.trueCells.put(row * 100 + col, cell);
             }
         }
-
     }
-
 }

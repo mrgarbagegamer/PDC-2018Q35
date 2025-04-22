@@ -19,16 +19,16 @@ public abstract class Grid {
     // Initializing the grid of seven rows with alternating columns of 16 and 15
     boolean[][] grid = new boolean[][] 
     {
-            new boolean[Grid.EVEN_NUM_COLS],
-            new boolean[Grid.ODD_NUM_COLS],
-            new boolean[Grid.EVEN_NUM_COLS],
-            new boolean[Grid.ODD_NUM_COLS],
-            new boolean[Grid.EVEN_NUM_COLS],
-            new boolean[Grid.ODD_NUM_COLS],
-            new boolean[Grid.EVEN_NUM_COLS]
+        new boolean[Grid.EVEN_NUM_COLS],
+        new boolean[Grid.ODD_NUM_COLS],
+        new boolean[Grid.EVEN_NUM_COLS],
+        new boolean[Grid.ODD_NUM_COLS],
+        new boolean[Grid.EVEN_NUM_COLS],
+        new boolean[Grid.ODD_NUM_COLS],
+        new boolean[Grid.EVEN_NUM_COLS]
     };
 
-    public Map<Integer, Set<Integer[]>> trueCells = new HashMap<>();
+    public Map<Integer, Integer[]> trueCells = new HashMap<>();
 
     private static final Map<Integer, Set<Integer[]>> adjacencyMap = new HashMap<>();
 
@@ -93,22 +93,19 @@ public abstract class Grid {
     public Set<Integer[]> findTrueCells() 
     {
         HashSet<Integer[]> trueCellsList = new HashSet<>();
-        for (Map.Entry<Integer, Set<Integer[]>> entry : trueCells.entrySet()) 
+        for (Map.Entry<Integer, Integer[]> entry : trueCells.entrySet()) 
         {
-            trueCellsList.addAll(entry.getValue());
+            trueCellsList.add(entry.getValue());
         }
         return trueCellsList;
     }
 
-    private Integer[] findFirstTrueCell()
+    public Integer[] findFirstTrueCell()
     {
         // Return the first element in the trueCells map
-        for (Map.Entry<Integer, Set<Integer[]>> entry : trueCells.entrySet()) 
+        for (Map.Entry<Integer, Integer[]> entry : trueCells.entrySet()) 
         {
-            if (!entry.getValue().isEmpty()) 
-            {
-                return entry.getValue().iterator().next();
-            }
+            return entry.getValue();
         }
         return null;
     }
@@ -130,14 +127,14 @@ public abstract class Grid {
             // Update the trueCells map
             if (currentState) 
             {
-                trueCells.get(pieceRow * 100 + pieceCol).remove(piece);
-                if (trueCells.get(pieceRow * 100 + pieceCol).isEmpty()) 
+                if (trueCells.containsKey(pieceRow * 100 + pieceCol)) 
                 {
                     trueCells.remove(pieceRow * 100 + pieceCol);
-                }
+                } 
             } else 
             {
-                trueCells.computeIfAbsent(pieceRow * 100 + pieceCol, k -> new HashSet<Integer[]>()).add(piece);
+                Integer[] cell = {pieceRow, pieceCol};
+                trueCells.putIfAbsent(pieceRow * 100 + pieceCol, cell);
             }
         }
     }
@@ -173,6 +170,11 @@ public abstract class Grid {
         Set<Integer[]> firstTrueAdjacents = findFirstTrueAdjacents();
         Set<Integer[]> filteredAdjacents = new HashSet<>();
 
+        if (firstTrueAdjacents == null) 
+        {
+            return null;
+        }
+        
         for (Integer[] adj : firstTrueAdjacents) 
         {
             // Compare if adjacent cell is after the clicked cell
@@ -250,17 +252,24 @@ public abstract class Grid {
         {
             Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
 
-            // Copy grid values
-            for (int row = 0; row < NUM_ROWS; row++) {
-                for (int col = 0; col < this.grid[row].length; col++) {
+            // For each value in the grid, copy it to the new grid
+            for (int row = 0; row < Grid.NUM_ROWS; row++) 
+            {
+                for (int col = 0; col < this.grid[row].length; col++) 
+                {
                     newGrid.grid[row][col] = this.grid[row][col];
                 }
             }
-
-            // Copy trueCells map
+            
             newGrid.trueCells = new HashMap<>();
-            for (Map.Entry<Integer, Set<Integer[]>> entry : this.trueCells.entrySet()) {
-                newGrid.trueCells.put(entry.getKey(), new HashSet<Integer[]>(entry.getValue()));
+
+            // Add the true cells to the new grid's trueCells map
+            for (Integer key : this.trueCells.keySet()) 
+            {
+                // clone the Integer[] array to avoid reference issues
+                Integer[] cell = this.trueCells.get(key);
+                Integer[] newCell = {cell[0], cell[1]};
+                newGrid.trueCells.put(key, newCell);
             }
 
             return newGrid;

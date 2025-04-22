@@ -12,7 +12,7 @@ public class CombinationQueue
     private static final int MAX_SIZE = 50000000;
     private static final int WAIT_MS = 5;
 
-    boolean isItSolved() 
+    synchronized boolean isItSolved() 
     {
         return this.solutionFound;
     }
@@ -36,7 +36,7 @@ public class CombinationQueue
 
     synchronized boolean add(List<Click> combinationClicks) 
     {
-        while( this.combinationQueue.size() == MAX_SIZE )
+        while(this.combinationQueue.size() == MAX_SIZE)
         {
             this.notifyAll();
 
@@ -59,13 +59,13 @@ public class CombinationQueue
     {
         List<Click> combinationClicks = null;
 
-        while (combinationClicks == null) 
+        while (combinationClicks == null && !this.solutionFound) 
         {
             combinationClicks = this.combinationQueue.poll();
 
             try 
             {
-                wait();
+                wait(WAIT_MS);
             } catch (InterruptedException e) 
             {
                 e.printStackTrace();

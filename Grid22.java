@@ -29,8 +29,8 @@ public class Grid22 extends Grid
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
         for (int col : topRowCols) 
         {
-            Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, cell);
+            Integer[] cell = {bottomRow, col};
+            this.trueCells.put(bottomRow * 100 + col, cell);
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5

@@ -1,11 +1,18 @@
-import java.util.ArrayList;
+import java.util.HashMap;
 public class Grid13 extends Grid 
 {
     void initialize() 
     {
         // Initialize for Q13/Kermit
         
-        // reset the trueCells map
+        // reset the trueCells map and set all cells to false
+        for (int row = 0; row < Grid.NUM_ROWS; row++) 
+        {
+            for (int col = 0; col < this.grid[row].length; col++) 
+            {
+                this.grid[row][col] = false;
+            }
+        }
         this.trueCells.clear();
 
         for (int row = 2; row <= 4; row += 2)
@@ -15,15 +22,15 @@ public class Grid13 extends Grid
                 this.grid[row][col] = true;
                 Integer[] cell = {row, col};
                 // Add the true cells to the trueCells map
-                this.trueCells.put(row * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+                this.trueCells.put(row * 100 + col, cell);
             }
         }
 
         this.grid[3][0] = true;
-        this.trueCells.put(300, new ArrayList<Integer[]>() {{ add(new Integer[] {3, 0}); }});
+        this.trueCells.put(300, (new Integer[] {3, 0}));
 
         this.grid[3][14] = true;
-        this.trueCells.put(314, new ArrayList<Integer[]>() {{ add(new Integer[] {3, 14}); }});
+        this.trueCells.put(314, (new Integer[] {3, 14}));
 
         // this.click(3,1);
         // this.click(3,3);
@@ -43,10 +50,14 @@ public class Grid13 extends Grid
                 newGrid.grid[row][col] = this.grid[row][col];
             }
         }
+        newGrid.trueCells = new HashMap<>();
         // Add the true cells to the new grid's trueCells map
         for (Integer key : this.trueCells.keySet()) 
         {
-            newGrid.trueCells.put(key, new ArrayList<>(this.trueCells.get(key)));
+            // clone the Integer[] array to avoid reference issues
+            Integer[] cell = this.trueCells.get(key);
+            Integer[] newCell = {cell[0], cell[1]};
+            newGrid.trueCells.put(key, newCell);
         }
 
         return newGrid;

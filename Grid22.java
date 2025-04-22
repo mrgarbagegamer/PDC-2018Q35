@@ -1,11 +1,18 @@
-import java.util.ArrayList;
+import java.util.HashMap;
 public class Grid22 extends Grid 
 {
     void initialize() 
     {
         // Initialize for Q22/Shrek
 
-        // reset the trueCells map
+        // reset the trueCells map and set all cells to false
+        for (int row = 0; row < Grid.NUM_ROWS; row++) 
+        {
+            for (int col = 0; col < this.grid[row].length; col++) 
+            {
+                this.grid[row][col] = false;
+            }
+        }
         this.trueCells.clear();
 
         // Top row values
@@ -14,7 +21,7 @@ public class Grid22 extends Grid
         for (int col : topRowCols) {
             this.grid[topRow][col] = true;
             Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+            this.trueCells.put(topRow * 100 + col, cell);
         }
 
         // Recreate the top row values for the bottom row
@@ -22,7 +29,7 @@ public class Grid22 extends Grid
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
         for (int col : topRowCols) {
             Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+            this.trueCells.put(topRow * 100 + col, cell);
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -32,7 +39,7 @@ public class Grid22 extends Grid
             for (int col : rowOneCols) {
                 this.grid[row][col] = true;
                 Integer[] cell = {row, col};
-                this.trueCells.put(row * 100 + col, new ArrayList<Integer[]>() {{ add(cell); }});
+                this.trueCells.put(row * 100 + col, cell);
             }
         }
 
@@ -49,10 +56,14 @@ public class Grid22 extends Grid
                 newGrid.grid[row][col] = this.grid[row][col];
             }
         }
+        newGrid.trueCells = new HashMap<>();
         // Add the true cells to the new grid's trueCells map
         for (Integer key : this.trueCells.keySet()) 
         {
-            newGrid.trueCells.put(key, new ArrayList<>(this.trueCells.get(key)));
+            // clone the Integer[] array to avoid reference issues
+            Integer[] cell = this.trueCells.get(key);
+            Integer[] newCell = {cell[0], cell[1]};
+            newGrid.trueCells.put(key, newCell);
         }
 
         return newGrid;

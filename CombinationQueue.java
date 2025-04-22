@@ -46,13 +46,21 @@ public class CombinationQueue {
         while (true) {
             try {
                 // Check if the queue is empty and generation is complete
-                if (combinationQueue.isEmpty() && combinationGenerator.isGenerationComplete()) {
-                    return null; // No more combinations to process
+                if (combinationQueue.isEmpty()) 
+                {
+                    if (combinationGenerator.isGenerationComplete()) 
+                    {
+                        return null; // No more combinations to process
+                    }
+                    // Wait briefly to allow other threads to add combinations
+                    wait(5); // Avoid busy-waiting
+                    continue;
                 }
 
                 // Wait for an element to become available in the queue
                 return this.combinationQueue.take();
-            } catch (InterruptedException e) {
+            } catch (InterruptedException e) 
+            {
                 Thread.currentThread().interrupt(); // Restore interrupted status
                 return null;
             }

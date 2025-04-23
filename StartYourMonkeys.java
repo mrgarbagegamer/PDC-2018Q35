@@ -118,5 +118,7 @@ public class StartYourMonkeys
         }        
 
         puzzleGrid.printGrid();
+        // exit the program right afterwards
+        System.exit(0);
     }
 }

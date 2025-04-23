@@ -14,7 +14,7 @@ public class CombinationQueue {
         this.combinationQueue = new LinkedBlockingQueue<>(maxSize); // Bounded queue
     }
 
-    synchronized boolean isItSolved() 
+    public boolean isItSolved() 
     {
         return this.solutionFound;
     }
@@ -33,9 +33,13 @@ public class CombinationQueue {
         return this.winningCombination;
     }
 
-    synchronized boolean add(List<Click> combinationClicks) {
+    public boolean add(List<Click> combinationClicks) {
         try {
-            this.combinationQueue.put(combinationClicks);
+            this.combinationQueue.put(combinationClicks); // Blocking operation outside synchronized block
+            synchronized (this)
+            {
+                notifyAll(); // Notify waiting threads that a new combination is available
+            }
             return true;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -43,33 +47,34 @@ public class CombinationQueue {
         }
     }
 
-    synchronized List<Click> getClicksCombination() {
+    List<Click> getClicksCombination() {
         while (true) {
             try {
-                // Check if the queue is empty and generation is complete
-                if (combinationQueue.isEmpty()) 
-                {
-                    if (this.generationComplete) 
-                    {
-                        return null; // No more combinations to process
+                synchronized (this) {
+                    // Check if the queue is empty and generation is complete
+                    if (combinationQueue.isEmpty()) {
+                        if (this.generationComplete) {
+                            return null; // No more combinations to process
+                        }
+                        // Wait briefly for new combinations to be added
+                        wait(5); // Wait for 5ms before re-checking
+                        continue;
                     }
-                    // Wait briefly to allow other threads to add combinations
-                    wait(5); // Avoid busy-waiting
-                    continue;
                 }
 
-                // Wait for an element to become available in the queue
-                return this.combinationQueue.take();
-            } catch (InterruptedException e) 
-            {
-                Thread.currentThread().interrupt(); // Restore interrupted status
+                // Retrieve the next combination from the queue
+                return this.combinationQueue.take(); // Blocking operation outside synchronized block
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 return null;
             }
         }
     }
+
     public synchronized void markGenerationComplete()
     {
         this.generationComplete = true;
+        notifyAll(); // Notify waiting threads that generation is complete
     }
 
     public synchronized boolean isGenerationComplete() 

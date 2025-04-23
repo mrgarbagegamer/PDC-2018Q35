@@ -1,9 +1,12 @@
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TestClickCombination extends Thread 
 {
+    private static final Logger logger = Logger.getLogger(TestClickCombination.class.getName());
     private CombinationQueue combinationQueue;
     private Grid puzzleGrid;
 
@@ -27,7 +30,7 @@ public class TestClickCombination extends Thread
                 // Exit if the queue is empty and generation is complete
                 if (combinationQueue.isGenerationComplete()) 
                 {
-                    System.out.println(this.getName() + " - No more combinations to process. Exiting.");
+                    logger.info(this.getName() + " - No more combinations to process. Exiting.");
                     break;
                 }
                 continue;
@@ -48,7 +51,7 @@ public class TestClickCombination extends Thread
 
                 if (iSolvedIt) 
                 {
-                    System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", this.getName(), combinationClicks);
+                    logger.info(this.getName() + " - Found the solution as the following click combination: " + combinationClicks);
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
                     return;
                 }
@@ -75,8 +78,9 @@ public class TestClickCombination extends Thread
                 }
             }
 
-            if (!iSolvedIt && !this.combinationQueue.isItSolved()) {
-                System.out.printf("%s - Tried and failed: [%s]\n", this.getName(), combinationClicks);
+            if (!iSolvedIt && !this.combinationQueue.isItSolved()) 
+            {
+                logger.fine(this.getName() + " - Tried and failed: " + combinationClicks);
             }
 
             // Reset the grid for the next combination

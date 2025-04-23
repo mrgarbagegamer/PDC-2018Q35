@@ -1,8 +1,20 @@
 import java.util.List;
 import java.util.ArrayList;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class StartYourMonkeys 
 {
+    private static void configureLogging(Level level) 
+    {
+        Logger rootLogger = Logger.getLogger("");
+        rootLogger.setLevel(level);
+
+        ConsoleHandler consoleHandler = new ConsoleHandler();
+        consoleHandler.setLevel(level);
+        rootLogger.addHandler(consoleHandler);
+    }
 
     private static void populateClickList(List<Click> possibleClicks) 
     {
@@ -23,10 +35,12 @@ public class StartYourMonkeys
         int defaultNumClicks  = 15;
         int defaultNumThreads = 24;
         int defaultQuestionNumber = 22;
+        Level defaultLogLevel = Level.INFO;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;
         int questionNumber = defaultQuestionNumber;
+        Level logLevel = defaultLogLevel;
 
         // retrieve the arguments if any or set a default value
         try 
@@ -34,12 +48,13 @@ public class StartYourMonkeys
             numClicks  = Integer.parseInt(args[0]);
             numThreads = Integer.parseInt(args[1]);
             questionNumber = Integer.parseInt(args[2]);
-        } catch (Exception e) {
-            numClicks  = defaultNumClicks;
-            numThreads = defaultNumThreads;
-            questionNumber = defaultQuestionNumber;
+            logLevel = Level.parse(args[3].toUpperCase()); // Pass logging level as the 4th argument
+        } catch (Exception e) 
+        {
+            System.out.println("Using default values for missing or invalid arguments.");
         }
 
+        configureLogging(logLevel);
 
         // generate the list of possible clicks for our grid
         List<Click> possibleClicks = new ArrayList<>();

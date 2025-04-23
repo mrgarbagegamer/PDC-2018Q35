@@ -46,7 +46,7 @@ public class StartYourMonkeys
         StartYourMonkeys.populateClickList(possibleClicks);
 
         // create the queue to hold the generated combinations
-        CombinationQueue combinationQueue = new CombinationQueue(50000000);
+        CombinationQueue combinationQueue = new CombinationQueue(10000000);
 
         // start generating different click combinations
         Grid baseGrid = null;

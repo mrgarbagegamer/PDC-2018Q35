@@ -68,7 +68,10 @@ public class CombinationGenerator extends Thread
         {
             if (trueAdjacents == null || !hasTrueAdjacent(currentCombination)) 
             {
-                logger.fine("Skipping combination due to no true adjacents: " + currentCombination);
+                if (logger.isLoggable(Level.FINE)) 
+                {
+                    logger.fine("No true adjacents found for combination: " + currentCombination);
+                }
                 return false; // Prune this branch
             }
             this.combinationQueue.add(new ArrayList<>(currentCombination));

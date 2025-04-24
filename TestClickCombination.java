@@ -78,7 +78,7 @@ public class TestClickCombination extends Thread
                 }
             }
 
-            if (!iSolvedIt && !this.combinationQueue.isItSolved()) 
+            if (!iSolvedIt && !this.combinationQueue.isItSolved() && logger.isLoggable(Level.FINE)) 
             {
                 logger.fine(this.getName() + " - Tried and failed: " + combinationClicks);
             }

@@ -34,7 +34,7 @@ public class CombinationGenerator extends Thread
 
     public void run() 
     {
-        ForkJoinPool customPool = new ForkJoinPool(16); // Limit to 16 threads
+        ForkJoinPool customPool = new ForkJoinPool(24); // Limit to 24 threads
         customPool.submit(() ->
             IntStream.range(0, possibleClicks.size()).parallel().forEach(index -> {
                 if (!this.combinationQueue.isItSolved()) { // Check if solution is found

@@ -2,6 +2,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 public abstract class Grid {
     // constants
@@ -28,7 +29,8 @@ public abstract class Grid {
         new boolean[Grid.EVEN_NUM_COLS]
     };
 
-    public Map<Integer, Integer[]> trueCells = new HashMap<>();
+    // Replace HashMap with TreeMap
+    public TreeMap<Integer, Integer[]> trueCells = new TreeMap<>();
 
     private static final Map<Integer, Set<Integer[]>> adjacencyMap = new HashMap<>();
 
@@ -100,21 +102,10 @@ public abstract class Grid {
         return trueCellsList;
     }
 
-    public Integer[] findFirstTrueCell()
-    {
-        // Return the first element in the trueCells map
-        Integer[] firstTrueCell = null;
-        for (Map.Entry<Integer, Integer[]> entry : trueCells.entrySet()) 
-        {
-            if (firstTrueCell == null) 
-            {
-                firstTrueCell = entry.getValue();
-            } else if (after(firstTrueCell, entry.getValue())) 
-            {
-                firstTrueCell = entry.getValue();
-            }
-        }
-        return firstTrueCell;
+    public Integer[] findFirstTrueCell() {
+        // Use TreeMap's firstEntry() to get the smallest key-value pair
+        Map.Entry<Integer, Integer[]> firstEntry = trueCells.firstEntry();
+        return (firstEntry != null) ? firstEntry.getValue() : null;
     }
 
     public void click(int row, int col) 
@@ -266,7 +257,7 @@ public abstract class Grid {
                 System.arraycopy(this.grid[row], 0, newGrid.grid[row], 0, this.grid[row].length);
             }
             
-            newGrid.trueCells = new HashMap<>();
+            newGrid.trueCells = new TreeMap<>();
 
             // Add the true cells to the new grid's trueCells map
             for (Integer key : this.trueCells.keySet()) 

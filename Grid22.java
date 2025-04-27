@@ -46,5 +46,21 @@ public class Grid22 extends Grid
                 this.trueCells.put(row * 100 + col, cell);
             }
         }
+
+        // this.click(1,1);
+        // this.click(1,4);
+        // this.click(1,7);
+        // this.click(1,10);
+        // this.click(1,13);
+        // this.click(3,1);
+        // this.click(3,4);
+        // this.click(3,7);
+        // this.click(3,10);
+        // this.click(3,13);
+        // this.click(5,1);
+        // this.click(5,4);
+        // this.click(5,7);
+        // this.click(5,10);
+        // this.click(5,13);
     }
 }

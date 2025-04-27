@@ -103,11 +103,18 @@ public abstract class Grid {
     public Integer[] findFirstTrueCell()
     {
         // Return the first element in the trueCells map
+        Integer[] firstTrueCell = null;
         for (Map.Entry<Integer, Integer[]> entry : trueCells.entrySet()) 
         {
-            return entry.getValue();
+            if (firstTrueCell == null) 
+            {
+                firstTrueCell = entry.getValue();
+            } else if (after(firstTrueCell, entry.getValue())) 
+            {
+                firstTrueCell = entry.getValue();
+            }
         }
-        return null;
+        return firstTrueCell;
     }
 
     public void click(int row, int col) 

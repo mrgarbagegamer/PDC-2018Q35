@@ -1,5 +1,6 @@
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Date; // Used for debug line
 
 public class StartYourMonkeys 
 {
@@ -93,8 +94,11 @@ public class StartYourMonkeys
         List<Click> winningCombination = combinationQueue.getWinningCombination();
 
         System.out.println("\n--------------------------------------\n");
+
+        Date now = new Date();
         
         System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", combinationQueue.getWinningMonkey(), winningCombination);
+        System.out.printf("%s - The solution was found at %s\n", combinationQueue.getWinningMonkey(), now.toString());
 
         System.out.println("\n--------------------------------------\n");
         // create a new grid and test out the winning combination

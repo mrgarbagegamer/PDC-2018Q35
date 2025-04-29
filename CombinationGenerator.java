@@ -40,17 +40,12 @@ public class CombinationGenerator extends Thread
     private void generateCombinationsIterative(List<Click> nodeList, int k) {
         // Stack to hold the state of each level
         Deque<CombinationState> stack = new ArrayDeque<>();
-        stack.push(new CombinationState(0, new ArrayList<>(), false)); // Initial state
+        stack.push(new CombinationState(0, new ArrayList<>())); // Initial state
 
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) {
             CombinationState state = stack.pop();
             int start = state.start;
             List<Click> currentCombination = state.currentCombination;
-
-            // If the branch is marked for pruning, skip it
-            if (state.pruneBranch) {
-                continue;
-            }
 
             // If the combination size equals k, process it
             if (currentCombination.size() == k) {
@@ -65,15 +60,13 @@ public class CombinationGenerator extends Thread
                 newCombination.add(nodeList.get(i));
 
                 // Determine if the new branch should be pruned
-                boolean shouldPrune = false;
 
                 if (newCombination.size() < k)
                 {
-                    stack.push(new CombinationState(i + 1, newCombination, shouldPrune));
+                    stack.push(new CombinationState(i + 1, newCombination));
                 }
-
-                if (trueAdjacents != null && newCombination.size() == k) {
-                    shouldPrune = newCombination.stream()
+                else if (trueAdjacents != null && newCombination.size() == k) {
+                    boolean shouldPrune = newCombination.stream()
                         .noneMatch(click -> trueAdjacents.contains(click.toString()));
 
                     if (shouldPrune) {
@@ -95,12 +88,10 @@ public class CombinationGenerator extends Thread
     private static class CombinationState {
         int start;
         List<Click> currentCombination;
-        boolean pruneBranch;
 
-        CombinationState(int start, List<Click> currentCombination, boolean pruneBranch) {
+        CombinationState(int start, List<Click> currentCombination) {
             this.start = start;
             this.currentCombination = currentCombination;
-            this.pruneBranch = pruneBranch;
         }
     }
 }

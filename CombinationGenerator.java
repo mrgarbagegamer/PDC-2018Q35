@@ -3,6 +3,8 @@ import java.util.List;
 import java.util.Date; // Used for debug line
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Deque;
+import java.util.ArrayDeque;
 
 public class CombinationGenerator extends Thread 
 {
@@ -25,58 +27,80 @@ public class CombinationGenerator extends Thread
             this.trueAdjacents = new HashSet<>();
             for (Integer[] adj : trueAdjSet) 
             {
-                this.trueAdjacents.add(adj[0] + "," + adj[1]);
+                this.trueAdjacents.add("<" + adj[0] + "," + adj[1] + ">"); // Format as "<row,col>"
             }
         }
     }
 
     public void run() 
     {
-        this.generateCombinations(this.possibleClicks, numClicks, 0, new ArrayList<>());
+        this.generateCombinationsIterative(this.possibleClicks, numClicks);
     }
 
-    private boolean generateCombinations(List<Click> nodeList, int k, int start, List<Click> currentCombination) // Returns false to break the previous layer of iteration if no true adjacents are found 
-    {
-        // Check if the problem has been solved
-        if (this.combinationQueue.isItSolved()) 
-        {
-            return false; // Stop further exploration
-        }
+    private void generateCombinationsIterative(List<Click> nodeList, int k) {
+        // Stack to hold the state of each level
+        Deque<CombinationState> stack = new ArrayDeque<>();
+        stack.push(new CombinationState(0, new ArrayList<>(), false)); // Initial state
 
-        if (currentCombination.size() == k) 
-        {
-            // Skip combinations with no true adjacents
-            if (trueAdjacents == null) 
-            {
-                return false; // Prune this branch
+        while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) {
+            CombinationState state = stack.pop();
+            int start = state.start;
+            List<Click> currentCombination = state.currentCombination;
+
+            // If the branch is marked for pruning, skip it
+            if (state.pruneBranch) {
+                continue;
             }
 
-            boolean hasTrueAdjacent = currentCombination.stream().anyMatch(click -> 
-                trueAdjacents.contains(click.row + "," + click.col)
-            );
-
-            if (!hasTrueAdjacent) 
-            {
-                Date date = new Date(); // Debug line
-                System.out.println("Skipping combination due to no true adjacents: " + currentCombination + " Time: " + date); // Debug line
-                return false; // Stop exploring further combinations in this layer
+            // If the combination size equals k, process it
+            if (currentCombination.size() == k) {
+                // Add the valid combination to the queue
+                this.combinationQueue.add(new ArrayList<>(currentCombination));
+                continue;
             }
-            this.combinationQueue.add(new ArrayList<>(currentCombination));
-            return true; // Continue exploring
-        }
 
-        for (int i = start; i < nodeList.size() && !this.combinationQueue.isItSolved(); i++) 
-        {
-            currentCombination.add(nodeList.get(i));
-            boolean shouldContinue = generateCombinations(nodeList, k, i + 1, currentCombination);
-            currentCombination.remove(currentCombination.size() - 1);
+            // Add the next level of combinations to the stack
+            for (int i = nodeList.size() - 1; i >= start; i--) {
+                List<Click> newCombination = new ArrayList<>(currentCombination);
+                newCombination.add(nodeList.get(i));
 
-            if (!shouldContinue) 
-            {
-                break;
+                // Determine if the new branch should be pruned
+                boolean shouldPrune = false;
+
+                if (newCombination.size() < k)
+                {
+                    stack.push(new CombinationState(i + 1, newCombination, shouldPrune));
+                }
+
+                if (trueAdjacents != null && newCombination.size() == k) {
+                    shouldPrune = newCombination.stream()
+                        .noneMatch(click -> trueAdjacents.contains(click.toString()));
+
+                    if (shouldPrune) {
+                        Date date = new Date(); // Debug line
+                        System.out.println("Skipping combination due to no true adjacents: " + newCombination + " Time: " + date); // Debug line
+                        break; // Prune this branch
+                    }
+                    else
+                    {
+                        this.combinationQueue.add(new ArrayList<>(newCombination));
+                    }
+                }
+
             }
         }
+    }
 
-        return true; // Continue exploring
+    // Helper class to represent the state of each level
+    private static class CombinationState {
+        int start;
+        List<Click> currentCombination;
+        boolean pruneBranch;
+
+        CombinationState(int start, List<Click> currentCombination, boolean pruneBranch) {
+            this.start = start;
+            this.currentCombination = currentCombination;
+            this.pruneBranch = pruneBranch;
+        }
     }
 }

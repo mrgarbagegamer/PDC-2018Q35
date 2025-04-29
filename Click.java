@@ -7,6 +7,7 @@ public class Click {
         this.col = col;
     }
 
+    @Override
     public String toString() {
         return String.format("<%d,%d>", row, col);
     }

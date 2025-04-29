@@ -37,25 +37,29 @@ public class CombinationGenerator extends Thread
         this.generateCombinationsIterative(this.possibleClicks, numClicks);
     }
 
-    private void generateCombinationsIterative(List<Click> nodeList, int k) {
+    private void generateCombinationsIterative(List<Click> nodeList, int k) 
+    {
         // Stack to hold the state of each level
         Deque<CombinationState> stack = new ArrayDeque<>();
         stack.push(new CombinationState(0, new ArrayList<>())); // Initial state
 
-        while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) {
+        while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
+        {
             CombinationState state = stack.pop();
             int start = state.start;
             List<Click> currentCombination = state.currentCombination;
 
             // If the combination size equals k, process it
-            if (currentCombination.size() == k) {
+            if (currentCombination.size() == k) 
+            {
                 // Add the valid combination to the queue
                 this.combinationQueue.add(new ArrayList<>(currentCombination));
                 continue;
             }
 
             // Add the next level of combinations to the stack
-            for (int i = nodeList.size() - 1; i >= start; i--) {
+            for (int i = nodeList.size() - 1; i >= start; i--) 
+            {
                 List<Click> newCombination = new ArrayList<>(currentCombination);
                 newCombination.add(nodeList.get(i));
 
@@ -65,11 +69,13 @@ public class CombinationGenerator extends Thread
                 {
                     stack.push(new CombinationState(i + 1, newCombination));
                 }
-                else if (trueAdjacents != null && newCombination.size() == k) {
+                else if (trueAdjacents != null && newCombination.size() == k) 
+                {
                     boolean shouldPrune = newCombination.stream()
                         .noneMatch(click -> trueAdjacents.contains(click.toString()));
 
-                    if (shouldPrune) {
+                    if (shouldPrune) 
+                    {
                         Date date = new Date(); // Debug line
                         System.out.println("Skipping combination due to no true adjacents: " + newCombination + " Time: " + date); // Debug line
                         break; // Prune this branch
@@ -85,11 +91,13 @@ public class CombinationGenerator extends Thread
     }
 
     // Helper class to represent the state of each level
-    private static class CombinationState {
+    private static class CombinationState 
+    {
         int start;
         List<Click> currentCombination;
 
-        CombinationState(int start, List<Click> currentCombination) {
+        CombinationState(int start, List<Click> currentCombination) 
+        {
             this.start = start;
             this.currentCombination = currentCombination;
         }

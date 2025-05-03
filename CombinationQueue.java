@@ -1,23 +1,20 @@
 import java.util.List;
 import java.util.Queue;
-import java.util.LinkedList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class CombinationQueue 
 {
-    private Queue<List<Click>> combinationQueue = new LinkedList<>();
-    private boolean solutionFound = false;
+    private Queue<List<Click>> combinationQueue = new ConcurrentLinkedQueue<>();
+    private volatile boolean solutionFound = false;
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
 
-    private static final int MAX_SIZE = 50000000;
-    private static final int WAIT_MS = 5;
-
-    synchronized boolean isItSolved() 
+    public boolean isItSolved() 
     {
         return this.solutionFound;
     }
 
-    synchronized void solutionFound(String monkeyName, List<Click> winningCombination) 
+    public void solutionFound(String monkeyName, List<Click> winningCombination) 
     {
         this.solutionFound = true;
         this.winningMonkey = monkeyName;
@@ -34,45 +31,50 @@ public class CombinationQueue
         return this.winningCombination;
     }
 
-    synchronized boolean add(List<Click> combinationClicks) 
+    public boolean add(List<Click> combinationClicks) 
     {
-        while(this.combinationQueue.size() == MAX_SIZE)
+        while (!this.solutionFound) 
         {
-            this.notifyAll();
-
             try 
             {
-                wait(WAIT_MS);
-            } catch (InterruptedException e) 
+                if (this.combinationQueue.offer(combinationClicks)) // Non-blocking add
+                {
+                    return true; // Successfully added
+                }
+                else 
+                {
+                    Thread.sleep(5); // Retry after a short delay
+                }
+            } 
+            catch (InterruptedException e) 
             {
-                e.printStackTrace();
+                Thread.currentThread().interrupt(); // Restore interrupted status
+                return false; // Indicate failure due to interruption
             }
         }
-
-        boolean success = this.combinationQueue.add(combinationClicks);
-        this.notifyAll();
-
-        return success;
+        return false; // If solution is found, stop adding
     }
 
-    synchronized List<Click> getClicksCombination() 
+    public List<Click> getClicksCombination() 
     {
         List<Click> combinationClicks = null;
 
         while (combinationClicks == null && !this.solutionFound) 
         {
-            combinationClicks = this.combinationQueue.poll();
-
-            try 
+            combinationClicks = this.combinationQueue.poll(); // Non-blocking poll
+            if (combinationClicks == null) 
             {
-                wait(WAIT_MS);
-            } catch (InterruptedException e) 
-            {
-                e.printStackTrace();
+                try 
+                {
+                    Thread.sleep(5); // Avoid busy-waiting
+                } 
+                catch (InterruptedException e) 
+                {
+                    Thread.currentThread().interrupt();
+                    e.printStackTrace();
+                }
             }
         }
-
-        this.notifyAll();
 
         return combinationClicks;
     }

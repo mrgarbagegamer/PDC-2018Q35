@@ -40,7 +40,8 @@ public class TestClickCombination extends Thread
 
                 if(iSolvedIt)
                 {
-                    System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", this.getName(), combinationClicks);
+                    // System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", this.getName(), combinationClicks);
+                    System.out.println(this.getName() + " - Found the solution as the following click combination:\n" + combinationClicks);
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
                     return;
                 }
@@ -72,7 +73,8 @@ public class TestClickCombination extends Thread
             
             if(!iSolvedIt && !this.combinationQueue.isItSolved())
             {
-                System.out.printf("%s - Tried and failed: [%s]\n", this.getName(), combinationClicks);
+                // System.out.printf("%s - Tried and failed: [%s]\n", this.getName(), combinationClicks);
+                System.out.println(this.getName() + " - Tried and failed: [" + combinationClicks + "]");
             }
 
             // reset the grid for the next combination

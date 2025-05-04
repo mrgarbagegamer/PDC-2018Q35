@@ -1,8 +1,10 @@
 package com.github.mrgarbagegamer;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Date; // Used for debug line
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Deque;
@@ -10,6 +12,8 @@ import java.util.ArrayDeque;
 
 public class CombinationGenerator extends Thread 
 {
+    private static final Logger logger = LogManager.getLogger(CombinationGenerator.class);
+
     private CombinationQueue combinationQueue;
     private List<Click> possibleClicks;
     private int numClicks;
@@ -78,16 +82,13 @@ public class CombinationGenerator extends Thread
 
                     if (shouldPrune) 
                     {
-                        Date date = new Date(); // Debug line
-                        System.out.println("Skipping combination due to no true adjacents: " + newCombination + " Time: " + date); // Debug line
-                        break; // Prune this branch
-                    }
-                    else
+                        logger.debug("Skipping combination due to no true adjacents: {}", newCombination);
+                        break;
+                    } else
                     {
                         this.combinationQueue.add(new ArrayList<>(newCombination));
                     }
                 }
-
             }
         }
     }

@@ -3,6 +3,8 @@ package com.github.mrgarbagegamer;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class CombinationQueue 
 {
@@ -21,6 +23,10 @@ public class CombinationQueue
         this.solutionFound = true;
         this.winningMonkey = monkeyName;
         this.winningCombination = winningCombination;
+
+        // Log the solution
+        Logger logger = LogManager.getLogger(CombinationQueue.class);
+        logger.info("{} - Found the solution as the following click combination: {}", monkeyName, winningCombination);
     }
 
     public String getWinningMonkey()

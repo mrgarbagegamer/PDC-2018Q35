@@ -4,6 +4,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public abstract class Grid {
     // constants
@@ -214,35 +216,23 @@ public abstract class Grid {
 
     public void printGrid() 
     {
-        for (int i = 0; i <= 6; i++) 
-        {
-            if (i % 2 == 0) 
-            {
-                for (int j = 0; j <= 15; j++) 
-                {
-                    if (grid[i][j]) 
-                    {
-                        System.out.print("1 ");
-                    } else 
-                    {
-                        System.out.print("0 ");
-                    }
+        Logger logger = LogManager.getLogger(Grid.class);
+
+        for (int i = 0; i <= 6; i++) {
+            StringBuilder row = new StringBuilder();
+
+            if (i % 2 == 0) {
+                for (int j = 0; j <= 15; j++) {
+                    row.append(grid[i][j] ? "1 " : "0 ");
                 }
-            } else 
-            {
-                System.out.print(" ");
-                for (int j = 0; j <= 14; j++) 
-                {
-                    if (grid[i][j]) 
-                    {
-                        System.out.print("1 ");
-                    } else 
-                    {
-                        System.out.print("0 ");
-                    }
+            } else {
+                row.append(" ");
+                for (int j = 0; j <= 14; j++) {
+                    row.append(grid[i][j] ? "1 " : "0 ");
                 }
             }
-            System.out.println();
+
+            logger.info(row.toString());
         }
     }
 

@@ -1,3 +1,5 @@
+package com.github.mrgarbagegamer;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Date; // Used for debug line

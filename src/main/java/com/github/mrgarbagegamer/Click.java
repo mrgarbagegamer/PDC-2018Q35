@@ -1,3 +1,5 @@
+package com.github.mrgarbagegamer;
+
 import java.util.Objects;
 
 public class Click {

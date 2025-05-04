@@ -1,3 +1,5 @@
+package com.github.mrgarbagegamer;
+
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;

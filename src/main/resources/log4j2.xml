@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="TRACE">
     <Properties>
-        <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss} [%t] %-5level - %msg%n</Property>
+        <Property name="logPattern">%d{DEFAULT} [%t] %-5level - %msg%n</Property>
     </Properties>
 
     <!-- Use AsyncLoggerContextSelector for asynchronous logging -->

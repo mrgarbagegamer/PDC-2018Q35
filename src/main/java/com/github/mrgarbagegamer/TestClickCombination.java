@@ -77,7 +77,7 @@ public class TestClickCombination extends Thread
             
             if(!iSolvedIt && !this.combinationQueue.isItSolved())
             {
-                logger.warn("Tried and failed: {}", combinationClicks);
+                logger.debug("Tried and failed: {}", combinationClicks);
             }
 
             // reset the grid for the next combination

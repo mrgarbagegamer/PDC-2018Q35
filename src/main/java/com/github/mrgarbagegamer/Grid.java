@@ -88,10 +88,7 @@ public abstract class Grid {
 
     void copyColumnValues(boolean[] source, boolean[] target) 
     {
-        for (int i = 0; i < source.length; i++) 
-        {
-            target[i] = source[i];
-        }
+        System.arraycopy(source, 0, target, 0, source.length);
     }
 
     public Set<int[]> findTrueCells() 

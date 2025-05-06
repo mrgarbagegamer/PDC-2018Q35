@@ -5,6 +5,8 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Deque;
 import java.util.ArrayDeque;
 
@@ -16,7 +18,7 @@ public class CombinationGenerator extends Thread
     private List<Click> possibleClicks;
     private int numClicks;
     private Grid puzzleGrid;
-    private List<Click> trueAdjacents;
+    private Set<Click> trueAdjacents;
 
     public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Grid puzzleGrid) 
     {
@@ -24,12 +26,12 @@ public class CombinationGenerator extends Thread
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.puzzleGrid = puzzleGrid;
-        List<int[]> trueAdjList = puzzleGrid.findFirstTrueAdjacents();
+        Set<int[]> trueAdjSet = puzzleGrid.findFirstTrueAdjacents();
         
-        if (trueAdjList != null) 
+        if (trueAdjSet != null) 
         {
-            this.trueAdjacents = new ArrayList<>();
-            for (int[] adj : trueAdjList) 
+            this.trueAdjacents = new HashSet<>();
+            for (int[] adj : trueAdjSet) 
             {
                 this.trueAdjacents.add(new Click(adj[0], adj[1]));
             }

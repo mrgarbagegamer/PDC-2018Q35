@@ -4,7 +4,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.List;
-import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 public class TestClickCombination extends Thread 
 {
@@ -50,21 +51,21 @@ public class TestClickCombination extends Thread
                     return;
                 }
 
-                List<int[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
+                Set<int[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
                 if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
                 {
                     break;
                 }
                 else
                 {
-                    List<String> adjList = new ArrayList<>();
+                    Set<String> adjSet = new HashSet<>();
                     for (int[] adj : firstTrueAdjacents) 
                     {
-                        adjList.add(adj[0] + "," + adj[1]);
+                        adjSet.add(adj[0] + "," + adj[1]);
                     }
 
                     boolean hasTrueAdjacent = combinationClicks.subList(i + 1, combinationClicks.size()).stream()
-                        .anyMatch(c -> adjList.contains(c.row + "," + c.col));
+                        .anyMatch(c -> adjSet.contains(c.row + "," + c.col));
 
                     if (!hasTrueAdjacent) 
                     {

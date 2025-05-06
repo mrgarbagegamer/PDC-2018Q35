@@ -130,6 +130,7 @@ public abstract class Grid {
         {
             int pieceRow = piece[0];
             int pieceCol = piece[1];
+            int key = pieceRow * 100 + pieceCol;
             boolean currentState = grid[pieceRow][pieceCol];
 
             // Toggle the state
@@ -138,14 +139,11 @@ public abstract class Grid {
             // Update the trueCells map
             if (currentState) 
             {
-                if (trueCells.containsKey(pieceRow * 100 + pieceCol)) 
-                {
-                    trueCells.remove(pieceRow * 100 + pieceCol);
-                } 
+                trueCells.remove(key);
             } else 
             {
                 int[] cell = {pieceRow, pieceCol};
-                trueCells.putIfAbsent(pieceRow * 100 + pieceCol, cell);
+                trueCells.putIfAbsent(key, cell);
             }
         }
     }

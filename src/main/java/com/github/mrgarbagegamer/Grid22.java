@@ -1,6 +1,4 @@
 package com.github.mrgarbagegamer;
-
-import java.util.HashSet;
 public class Grid22 extends Grid 
 {
     void initialize() 

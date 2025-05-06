@@ -21,17 +21,17 @@ public class Grid13 extends Grid
             for (int col = 1; col <= 14; col++)
             {
                 this.grid[row][col] = true;
-                Integer[] cell = {row, col};
+                int[] cell = {row, col};
                 // Add the true cells to the trueCells map
                 this.trueCells.put(row * 100 + col, cell);
             }
         }
 
         this.grid[3][0] = true;
-        this.trueCells.put(300, (new Integer[] {3, 0}));
+        this.trueCells.put(300, (new int[] {3, 0}));
 
         this.grid[3][14] = true;
-        this.trueCells.put(314, (new Integer[] {3, 14}));
+        this.trueCells.put(314, (new int[] {3, 14}));
 
         // this.click(3,1);
         // this.click(3,3);

@@ -26,12 +26,12 @@ public class CombinationGenerator extends Thread
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.puzzleGrid = puzzleGrid;
-        Set<Integer[]> trueAdjSet = puzzleGrid.findFirstTrueAdjacents();
+        Set<int[]> trueAdjSet = puzzleGrid.findFirstTrueAdjacents();
         
         if (trueAdjSet != null) 
         {
             this.trueAdjacents = new HashSet<>();
-            for (Integer[] adj : trueAdjSet) 
+            for (int[] adj : trueAdjSet) 
             {
                 this.trueAdjacents.add(new Click(adj[0], adj[1]));
             }

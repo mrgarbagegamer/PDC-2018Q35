@@ -23,7 +23,7 @@ public class Grid22 extends Grid
         for (int col : topRowCols) 
         {
             this.grid[topRow][col] = true;
-            Integer[] cell = {topRow, col};
+            int[] cell = {topRow, col};
             this.trueCells.put(topRow * 100 + col, cell);
         }
 
@@ -32,7 +32,7 @@ public class Grid22 extends Grid
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
         for (int col : topRowCols) 
         {
-            Integer[] cell = {topRow, col};
+            int[] cell = {topRow, col};
             this.trueCells.put(topRow * 100 + col, cell);
         }
 
@@ -44,7 +44,7 @@ public class Grid22 extends Grid
             for (int col : rowOneCols) 
             {
                 this.grid[row][col] = true;
-                Integer[] cell = {row, col};
+                int[] cell = {row, col};
                 this.trueCells.put(row * 100 + col, cell);
             }
         }

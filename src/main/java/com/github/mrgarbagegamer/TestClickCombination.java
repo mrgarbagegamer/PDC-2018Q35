@@ -51,7 +51,7 @@ public class TestClickCombination extends Thread
                     return;
                 }
 
-                Set<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
+                Set<int[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
                 if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
                 {
                     break;
@@ -59,7 +59,7 @@ public class TestClickCombination extends Thread
                 else
                 {
                     Set<String> adjSet = new HashSet<>();
-                    for (Integer[] adj : firstTrueAdjacents) 
+                    for (int[] adj : firstTrueAdjacents) 
                     {
                         adjSet.add(adj[0] + "," + adj[1]);
                     }

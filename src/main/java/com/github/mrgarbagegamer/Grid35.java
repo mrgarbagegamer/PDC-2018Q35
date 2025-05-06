@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer;
 
-import java.util.HashSet;
+import java.util.Arrays;
 public class Grid35 extends Grid 
 {
     void initialize() 
@@ -10,10 +10,7 @@ public class Grid35 extends Grid
         // reset the trueCells map and set all cells to false
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
-            for (int col = 0; col < this.grid[row].length; col++) 
-            {
-                this.grid[row][col] = false;
-            }
+            Arrays.fill(this.grid[row], false);
         }
         this.trueCells.clear();
 

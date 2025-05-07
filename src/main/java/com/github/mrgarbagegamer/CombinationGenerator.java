@@ -77,12 +77,18 @@ public class CombinationGenerator extends Thread
                 }
                 else if (trueAdjacents != null && newCombination.size() == k) 
                 {
-                    boolean shouldPrune = newCombination.stream()
-                        .noneMatch(click -> trueAdjacents.contains(click));
-
+                    boolean shouldPrune = true;
+                    for (Click click : currentCombination) 
+                    {
+                        if (trueAdjacents.contains(click)) 
+                        {
+                            shouldPrune = false;
+                            break;
+                        }
+                    }
                     if (shouldPrune) 
                     {
-                        logger.debug("Skipping combination due to no true adjacents: {}", newCombination);
+                        logger.debug("Skipping combination due to no true adjacents: {}", currentCombination);
                         break;
                     } else
                     {

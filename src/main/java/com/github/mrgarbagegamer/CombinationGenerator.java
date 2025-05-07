@@ -66,14 +66,16 @@ public class CombinationGenerator extends Thread
             // Add the next level of combinations to the stack
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
-                currentCombination.add(nodeList.get(i)); // Add to the current combination
+                List<Click> newCombination = new ArrayList<>(currentCombination);
+                newCombination.add(nodeList.get(i));
 
                 // Determine if the new branch should be pruned
-                if (currentCombination.size() < k) 
+
+                if (newCombination.size() < k)
                 {
-                    stack.push(new CombinationState(i + 1, new ArrayList<>(currentCombination)));
-                } 
-                else if (trueAdjacents != null && currentCombination.size() == k) 
+                    stack.push(new CombinationState(i + 1, newCombination));
+                }
+                else if (trueAdjacents != null && newCombination.size() == k) 
                 {
                     boolean shouldPrune = true;
                     for (Click click : currentCombination) 
@@ -84,21 +86,15 @@ public class CombinationGenerator extends Thread
                             break;
                         }
                     }
-
                     if (shouldPrune) 
                     {
                         logger.debug("Skipping combination due to no true adjacents: {}", currentCombination);
-                        currentCombination.remove(currentCombination.size() - 1);
-                        break; // Skip this combination
-                    } 
-                    else 
+                        break;
+                    } else
                     {
-                        this.combinationQueue.add(new ArrayList<>(currentCombination));
+                        this.combinationQueue.add(new ArrayList<>(newCombination));
                     }
                 }
-
-                // Backtrack: Remove the last added element to restore the state
-                currentCombination.remove(currentCombination.size() - 1);
             }
         }
     }

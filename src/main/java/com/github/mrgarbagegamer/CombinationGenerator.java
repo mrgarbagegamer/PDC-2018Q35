@@ -47,7 +47,7 @@ public class CombinationGenerator extends Thread
     {
         // Stack to hold the state of each level
         Deque<CombinationState> stack = new ArrayDeque<>();
-        stack.push(new CombinationState(0, new ArrayList<>())); // Initial state
+        stack.push(new CombinationState(0, new ArrayList<>(k))); // Initial state
 
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
         {
@@ -66,16 +66,14 @@ public class CombinationGenerator extends Thread
             // Add the next level of combinations to the stack
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
-                List<Click> newCombination = new ArrayList<>(currentCombination);
-                newCombination.add(nodeList.get(i));
+                currentCombination.add(nodeList.get(i)); // Add to the current combination
 
                 // Determine if the new branch should be pruned
-
-                if (newCombination.size() < k)
+                if (currentCombination.size() < k) 
                 {
-                    stack.push(new CombinationState(i + 1, newCombination));
-                }
-                else if (trueAdjacents != null && newCombination.size() == k) 
+                    stack.push(new CombinationState(i + 1, new ArrayList<>(currentCombination)));
+                } 
+                else if (trueAdjacents != null && currentCombination.size() == k) 
                 {
                     boolean shouldPrune = true;
                     for (Click click : currentCombination) 
@@ -86,15 +84,21 @@ public class CombinationGenerator extends Thread
                             break;
                         }
                     }
+
                     if (shouldPrune) 
                     {
                         logger.debug("Skipping combination due to no true adjacents: {}", currentCombination);
-                        break;
-                    } else
+                        currentCombination.remove(currentCombination.size() - 1);
+                        break; // Skip this combination
+                    } 
+                    else 
                     {
-                        this.combinationQueue.add(new ArrayList<>(newCombination));
+                        this.combinationQueue.add(new ArrayList<>(currentCombination));
                     }
                 }
+
+                // Backtrack: Remove the last added element to restore the state
+                currentCombination.remove(currentCombination.size() - 1);
             }
         }
     }

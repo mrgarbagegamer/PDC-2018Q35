@@ -47,33 +47,34 @@ public class CombinationGenerator extends Thread
     {
         // Stack to hold the state of each level
         Deque<CombinationState> stack = new ArrayDeque<>();
-        stack.push(new CombinationState(0, new ArrayList<>(k))); // Initial state
+        Click[] currentCombination = new Click[k]; // Fixed-size array for the combination
+        stack.push(new CombinationState(0, 0, currentCombination)); // Initial state: start index = 0, size = 0
 
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
         {
             CombinationState state = stack.pop();
             int start = state.start;
-            List<Click> currentCombination = state.currentCombination;
+            int size = state.size;
+            currentCombination = state.currentCombination;
 
             // If the combination size equals k, process it
-            if (currentCombination.size() == k) 
+            if (size == k) 
             {
-                // Add the valid combination to the queue
-                this.combinationQueue.add(new ArrayList<>(currentCombination));
+                this.combinationQueue.add(List.of(currentCombination.clone())); // Add a copy to the queue
                 continue;
             }
 
             // Add the next level of combinations to the stack
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
-                currentCombination.add(nodeList.get(i)); // Add to the current combination
+                currentCombination[size] = nodeList.get(i); // Add to the current combination
 
                 // Determine if the new branch should be pruned
-                if (currentCombination.size() < k) 
+                if (size + 1 < k) 
                 {
-                    stack.push(new CombinationState(i + 1, new ArrayList<>(currentCombination)));
+                    stack.push(new CombinationState(i + 1, size + 1, currentCombination.clone())); // Push the next state
                 } 
-                else if (trueAdjacents != null && currentCombination.size() == k) 
+                else if (trueAdjacents != null && size + 1 == k) 
                 {
                     boolean shouldPrune = true;
                     for (Click click : currentCombination) 
@@ -87,31 +88,29 @@ public class CombinationGenerator extends Thread
 
                     if (shouldPrune) 
                     {
-                        logger.debug("Skipping combination due to no true adjacents: {}", currentCombination);
-                        currentCombination.remove(currentCombination.size() - 1);
-                        break; // Skip this combination
+                        logger.debug("Skipping combination due to no true adjacents: {}", List.of(currentCombination));
+                        break;
                     } 
                     else 
                     {
-                        this.combinationQueue.add(new ArrayList<>(currentCombination));
+                        this.combinationQueue.add(List.of(currentCombination.clone())); // Add a copy to the queue
                     }
                 }
-
-                // Backtrack: Remove the last added element to restore the state
-                currentCombination.remove(currentCombination.size() - 1);
             }
         }
     }
 
-    // Helper class to represent the state of each level
+    // Updated CombinationState class
     private static class CombinationState 
     {
         int start;
-        List<Click> currentCombination;
+        int size;
+        Click[] currentCombination;
 
-        CombinationState(int start, List<Click> currentCombination) 
+        CombinationState(int start, int size, Click[] currentCombination) 
         {
             this.start = start;
+            this.size = size;
             this.currentCombination = currentCombination;
         }
     }

@@ -3,7 +3,6 @@ package com.github.mrgarbagegamer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
@@ -45,39 +44,57 @@ public class CombinationGenerator extends Thread
 
     private void generateCombinationsIterative(List<Click> nodeList, int k) 
     {
-        // Stack to hold the state of each level
-        Deque<CombinationState> stack = new ArrayDeque<>();
-        Click[] currentCombination = new Click[k]; // Fixed-size array for the combination
-        stack.push(new CombinationState(0, 0, currentCombination)); // Initial state: start index = 0, size = 0
+        class State {
+            int start;
+            int size;
+            int[] indices; // indices of selected elements
+
+            State(int start, int size, int[] indices) {
+                this.start = start;
+                this.size = size;
+                this.indices = indices;
+            }
+        }
+
+        Deque<State> stack = new ArrayDeque<>();
+        stack.push(new State(0, 0, new int[k]));
 
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
         {
-            CombinationState state = stack.pop();
+            State state = stack.pop();
             int start = state.start;
             int size = state.size;
-            currentCombination = state.currentCombination;
+            int[] indices = state.indices;
 
-            // If the combination size equals k, process it
             if (size == k) 
             {
-                this.combinationQueue.add(List.of(currentCombination.clone())); // Add a copy to the queue
+                Click[] combination = new Click[k];
+                for (int j = 0; j < k; j++) {
+                    combination[j] = nodeList.get(indices[j]);
+                }
+                this.combinationQueue.add(List.of(combination));
                 continue;
             }
 
-            // Add the next level of combinations to the stack
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
-                currentCombination[size] = nodeList.get(i); // Add to the current combination
+                int[] newIndices = indices.clone();
+                newIndices[size] = i;
 
-                // Determine if the new branch should be pruned
                 if (size + 1 < k) 
                 {
-                    stack.push(new CombinationState(i + 1, size + 1, currentCombination.clone())); // Push the next state
+                    stack.push(new State(i + 1, size + 1, newIndices));
                 } 
                 else if (trueAdjacents != null && size + 1 == k) 
                 {
+                    Click[] combination = new Click[k];
+                    for (int j = 0; j < k - 1; j++) {
+                        combination[j] = nodeList.get(newIndices[j]);
+                    }
+                    combination[k - 1] = nodeList.get(i);
+
                     boolean shouldPrune = true;
-                    for (Click click : currentCombination) 
+                    for (Click click : combination) 
                     {
                         if (trueAdjacents.contains(click)) 
                         {
@@ -88,30 +105,36 @@ public class CombinationGenerator extends Thread
 
                     if (shouldPrune) 
                     {
-                        logger.debug("Skipping combination due to no true adjacents: {}", List.of(currentCombination));
+                        logger.debug("Skipping combination due to no true adjacents: {}", List.of(combination));
                         break;
                     } 
                     else 
                     {
-                        this.combinationQueue.add(List.of(currentCombination.clone())); // Add a copy to the queue
+                        this.combinationQueue.add(List.of(combination));
                     }
+                }
+                else if (size + 1 == k)
+                {
+                    Click[] combination = new Click[k];
+                    for (int j = 0; j < k; j++) {
+                        combination[j] = nodeList.get(newIndices[j]);
+                    }
+                    this.combinationQueue.add(List.of(combination));
                 }
             }
         }
     }
 
-    // Updated CombinationState class
-    private static class CombinationState 
-    {
-        int start;
-        int size;
-        Click[] currentCombination;
+    // // Only store start and size, not a full array
+    // private static class CombinationState 
+    // {
+    //     int start;
+    //     int size;
 
-        CombinationState(int start, int size, Click[] currentCombination) 
-        {
-            this.start = start;
-            this.size = size;
-            this.currentCombination = currentCombination;
-        }
-    }
+    //     CombinationState(int start, int size) 
+    //     {
+    //         this.start = start;
+    //         this.size = size;
+    //     }
+    // }
 }

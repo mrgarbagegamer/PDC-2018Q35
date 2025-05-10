@@ -3,12 +3,10 @@ package com.github.mrgarbagegamer;
 import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.ArrayList;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import java.util.ArrayList;
-import java.util.Date; // Used for debug line
 
 public class StartYourMonkeys 
 {
@@ -31,6 +29,8 @@ public class StartYourMonkeys
 
     public static void main(String[] args) 
     {
+        long startTime = System.currentTimeMillis(); // Start timer
+
         int defaultNumClicks  = 15;
         int defaultNumThreads = 24;
         int defaultQuestionNumber = 22;
@@ -122,7 +122,10 @@ public class StartYourMonkeys
         }
 
         List<Click> winningCombination = combinationQueue.getWinningCombination();
-        Date now = new Date();
+
+        long elapsedMillis = System.currentTimeMillis() - startTime;
+        String elapsedFormatted = formatElapsedTime(elapsedMillis);
+
         // Sleep for 1 second to ensure the logger is flushed
         try 
         {
@@ -137,7 +140,7 @@ public class StartYourMonkeys
         if (winningCombination == null) 
         {
             logger.info("No solution to Q{} in {} clicks was found.", questionNumber, numClicks);
-            logger.info("The solution was not found at {}.", now.toString());
+            logger.info("Elapsed time: {}", elapsedFormatted);
             logger.info("\n\n--------------------------------------\n");
             LogManager.shutdown();
             return;
@@ -145,7 +148,7 @@ public class StartYourMonkeys
 
         
         logger.info("{} - Found the solution as the following click combination: [{}]", combinationQueue.getWinningMonkey(), winningCombination);
-        logger.info("{} - The solution was found at {}.", combinationQueue.getWinningMonkey(), now.toString());
+        logger.info("{} - Elapsed time: {}", combinationQueue.getWinningMonkey(), elapsedFormatted);
         
         // create a new grid and test out the winning combination
         Grid puzzleGrid = baseGrid.clone();
@@ -163,5 +166,19 @@ public class StartYourMonkeys
         logger.info("\n\n--------------------------------------\n");
         
         LogManager.shutdown();
+    }
+
+    private static String formatElapsedTime(long millis) {
+        long seconds = millis / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        seconds = seconds % 60;
+        minutes = minutes % 60;
+
+        StringBuilder sb = new StringBuilder();
+        if (hours > 0) sb.append(hours).append("h");
+        if (minutes > 0 || hours > 0) sb.append(minutes).append("m");
+        sb.append(seconds).append("s");
+        return sb.toString();
     }
 }

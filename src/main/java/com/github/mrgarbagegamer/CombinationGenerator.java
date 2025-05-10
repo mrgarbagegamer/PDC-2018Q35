@@ -114,7 +114,6 @@ public class CombinationGenerator extends Thread
 
                     if (shouldPrune) 
                     {
-                        logger.debug("Skipping combination due to no true adjacents: {}", List.of(combination));
                         break;
                     } 
                     else 
@@ -132,5 +131,6 @@ public class CombinationGenerator extends Thread
                 }
             }
         }
+        logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
     }
 }

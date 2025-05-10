@@ -1,6 +1,8 @@
 package com.github.mrgarbagegamer;
 
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -73,13 +75,23 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
+        Set<int[]> trueAdjSet = baseGrid.findFirstTrueAdjacents();
+        Set<Click> trueAdjacents = new HashSet<>();
+        if (trueAdjSet != null) 
+        {
+            for (int[] adj : trueAdjSet) 
+            {
+                trueAdjacents.add(new Click(adj[0], adj[1]));
+            }
+        }
+
         int numGeneratorThreads = Math.min(numClicks, numThreads); // or set as desired
         int chunkSize = possibleClicks.size() / numGeneratorThreads;
         for (int t = 0; t < numGeneratorThreads; t++) {
             String threadName = String.format("Generator-%d", t);
             int start = t * chunkSize;
             int end = (t == numGeneratorThreads - 1) ? possibleClicks.size() : (t + 1) * chunkSize;
-            CombinationGenerator cb = new CombinationGenerator(threadName, combinationQueue, possibleClicks, numClicks, baseGrid.clone(), start, end);
+            CombinationGenerator cb = new CombinationGenerator(threadName, combinationQueue, possibleClicks, numClicks, trueAdjacents, start, end);
             cb.start();
         }
 

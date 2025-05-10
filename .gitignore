@@ -1,4 +1,9 @@
-test.java
+src/main/java/com/github/mrgarbagegamer/test.java
 .vscode/*
 *.class
-
+*.jar
+bin
+out
+build
+target
+*.log

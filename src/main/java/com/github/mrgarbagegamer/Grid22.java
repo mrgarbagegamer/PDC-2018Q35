@@ -1,4 +1,6 @@
-import java.util.HashSet;
+package com.github.mrgarbagegamer;
+
+import java.util.Arrays;
 public class Grid22 extends Grid 
 {
     void initialize() 
@@ -8,10 +10,7 @@ public class Grid22 extends Grid
         // reset the trueCells map and set all cells to false
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
-            for (int col = 0; col < this.grid[row].length; col++) 
-            {
-                this.grid[row][col] = false;
-            }
+            Arrays.fill(this.grid[row], false);
         }
         this.trueCells.clear();
 
@@ -21,7 +20,7 @@ public class Grid22 extends Grid
         for (int col : topRowCols) 
         {
             this.grid[topRow][col] = true;
-            Integer[] cell = {topRow, col};
+            int[] cell = {topRow, col};
             this.trueCells.put(topRow * 100 + col, cell);
         }
 
@@ -30,8 +29,8 @@ public class Grid22 extends Grid
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
         for (int col : topRowCols) 
         {
-            Integer[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, cell);
+            int[] cell = {bottomRow, col};
+            this.trueCells.put(bottomRow * 100 + col, cell);
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -42,7 +41,7 @@ public class Grid22 extends Grid
             for (int col : rowOneCols) 
             {
                 this.grid[row][col] = true;
-                Integer[] cell = {row, col};
+                int[] cell = {row, col};
                 this.trueCells.put(row * 100 + col, cell);
             }
         }
@@ -57,7 +56,7 @@ public class Grid22 extends Grid
         // this.click(3,7);
         // this.click(3,10);
         // this.click(3,13);
-        // this.click(5,1);
+        // this.click(5,1); 
         // this.click(5,4);
         // this.click(5,7);
         // this.click(5,10);

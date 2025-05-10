@@ -1,9 +1,17 @@
+package com.github.mrgarbagegamer;
+
 import java.util.List;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.Date; // Used for debug line
 
 public class StartYourMonkeys 
 {
+    // Add a logger at the top of the class
+    private static final Logger logger = LogManager.getLogger(StartYourMonkeys.class);
 
     private static void populateClickList(List<Click> possibleClicks) 
     {
@@ -65,8 +73,15 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
-        CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks, baseGrid.clone());
-        cb.start();
+        int numGeneratorThreads = Math.min(numClicks, numThreads); // or set as desired
+        int chunkSize = possibleClicks.size() / numGeneratorThreads;
+        for (int t = 0; t < numGeneratorThreads; t++) {
+            String threadName = String.format("Generator-%d", t);
+            int start = t * chunkSize;
+            int end = (t == numGeneratorThreads - 1) ? possibleClicks.size() : (t + 1) * chunkSize;
+            CombinationGenerator cb = new CombinationGenerator(threadName, combinationQueue, possibleClicks, numClicks, baseGrid.clone(), start, end);
+            cb.start();
+        }
 
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
@@ -93,16 +108,13 @@ public class StartYourMonkeys
 
         List<Click> winningCombination = combinationQueue.getWinningCombination();
 
-        System.out.println("\n--------------------------------------\n");
+        logger.info("\n--------------------------------------\n");
 
         Date now = new Date();
+        logger.info("{} - Found the solution as the following click combination: [{}]", combinationQueue.getWinningMonkey(), winningCombination);
+        logger.info("{} - The solution was found at {}", combinationQueue.getWinningMonkey(), now.toString());
         
-        System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", combinationQueue.getWinningMonkey(), winningCombination);
-        System.out.printf("%s - The solution was found at %s\n", combinationQueue.getWinningMonkey(), now.toString());
-
-        System.out.println("\n--------------------------------------\n");
         // create a new grid and test out the winning combination
-
         Grid puzzleGrid = baseGrid.clone();
 
         boolean solved = false;
@@ -112,8 +124,11 @@ public class StartYourMonkeys
 
             puzzleGrid.click(click.row, click.col);
             solved = puzzleGrid.isSolved();
-        }        
-
+        }
         puzzleGrid.printGrid();
+
+        logger.info("\n--------------------------------------\n");
+        
+        LogManager.shutdown();
     }
 }

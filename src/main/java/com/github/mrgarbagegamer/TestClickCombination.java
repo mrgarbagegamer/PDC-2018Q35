@@ -1,9 +1,16 @@
+package com.github.mrgarbagegamer;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 
 public class TestClickCombination extends Thread 
 {
+    private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
+
     private CombinationQueue combinationQueue;
     private Grid puzzleGrid;
 
@@ -34,18 +41,17 @@ public class TestClickCombination extends Thread
                     // this means we have more true's than clicks left to process, so we can stop early
                     break;
                 }
-                
-                
+
                 iSolvedIt = this.puzzleGrid.isSolved();
 
-                if(iSolvedIt)
+                if (iSolvedIt) 
                 {
-                    System.out.printf("%s - Found the solution as the following click combination:\n[%s]\n", this.getName(), combinationClicks);
+                    logger.info("Found the solution as the following click combination: {}", combinationClicks);
                     this.combinationQueue.solutionFound(this.getName(), combinationClicks);
                     return;
                 }
 
-                Set<Integer[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
+                Set<int[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
                 if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
                 {
                     break;
@@ -53,7 +59,7 @@ public class TestClickCombination extends Thread
                 else
                 {
                     Set<String> adjSet = new HashSet<>();
-                    for (Integer[] adj : firstTrueAdjacents) 
+                    for (int[] adj : firstTrueAdjacents) 
                     {
                         adjSet.add(adj[0] + "," + adj[1]);
                     }
@@ -66,18 +72,16 @@ public class TestClickCombination extends Thread
                         break;
                     }
                 }
-
             }
 
             
             if(!iSolvedIt && !this.combinationQueue.isItSolved())
             {
-                System.out.printf("%s - Tried and failed: [%s]\n", this.getName(), combinationClicks);
+                logger.debug("Tried and failed: {}", combinationClicks);
             }
 
             // reset the grid for the next combination
             this.puzzleGrid.initialize();
         }
     }
-
 }

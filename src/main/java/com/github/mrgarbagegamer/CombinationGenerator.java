@@ -18,13 +18,16 @@ public class CombinationGenerator extends Thread
     private int numClicks;
     private Grid puzzleGrid;
     private Set<Click> trueAdjacents;
+    private int firstClickStart, firstClickEnd;
 
-    public CombinationGenerator(CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Grid puzzleGrid) 
+    public CombinationGenerator(String threadName, CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Grid puzzleGrid, int firstClickStart, int firstClickEnd) 
     {
         this.combinationQueue = combinationQueue;
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.puzzleGrid = puzzleGrid;
+        this.firstClickStart = firstClickStart;
+        this.firstClickEnd = firstClickEnd;
         Set<int[]> trueAdjSet = puzzleGrid.findFirstTrueAdjacents();
         
         if (trueAdjSet != null) 
@@ -35,6 +38,8 @@ public class CombinationGenerator extends Thread
                 this.trueAdjacents.add(new Click(adj[0], adj[1]));
             }
         }
+
+        this.setName(threadName);
     }
 
     public void run() 
@@ -57,7 +62,11 @@ public class CombinationGenerator extends Thread
         }
 
         Deque<State> stack = new ArrayDeque<>();
-        stack.push(new State(0, 0, new int[k]));
+        for (int i = firstClickStart; i < firstClickEnd; i++) {
+            int[] indices = new int[k];
+            indices[0] = i;
+            stack.push(new State(i + 1, 1, indices));
+        }
 
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
         {
@@ -124,17 +133,4 @@ public class CombinationGenerator extends Thread
             }
         }
     }
-
-    // // Only store start and size, not a full array
-    // private static class CombinationState 
-    // {
-    //     int start;
-    //     int size;
-
-    //     CombinationState(int start, int size) 
-    //     {
-    //         this.start = start;
-    //         this.size = size;
-    //     }
-    // }
 }

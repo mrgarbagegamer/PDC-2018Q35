@@ -73,8 +73,15 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
-        CombinationGenerator cb = new CombinationGenerator(combinationQueue, possibleClicks, numClicks, baseGrid.clone());
-        cb.start();
+        int numGeneratorThreads = Math.min(numClicks, numThreads); // or set as desired
+        int chunkSize = possibleClicks.size() / numGeneratorThreads;
+        for (int t = 0; t < numGeneratorThreads; t++) {
+            String threadName = String.format("Generator-%d", t);
+            int start = t * chunkSize;
+            int end = (t == numGeneratorThreads - 1) ? possibleClicks.size() : (t + 1) * chunkSize;
+            CombinationGenerator cb = new CombinationGenerator(threadName, combinationQueue, possibleClicks, numClicks, baseGrid.clone(), start, end);
+            cb.start();
+        }
 
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];

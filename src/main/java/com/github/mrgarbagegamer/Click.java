@@ -2,22 +2,26 @@ package com.github.mrgarbagegamer;
 
 import java.util.Objects;
 
-public class Click {
+public class Click 
+{
     int row;
     int col;
 
-    Click(int row, int col) {
+    Click(int row, int col) 
+    {
         this.row = row;
         this.col = col;
     }
 
     @Override
-    public String toString() {
+    public String toString() 
+    {
         return String.format("<%d,%d>", row, col);
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(Object o) 
+    {
         if (this == o) return true;
         if (!(o instanceof Click)) return false;
         Click click = (Click) o;
@@ -25,7 +29,8 @@ public class Click {
     }
 
     @Override
-    public int hashCode() {
+    public int hashCode() 
+    {
         return Objects.hash(row, col);
     }
 }

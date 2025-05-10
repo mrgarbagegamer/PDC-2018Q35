@@ -17,17 +17,21 @@ public class CombinationQueue
     private AtomicInteger generatorsRemaining;
     private volatile boolean generationComplete = false;
 
-    public void setNumGenerators(int numGenerators) {
+    public void setNumGenerators(int numGenerators) 
+    {
         this.generatorsRemaining = new AtomicInteger(numGenerators);
     }
 
-    public void generatorFinished() {
-        if (generatorsRemaining.decrementAndGet() == 0) {
+    public void generatorFinished() 
+    {
+        if (generatorsRemaining.decrementAndGet() == 0) 
+        {
             generationComplete = true;
         }
     }
 
-    public boolean isGenerationComplete() {
+    public boolean isGenerationComplete() 
+    {
         return generationComplete;
     }
 
@@ -105,7 +109,6 @@ public class CombinationQueue
                 }
             }
         }
-
         return combinationClicks;
     }
 }

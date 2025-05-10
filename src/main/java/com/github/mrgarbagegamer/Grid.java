@@ -216,16 +216,21 @@ public abstract class Grid {
     {
         Logger logger = LogManager.getLogger(Grid.class);
 
-        for (int i = 0; i <= 6; i++) {
+        for (int i = 0; i <= 6; i++) 
+        {
             StringBuilder row = new StringBuilder();
 
-            if (i % 2 == 0) {
-                for (int j = 0; j <= 15; j++) {
+            if (i % 2 == 0) 
+            {
+                for (int j = 0; j <= 15; j++) 
+                {
                     row.append(grid[i][j] ? "1 " : "0 ");
                 }
-            } else {
+            } else 
+            {
                 row.append(" ");
-                for (int j = 0; j <= 14; j++) {
+                for (int j = 0; j <= 14; j++) 
+                {
                     row.append(grid[i][j] ? "1 " : "0 ");
                 }
             }

@@ -37,12 +37,14 @@ public class CombinationGenerator extends Thread
 
     private void generateCombinationsIterative(List<Click> nodeList, int k) 
     {
-        class State {
+        class State 
+        {
             int start;
             int size;
             int[] indices; // indices of selected elements
 
-            State(int start, int size, int[] indices) {
+            State(int start, int size, int[] indices) 
+            {
                 this.start = start;
                 this.size = size;
                 this.indices = indices;
@@ -50,7 +52,8 @@ public class CombinationGenerator extends Thread
         }
 
         Deque<State> stack = new ArrayDeque<>();
-        for (int i = firstClickStart; i < firstClickEnd; i++) {
+        for (int i = firstClickStart; i < firstClickEnd; i++) 
+        {
             int[] indices = new int[k];
             indices[0] = i;
             stack.push(new State(i + 1, 1, indices));

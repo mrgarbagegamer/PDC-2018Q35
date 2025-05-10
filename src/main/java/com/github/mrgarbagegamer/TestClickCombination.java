@@ -29,6 +29,10 @@ public class TestClickCombination extends Thread
         while(!iSolvedIt && !this.combinationQueue.isItSolved())
         {
             List<Click> combinationClicks = this.combinationQueue.getClicksCombination();
+            if (combinationClicks == null) 
+            {
+                break; // No more combinations to process, exit the thread.
+            }
 
             for (int i = 0; (!iSolvedIt) && (!this.combinationQueue.isItSolved()) && (i < combinationClicks.size()); i++) 
             {

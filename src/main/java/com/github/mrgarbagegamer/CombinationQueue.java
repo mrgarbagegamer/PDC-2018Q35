@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -12,6 +13,23 @@ public class CombinationQueue
     private volatile boolean solutionFound = false;
     private String winningMonkey = null;
     private List<Click> winningCombination = null;
+
+    private AtomicInteger generatorsRemaining;
+    private volatile boolean generationComplete = false;
+
+    public void setNumGenerators(int numGenerators) {
+        this.generatorsRemaining = new AtomicInteger(numGenerators);
+    }
+
+    public void generatorFinished() {
+        if (generatorsRemaining.decrementAndGet() == 0) {
+            generationComplete = true;
+        }
+    }
+
+    public boolean isGenerationComplete() {
+        return generationComplete;
+    }
 
     public boolean isItSolved() 
     {
@@ -72,6 +90,10 @@ public class CombinationQueue
             combinationClicks = this.combinationQueue.poll(); // Non-blocking poll
             if (combinationClicks == null) 
             {
+                if (isGenerationComplete()) 
+                {
+                    return null; // No more combinations will be generated
+                }
                 try 
                 {
                     Thread.sleep(5); // Avoid busy-waiting

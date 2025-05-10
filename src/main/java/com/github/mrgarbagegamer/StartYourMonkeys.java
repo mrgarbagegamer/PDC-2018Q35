@@ -87,6 +87,9 @@ public class StartYourMonkeys
 
         int numGeneratorThreads = Math.min(numClicks, numThreads); // or set as desired
         int chunkSize = possibleClicks.size() / numGeneratorThreads;
+
+        combinationQueue.setNumGenerators(numGeneratorThreads); // Tell the queue how many generators we have on startup
+
         for (int t = 0; t < numGeneratorThreads; t++) {
             String threadName = String.format("Generator-%d", t);
             int start = t * chunkSize;
@@ -119,12 +122,30 @@ public class StartYourMonkeys
         }
 
         List<Click> winningCombination = combinationQueue.getWinningCombination();
-
-        logger.info("\n--------------------------------------\n");
-
         Date now = new Date();
+        // Sleep for 1 second to ensure the logger is flushed
+        try 
+        {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) 
+        {
+            e.printStackTrace();
+        }
+
+        logger.info("\n\n--------------------------------------\n");
+
+        if (winningCombination == null) 
+        {
+            logger.info("No solution to Q{} in {} clicks was found.", questionNumber, numClicks);
+            logger.info("The solution was not found at {}.", now.toString());
+            logger.info("\n\n--------------------------------------\n");
+            LogManager.shutdown();
+            return;
+        }
+
+        
         logger.info("{} - Found the solution as the following click combination: [{}]", combinationQueue.getWinningMonkey(), winningCombination);
-        logger.info("{} - The solution was found at {}", combinationQueue.getWinningMonkey(), now.toString());
+        logger.info("{} - The solution was found at {}.", combinationQueue.getWinningMonkey(), now.toString());
         
         // create a new grid and test out the winning combination
         Grid puzzleGrid = baseGrid.clone();
@@ -139,7 +160,7 @@ public class StartYourMonkeys
         }
         puzzleGrid.printGrid();
 
-        logger.info("\n--------------------------------------\n");
+        logger.info("\n\n--------------------------------------\n");
         
         LogManager.shutdown();
     }

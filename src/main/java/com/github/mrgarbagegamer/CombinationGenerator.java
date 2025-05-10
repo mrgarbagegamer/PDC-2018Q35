@@ -120,5 +120,6 @@ public class CombinationGenerator extends Thread
             }
         }
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
+        combinationQueue.generatorFinished();
     }
 }

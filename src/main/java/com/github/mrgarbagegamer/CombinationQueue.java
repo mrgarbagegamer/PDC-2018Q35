@@ -67,7 +67,7 @@ public class CombinationQueue
     public boolean add(List<Click> combinationClicks) 
     {
         long backoff = 1_000; // Start with 1 microsecond
-        final long maxBackoff = 1_000_000; // Max 1 millisecond
+        final long maxBackoff = 10_000_000; // Max 10 milliseconds
 
         while (!this.solutionFound) 
         {
@@ -84,7 +84,7 @@ public class CombinationQueue
     public List<Click> getClicksCombination() 
     {
         long backoff = 1_000; // Start with 1 microsecond
-        final long maxBackoff = 1_000_000; // Max 1 millisecond
+        final long maxBackoff = 10_000_000; // Max 10 milliseconds
 
         List<Click> combinationClicks = null;
 

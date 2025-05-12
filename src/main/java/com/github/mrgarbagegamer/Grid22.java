@@ -1,39 +1,29 @@
 package com.github.mrgarbagegamer;
 
 import java.util.Arrays;
+
 public class Grid22 extends Grid 
 {
     void initialize() 
     {
-        // Initialize for Q22/Shrek
-
-        // reset the trueCells map and set all cells to false
-        for (int row = 0; row < Grid.NUM_ROWS; row++) 
+        trueCount = 0;
+        for (int row = 0; row < NUM_ROWS; row++) 
         {
             Arrays.fill(this.grid[row], false);
         }
-        this.trueCells.clear();
-
-        // Top row values
         int topRow = 0;
         int[] topRowCols = {1, 2, 4, 5, 7, 8, 10, 11, 13, 14};
         for (int col : topRowCols) 
         {
             this.grid[topRow][col] = true;
-            int[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, cell);
+            trueCount++;
         }
-
-        // Recreate the top row values for the bottom row
         int bottomRow = this.grid.length - 1;
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
         for (int col : topRowCols) 
         {
-            int[] cell = {bottomRow, col};
-            this.trueCells.put(bottomRow * 100 + col, cell);
+            if (this.grid[bottomRow][col]) trueCount++;
         }
-
-        // Set the values for row 1, which will be the same as rows 1, 3, and 5
         int[] rowOneCols = {0, 2, 3, 5, 6, 8, 9, 11, 12, 14};
         int[] rowsToCopy = {1, 3, 5};
         for (int row : rowsToCopy) 
@@ -41,8 +31,7 @@ public class Grid22 extends Grid
             for (int col : rowOneCols) 
             {
                 this.grid[row][col] = true;
-                int[] cell = {row, col};
-                this.trueCells.put(row * 100 + col, cell);
+                trueCount++;
             }
         }
 

@@ -2,14 +2,16 @@ package com.github.mrgarbagegamer;
 
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jctools.queues.MpmcArrayQueue;
 
 public class CombinationQueue 
 {
-    private Queue<List<Click>> combinationQueue = new ConcurrentLinkedQueue<>();
+    private final int QUEUE_SIZE = 100000;
+    private Queue<List<Click>> combinationQueue = new MpmcArrayQueue<>(QUEUE_SIZE);
     private volatile boolean solutionFound = false;
     private String winningMonkey = null;
     private List<Click> winningCombination = null;

@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -10,7 +11,7 @@ import org.jctools.queues.MpmcArrayQueue;
 
 public class CombinationQueue 
 {
-    private final int QUEUE_SIZE = 100000;
+    private final int QUEUE_SIZE = 1000000;
     private Queue<List<Click>> combinationQueue = new MpmcArrayQueue<>(QUEUE_SIZE);
     private volatile boolean solutionFound = false;
     private String winningMonkey = null;
@@ -65,30 +66,26 @@ public class CombinationQueue
 
     public boolean add(List<Click> combinationClicks) 
     {
+        long backoff = 1_000; // Start with 1 microsecond
+        final long maxBackoff = 1_000_000; // Max 1 millisecond
+
         while (!this.solutionFound) 
         {
-            try 
+            if (this.combinationQueue.offer(combinationClicks)) // Non-blocking add
             {
-                if (this.combinationQueue.offer(combinationClicks)) // Non-blocking add
-                {
-                    return true; // Successfully added
-                }
-                else 
-                {
-                    Thread.sleep(5); // Retry after a short delay
-                }
-            } 
-            catch (InterruptedException e) 
-            {
-                Thread.currentThread().interrupt(); // Restore interrupted status
-                return false; // Indicate failure due to interruption
+                return true; // Successfully added
             }
+            LockSupport.parkNanos(backoff);
+            backoff = Math.min(backoff * 2, maxBackoff); // Exponential backoff, capped
         }
         return false; // If solution is found, stop adding
     }
 
     public List<Click> getClicksCombination() 
     {
+        long backoff = 1_000; // Start with 1 microsecond
+        final long maxBackoff = 1_000_000; // Max 1 millisecond
+
         List<Click> combinationClicks = null;
 
         while (combinationClicks == null && !this.solutionFound) 
@@ -100,15 +97,10 @@ public class CombinationQueue
                 {
                     return null; // No more combinations will be generated
                 }
-                try 
-                {
-                    Thread.sleep(5); // Avoid busy-waiting
-                } 
-                catch (InterruptedException e) 
-                {
-                    Thread.currentThread().interrupt();
-                    e.printStackTrace();
-                }
+                LockSupport.parkNanos(backoff);
+                backoff = Math.min(backoff * 2, maxBackoff); // Exponential backoff, capped
+            } else {
+                backoff = 1_000; // Reset backoff on success
             }
         }
         return combinationClicks;

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,6 +25,23 @@ public class StartYourMonkeys
             {
                 possibleClicks.add(new Click(row, col));
             }
+        }
+    }
+
+    private static void buildPrefixQueue(List<Click> possibleClicks, int prefixLength, java.util.Queue<int[]> prefixQueue) {
+        int n = possibleClicks.size();
+        int[] indices = new int[prefixLength];
+        buildPrefixQueueRecursive(prefixQueue, indices, 0, 0, n);
+    }
+
+    private static void buildPrefixQueueRecursive(java.util.Queue<int[]> prefixQueue, int[] indices, int depth, int start, int n) {
+        if (depth == indices.length) {
+            prefixQueue.add(indices.clone());
+            return;
+        }
+        for (int i = start; i < n; i++) {
+            indices[depth] = i;
+            buildPrefixQueueRecursive(prefixQueue, indices, depth + 1, i + 1, n);
         }
     }
 
@@ -85,16 +103,18 @@ public class StartYourMonkeys
             }
         }
 
-        int numGeneratorThreads = Math.min(numClicks, numThreads); // or set as desired
-        int chunkSize = possibleClicks.size() / numGeneratorThreads;
+        int prefixLength = 2; // Set this to 1 for single-click, 2 for pairs, etc.
+        ConcurrentLinkedQueue<int[]> prefixQueue = new ConcurrentLinkedQueue<>();
+        buildPrefixQueue(possibleClicks, prefixLength, prefixQueue);
 
-        combinationQueue.setNumGenerators(numGeneratorThreads); // Tell the queue how many generators we have on startup
+        int numGeneratorThreads = Math.min(numClicks, numThreads);
+        combinationQueue.setNumGenerators(numGeneratorThreads);
 
         for (int t = 0; t < numGeneratorThreads; t++) {
             String threadName = String.format("Generator-%d", t);
-            int start = t * chunkSize;
-            int end = (t == numGeneratorThreads - 1) ? possibleClicks.size() : (t + 1) * chunkSize;
-            CombinationGenerator cb = new CombinationGenerator(threadName, combinationQueue, possibleClicks, numClicks, trueAdjacents, start, end);
+            CombinationGenerator cb = new CombinationGenerator(
+                threadName, combinationQueue, possibleClicks, numClicks, trueAdjacents, prefixQueue, prefixLength
+            );
             cb.start();
         }
 

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Deque;
 import java.util.ArrayDeque;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class CombinationGenerator extends Thread 
 {
@@ -17,31 +18,41 @@ public class CombinationGenerator extends Thread
     private int numClicks;
     private Set<Click> trueAdjacents;
     private int firstClickStart, firstClickEnd;
+    private ConcurrentLinkedQueue<int[]> prefixQueue;
+    private int prefixLength;
 
-    public CombinationGenerator(String threadName, CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Set<Click> trueAdjacents, int firstClickStart, int firstClickEnd) 
+    public CombinationGenerator(String threadName, CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Set<Click> trueAdjacents, ConcurrentLinkedQueue<int[]> prefixQueue, int prefixLength) 
     {
         this.combinationQueue = combinationQueue;
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.trueAdjacents = trueAdjacents;
-        this.firstClickStart = firstClickStart;
-        this.firstClickEnd = firstClickEnd;
+        this.prefixQueue = prefixQueue;
+        this.prefixLength = prefixLength;
 
         this.setName(threadName);
     }
 
     public void run() 
     {
-        this.generateCombinationsIterative(this.possibleClicks, numClicks);
+        int[] prefix;
+        while ((prefix = prefixQueue.poll()) != null && !combinationQueue.isItSolved()) {
+            generateCombinationsWithPrefix(possibleClicks, numClicks, prefix);
+        }
+        combinationQueue.generatorFinished();
     }
 
-    private void generateCombinationsIterative(List<Click> nodeList, int k) 
+    private void generateCombinationsWithPrefix(List<Click> nodeList, int k, int[] prefix) 
     {
+        // Build the initial indices array
+        int[] indices = new int[k];
+        System.arraycopy(prefix, 0, indices, 0, prefix.length);
+
         class State 
         {
             int start;
             int size;
-            int[] indices; // indices of selected elements
+            int[] indices;
 
             State(int start, int size, int[] indices) 
             {
@@ -52,25 +63,20 @@ public class CombinationGenerator extends Thread
         }
 
         Deque<State> stack = new ArrayDeque<>();
-        for (int i = firstClickStart; i < firstClickEnd; i++) 
-        {
-            int[] indices = new int[k];
-            indices[0] = i;
-            stack.push(new State(i + 1, 1, indices));
-        }
+        stack.push(new State(prefix.length == 0 ? 0 : prefix[prefix.length - 1] + 1, prefix.length, indices));
 
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
         {
             State state = stack.pop();
             int start = state.start;
             int size = state.size;
-            int[] indices = state.indices;
+            int[] currIndices = state.indices;
 
             if (size == k) 
             {
                 Click[] combination = new Click[k];
                 for (int j = 0; j < k; j++) {
-                    combination[j] = nodeList.get(indices[j]);
+                    combination[j] = nodeList.get(currIndices[j]);
                 }
                 this.combinationQueue.add(List.of(combination));
                 continue;
@@ -78,7 +84,7 @@ public class CombinationGenerator extends Thread
 
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
-                int[] newIndices = indices.clone();
+                int[] newIndices = currIndices.clone();
                 newIndices[size] = i;
 
                 if (size + 1 < k) 
@@ -122,7 +128,5 @@ public class CombinationGenerator extends Thread
                 }
             }
         }
-        logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
-        combinationQueue.generatorFinished();
     }
 }

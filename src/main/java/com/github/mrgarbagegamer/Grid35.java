@@ -6,6 +6,7 @@ public class Grid35 extends Grid
 {
     void initialize() 
     {
+        // Initialize for Q35
         trueCount = 0;
         for (int row = 0; row < NUM_ROWS; row++) 
         {

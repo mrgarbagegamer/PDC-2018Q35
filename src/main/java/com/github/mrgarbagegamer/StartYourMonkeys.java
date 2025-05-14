@@ -103,7 +103,7 @@ public class StartYourMonkeys
             }
         }
 
-        int prefixLength = 2; // Set this to 1 for single-click, 2 for pairs, etc.
+        int prefixLength = 3; // Set this to 1 for single-click, 2 for pairs, etc.
         ConcurrentLinkedQueue<int[]> prefixQueue = new ConcurrentLinkedQueue<>();
         buildPrefixQueue(possibleClicks, prefixLength, prefixQueue);
 

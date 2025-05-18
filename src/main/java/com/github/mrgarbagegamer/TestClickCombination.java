@@ -125,14 +125,23 @@ public class TestClickCombination extends Thread
                 }
                 else
                 {
-                    Set<String> adjSet = new HashSet<>();
+                    Set<Integer> adjSet = new HashSet<>();
                     for (int[] adj : firstTrueAdjacents) 
                     {
-                        adjSet.add(adj[0] + "," + adj[1]);
+                        adjSet.add((adj[0] << 8) | adj[1]); // Store the adjacents as an integer key (shifting row by 8 bits and ORing with col)
                     }
 
-                    boolean hasTrueAdjacent = combinationClicks.subList(i + 1, combinationClicks.size()).stream()
-                        .anyMatch(c -> adjSet.contains(c.row + "," + c.col));
+                    boolean hasTrueAdjacent = false;
+                    for (int j = i + 1; j < combinationClicks.size(); j++) 
+                    {
+                        Click c = combinationClicks.get(j);
+                        int key = (c.row << 8) | c.col;
+                        if (adjSet.contains(key)) // If any click is in the adjSet, we can stop checking
+                        { 
+                            hasTrueAdjacent = true; 
+                            break;
+                        }
+                    }
 
                     if (!hasTrueAdjacent) 
                     {

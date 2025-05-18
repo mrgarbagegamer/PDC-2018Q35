@@ -36,10 +36,13 @@ public class TestClickCombination extends Thread
 
             // Track the first true cell incrementally
             int[] firstTrueCell = this.puzzleGrid.findFirstTrueCell();
+            Set<int[]> cachedFirstTrueAdjacents = null;
+            int[] cachedFirstTrueCell = null;
 
             for (int i = 0; (!iSolvedIt) && (!this.combinationQueue.isItSolved()) && (i < combinationClicks.size()); i++) 
             {
                 Click click = combinationClicks.get(i);
+                Set<int[]> clickAdjacents = Grid.findAdjacents(click.row, click.col);
 
                 // Check if click or its adjacents could affect the first true cell
                 boolean mustRecompute = false;
@@ -48,14 +51,12 @@ public class TestClickCombination extends Thread
                     mustRecompute = true;
                 } else 
                 {
-                    // If the click is before or at the first true cell in row-major order, it could affect it
                     if (click.row < firstTrueCell[0] || (click.row == firstTrueCell[0] && click.col <= firstTrueCell[1])) 
                     {
                         mustRecompute = true;
                     } else 
                     {
-                        // Check if any adjacent cell is before or at the first true cell
-                        for (int[] adj : Grid.findAdjacents(click.row, click.col)) 
+                        for (int[] adj : clickAdjacents) 
                         {
                             if (adj[0] < firstTrueCell[0] || (adj[0] == firstTrueCell[0] && adj[1] <= firstTrueCell[1])) 
                             {
@@ -71,6 +72,9 @@ public class TestClickCombination extends Thread
                 if (mustRecompute) 
                 {
                     firstTrueCell = this.puzzleGrid.findFirstTrueCell();
+                    // Invalidate the cached adjacents since the first true cell changed
+                    cachedFirstTrueCell = null;
+                    cachedFirstTrueAdjacents = null;
                 }
 
                 if (this.puzzleGrid.getTrueCount() > (combinationClicks.size() - i - 1) * 6) 
@@ -92,16 +96,27 @@ public class TestClickCombination extends Thread
                 Set<int[]> firstTrueAdjacents = null;
                 if (firstTrueCell != null) 
                 {
-                    Set<int[]> adjacents = Grid.findAdjacents(firstTrueCell[0], firstTrueCell[1]);
-                    Set<int[]> filteredAdjacents = new HashSet<>();
-                    for (int[] adj : adjacents) 
+                    // Only recompute adjacents if the first true cell changed
+                    if (cachedFirstTrueCell == null || 
+                        cachedFirstTrueCell[0] != firstTrueCell[0] || 
+                        cachedFirstTrueCell[1] != firstTrueCell[1]) 
                     {
-                        if (adj[0] > click.row || (adj[0] == click.row && adj[1] > click.col)) 
+                        Set<int[]> adjacents = Grid.findAdjacents(firstTrueCell[0], firstTrueCell[1]);
+                        Set<int[]> filteredAdjacents = new HashSet<>();
+                        for (int[] adj : adjacents) 
                         {
-                            filteredAdjacents.add(adj);
+                            if (adj[0] > click.row || (adj[0] == click.row && adj[1] > click.col)) 
+                            {
+                                filteredAdjacents.add(adj);
+                            }
                         }
+                        firstTrueAdjacents = filteredAdjacents.isEmpty() ? null : filteredAdjacents;
+                        cachedFirstTrueCell = firstTrueCell.clone();
+                        cachedFirstTrueAdjacents = firstTrueAdjacents;
+                    } else 
+                    {
+                        firstTrueAdjacents = cachedFirstTrueAdjacents;
                     }
-                    firstTrueAdjacents = filteredAdjacents.isEmpty() ? null : filteredAdjacents;
                 }
 
                 if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click

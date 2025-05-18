@@ -34,11 +34,44 @@ public class TestClickCombination extends Thread
                 break; // No more combinations to process, exit the thread.
             }
 
+            // Track the first true cell incrementally
+            int[] firstTrueCell = this.puzzleGrid.findFirstTrueCell();
+
             for (int i = 0; (!iSolvedIt) && (!this.combinationQueue.isItSolved()) && (i < combinationClicks.size()); i++) 
             {
                 Click click = combinationClicks.get(i);
 
+                // Check if click or its adjacents could affect the first true cell
+                boolean mustRecompute = false;
+                if (firstTrueCell == null) 
+                {
+                    mustRecompute = true;
+                } else 
+                {
+                    // If the click is before or at the first true cell in row-major order, it could affect it
+                    if (click.row < firstTrueCell[0] || (click.row == firstTrueCell[0] && click.col <= firstTrueCell[1])) 
+                    {
+                        mustRecompute = true;
+                    } else 
+                    {
+                        // Check if any adjacent cell is before or at the first true cell
+                        for (int[] adj : Grid.findAdjacents(click.row, click.col)) 
+                        {
+                            if (adj[0] < firstTrueCell[0] || (adj[0] == firstTrueCell[0] && adj[1] <= firstTrueCell[1])) 
+                            {
+                                mustRecompute = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 this.puzzleGrid.click(click.row, click.col);
+
+                if (mustRecompute) 
+                {
+                    firstTrueCell = this.puzzleGrid.findFirstTrueCell();
+                }
 
                 if (this.puzzleGrid.getTrueCount() > (combinationClicks.size() - i - 1) * 6) 
                 {
@@ -55,7 +88,22 @@ public class TestClickCombination extends Thread
                     return;
                 }
 
-                Set<int[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
+                // Use the current firstTrueCell for pruning
+                Set<int[]> firstTrueAdjacents = null;
+                if (firstTrueCell != null) 
+                {
+                    Set<int[]> adjacents = Grid.findAdjacents(firstTrueCell[0], firstTrueCell[1]);
+                    Set<int[]> filteredAdjacents = new HashSet<>();
+                    for (int[] adj : adjacents) 
+                    {
+                        if (adj[0] > click.row || (adj[0] == click.row && adj[1] > click.col)) 
+                        {
+                            filteredAdjacents.add(adj);
+                        }
+                    }
+                    firstTrueAdjacents = filteredAdjacents.isEmpty() ? null : filteredAdjacents;
+                }
+
                 if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
                 {
                     break;
@@ -78,7 +126,6 @@ public class TestClickCombination extends Thread
                 }
             }
 
-            
             if(!iSolvedIt && !this.combinationQueue.isItSolved())
             {
                 logger.debug("Tried and failed: {}", combinationClicks);

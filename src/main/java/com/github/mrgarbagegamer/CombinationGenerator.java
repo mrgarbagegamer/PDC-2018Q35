@@ -19,7 +19,7 @@ public class CombinationGenerator extends Thread
     private Set<Click> trueAdjacents;
     private int firstClickStart, firstClickEnd;
 
-    private static final int BATCH_SIZE = 500; // Tune as needed
+    private static final int BATCH_SIZE = 1000; // Tune as needed
 
     public CombinationGenerator(String threadName, CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Set<Click> trueAdjacents, int firstClickStart, int firstClickEnd) 
     {

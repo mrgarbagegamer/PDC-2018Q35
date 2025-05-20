@@ -87,6 +87,12 @@ public class CombinationQueue
         return false; // If solution is found, stop adding
     }
 
+    public void addBatch(List<List<Click>> batch) {
+        for (List<Click> combination : batch) {
+            add(combination);
+        }
+    }
+
     public List<Click> getClicksCombination() 
     {
         List<Click> combinationClicks = null;

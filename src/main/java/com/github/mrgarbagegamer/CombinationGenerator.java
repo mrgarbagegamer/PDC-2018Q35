@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Deque;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 
 public class CombinationGenerator extends Thread 
 {
@@ -17,6 +18,8 @@ public class CombinationGenerator extends Thread
     private int numClicks;
     private Set<Click> trueAdjacents;
     private int firstClickStart, firstClickEnd;
+
+    private static final int BATCH_SIZE = 500; // Tune as needed
 
     public CombinationGenerator(String threadName, CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Set<Click> trueAdjacents, int firstClickStart, int firstClickEnd) 
     {
@@ -41,7 +44,7 @@ public class CombinationGenerator extends Thread
         {
             int start;
             int size;
-            int[] indices; // indices of selected elements
+            int[] indices;
 
             State(int start, int size, int[] indices) 
             {
@@ -59,6 +62,8 @@ public class CombinationGenerator extends Thread
             stack.push(new State(i + 1, 1, indices));
         }
 
+        List<List<Click>> batch = new ArrayList<>(BATCH_SIZE);
+
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
         {
             State state = stack.pop();
@@ -72,7 +77,11 @@ public class CombinationGenerator extends Thread
                 for (int j = 0; j < k; j++) {
                     combination[j] = nodeList.get(indices[j]);
                 }
-                this.combinationQueue.add(List.of(combination));
+                batch.add(List.of(combination));
+                if (batch.size() >= BATCH_SIZE) {
+                    this.combinationQueue.addBatch(batch);
+                    batch = new ArrayList<>(BATCH_SIZE);
+                }
                 continue;
             }
 
@@ -109,7 +118,11 @@ public class CombinationGenerator extends Thread
                     } 
                     else 
                     {
-                        this.combinationQueue.add(List.of(combination));
+                        batch.add(List.of(combination));
+                        if (batch.size() >= BATCH_SIZE) {
+                            this.combinationQueue.addBatch(batch);
+                            batch = new ArrayList<>(BATCH_SIZE);
+                        }
                     }
                 }
                 else if (size + 1 == k)
@@ -118,9 +131,17 @@ public class CombinationGenerator extends Thread
                     for (int j = 0; j < k; j++) {
                         combination[j] = nodeList.get(newIndices[j]);
                     }
-                    this.combinationQueue.add(List.of(combination));
+                    batch.add(List.of(combination));
+                    if (batch.size() >= BATCH_SIZE) {
+                        this.combinationQueue.addBatch(batch);
+                        batch = new ArrayList<>(BATCH_SIZE);
+                    }
                 }
             }
+        }
+        // Flush any remaining combinations in the batch
+        if (!batch.isEmpty()) {
+            this.combinationQueue.addBatch(batch);
         }
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
         combinationQueue.generatorFinished();

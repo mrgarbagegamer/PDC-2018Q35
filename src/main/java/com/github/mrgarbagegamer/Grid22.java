@@ -20,8 +20,7 @@ public class Grid22 extends Grid
         for (int col : topRowCols) 
         {
             this.grid[topRow][col] = true;
-            int[] cell = {topRow, col};
-            this.trueCells.put(topRow * 100 + col, cell);
+            this.trueCells.add(topRow * 100 + col);
         }
 
         // Recreate the top row values for the bottom row
@@ -29,8 +28,7 @@ public class Grid22 extends Grid
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
         for (int col : topRowCols) 
         {
-            int[] cell = {bottomRow, col};
-            this.trueCells.put(bottomRow * 100 + col, cell);
+            this.trueCells.add(bottomRow * 100 + col);
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -41,8 +39,7 @@ public class Grid22 extends Grid
             for (int col : rowOneCols) 
             {
                 this.grid[row][col] = true;
-                int[] cell = {row, col};
-                this.trueCells.put(row * 100 + col, cell);
+                this.trueCells.add(row * 100 + col);
             }
         }
 

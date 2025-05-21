@@ -7,7 +7,7 @@ public class Grid35 extends Grid
     {
         // Initialize for Q35
 
-        // reset the trueCells map and set all cells to false
+        // reset the trueCells IntSet and set all cells to false
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
             Arrays.fill(this.grid[row], false);
@@ -16,15 +16,15 @@ public class Grid35 extends Grid
 
         // Set specific cells to true and add them to trueCells
         this.grid[2][8] = true;
-        this.trueCells.put(208, new int[] {2, 8});
+        this.trueCells.add(208);
 
         this.grid[3][6] = true;
-        this.trueCells.put(306, new int[] {3, 6});
+        this.trueCells.add(306);
 
         this.grid[3][8] = true;
-        this.trueCells.put(308, new int[] {3, 8});
+        this.trueCells.add(308);
 
         this.grid[4][7] = true;
-        this.trueCells.put(407, new int[] {4, 7});
+        this.trueCells.add(407);
     }
 }

@@ -1,27 +1,30 @@
 package com.github.mrgarbagegamer;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
-import java.util.Set;
-import java.util.Deque;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
 public class CombinationGenerator extends Thread 
 {
     private static final Logger logger = LogManager.getLogger(CombinationGenerator.class);
 
     private CombinationQueue combinationQueue;
-    private List<Click> possibleClicks;
+    private IntList possibleClicks;
     private int numClicks;
-    private Set<Click> trueAdjacents;
+    private IntSet trueAdjacents;
     private int firstClickStart, firstClickEnd;
 
     private static final int BATCH_SIZE = 1000; // Tune as needed
 
-    public CombinationGenerator(String threadName, CombinationQueue combinationQueue, List<Click> possibleClicks, int numClicks, Set<Click> trueAdjacents, int firstClickStart, int firstClickEnd) 
+    public CombinationGenerator(String threadName, CombinationQueue combinationQueue, IntList possibleClicks, int numClicks, IntSet trueAdjacents, int firstClickStart, int firstClickEnd) 
     {
         this.combinationQueue = combinationQueue;
         this.possibleClicks = possibleClicks;
@@ -29,7 +32,6 @@ public class CombinationGenerator extends Thread
         this.trueAdjacents = trueAdjacents;
         this.firstClickStart = firstClickStart;
         this.firstClickEnd = firstClickEnd;
-
         this.setName(threadName);
     }
 
@@ -38,7 +40,7 @@ public class CombinationGenerator extends Thread
         this.generateCombinationsIterative(this.possibleClicks, numClicks);
     }
 
-    private void generateCombinationsIterative(List<Click> nodeList, int k) 
+    private void generateCombinationsIterative(IntList nodeList, int k) 
     {
         class State 
         {
@@ -62,7 +64,7 @@ public class CombinationGenerator extends Thread
             stack.push(new State(i + 1, 1, indices));
         }
 
-        List<List<Click>> batch = new ArrayList<>(BATCH_SIZE);
+        List<IntList> batch = new ArrayList<>(BATCH_SIZE);
 
         while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
         {
@@ -73,12 +75,14 @@ public class CombinationGenerator extends Thread
 
             if (size == k) 
             {
-                Click[] combination = new Click[k];
-                for (int j = 0; j < k; j++) {
-                    combination[j] = nodeList.get(indices[j]);
+                IntList combination = new IntArrayList(k);
+                for (int j = 0; j < k; j++)
+                {
+                    combination.add(nodeList.getInt(indices[j]));
                 }
-                batch.add(List.of(combination));
-                if (batch.size() >= BATCH_SIZE) {
+                batch.add(combination);
+                if (batch.size() >= BATCH_SIZE) 
+                {
                     this.combinationQueue.addBatch(batch);
                     batch = new ArrayList<>(BATCH_SIZE);
                 }
@@ -96,43 +100,51 @@ public class CombinationGenerator extends Thread
                 } 
                 else if (trueAdjacents != null && size + 1 == k) 
                 {
-                    Click[] combination = new Click[k];
-                    for (int j = 0; j < k - 1; j++) {
-                        combination[j] = nodeList.get(newIndices[j]);
-                    }
-                    combination[k - 1] = nodeList.get(i);
-
+                    // Pruning logic: only add if at least one click is in trueAdjacents
                     boolean shouldPrune = true;
-                    for (Click click : combination) 
+                    for (int j = 0; j < k - 1; j++) 
                     {
-                        if (trueAdjacents.contains(click)) 
+                        if (trueAdjacents.contains(nodeList.getInt(newIndices[j]))) 
                         {
                             shouldPrune = false;
                             break;
                         }
                     }
-
+                    if (trueAdjacents.contains(nodeList.getInt(i))) // Review if this block is redundant or not (I think it is, but I don't want to remove it yet)
+                    {
+                        shouldPrune = false;
+                    }
                     if (shouldPrune) 
                     {
                         break;
                     } 
                     else 
                     {
-                        batch.add(List.of(combination));
-                        if (batch.size() >= BATCH_SIZE) {
+                        IntArrayList combination = new IntArrayList(k);
+                        for (int j = 0; j < k - 1; j++)
+                        {
+                            combination.add(nodeList.getInt(newIndices[j]));
+                        }
+                        combination.add(nodeList.getInt(i));
+                        batch.add(combination);
+                        if (batch.size() >= BATCH_SIZE) 
+                        {
                             this.combinationQueue.addBatch(batch);
                             batch = new ArrayList<>(BATCH_SIZE);
                         }
                     }
                 }
-                else if (size + 1 == k)
+                else if (size + 1 == k) // This code would only run if trueAdjacents is null, which would never actually happen (since the puzzle we brute force is assumed to be unsolved), but it is kept for safety
                 {
-                    Click[] combination = new Click[k];
-                    for (int j = 0; j < k; j++) {
-                        combination[j] = nodeList.get(newIndices[j]);
+                    IntList combination = new IntArrayList(k);
+                    for (int j = 0; j < k - 1; j++) 
+                    {
+                        combination.add(nodeList.getInt(newIndices[j]));
                     }
-                    batch.add(List.of(combination));
-                    if (batch.size() >= BATCH_SIZE) {
+                    combination.add(nodeList.getInt(i));
+                    batch.add(combination);
+                    if (batch.size() >= BATCH_SIZE) 
+                    {
                         this.combinationQueue.addBatch(batch);
                         batch = new ArrayList<>(BATCH_SIZE);
                     }
@@ -140,7 +152,8 @@ public class CombinationGenerator extends Thread
             }
         }
         // Flush any remaining combinations in the batch
-        if (!batch.isEmpty()) {
+        if (!batch.isEmpty()) 
+        {
             this.combinationQueue.addBatch(batch);
         }
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);

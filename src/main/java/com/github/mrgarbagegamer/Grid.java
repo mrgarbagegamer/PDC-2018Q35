@@ -1,11 +1,13 @@
 package com.github.mrgarbagegamer;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
 public abstract class Grid {
     // constants
@@ -32,9 +34,11 @@ public abstract class Grid {
         new boolean[Grid.EVEN_NUM_COLS]
     };
 
-    public Map<Integer, int[]> trueCells = new HashMap<>();
+    // Use IntSet for true cells
+    public IntSet trueCells = new IntOpenHashSet();
 
-    private static final Map<Integer, Set<int[]>> adjacencyMap = new HashMap<>();
+    // Use IntSet for adjacents
+    private static final Map<Integer, IntSet> adjacencyMap = new HashMap<>(); // Future note: Consider using Int2ObjectOpenHashMap with a value type of IntSet for better performance
 
     static 
     {
@@ -42,41 +46,51 @@ public abstract class Grid {
         {
             for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
             {
-                Set<int[]> adjacents = computeAdjacents(row, col);
+                IntSet adjacents = computeAdjacents(row, col);
                 adjacencyMap.put(row * 100 + col, adjacents);
             }
         }
     }
 
-    public static Set<int[]> computeAdjacents(int row, int col) 
+    public static IntSet computeAdjacents(int row, int col) 
     {
-        HashSet<int[]> affectedPieces = new HashSet<>();
+        IntSet affectedPieces = new IntOpenHashSet();
 
         if (row % 2 == 0) // even rows with 16 columns
         { 
-            affectedPieces.add(new int[] { row - 1, col - 1 });
-            affectedPieces.add(new int[] { row - 1, col });
-            affectedPieces.add(new int[] { row, col - 1 });
-            affectedPieces.add(new int[] { row, col + 1 });
-            affectedPieces.add(new int[] { row + 1, col - 1 });
-            affectedPieces.add(new int[] { row + 1, col });
+            affectedPieces.add((row - 1) * 100 + (col - 1));
+            affectedPieces.add((row - 1) * 100 + col);
+            affectedPieces.add(row * 100 + (col - 1));
+            affectedPieces.add(row * 100 + (col + 1));
+            affectedPieces.add((row + 1) * 100 + (col - 1));
+            affectedPieces.add((row + 1) * 100 + col);
         } else // odd rows with 15 columns
         { 
-            affectedPieces.add(new int[] { row - 1, col });
-            affectedPieces.add(new int[] { row - 1, col + 1 });
-            affectedPieces.add(new int[] { row, col - 1 });
-            affectedPieces.add(new int[] { row, col + 1 });
-            affectedPieces.add(new int[] { row + 1, col });
-            affectedPieces.add(new int[] { row + 1, col + 1 });
+            affectedPieces.add((row - 1) * 100 + col);
+            affectedPieces.add((row - 1) * 100 + (col + 1));
+            affectedPieces.add(row * 100 + (col - 1));
+            affectedPieces.add(row * 100 + (col + 1));
+            affectedPieces.add((row + 1) * 100 + col);
+            affectedPieces.add((row + 1) * 100 + (col + 1));
         }
 
-        affectedPieces.removeIf(piece -> piece[0] < 0 || piece[0] >= Grid.NUM_ROWS || piece[1] < 0 || piece[1] >= ((piece[0] % 2 == 0) ? Grid.EVEN_NUM_COLS : Grid.ODD_NUM_COLS));
+        // Remove out-of-bounds cells
+        affectedPieces.removeIf(key -> {
+            int r = key / 100, c = key % 100;
+            return r < 0 || r >= NUM_ROWS || c < 0 || c >= ((r % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS);
+        });
+
         return affectedPieces;
     }
 
-    public static Set<int[]> findAdjacents(int row, int col) 
+    public static IntSet findAdjacents(int row, int col) 
     {
         return adjacencyMap.get(row * 100 + col);
+    }
+
+    public static IntSet findAdjacents(int cell) 
+    {
+        return adjacencyMap.get(cell);
     }
 
     public Grid() 
@@ -94,64 +108,113 @@ public abstract class Grid {
         }
     }
 
-    public Set<int[]> findTrueCells() 
+    public IntSet findTrueCells() 
     {
-        HashSet<int[]> trueCellsList = new HashSet<>();
-        for (Map.Entry<Integer, int[]> entry : trueCells.entrySet()) 
+        IntSet trueCellsSet = new IntOpenHashSet();
+        // Iterate through the trueCells IntSet and add the true cells to the new IntSet
+        for (int key : trueCells) 
         {
-            trueCellsList.add(entry.getValue());
+            int row = key / 100;
+            int col = key % 100;
+            trueCellsSet.add(row * 100 + col);
         }
-        return trueCellsList;
+        return trueCellsSet;
     }
 
-    public int[] findFirstTrueCell()
+    public int findFirstTrueCell()
     {
-        // Return the first element in the trueCells map
-        int[] firstTrueCell = null;
-        for (Map.Entry<Integer, int[]> entry : trueCells.entrySet()) 
+        // Return the first element in the trueCells IntSet
+        if (trueCells.isEmpty()) 
         {
-            if (firstTrueCell == null) 
+            return -1; // No true cells found
+        }
+
+        // Iterate through the trueCells IntSet and find the first true cell (comparing the values to determine the first one)
+        int firstTrueCell = Integer.MAX_VALUE;
+        for (int key : trueCells) 
+        {
+            if (key < firstTrueCell) 
             {
-                firstTrueCell = entry.getValue();
-            } else if (after(firstTrueCell, entry.getValue())) 
-            {
-                firstTrueCell = entry.getValue();
+                firstTrueCell = key;
             }
         }
         return firstTrueCell;
     }
 
-    public void click(int row, int col) 
+    public void click(int cell) 
     {
-        Set<int[]> affectedPieces = findAdjacents(row, col);
+        IntSet affectedPieces = findAdjacents(cell);
 
         // Flip the state of the affected pieces (if the cell is true, remove it from the trueCells map, otherwise add it)
-        for (int[] piece : affectedPieces) 
+        // for (int[] piece : affectedPieces) 
+        // {
+        //     int pieceRow = piece[0];
+        //     int pieceCol = piece[1];
+        //     int key = pieceRow * 100 + pieceCol;
+        //     boolean currentState = grid[pieceRow][pieceCol];
+
+        //     // Toggle the state
+        //     grid[pieceRow][pieceCol] = !currentState;
+
+        //     // Update the trueCells map
+        //     if (currentState) 
+        //     {
+        //         trueCells.remove(key);
+        //     } else 
+        //     {
+        //         int[] cell = {pieceRow, pieceCol};
+        //         trueCells.putIfAbsent(key, cell);
+        //     }
+        // }
+
+        for (int piece : affectedPieces) 
         {
-            int pieceRow = piece[0];
-            int pieceCol = piece[1];
-            int key = pieceRow * 100 + pieceCol;
+            int pieceRow = piece / 100;
+            int pieceCol = piece % 100;
             boolean currentState = grid[pieceRow][pieceCol];
 
             // Toggle the state
             grid[pieceRow][pieceCol] = !currentState;
 
-            // Update the trueCells map
+            // Update the trueCells IntSet
             if (currentState) 
             {
-                trueCells.remove(key);
+                trueCells.remove(piece);
             } else 
             {
-                int[] cell = {pieceRow, pieceCol};
-                trueCells.putIfAbsent(key, cell);
+                trueCells.add(piece);
             }
         }
     }
 
-    public Set<int[]> findFirstTrueAdjacents() 
+    public void click(int row, int col) // Identical method with different declaration for backwards compatibility
     {
-        int[] firstTrueCell = findFirstTrueCell();
-        Set<int[]> trueAdjacents = findAdjacents(firstTrueCell[0], firstTrueCell[1]);
+        IntSet affectedPieces = findAdjacents(row, col);
+
+        for (int piece : affectedPieces) 
+        {
+            int pieceRow = piece / 100;
+            int pieceCol = piece % 100;
+            boolean currentState = grid[pieceRow][pieceCol];
+
+            // Toggle the state
+            grid[pieceRow][pieceCol] = !currentState;
+
+            // Update the trueCells IntSet
+            if (currentState) 
+            {
+                trueCells.remove(piece);
+            } else 
+            {
+                trueCells.add(piece);
+            }
+        }
+    }
+
+    public IntSet findFirstTrueAdjacents() 
+    {
+        int firstTrueCell = findFirstTrueCell();
+        IntSet trueAdjacents = findAdjacents(firstTrueCell);
 
         if (trueAdjacents.size() == 0) 
         {
@@ -161,7 +224,7 @@ public abstract class Grid {
         return trueAdjacents;
     }
 
-    public boolean after(int[] x, int[] y) // Returns true if x is after y and false otherwise
+    public boolean after(int[] x, int[] y) // Returns true if x is after y and false otherwise, deprecated because packed ints are used instead of int[]
     {
         if (x[0] > y[0]) 
         {
@@ -173,21 +236,20 @@ public abstract class Grid {
         return false;
     }
 
-    public Set<int[]> findFirstTrueAdjacentsAfter(int row, int col) 
+    public IntSet findFirstTrueAdjacentsAfter(int cell) 
     {
-        int[] cell = {row, col};
-        Set<int[]> firstTrueAdjacents = findFirstTrueAdjacents();
-        Set<int[]> filteredAdjacents = new HashSet<>();
+        IntSet firstTrueAdjacents = findFirstTrueAdjacents();
+        IntSet filteredAdjacents = new IntOpenHashSet();
 
         if (firstTrueAdjacents == null) 
         {
             return null;
         }
         
-        for (int[] adj : firstTrueAdjacents) 
+        for (int adj : firstTrueAdjacents) 
         {
             // Compare if adjacent cell is after the clicked cell
-            if (this.after(adj, cell))
+            if (adj > cell)
             {
                 filteredAdjacents.add(adj);
             }
@@ -261,16 +323,10 @@ public abstract class Grid {
                 System.arraycopy(this.grid[row], 0, newGrid.grid[row], 0, this.grid[row].length);
             }
             
-            newGrid.trueCells = new HashMap<>();
+            newGrid.trueCells = new IntOpenHashSet();
 
-            // Add the true cells to the new grid's trueCells map
-            for (int key : this.trueCells.keySet()) 
-            {
-                // clone the int[] array to avoid reference issues
-                int[] cell = this.trueCells.get(key);
-                int[] newCell = {cell[0], cell[1]};
-                newGrid.trueCells.put(key, newCell);
-            }
+            // Add the true cells to the new grid's IntSet
+            newGrid.trueCells.addAll(this.trueCells);
 
             return newGrid;
         } catch (Exception e) 

@@ -8,13 +8,15 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jctools.queues.MpmcArrayQueue;
 
+import it.unimi.dsi.fastutil.ints.IntList;
+
 public class CombinationQueue 
 {
     private final int QUEUE_SIZE = 100000;
-    private Queue<List<Click>> combinationQueue = new MpmcArrayQueue<>(QUEUE_SIZE);
+    private Queue<IntList> combinationQueue = new MpmcArrayQueue<>(QUEUE_SIZE);
     private volatile boolean solutionFound = false;
     private String winningMonkey = null;
-    private List<Click> winningCombination = null;
+    private IntList winningCombination = null;
 
     private AtomicInteger generatorsRemaining;
     private volatile boolean generationComplete = false;
@@ -42,7 +44,7 @@ public class CombinationQueue
         return this.solutionFound;
     }
 
-    public void solutionFound(String monkeyName, List<Click> winningCombination) 
+    public void solutionFound(String monkeyName, IntList winningCombination) 
     {
         this.solutionFound = true;
         this.winningMonkey = monkeyName;
@@ -50,7 +52,7 @@ public class CombinationQueue
 
         // Log the solution
         Logger logger = LogManager.getLogger(CombinationQueue.class);
-        logger.info("{} - Found the solution as the following click combination: {}", monkeyName, winningCombination);
+        logger.info("{} - Found the solution as the following click combination: {}", monkeyName, winningCombination); // Refactor this to use StringBuilders for formatted, garbage-free logging
     }
 
     public String getWinningMonkey()
@@ -58,12 +60,12 @@ public class CombinationQueue
         return this.winningMonkey;
     }
 
-    public List<Click> getWinningCombination()
+    public IntList getWinningCombination()
     {
         return this.winningCombination;
     }
 
-    public boolean add(List<Click> combinationClicks) 
+    public boolean add(IntList combinationClicks) 
     {
         while (!this.solutionFound) 
         {
@@ -87,15 +89,15 @@ public class CombinationQueue
         return false; // If solution is found, stop adding
     }
 
-    public void addBatch(List<List<Click>> batch) {
-        for (List<Click> combination : batch) {
+    public void addBatch(List<IntList> batch) {
+        for (IntList combination : batch) {
             add(combination);
         }
     }
 
-    public List<Click> getClicksCombination() 
+    public IntList getClicksCombination() 
     {
-        List<Click> combinationClicks = null;
+        IntList combinationClicks = null;
 
         while (combinationClicks == null && !this.solutionFound) 
         {

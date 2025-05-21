@@ -1,19 +1,18 @@
 package com.github.mrgarbagegamer;
 
-import java.util.List;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.ArrayList;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
 public class StartYourMonkeys 
 {
     // Add a logger at the top of the class
     private static final Logger logger = LogManager.getLogger(StartYourMonkeys.class);
 
-    private static void populateClickList(List<Click> possibleClicks) 
+    private static void populatePossibleClicks(IntArrayList possibleClicks)
     {
         int numRows = 7; // Total rows in the grid
         int[] numCols = { 16, 15, 16, 15, 16, 15, 16 }; // Number of columns for each row
@@ -22,7 +21,7 @@ public class StartYourMonkeys
         {
             for (int col = 0; col < numCols[row]; col++) 
             {
-                possibleClicks.add(new Click(row, col));
+                possibleClicks.add(row * 100 + col);
             }
         }
     }
@@ -53,8 +52,8 @@ public class StartYourMonkeys
 
 
         // generate the list of possible clicks for our grid
-        List<Click> possibleClicks = new ArrayList<>();
-        StartYourMonkeys.populateClickList(possibleClicks);
+        IntArrayList possibleClicks = new IntArrayList();
+        StartYourMonkeys.populatePossibleClicks(possibleClicks);
 
         // create the queue to hold the generated combinations
         CombinationQueue combinationQueue = new CombinationQueue();
@@ -75,15 +74,7 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
-        Set<int[]> trueAdjSet = baseGrid.findFirstTrueAdjacents();
-        Set<Click> trueAdjacents = new HashSet<>();
-        if (trueAdjSet != null) 
-        {
-            for (int[] adj : trueAdjSet) 
-            {
-                trueAdjacents.add(new Click(adj[0], adj[1]));
-            }
-        }
+        IntSet trueAdjacents = baseGrid.findFirstTrueAdjacents();
 
         int numGeneratorThreads = Math.min(numClicks, numThreads); // or set as desired
         int chunkSize = possibleClicks.size() / numGeneratorThreads;
@@ -120,8 +111,7 @@ public class StartYourMonkeys
                 e.printStackTrace();
             }
         }
-
-        List<Click> winningCombination = combinationQueue.getWinningCombination();
+        IntList winningCombination = combinationQueue.getWinningCombination();
 
         long elapsedMillis = System.currentTimeMillis() - startTime;
         String elapsedFormatted = formatElapsedTime(elapsedMillis);
@@ -146,25 +136,26 @@ public class StartYourMonkeys
             return;
         }
 
-        
-        logger.info("{} - Found the solution as the following click combination: [{}]", combinationQueue.getWinningMonkey(), winningCombination);
+        logger.info("{} - Found the solution as the following click combination: [{}]", combinationQueue.getWinningMonkey(), winningCombination); // Refactor this to use StringBuilders for formatted, garbage-free logging
+
         logger.info("{} - Elapsed time: {}", combinationQueue.getWinningMonkey(), elapsedFormatted);
-        
+
         // create a new grid and test out the winning combination
         Grid puzzleGrid = baseGrid.clone();
 
         boolean solved = false;
         for (int i = 0; (i < winningCombination.size()) && (!solved); i++) 
         {
-            Click click = winningCombination.get(i);
+            int clickInt = winningCombination.getInt(i);
+            int row = clickInt / 100;
+            int col = clickInt % 100;
 
-            puzzleGrid.click(click.row, click.col);
+            puzzleGrid.click(row, col);
             solved = puzzleGrid.isSolved();
         }
         puzzleGrid.printGrid();
 
         logger.info("\n\n--------------------------------------\n");
-        
         LogManager.shutdown();
     }
 

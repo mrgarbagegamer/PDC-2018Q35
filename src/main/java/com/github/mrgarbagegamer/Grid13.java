@@ -7,7 +7,7 @@ public class Grid13 extends Grid
     {
         // Initialize for Q13/Kermit
         
-        // reset the trueCells map and set all cells to false
+        // reset the trueCells IntSet and set all cells to false
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
             Arrays.fill(this.grid[row], false);
@@ -19,17 +19,17 @@ public class Grid13 extends Grid
             for (int col = 1; col <= 14; col++)
             {
                 this.grid[row][col] = true;
-                int[] cell = {row, col};
-                // Add the true cells to the trueCells map
-                this.trueCells.put(row * 100 + col, cell);
+                int cell = row * 100 + col;
+                // Add the true cells to the trueCells IntSet
+                this.trueCells.add(cell);
             }
         }
 
         this.grid[3][0] = true;
-        this.trueCells.put(300, (new int[] {3, 0}));
+        this.trueCells.add(300);
 
         this.grid[3][14] = true;
-        this.trueCells.put(314, (new int[] {3, 14}));
+        this.trueCells.add(314);
 
         // this.click(3,1);
         // this.click(3,3);

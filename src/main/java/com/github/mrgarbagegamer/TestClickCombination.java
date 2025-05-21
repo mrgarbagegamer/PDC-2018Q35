@@ -3,9 +3,8 @@ package com.github.mrgarbagegamer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
-import java.util.HashSet;
-import java.util.Set;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
 public class TestClickCombination extends Thread 
 {
@@ -18,7 +17,6 @@ public class TestClickCombination extends Thread
     {
         this.combinationQueue = combinationQueue;
         this.puzzleGrid = puzzleGrid;
-
         this.setName(threadName);
     }
 
@@ -28,7 +26,7 @@ public class TestClickCombination extends Thread
 
         while(!iSolvedIt && !this.combinationQueue.isItSolved())
         {
-            List<Click> combinationClicks = this.combinationQueue.getClicksCombination();
+            IntList combinationClicks = this.combinationQueue.getClicksCombination();
             if (combinationClicks == null) 
             {
                 break; // No more combinations to process, exit the thread.
@@ -36,9 +34,8 @@ public class TestClickCombination extends Thread
 
             for (int i = 0; (!iSolvedIt) && (!this.combinationQueue.isItSolved()) && (i < combinationClicks.size()); i++) 
             {
-                Click click = combinationClicks.get(i);
-
-                this.puzzleGrid.click(click.row, click.col);
+                int click = combinationClicks.getInt(i);
+                this.puzzleGrid.click(click);
 
                 if (this.puzzleGrid.getTrueCount() > (combinationClicks.size() - i - 1) * 6) 
                 {
@@ -55,22 +52,21 @@ public class TestClickCombination extends Thread
                     return;
                 }
 
-                Set<int[]> firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click.row, click.col);
-                if (firstTrueAdjacents == null) // Check if any true adjacents exist after the current click
+                IntSet firstTrueAdjacents = this.puzzleGrid.findFirstTrueAdjacentsAfter(click);
+                if (firstTrueAdjacents == null || firstTrueAdjacents.isEmpty()) // Check if any true adjacents exist after the current click
                 {
                     break;
                 }
                 else
                 {
-                    Set<String> adjSet = new HashSet<>();
-                    for (int[] adj : firstTrueAdjacents) 
-                    {
-                        adjSet.add(adj[0] + "," + adj[1]);
+                    // Check if any remaining clicks are in the adjacents set
+                    boolean hasTrueAdjacent = false;
+                    for (int j = i + 1; j < combinationClicks.size(); j++) {
+                        if (firstTrueAdjacents.contains(combinationClicks.getInt(j))) {
+                            hasTrueAdjacent = true;
+                            break;
+                        }
                     }
-
-                    boolean hasTrueAdjacent = combinationClicks.subList(i + 1, combinationClicks.size()).stream()
-                        .anyMatch(c -> adjSet.contains(c.row + "," + c.col));
-
                     if (!hasTrueAdjacent) 
                     {
                         break;
@@ -78,10 +74,9 @@ public class TestClickCombination extends Thread
                 }
             }
 
-            
             if(!iSolvedIt && !this.combinationQueue.isItSolved())
             {
-                logger.debug("Tried and failed: {}", combinationClicks);
+                logger.debug("Tried and failed: {}", combinationClicks); // Note for the future: Refactor this to use StringBuilders for formatted, garbage-free logging
             }
 
             // reset the grid for the next combination

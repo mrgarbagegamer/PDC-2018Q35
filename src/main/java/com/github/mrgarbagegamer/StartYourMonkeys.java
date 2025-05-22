@@ -76,7 +76,7 @@ public class StartYourMonkeys
 
         IntSet trueAdjacents = baseGrid.findFirstTrueAdjacents();
 
-        int numGeneratorThreads = Math.min(numClicks, numThreads); // or set as desired
+        int numGeneratorThreads = Math.min(numClicks, numThreads / 2); // or set as desired
         int chunkSize = possibleClicks.size() / numGeneratorThreads;
 
         combinationQueue.setNumGenerators(numGeneratorThreads); // Tell the queue how many generators we have on startup

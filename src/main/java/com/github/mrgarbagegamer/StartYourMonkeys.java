@@ -30,9 +30,9 @@ public class StartYourMonkeys
     {
         long startTime = System.currentTimeMillis(); // Start timer
 
-        int defaultNumClicks  = 15;
-        int defaultNumThreads = 24;
-        int defaultQuestionNumber = 22;
+        int defaultNumClicks  = 10;
+        int defaultNumThreads = 8;
+        int defaultQuestionNumber = 35;
 
         int numClicks  = defaultNumClicks;
         int numThreads = defaultNumThreads;

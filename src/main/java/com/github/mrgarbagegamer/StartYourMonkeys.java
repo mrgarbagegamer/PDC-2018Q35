@@ -55,9 +55,6 @@ public class StartYourMonkeys
         IntArrayList possibleClicks = new IntArrayList();
         StartYourMonkeys.populatePossibleClicks(possibleClicks);
 
-        // create the queue to hold the generated combinations
-        CombinationQueue combinationQueue = new CombinationQueue();
-
         // start generating different click combinations
         Grid baseGrid = null;
 
@@ -79,24 +76,27 @@ public class StartYourMonkeys
         int numGeneratorThreads = Math.min(numClicks, numThreads / 2); // or set as desired
         int chunkSize = (possibleClicks.size() - numClicks + 1) / numGeneratorThreads; // Chunk size for each generator thread, eliminating impossible prefixes (e.x. if numClicks = 10, then any prefix of the last 9 clicks cannot generate a valid combination)
 
-        combinationQueue.setNumGenerators(numGeneratorThreads); // Tell the queue how many generators we have on startup
+        // Tell the queue how many generators we have on startup
+        CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, numGeneratorThreads);
 
+        // Start generator threads
         for (int t = 0; t < numGeneratorThreads; t++) {
             String threadName = String.format("Generator-%d", t);
             int start = t * chunkSize;
             int end = (t == numGeneratorThreads - 1) ? possibleClicks.size() - numClicks + 1 : (t + 1) * chunkSize;
-            CombinationGenerator cb = new CombinationGenerator(threadName, combinationQueue, possibleClicks, numClicks, trueAdjacents, start, end);
+            CombinationGenerator cb = new CombinationGenerator(threadName, queueArray, possibleClicks, numClicks, trueAdjacents, start, end, numThreads);
             cb.start();
         }
 
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
+        // Start consumer threads
         for(int i=0; i < numThreads; i++)
         {
             String threadName = String.format("Monkey-%d", i);
 
-            monkeys[i] = new TestClickCombination(threadName, combinationQueue, baseGrid.clone());
+            monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray, baseGrid.clone());
             monkeys[i].start();
         }
 
@@ -111,7 +111,7 @@ public class StartYourMonkeys
                 e.printStackTrace();
             }
         }
-        IntList winningCombination = combinationQueue.getWinningCombination();
+        IntList winningCombination = queueArray.getWinningCombination();
 
         long elapsedMillis = System.currentTimeMillis() - startTime;
         String elapsedFormatted = formatElapsedTime(elapsedMillis);
@@ -136,9 +136,9 @@ public class StartYourMonkeys
             return;
         }
 
-        logger.info("{} - Found the solution as the following click combination: [{}]", combinationQueue.getWinningMonkey(), winningCombination); // Refactor this to use StringBuilders for formatted, garbage-free logging
+        logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination); // Refactor this to use StringBuilders for formatted, garbage-free logging
 
-        logger.info("{} - Elapsed time: {}", combinationQueue.getWinningMonkey(), elapsedFormatted);
+        logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
         // create a new grid and test out the winning combination
         Grid puzzleGrid = baseGrid.clone();

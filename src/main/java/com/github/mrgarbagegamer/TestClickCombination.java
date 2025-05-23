@@ -10,21 +10,24 @@ public class TestClickCombination extends Thread
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
 
-    private CombinationQueue combinationQueue;
-    private Grid puzzleGrid;
+    private final CombinationQueue combinationQueue;
+    private final CombinationQueueArray queueArray;
+    private final Grid puzzleGrid;
 
-    public TestClickCombination(String threadName, CombinationQueue combinationQueue, Grid puzzleGrid) 
+    public TestClickCombination(String threadName, CombinationQueue combinationQueue, CombinationQueueArray queueArray, Grid puzzleGrid) 
     {
+        super(threadName);
         this.combinationQueue = combinationQueue;
+        this.queueArray = queueArray;
         this.puzzleGrid = puzzleGrid;
-        this.setName(threadName);
     }
 
+    @Override
     public void run() 
     {
         boolean iSolvedIt = false;
 
-        while(!iSolvedIt && !this.combinationQueue.isItSolved())
+        while(!iSolvedIt && !queueArray.isSolutionFound())
         {
             IntList combinationClicks = this.combinationQueue.getClicksCombination();
             if (combinationClicks == null) 
@@ -32,7 +35,7 @@ public class TestClickCombination extends Thread
                 break; // No more combinations to process, exit the thread.
             }
 
-            for (int i = 0; (!iSolvedIt) && (!this.combinationQueue.isItSolved()) && (i < combinationClicks.size()); i++) 
+            for (int i = 0; (!iSolvedIt) && (!queueArray.isSolutionFound()) && (i < combinationClicks.size()); i++) 
             {
                 int click = combinationClicks.getInt(i);
                 this.puzzleGrid.click(click);
@@ -48,7 +51,7 @@ public class TestClickCombination extends Thread
                 if (iSolvedIt) 
                 {
                     logger.info("Found the solution as the following click combination: {}", combinationClicks);
-                    this.combinationQueue.solutionFound(this.getName(), combinationClicks);
+                    queueArray.solutionFound(this.getName(), combinationClicks);
                     return;
                 }
 
@@ -74,9 +77,9 @@ public class TestClickCombination extends Thread
                 }
             }
 
-            if(!iSolvedIt && !this.combinationQueue.isItSolved())
+            if(!iSolvedIt && !queueArray.isSolutionFound())
             {
-                logger.debug("Tried and failed: {}", combinationClicks); // Note for the future: Refactor this to use StringBuilders for formatted, garbage-free logging
+                logger.debug("Tried and failed: {}", combinationClicks);
             }
 
             // reset the grid for the next combination

@@ -16,28 +16,30 @@ public class CombinationGenerator extends Thread
 {
     private static final Logger logger = LogManager.getLogger(CombinationGenerator.class);
 
-    private CombinationQueue combinationQueue;
-    private IntList possibleClicks;
-    private int numClicks;
-    private IntSet trueAdjacents;
-    private int firstClickStart, firstClickEnd;
-
+    private final CombinationQueueArray queueArray;
+    private final IntList possibleClicks;
+    private final int numClicks;
+    private final IntSet trueAdjacents;
+    private final int firstClickStart, firstClickEnd;
+    private final int numConsumers;
     private static final int BATCH_SIZE = 1000; // Tune as needed
 
-    public CombinationGenerator(String threadName, CombinationQueue combinationQueue, IntList possibleClicks, int numClicks, IntSet trueAdjacents, int firstClickStart, int firstClickEnd) 
+    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, IntSet trueAdjacents, int firstClickStart, int firstClickEnd, int numConsumers) 
     {
-        this.combinationQueue = combinationQueue;
+        super(threadName);
+        this.queueArray = queueArray;
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.trueAdjacents = trueAdjacents;
         this.firstClickStart = firstClickStart;
         this.firstClickEnd = firstClickEnd;
-        this.setName(threadName);
+        this.numConsumers = numConsumers;
     }
 
+    @Override
     public void run() 
     {
-        this.generateCombinationsIterative(this.possibleClicks, numClicks);
+        generateCombinationsIterative(possibleClicks, numClicks);
     }
 
     private void generateCombinationsIterative(IntList nodeList, int k) 
@@ -65,8 +67,9 @@ public class CombinationGenerator extends Thread
         }
 
         List<IntList> batch = new ArrayList<>(BATCH_SIZE);
+        int roundRobinIdx = 0;
 
-        while (!stack.isEmpty() && !this.combinationQueue.isItSolved()) 
+        while (!stack.isEmpty() && !queueArray.isSolutionFound()) 
         {
             State state = stack.pop();
             int start = state.start;
@@ -83,7 +86,9 @@ public class CombinationGenerator extends Thread
                 batch.add(combination);
                 if (batch.size() >= BATCH_SIZE) 
                 {
-                    this.combinationQueue.addBatch(batch);
+                    // Round-robin distribute the batch
+                    queueArray.getQueue(roundRobinIdx).addBatch(batch);
+                    roundRobinIdx = (roundRobinIdx + 1) % numConsumers;
                     batch = new ArrayList<>(BATCH_SIZE);
                 }
                 continue;
@@ -110,7 +115,7 @@ public class CombinationGenerator extends Thread
                             break;
                         }
                     }
-                    if (trueAdjacents.contains(nodeList.getInt(i))) // Review if this block is redundant or not (I think it is, but I don't want to remove it yet)
+                    if (trueAdjacents.contains(nodeList.getInt(i))) 
                     {
                         shouldPrune = false;
                     }
@@ -129,12 +134,13 @@ public class CombinationGenerator extends Thread
                         batch.add(combination);
                         if (batch.size() >= BATCH_SIZE) 
                         {
-                            this.combinationQueue.addBatch(batch);
+                            queueArray.getQueue(roundRobinIdx).addBatch(batch);
+                            roundRobinIdx = (roundRobinIdx + 1) % numConsumers;
                             batch = new ArrayList<>(BATCH_SIZE);
                         }
                     }
                 }
-                else if (size + 1 == k) // This code would only run if trueAdjacents is null, which would never actually happen (since the puzzle we brute force is assumed to be unsolved), but it is kept for safety
+                else if (size + 1 == k) // fallback
                 {
                     IntList combination = new IntArrayList(k);
                     for (int j = 0; j < k - 1; j++) 
@@ -145,7 +151,8 @@ public class CombinationGenerator extends Thread
                     batch.add(combination);
                     if (batch.size() >= BATCH_SIZE) 
                     {
-                        this.combinationQueue.addBatch(batch);
+                        queueArray.getQueue(roundRobinIdx).addBatch(batch);
+                        roundRobinIdx = (roundRobinIdx + 1) % numConsumers;
                         batch = new ArrayList<>(BATCH_SIZE);
                     }
                 }
@@ -154,9 +161,9 @@ public class CombinationGenerator extends Thread
         // Flush any remaining combinations in the batch
         if (!batch.isEmpty()) 
         {
-            this.combinationQueue.addBatch(batch);
+            queueArray.getQueue(roundRobinIdx).addBatch(batch);
         }
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
-        combinationQueue.generatorFinished();
+        queueArray.generatorFinished();
     }
 }

@@ -3,8 +3,9 @@ package com.github.mrgarbagegamer;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+
 import org.jctools.queues.MpscArrayQueue;
+
 import it.unimi.dsi.fastutil.ints.IntList;
 
 public class CombinationQueue {
@@ -18,12 +19,16 @@ public class CombinationQueue {
         this.generationComplete = generationComplete;
     }
 
-    public boolean add(IntList combinationClicks) {
-        while (!solutionFound.get()) {
-            if (queue.offer(combinationClicks)) return true;
-            try { Thread.sleep(5); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return false; }
+    public boolean add(IntList combinationClicks) 
+    {
+        if (queue.offer(combinationClicks)) 
+        {
+            return true;
         }
-        return false;
+        else 
+        {
+            return false;
+        }
     }
 
     public IntList getClicksCombination() {
@@ -38,10 +43,24 @@ public class CombinationQueue {
         return combinationClicks;
     }
 
-    public void addBatch(List<IntList> batch) {
-        for (IntList combination : batch) {
-            add(combination);
+    /**
+     * Attempts to add as many elements from the batch as possible.
+     * Returns the number of elements successfully added.
+     */
+    public int addBatch(List<IntList> batch) 
+    {
+        int added = 0;
+        for (IntList combination : batch) 
+        {
+            if (add(combination)) 
+            {
+                added++;
+            } else 
+            {
+                break; // Stop at first failure (queue full or solution found)
+            }
         }
+        return added;
     }
 
 }

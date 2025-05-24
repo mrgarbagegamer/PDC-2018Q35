@@ -86,10 +86,35 @@ public class CombinationGenerator extends Thread
                 batch.add(combination);
                 if (batch.size() >= BATCH_SIZE) 
                 {
-                    // Round-robin distribute the batch
-                    queueArray.getQueue(roundRobinIdx).addBatch(batch);
-                    roundRobinIdx = (roundRobinIdx + 1) % numConsumers;
-                    batch = new ArrayList<>(BATCH_SIZE);
+                    while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
+                    {
+                        boolean addedAny = false;
+                        for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
+                        {
+                            int idx = (roundRobinIdx + attempt) % numConsumers;
+                            CombinationQueue queue = queueArray.getQueue(idx);
+                            int added = queue.addBatch(batch);
+                            if (added > 0) 
+                            {
+                                // Remove successfully added elements from the front of the batch
+                                batch.subList(0, added).clear();
+                                roundRobinIdx = (idx + 1) % numConsumers;
+                                addedAny = true;
+                                // Continue trying to add the rest of the batch
+                            }
+                        }
+                        if (!addedAny) {
+                            // All queues full, sleep briefly before retrying
+                            try 
+                            { 
+                                Thread.sleep(5); 
+                            } catch (InterruptedException e) 
+                            { 
+                                Thread.currentThread().interrupt(); 
+                                break; 
+                            }
+                        }
+                    }
                 }
                 continue;
             }
@@ -134,9 +159,35 @@ public class CombinationGenerator extends Thread
                         batch.add(combination);
                         if (batch.size() >= BATCH_SIZE) 
                         {
-                            queueArray.getQueue(roundRobinIdx).addBatch(batch);
-                            roundRobinIdx = (roundRobinIdx + 1) % numConsumers;
-                            batch = new ArrayList<>(BATCH_SIZE);
+                            while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
+                            {
+                                boolean addedAny = false;
+                                for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
+                                {
+                                    int idx = (roundRobinIdx + attempt) % numConsumers;
+                                    CombinationQueue queue = queueArray.getQueue(idx);
+                                    int added = queue.addBatch(batch);
+                                    if (added > 0) 
+                                    {
+                                        // Remove successfully added elements from the front of the batch
+                                        batch.subList(0, added).clear();
+                                        roundRobinIdx = (idx + 1) % numConsumers;
+                                        addedAny = true;
+                                        // Continue trying to add the rest of the batch
+                                    }
+                                }
+                                if (!addedAny) {
+                                    // All queues full, sleep briefly before retrying
+                                    try 
+                                    { 
+                                        Thread.sleep(5); 
+                                    } catch (InterruptedException e) 
+                                    { 
+                                        Thread.currentThread().interrupt(); 
+                                        break; 
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -151,17 +202,68 @@ public class CombinationGenerator extends Thread
                     batch.add(combination);
                     if (batch.size() >= BATCH_SIZE) 
                     {
-                        queueArray.getQueue(roundRobinIdx).addBatch(batch);
-                        roundRobinIdx = (roundRobinIdx + 1) % numConsumers;
-                        batch = new ArrayList<>(BATCH_SIZE);
+                        while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
+                        {
+                            boolean addedAny = false;
+                            for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
+                            {
+                                int idx = (roundRobinIdx + attempt) % numConsumers;
+                                CombinationQueue queue = queueArray.getQueue(idx);
+                                int added = queue.addBatch(batch);
+                                if (added > 0) 
+                                {
+                                    // Remove successfully added elements from the front of the batch
+                                    batch.subList(0, added).clear();
+                                    roundRobinIdx = (idx + 1) % numConsumers;
+                                    addedAny = true;
+                                    // Continue trying to add the rest of the batch
+                                }
+                            }
+                            if (!addedAny) {
+                                // All queues full, sleep briefly before retrying
+                                try 
+                                { 
+                                    Thread.sleep(5); 
+                                } catch (InterruptedException e) 
+                                { 
+                                    Thread.currentThread().interrupt(); 
+                                    break; 
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
         // Flush any remaining combinations in the batch
-        if (!batch.isEmpty()) 
+        while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
         {
-            queueArray.getQueue(roundRobinIdx).addBatch(batch);
+            boolean addedAny = false;
+            for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
+            {
+                int idx = (roundRobinIdx + attempt) % numConsumers;
+                CombinationQueue queue = queueArray.getQueue(idx);
+                int added = queue.addBatch(batch);
+                if (added > 0) 
+                {
+                    // Remove successfully added elements from the front of the batch
+                    batch.subList(0, added).clear();
+                    roundRobinIdx = (idx + 1) % numConsumers;
+                    addedAny = true;
+                    // Continue trying to add the rest of the batch
+                }
+            }
+            if (!addedAny) {
+                // All queues full, sleep briefly before retrying
+                try 
+                { 
+                    Thread.sleep(5); 
+                } catch (InterruptedException e) 
+                { 
+                    Thread.currentThread().interrupt(); 
+                    break; 
+                }
+            }
         }
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
         queueArray.generatorFinished();

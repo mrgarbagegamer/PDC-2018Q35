@@ -1,11 +1,9 @@
 package com.github.mrgarbagegamer;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
@@ -38,7 +36,7 @@ public abstract class Grid {
     public IntSet trueCells = new IntOpenHashSet();
 
     // Use IntSet for adjacents
-    private static final Map<Integer, IntSet> adjacencyMap = new HashMap<>(); // Future note: Consider using Int2ObjectOpenHashMap with a value type of IntSet for better performance
+    private static final Int2ObjectOpenHashMap<IntSet> adjacencyMap = new Int2ObjectOpenHashMap<>(); // Future note: Consider using Int2ObjectOpenHashMap with a value type of IntSet for better performance
 
     static 
     {

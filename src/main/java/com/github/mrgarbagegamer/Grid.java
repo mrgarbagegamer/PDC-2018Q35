@@ -36,7 +36,7 @@ public abstract class Grid {
     public IntSet trueCells = new IntOpenHashSet();
 
     // Use IntSet for adjacents
-    private static final Int2ObjectOpenHashMap<IntSet> adjacencyMap = new Int2ObjectOpenHashMap<>(); // Future note: Consider using Int2ObjectOpenHashMap with a value type of IntSet for better performance
+    private static final Int2ObjectOpenHashMap<IntSet> adjacencyMap = new Int2ObjectOpenHashMap<>();
 
     static 
     {

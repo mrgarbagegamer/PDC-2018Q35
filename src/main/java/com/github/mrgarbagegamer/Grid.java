@@ -332,4 +332,28 @@ public abstract class Grid {
             throw new RuntimeException("Failed to clone Grid", e);
         }
     }
+
+    /**
+     * Returns true if the click could possibly affect or create a new first true cell.
+     * - If there are no true cells, any click can create one.
+     * - If the first true cell is the top-left cell (0,0), only its adjacents can affect it.
+     * - If the click is before or equal to the first true cell (by packed int order), it can create a new one.
+     * - If the click is adjacent to the first true cell, it can affect it.
+     */
+    public static boolean canAffectFirstTrueCell(int firstTrueCell, int clickCell) 
+    {
+        if (firstTrueCell == -1) return true; // No true cells, any click can create one
+        if (clickCell <= firstTrueCell) return true; // packed int order: row * 100 + col
+
+        // Edge case: first true cell is top-left (0,0)
+        if (firstTrueCell == 0) 
+        {
+            IntSet adj = findAdjacents(0);
+            return adj != null && adj.contains(clickCell);
+        }
+
+        // General case: check adjacency
+        IntSet adj = findAdjacents(firstTrueCell);
+        return adj != null && adj.contains(clickCell);
+    }
 }

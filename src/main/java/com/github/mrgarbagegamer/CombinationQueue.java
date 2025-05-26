@@ -4,13 +4,13 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.jctools.queues.MpscArrayQueue;
+import org.jctools.queues.MpmcArrayQueue;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 
 public class CombinationQueue {
     private final int QUEUE_SIZE = 100_000;
-    private final Queue<IntList> queue = new MpscArrayQueue<>(QUEUE_SIZE);
+    private final Queue<IntList> queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     private final AtomicBoolean solutionFound;
     private final AtomicBoolean generationComplete;
 
@@ -31,16 +31,9 @@ public class CombinationQueue {
         }
     }
 
-    public IntList getClicksCombination() {
-        IntList combinationClicks = null;
-        while (combinationClicks == null && !solutionFound.get()) {
-            combinationClicks = queue.poll();
-            if (combinationClicks == null) {
-                if (generationComplete.get()) return null;
-                try { Thread.sleep(5); } catch (InterruptedException e) { Thread.currentThread().interrupt(); return null; }
-            }
-        }
-        return combinationClicks;
+    public IntList getClicksCombination() 
+    {
+        return queue.poll();
     }
 
     /**
@@ -61,6 +54,16 @@ public class CombinationQueue {
             }
         }
         return added;
+    }
+
+    public boolean isSolutionFound() 
+    {
+        return solutionFound.get();
+    }
+
+    public boolean isGenerationComplete() 
+    {
+        return generationComplete.get();
     }
 
 }

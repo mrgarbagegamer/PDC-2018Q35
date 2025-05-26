@@ -26,13 +26,43 @@ public class TestClickCombination extends Thread
     public void run() 
     {
         boolean iSolvedIt = false;
+        CombinationQueue[] queues = queueArray.getAllQueues();
+        int myIndex = -1;
+        for (int i = 0; i < queues.length; i++) 
+        {
+            if (queues[i] == this.combinationQueue) 
+            {
+                myIndex = i;
+                break;
+            }
+        }
 
         while (!iSolvedIt && !queueArray.isSolutionFound())
         {
             IntList combinationClicks = this.combinationQueue.getClicksCombination();
             if (combinationClicks == null) 
             {
-                break; // No more combinations to process, exit the thread.
+                for (int i = 0; i < queues.length; i++) 
+                {
+                    if (i == myIndex) continue; // Skip my own queue
+                    combinationClicks = queues[i].getClicksCombination();
+                    if (combinationClicks != null) break; // Found a combination in another queue
+                }
+            }
+
+            if (combinationClicks == null) 
+            {
+                if (combinationQueue.isSolutionFound() || combinationQueue.isGenerationComplete()) break;
+                try
+                {
+                    Thread.sleep(5); // Wait for new combinations to be added
+                } catch (InterruptedException e) 
+                {
+                    Thread.currentThread().interrupt(); // Restore interrupted status
+                    logger.error("Thread interrupted while waiting for new combinations", e);
+                    break;
+                }
+                continue; // Retry getting a combination
             }
 
             int firstTrueCell = puzzleGrid.findFirstTrueCell();

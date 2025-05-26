@@ -72,9 +72,20 @@ public class StartYourMonkeys
         }
 
         IntSet trueAdjacents = baseGrid.findFirstTrueAdjacents();
+        // Iterate through the trueAdjacents set and set finalFirstTrueAdjacent equal to the largest element
+        int finalFirstTrueAdjacent = -1;
+        for (int adjacent : trueAdjacents) 
+        {
+            if (adjacent > finalFirstTrueAdjacent) 
+            {
+                finalFirstTrueAdjacent = adjacent;
+            }
+        }
+        int finalFirstTrueAdjIndex = possibleClicks.indexOf(finalFirstTrueAdjacent); // This is the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
+        
 
         int numGeneratorThreads = Math.min(numClicks, numThreads / 2); // or set as desired
-        int chunkSize = (possibleClicks.size() - numClicks + 1) / numGeneratorThreads; // Chunk size for each generator thread, eliminating impossible prefixes (e.x. if numClicks = 10, then any prefix of the last 9 clicks cannot generate a valid combination)
+        int chunkSize = (finalFirstTrueAdjIndex + 1) / numGeneratorThreads; // Chunk size for each generator thread, limiting the maximum index to finalFirstTrueAdjIndex
 
         // Tell the queue how many generators we have on startup
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, numGeneratorThreads);
@@ -83,7 +94,7 @@ public class StartYourMonkeys
         for (int t = 0; t < numGeneratorThreads; t++) {
             String threadName = String.format("Generator-%d", t);
             int start = t * chunkSize;
-            int end = (t == numGeneratorThreads - 1) ? possibleClicks.size() - numClicks + 1 : (t + 1) * chunkSize;
+            int end = (t == numGeneratorThreads - 1) ? finalFirstTrueAdjIndex + 1 : (t + 1) * chunkSize;
             CombinationGenerator cb = new CombinationGenerator(threadName, queueArray, possibleClicks, numClicks, trueAdjacents, start, end, numThreads);
             cb.start();
         }

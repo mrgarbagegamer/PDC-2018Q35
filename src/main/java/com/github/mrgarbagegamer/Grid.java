@@ -38,6 +38,9 @@ public abstract class Grid {
     // Use IntSet for adjacents
     private static final Int2ObjectOpenHashMap<IntSet> adjacencyMap = new Int2ObjectOpenHashMap<>();
 
+    int firstTrueCell = -1; // Track the first true cell, initialized to -1 (no true cells)
+    boolean recalculationNeeded = false; // Flag to indicate if a recalculation of the first true cell is needed
+
     static 
     {
         for (int row = 0; row < NUM_ROWS; row++) 
@@ -127,8 +130,13 @@ public abstract class Grid {
             return -1; // No true cells found
         }
 
+        else if (!recalculationNeeded && firstTrueCell != -1) 
+        {
+            return firstTrueCell; // Return cached value if recalculation is not needed
+        }
+
         // Iterate through the trueCells IntSet and find the first true cell (comparing the values to determine the first one)
-        int firstTrueCell = Integer.MAX_VALUE;
+        firstTrueCell = Integer.MAX_VALUE;
         for (int key : trueCells) 
         {
             if (key < firstTrueCell) 
@@ -136,6 +144,8 @@ public abstract class Grid {
                 firstTrueCell = key;
             }
         }
+        if (firstTrueCell == Integer.MAX_VALUE) firstTrueCell = -1; // If no true cells were found, set to -1
+        recalculationNeeded = false; // Reset the recalculation flag after updating the first true cell
         return firstTrueCell;
     }
 
@@ -177,9 +187,11 @@ public abstract class Grid {
             // Update the trueCells IntSet
             if (currentState) 
             {
+                if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
                 trueCells.remove(piece);
             } else 
             {
+                if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
                 trueCells.add(piece);
             }
         }
@@ -201,9 +213,11 @@ public abstract class Grid {
             // Update the trueCells IntSet
             if (currentState) 
             {
+                if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
                 trueCells.remove(piece);
             } else 
             {
+                if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
                 trueCells.add(piece);
             }
         }

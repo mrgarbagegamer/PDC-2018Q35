@@ -31,6 +31,8 @@ public class Grid13 extends Grid
         this.grid[3][14] = true;
         this.trueCells.add(314);
 
+        firstTrueCell = 201; // Set the first true cell to 201 (row 2, col 1)
+
         // this.click(3,1);
         // this.click(3,3);
         // this.click(3,5);

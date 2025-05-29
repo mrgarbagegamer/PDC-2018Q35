@@ -43,6 +43,8 @@ public class Grid22 extends Grid
             }
         }
 
+        firstTrueCell = 1; // Set the first true cell to 1 (row 0, col 1)
+
         // this.click(1,1);
         // this.click(1,4);
         // this.click(1,7);

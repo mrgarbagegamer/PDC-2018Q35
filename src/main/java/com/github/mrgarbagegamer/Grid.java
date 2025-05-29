@@ -3,7 +3,6 @@ package com.github.mrgarbagegamer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -36,8 +35,7 @@ public abstract class Grid {
     // Use IntSet for true cells
     public IntSet trueCells = new IntOpenHashSet();
 
-    // Use IntSet for adjacents
-    private static final Int2ObjectOpenHashMap<IntSet> adjacencyMap = new Int2ObjectOpenHashMap<>();
+    private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][];
 
     int firstTrueCell = -1; // Track the first true cell, initialized to -1 (no true cells)
     boolean recalculationNeeded = false; // Flag to indicate if a recalculation of the first true cell is needed
@@ -48,8 +46,15 @@ public abstract class Grid {
         {
             for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
             {
-                IntSet adjacents = computeAdjacents(row, col);
-                adjacencyMap.put(row * 100 + col, adjacents);
+                int cell = row * 100 + col;
+                IntSet adjSet = computeAdjacents(row, col);
+                int[] adjArr = new int[adjSet.size()];
+                int idx = 0;
+                for (IntIterator it = adjSet.iterator(); it.hasNext();) 
+                {
+                    adjArr[idx++] = it.nextInt();
+                }
+                adjacencyArray[cell] = adjArr;
             }
         }
     }
@@ -85,14 +90,14 @@ public abstract class Grid {
         return affectedPieces;
     }
 
-    public static IntSet findAdjacents(int row, int col) 
+    public static int[] findAdjacents(int row, int col) 
     {
-        return adjacencyMap.get(row * 100 + col);
+        return adjacencyArray[row * 100 + col];
     }
 
-    public static IntSet findAdjacents(int cell) 
+    public static int[] findAdjacents(int cell) 
     {
-        return adjacencyMap.get(cell);
+        return adjacencyArray[cell];
     }
 
     public Grid() 
@@ -152,13 +157,13 @@ public abstract class Grid {
 
     public void click(int cell) 
     {
-        IntSet affectedPieces = findAdjacents(cell);
+        int[] affectedPieces = findAdjacents(cell);
 
         // Flip the state of the affected pieces (if the cell is true, remove it from the trueCells map, otherwise add it)
 
-        for (IntIterator iter = affectedPieces.iterator(); iter.hasNext();) 
+        for (int i = 0; i < affectedPieces.length; i++) 
         {
-            int piece = iter.nextInt();
+            int piece = affectedPieces[i];
             int pieceRow = piece / 100;
             int pieceCol = piece % 100;
             boolean currentState = grid[pieceRow][pieceCol];
@@ -181,11 +186,11 @@ public abstract class Grid {
 
     public void click(int row, int col) // Identical method with different declaration for backwards compatibility
     {
-        IntSet affectedPieces = findAdjacents(row, col);
+        int[] affectedPieces = findAdjacents(row, col);
 
-        for (IntIterator iter = affectedPieces.iterator(); iter.hasNext();) 
+        for (int i = 0; i < affectedPieces.length; i++) 
         {
-            int piece = iter.nextInt();
+            int piece = affectedPieces[i];
             int pieceRow = piece / 100;
             int pieceCol = piece % 100;
             boolean currentState = grid[pieceRow][pieceCol];
@@ -206,17 +211,12 @@ public abstract class Grid {
         }
     }
 
-    public IntSet findFirstTrueAdjacents() 
+    public int[] findFirstTrueAdjacents() 
     {
         int firstTrueCell = findFirstTrueCell();
-        IntSet trueAdjacents = findAdjacents(firstTrueCell);
-
-        if (trueAdjacents.size() == 0) 
-        {
-            return null;
-        }
-
-        return trueAdjacents;
+        if (firstTrueCell == -1) return null;
+        int[] trueAdjacents = findAdjacents(firstTrueCell);
+        return (trueAdjacents.length == 0) ? null : trueAdjacents;
     }
 
     public boolean after(int[] x, int[] y) // Returns true if x is after y and false otherwise, deprecated because packed ints are used instead of int[]
@@ -231,32 +231,30 @@ public abstract class Grid {
         return false;
     }
 
-    public IntSet findFirstTrueAdjacentsAfter(int cell) 
+    public int[] findFirstTrueAdjacentsAfter(int cell) 
     {
-        IntSet firstTrueAdjacents = findFirstTrueAdjacents();
-        IntSet filteredAdjacents = new IntOpenHashSet();
-
-        if (firstTrueAdjacents == null) 
-        {
-            return null;
-        }
+        int[] firstTrueAdjacents = findFirstTrueAdjacents();
+        if (firstTrueAdjacents == null) return null;
         
-        for (IntIterator iter = firstTrueAdjacents.iterator(); iter.hasNext();) 
+        int count = 0;
+        for (int adj : firstTrueAdjacents) 
         {
-            int adj = iter.nextInt();
+            if (adj > cell) count++;
+        }
 
-            // Compare if adjacent cell is after the clicked cell
+        if (count == 0) return null;
+        int[] filtered = new int[count];
+        int idx = 0;
+
+        for (int adj : firstTrueAdjacents) 
+        {
             if (adj > cell) 
             {
-                filteredAdjacents.add(adj);
+                filtered[idx++] = adj;
             }
         }
+        return filtered;
 
-        if (filteredAdjacents.size() > 0)
-        {
-            return filteredAdjacents;
-        }
-        return null;
     }
 
     public boolean isSolved() 
@@ -347,12 +345,22 @@ public abstract class Grid {
         // Edge case: first true cell is top-left (0,0)
         if (firstTrueCell == 0) 
         {
-            IntSet adj = findAdjacents(0);
-            return adj != null && adj.contains(clickCell);
+            int[] adj = findAdjacents(0);
+            if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
+            for (int adjacent : adj) 
+            {
+                if (adjacent == clickCell) return true; // Click is adjacent to the first true cell
+            }
+            return false;
         }
 
         // General case: check adjacency
-        IntSet adj = findAdjacents(firstTrueCell);
-        return adj != null && adj.contains(clickCell);
+        int[] adj = findAdjacents(firstTrueCell);
+        if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
+        for (int adjacent : adj) 
+        {
+            if (adjacent == clickCell) return true; // Click is adjacent to the first true cell
+        }
+        return false;
     }
 }

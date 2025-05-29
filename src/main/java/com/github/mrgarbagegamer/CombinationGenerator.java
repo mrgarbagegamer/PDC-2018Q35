@@ -10,7 +10,6 @@ import org.apache.logging.log4j.Logger;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntSet;
 
 public class CombinationGenerator extends Thread 
 {
@@ -19,12 +18,12 @@ public class CombinationGenerator extends Thread
     private final CombinationQueueArray queueArray;
     private final IntList possibleClicks;
     private final int numClicks;
-    private final IntSet trueAdjacents;
+    private final int[] trueAdjacents;
     private final int firstClickStart, firstClickEnd;
     private final int numConsumers;
     private static final int BATCH_SIZE = 1000; // Tune as needed
 
-    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, IntSet trueAdjacents, int firstClickStart, int firstClickEnd, int numConsumers) 
+    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int[] trueAdjacents, int firstClickStart, int firstClickEnd, int numConsumers) 
     {
         super(threadName);
         this.queueArray = queueArray;
@@ -134,15 +133,24 @@ public class CombinationGenerator extends Thread
                     boolean shouldPrune = true;
                     for (int j = 0; j < k - 1; j++) 
                     {
-                        if (trueAdjacents.contains(nodeList.getInt(newIndices[j]))) 
+                        int val = nodeList.getInt(indices[j]);
+                        for (int adj : trueAdjacents) 
+                        {
+                            if (val == adj) 
+                            {
+                                shouldPrune = false;
+                                break;
+                            }
+                        }
+                    }
+                    int val = nodeList.getInt(indices[size]);
+                    for (int adj : trueAdjacents) 
+                    {
+                        if (val == adj) 
                         {
                             shouldPrune = false;
                             break;
                         }
-                    }
-                    if (trueAdjacents.contains(nodeList.getInt(i))) 
-                    {
-                        shouldPrune = false;
                     }
                     if (shouldPrune) 
                     {

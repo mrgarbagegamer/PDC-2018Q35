@@ -72,15 +72,13 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
-        IntSet trueAdjacents = baseGrid.findFirstTrueAdjacents();
-        // Iterate through the trueAdjacents set and set finalFirstTrueAdjacent equal to the largest element
+        int[] trueAdjacents = baseGrid.findFirstTrueAdjacents();
         int finalFirstTrueAdjacent = -1;
-        for (IntIterator it = trueAdjacents.iterator(); it.hasNext();) 
-        {
-            int adjacent = it.nextInt();
-            if (adjacent > finalFirstTrueAdjacent) 
-            {
-                finalFirstTrueAdjacent = adjacent;
+        if (trueAdjacents != null) {
+            for (int adjacent : trueAdjacents) {
+                if (adjacent > finalFirstTrueAdjacent) {
+                    finalFirstTrueAdjacent = adjacent;
+                }
             }
         }
         int finalFirstTrueAdjIndex = possibleClicks.indexOf(finalFirstTrueAdjacent); // This is the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index

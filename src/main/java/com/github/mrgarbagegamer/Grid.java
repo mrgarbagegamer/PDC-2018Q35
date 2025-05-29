@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
@@ -113,11 +114,10 @@ public abstract class Grid {
     {
         IntSet trueCellsSet = new IntOpenHashSet();
         // Iterate through the trueCells IntSet and add the true cells to the new IntSet
-        for (int key : trueCells) 
+        for (IntIterator iter = trueCells.iterator(); iter.hasNext();) 
         {
-            int row = key / 100;
-            int col = key % 100;
-            trueCellsSet.add(row * 100 + col);
+            int key = iter.nextInt();
+            trueCellsSet.add(key);
         }
         return trueCellsSet;
     }
@@ -137,8 +137,9 @@ public abstract class Grid {
 
         // Iterate through the trueCells IntSet and find the first true cell (comparing the values to determine the first one)
         firstTrueCell = Integer.MAX_VALUE;
-        for (int key : trueCells) 
+        for (IntIterator iter = trueCells.iterator(); iter.hasNext();) 
         {
+            int key = iter.nextInt();
             if (key < firstTrueCell) 
             {
                 firstTrueCell = key;
@@ -154,29 +155,10 @@ public abstract class Grid {
         IntSet affectedPieces = findAdjacents(cell);
 
         // Flip the state of the affected pieces (if the cell is true, remove it from the trueCells map, otherwise add it)
-        // for (int[] piece : affectedPieces) 
-        // {
-        //     int pieceRow = piece[0];
-        //     int pieceCol = piece[1];
-        //     int key = pieceRow * 100 + pieceCol;
-        //     boolean currentState = grid[pieceRow][pieceCol];
 
-        //     // Toggle the state
-        //     grid[pieceRow][pieceCol] = !currentState;
-
-        //     // Update the trueCells map
-        //     if (currentState) 
-        //     {
-        //         trueCells.remove(key);
-        //     } else 
-        //     {
-        //         int[] cell = {pieceRow, pieceCol};
-        //         trueCells.putIfAbsent(key, cell);
-        //     }
-        // }
-
-        for (int piece : affectedPieces) 
+        for (IntIterator iter = affectedPieces.iterator(); iter.hasNext();) 
         {
+            int piece = iter.nextInt();
             int pieceRow = piece / 100;
             int pieceCol = piece % 100;
             boolean currentState = grid[pieceRow][pieceCol];
@@ -201,8 +183,9 @@ public abstract class Grid {
     {
         IntSet affectedPieces = findAdjacents(row, col);
 
-        for (int piece : affectedPieces) 
+        for (IntIterator iter = affectedPieces.iterator(); iter.hasNext();) 
         {
+            int piece = iter.nextInt();
             int pieceRow = piece / 100;
             int pieceCol = piece % 100;
             boolean currentState = grid[pieceRow][pieceCol];
@@ -258,10 +241,12 @@ public abstract class Grid {
             return null;
         }
         
-        for (int adj : firstTrueAdjacents) 
+        for (IntIterator iter = firstTrueAdjacents.iterator(); iter.hasNext();) 
         {
+            int adj = iter.nextInt();
+
             // Compare if adjacent cell is after the clicked cell
-            if (adj > cell)
+            if (adj > cell) 
             {
                 filteredAdjacents.add(adj);
             }

@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
@@ -74,8 +75,9 @@ public class StartYourMonkeys
         IntSet trueAdjacents = baseGrid.findFirstTrueAdjacents();
         // Iterate through the trueAdjacents set and set finalFirstTrueAdjacent equal to the largest element
         int finalFirstTrueAdjacent = -1;
-        for (int adjacent : trueAdjacents) 
+        for (IntIterator it = trueAdjacents.iterator(); it.hasNext();) 
         {
+            int adjacent = it.nextInt();
             if (adjacent > finalFirstTrueAdjacent) 
             {
                 finalFirstTrueAdjacent = adjacent;

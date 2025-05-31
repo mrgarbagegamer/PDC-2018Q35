@@ -82,7 +82,7 @@ public class StartYourMonkeys
         int finalFirstTrueAdjIndex = possibleClicks.indexOf(finalFirstTrueAdjacent); // This is the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
         
 
-        int numGeneratorThreads = Math.min(numClicks, numThreads / 2); // or set as desired
+        int numGeneratorThreads = numThreads; // or set as desired
         int chunkSize = (finalFirstTrueAdjIndex + 1) / numGeneratorThreads; // Chunk size for each generator thread, limiting the maximum index to finalFirstTrueAdjIndex
 
         // Tell the queue how many generators we have on startup

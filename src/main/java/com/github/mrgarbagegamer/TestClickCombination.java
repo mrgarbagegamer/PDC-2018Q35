@@ -82,7 +82,7 @@ public class TestClickCombination extends Thread
 
                 if (iSolvedIt) 
                 {
-                    logger.info("Found the solution as the following click combination: {}", combinationClicks);
+                    logger.info("Found the solution as the following click combination: {}", new CombinationMessage(combinationClicks));
                     queueArray.solutionFound(this.getName(), combinationClicks);
                     return;
                 }
@@ -126,7 +126,10 @@ public class TestClickCombination extends Thread
 
             if (!iSolvedIt && !queueArray.isSolutionFound())
             {
-                logger.debug("Tried and failed: {}", combinationClicks);
+                if (logger.isDebugEnabled()) 
+                {
+                    logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks));
+                }
             }
 
             // reset the grid for the next combination

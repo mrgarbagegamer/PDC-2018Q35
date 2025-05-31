@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 public class TestClickCombination extends Thread 
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
+    private static final int LOG_EVERY_N_FAILURES = 1000; // Log every N failures to avoid flooding the logs
 
     private final CombinationQueue combinationQueue;
     private final CombinationQueueArray queueArray;
@@ -24,6 +25,7 @@ public class TestClickCombination extends Thread
     @Override
     public void run() 
     {
+        int failedCount = 0; // Count of failed attempts for logging
         boolean iSolvedIt = false;
         CombinationQueue[] queues = queueArray.getAllQueues();
         int myIndex = -1;
@@ -126,9 +128,11 @@ public class TestClickCombination extends Thread
 
             if (!iSolvedIt && !queueArray.isSolutionFound())
             {
-                if (logger.isDebugEnabled()) 
+                failedCount++;
+                if (logger.isDebugEnabled() && failedCount == LOG_EVERY_N_FAILURES) 
                 {
                     logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks));
+                    failedCount = 0; // Reset the count after logging
                 }
             }
 

@@ -30,7 +30,7 @@ public class StartYourMonkeys
         long startTime = System.currentTimeMillis(); // Start timer
 
         int defaultNumClicks  = 10;
-        int defaultNumThreads = 16;
+        int defaultNumThreads = 8;
         int defaultQuestionNumber = 35;
 
         int numClicks  = defaultNumClicks;
@@ -82,27 +82,26 @@ public class StartYourMonkeys
         int finalFirstTrueAdjIndex = possibleClicks.indexOf(finalFirstTrueAdjacent); // This is the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
         
 
-        int numGenerators = numThreads / 2;
-        int numMonkeys = numThreads - numGenerators;
-        int chunkSize = (finalFirstTrueAdjIndex + 1) / numGenerators; // Chunk size for each generator thread, limiting the maximum index to finalFirstTrueAdjIndex
+        int numGeneratorThreads = numThreads; // or set as desired
+        int chunkSize = (finalFirstTrueAdjIndex + 1) / numGeneratorThreads; // Chunk size for each generator thread, limiting the maximum index to finalFirstTrueAdjIndex
 
         // Tell the queue how many generators we have on startup
-        CombinationQueueArray queueArray = new CombinationQueueArray(numMonkeys, numGenerators);
+        CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, numGeneratorThreads);
 
         // Start generator threads
-        for (int t = 0; t < numGenerators; t++) {
+        for (int t = 0; t < numGeneratorThreads; t++) {
             String threadName = String.format("Generator-%d", t);
             int start = t * chunkSize;
-            int end = (t == numGenerators - 1) ? finalFirstTrueAdjIndex + 1 : (t + 1) * chunkSize;
-            CombinationGenerator cb = new CombinationGenerator(threadName, queueArray, possibleClicks, numClicks, trueAdjacents, start, end, numMonkeys);
+            int end = (t == numGeneratorThreads - 1) ? finalFirstTrueAdjIndex + 1 : (t + 1) * chunkSize;
+            CombinationGenerator cb = new CombinationGenerator(threadName, queueArray, possibleClicks, numClicks, trueAdjacents, start, end, numThreads);
             cb.start();
         }
 
         // create the numThreads to start playing the game
-        TestClickCombination[] monkeys = new TestClickCombination[numMonkeys];
+        TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
         // Start consumer threads
-        for(int i=0; i < numMonkeys; i++)
+        for(int i=0; i < numThreads; i++)
         {
             String threadName = String.format("Monkey-%d", i);
 
@@ -111,7 +110,7 @@ public class StartYourMonkeys
         }
 
         // wait for our monkeys to finish working
-        for(int i=0; i < numMonkeys; i++)
+        for(int i=0; i < numThreads; i++)
         {
             try 
             {

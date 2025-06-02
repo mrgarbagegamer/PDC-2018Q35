@@ -322,6 +322,7 @@ public abstract class Grid {
 
             // Add the true cells to the new grid's IntSet
             newGrid.trueCells.addAll(this.trueCells);
+            newGrid.firstTrueCell = this.firstTrueCell; // Copy the first true cell
 
             return newGrid;
         } catch (Exception e) 

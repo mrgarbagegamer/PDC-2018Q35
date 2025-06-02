@@ -65,7 +65,7 @@ public class TestClickCombination extends Thread
             }
 
             int firstTrueCell = puzzleGrid.findFirstTrueCell();
-            // IntSet firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
+            int[] firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
 
             for (int i = 0; (!iSolvedIt) && (!queueArray.isSolutionFound()) && (i < combinationClicks.length); i++) 
             {
@@ -92,7 +92,7 @@ public class TestClickCombination extends Thread
                 if (newFirstTrueCell != firstTrueCell) 
                 {
                     firstTrueCell = newFirstTrueCell;
-                    // firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
+                    firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
                 }
 
                 // Prune if no remaining click can affect the first true cell
@@ -112,16 +112,20 @@ public class TestClickCombination extends Thread
                 }
 
                 // Uncomment these lines to prune if no remaining click is in firstTrueAdjacents (if you want even more aggressive but less efficient pruning)
-                // if (firstTrueAdjacents != null && !firstTrueAdjacents.isEmpty()) {
-                //     boolean hasTrueAdjacent = false;
-                //     for (int j = i + 1; j < combinationClicks.length; j++) {
-                //         if (firstTrueAdjacents.contains(combinationClicks.getInt(j))) {
-                //             hasTrueAdjacent = true;
-                //             break;
-                //         }
-                //     }
-                //     if (!hasTrueAdjacent) break;
-                // }
+                if (firstTrueAdjacents != null) {
+                    boolean hasTrueAdjacent = false;
+                    for (int j = i + 1; j < combinationClicks.length; j++) {
+                        int nextClick = combinationClicks[j];
+                        for (int adj : firstTrueAdjacents) {
+                            if (nextClick == adj) {
+                                hasTrueAdjacent = true;
+                                break;
+                            }
+                        }
+                        if (hasTrueAdjacent) break; // Found a valid adjacent click                        
+                    }
+                    if (!hasTrueAdjacent) break;
+                }
             }
 
             if (!iSolvedIt && !queueArray.isSolutionFound())

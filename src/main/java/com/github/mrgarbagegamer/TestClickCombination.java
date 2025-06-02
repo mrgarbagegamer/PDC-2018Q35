@@ -3,8 +3,6 @@ package com.github.mrgarbagegamer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import it.unimi.dsi.fastutil.ints.IntList;
-
 public class TestClickCombination extends Thread 
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
@@ -23,7 +21,7 @@ public class TestClickCombination extends Thread
     }
 
     @Override
-    public void run() 
+    public void run()
     {
         int failedCount = 0; // Count of failed attempts for logging
         boolean iSolvedIt = false;
@@ -40,7 +38,7 @@ public class TestClickCombination extends Thread
 
         while (!iSolvedIt && !queueArray.isSolutionFound())
         {
-            IntList combinationClicks = this.combinationQueue.getClicksCombination();
+            int[] combinationClicks = this.combinationQueue.getClicksCombination();
             if (combinationClicks == null) 
             {
                 for (int i = 0; i < queues.length; i++) 
@@ -69,13 +67,13 @@ public class TestClickCombination extends Thread
             int firstTrueCell = puzzleGrid.findFirstTrueCell();
             // IntSet firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
 
-            for (int i = 0; (!iSolvedIt) && (!queueArray.isSolutionFound()) && (i < combinationClicks.size()); i++) 
+            for (int i = 0; (!iSolvedIt) && (!queueArray.isSolutionFound()) && (i < combinationClicks.length); i++) 
             {
-                int click = combinationClicks.getInt(i);
+                int click = combinationClicks[i];
                 puzzleGrid.click(click);
 
                 // Early prune: too many trues left for remaining clicks
-                if (puzzleGrid.getTrueCount() > (combinationClicks.size() - i - 1) * 6) 
+                if (puzzleGrid.getTrueCount() > (combinationClicks.length - i - 1) * 6) 
                 {
                     break;
                 }
@@ -99,9 +97,9 @@ public class TestClickCombination extends Thread
 
                 // Prune if no remaining click can affect the first true cell
                 boolean canAffect = false;
-                for (int j = i + 1; j < combinationClicks.size(); j++) 
+                for (int j = i + 1; j < combinationClicks.length; j++) 
                 {
-                    int nextClick = combinationClicks.getInt(j);
+                    int nextClick = combinationClicks[j];
                     if (Grid.canAffectFirstTrueCell(firstTrueCell, nextClick)) 
                     {
                         canAffect = true;
@@ -116,7 +114,7 @@ public class TestClickCombination extends Thread
                 // Uncomment these lines to prune if no remaining click is in firstTrueAdjacents (if you want even more aggressive but less efficient pruning)
                 // if (firstTrueAdjacents != null && !firstTrueAdjacents.isEmpty()) {
                 //     boolean hasTrueAdjacent = false;
-                //     for (int j = i + 1; j < combinationClicks.size(); j++) {
+                //     for (int j = i + 1; j < combinationClicks.length; j++) {
                 //         if (firstTrueAdjacents.contains(combinationClicks.getInt(j))) {
                 //             hasTrueAdjacent = true;
                 //             break;

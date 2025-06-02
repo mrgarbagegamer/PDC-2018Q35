@@ -11,7 +11,7 @@ public class StartYourMonkeys
     // Add a logger at the top of the class
     private static final Logger logger = LogManager.getLogger(StartYourMonkeys.class);
 
-    private static void populatePossibleClicks(IntArrayList possibleClicks)
+    private static void populatePossibleClicks(IntList possibleClicks)
     {
         int numRows = 7; // Total rows in the grid
         int[] numCols = { 16, 15, 16, 15, 16, 15, 16 }; // Number of columns for each row
@@ -51,7 +51,7 @@ public class StartYourMonkeys
 
 
         // generate the list of possible clicks for our grid
-        IntArrayList possibleClicks = new IntArrayList();
+        IntList possibleClicks = new IntArrayList();
         StartYourMonkeys.populatePossibleClicks(possibleClicks);
 
         // start generating different click combinations
@@ -120,7 +120,7 @@ public class StartYourMonkeys
                 e.printStackTrace();
             }
         }
-        IntList winningCombination = queueArray.getWinningCombination();
+        int[] winningCombination = queueArray.getWinningCombination(); // Todo: Change this to use int[] rather than IntList
 
         long elapsedMillis = System.currentTimeMillis() - startTime;
         String elapsedFormatted = formatElapsedTime(elapsedMillis);
@@ -145,7 +145,7 @@ public class StartYourMonkeys
             return;
         }
 
-        logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination); // Refactor this to use StringBuilders for formatted, garbage-free logging
+        logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination); // Todo: Change this to use int[] rather than IntList
 
         logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
@@ -153,9 +153,9 @@ public class StartYourMonkeys
         Grid puzzleGrid = baseGrid.clone();
 
         boolean solved = false;
-        for (int i = 0; (i < winningCombination.size()) && (!solved); i++) 
+        for (int i = 0; (i < winningCombination.length) && (!solved); i++) // Todo: Change this to use int[] rather than IntList
         {
-            int clickInt = winningCombination.getInt(i);
+            int clickInt = winningCombination[i];
             int row = clickInt / 100;
             int col = clickInt % 100;
 

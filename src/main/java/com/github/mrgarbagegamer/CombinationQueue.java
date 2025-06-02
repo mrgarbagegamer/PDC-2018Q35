@@ -6,11 +6,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jctools.queues.MpmcArrayQueue;
 
-import it.unimi.dsi.fastutil.ints.IntList;
-
 public class CombinationQueue {
     private final int QUEUE_SIZE = 100_000;
-    private final Queue<IntList> queue = new MpmcArrayQueue<>(QUEUE_SIZE);
+    private final Queue<int[]> queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     private final AtomicBoolean solutionFound;
     private final AtomicBoolean generationComplete;
 
@@ -19,7 +17,7 @@ public class CombinationQueue {
         this.generationComplete = generationComplete;
     }
 
-    public boolean add(IntList combinationClicks) 
+    public boolean add(int[] combinationClicks)
     {
         if (queue.offer(combinationClicks)) 
         {
@@ -31,7 +29,7 @@ public class CombinationQueue {
         }
     }
 
-    public IntList getClicksCombination() 
+    public int[] getClicksCombination() 
     {
         return queue.poll();
     }
@@ -40,10 +38,10 @@ public class CombinationQueue {
      * Attempts to add as many elements from the batch as possible.
      * Returns the number of elements successfully added.
      */
-    public int addBatch(List<IntList> batch) 
+    public int addBatch(List<int[]> batch)
     {
         int added = 0;
-        for (IntList combination : batch) 
+        for (int[] combination : batch) 
         {
             if (add(combination)) 
             {

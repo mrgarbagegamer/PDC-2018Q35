@@ -8,7 +8,6 @@ import java.util.List;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 public class CombinationGenerator extends Thread 
@@ -41,7 +40,7 @@ public class CombinationGenerator extends Thread
         generateCombinationsIterative(possibleClicks, numClicks);
     }
 
-    private void generateCombinationsIterative(IntList nodeList, int k) 
+    private void generateCombinationsIterative(IntList nodeList, int k)
     {
         class State 
         {
@@ -65,7 +64,7 @@ public class CombinationGenerator extends Thread
             stack.push(new State(i + 1, 1, indices));
         }
 
-        List<IntList> batch = new ArrayList<>(BATCH_SIZE);
+        List<int[]> batch = new ArrayList<>(BATCH_SIZE);
         int roundRobinIdx = 0;
         int[] buffer = new int[k];
 
@@ -115,13 +114,15 @@ public class CombinationGenerator extends Thread
         queueArray.generatorFinished();
     }
     
-    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, List<IntList> batch, int k) 
+    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, List<int[]> batch, int k) 
     {
         for (int j = 0; j < k; j++)
         { 
             buffer[j] = nodeList.getInt(indices[j]);
         }
-        batch.add(new IntArrayList(buffer, 0, k));
+        int[] combination = new int[k];
+        System.arraycopy(buffer, 0, combination, 0, k);
+        batch.add(combination);
     }
 
     private boolean containsTrueAdjacent(IntList nodeList, int[] indices, int k, int[] trueAdjacents) 
@@ -137,7 +138,7 @@ public class CombinationGenerator extends Thread
         return false;
     }
 
-    private int flushBatch(List<IntList> batch, int roundRobinIdx) 
+    private int flushBatch(List<int[]> batch, int roundRobinIdx)
     {
         while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
         {

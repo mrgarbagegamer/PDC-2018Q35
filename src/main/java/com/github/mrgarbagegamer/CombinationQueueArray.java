@@ -2,7 +2,6 @@ package com.github.mrgarbagegamer;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import it.unimi.dsi.fastutil.ints.IntList;
 
 public class CombinationQueueArray 
 {
@@ -11,7 +10,7 @@ public class CombinationQueueArray
     private final AtomicBoolean[] generationCompleteFlags;
     private final AtomicInteger generatorsRemaining;
     private volatile String winningMonkey = null;
-    private volatile IntList winningCombination = null;
+    private volatile int[] winningCombination = null;
 
     public CombinationQueueArray(int numConsumers, int numGenerators) 
     {
@@ -48,7 +47,7 @@ public class CombinationQueueArray
         return solutionFound.get(); 
     }
 
-    public void solutionFound(String monkeyName, IntList winningCombination) 
+    public void solutionFound(String monkeyName, int[] winningCombination)
     {
         if (solutionFound.compareAndSet(false, true)) 
         {
@@ -62,7 +61,7 @@ public class CombinationQueueArray
         return winningMonkey; 
     }
     
-    public IntList getWinningCombination() 
+    public int[] getWinningCombination() 
     { 
         return winningCombination; 
     }

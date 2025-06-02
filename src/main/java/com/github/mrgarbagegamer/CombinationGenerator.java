@@ -67,6 +67,7 @@ public class CombinationGenerator extends Thread
 
         List<IntList> batch = new ArrayList<>(BATCH_SIZE);
         int roundRobinIdx = 0;
+        int[] buffer = new int[k];
 
         while (!stack.isEmpty() && !queueArray.isSolutionFound()) 
         {
@@ -77,44 +78,9 @@ public class CombinationGenerator extends Thread
 
             if (size == k) 
             {
-                IntList combination = new IntArrayList(k);
-                for (int j = 0; j < k; j++)
-                {
-                    combination.add(nodeList.getInt(indices[j]));
-                }
-                batch.add(combination);
+                addCombinationToBatch(nodeList, indices, buffer, batch, k);
                 if (batch.size() >= BATCH_SIZE) 
-                {
-                    while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
-                    {
-                        boolean addedAny = false;
-                        for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
-                        {
-                            int idx = (roundRobinIdx + attempt) % numConsumers;
-                            CombinationQueue queue = queueArray.getQueue(idx);
-                            int added = queue.addBatch(batch);
-                            if (added > 0) 
-                            {
-                                // Remove successfully added elements from the front of the batch
-                                batch.subList(0, added).clear();
-                                roundRobinIdx = (idx + 1) % numConsumers;
-                                addedAny = true;
-                                // Continue trying to add the rest of the batch
-                            }
-                        }
-                        if (!addedAny) {
-                            // All queues full, sleep briefly before retrying
-                            try 
-                            { 
-                                Thread.sleep(5); 
-                            } catch (InterruptedException e) 
-                            { 
-                                Thread.currentThread().interrupt(); 
-                                break; 
-                            }
-                        }
-                    }
-                }
+                    roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 continue;
             }
 
@@ -129,121 +95,50 @@ public class CombinationGenerator extends Thread
                 } 
                 else if (trueAdjacents != null && size + 1 == k) 
                 {
-                    // Pruning logic: only add if at least one click is in trueAdjacents
-                    boolean shouldPrune = true;
-                    for (int j = 0; j < k - 1; j++) 
-                    {
-                        int val = nodeList.getInt(indices[j]);
-                        for (int adj : trueAdjacents) 
-                        {
-                            if (val == adj) 
-                            {
-                                shouldPrune = false;
-                                break;
-                            }
-                        }
-                    }
-                    int val = nodeList.getInt(indices[size]);
-                    for (int adj : trueAdjacents) 
-                    {
-                        if (val == adj) 
-                        {
-                            shouldPrune = false;
-                            break;
-                        }
-                    }
-                    if (shouldPrune) 
-                    {
+                    if (!containsTrueAdjacent(nodeList, newIndices, k, trueAdjacents)) 
                         break;
-                    } 
-                    else 
-                    {
-                        IntArrayList combination = new IntArrayList(k);
-                        for (int j = 0; j < k - 1; j++)
-                        {
-                            combination.add(nodeList.getInt(newIndices[j]));
-                        }
-                        combination.add(nodeList.getInt(i));
-                        batch.add(combination);
-                        if (batch.size() >= BATCH_SIZE) 
-                        {
-                            while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
-                            {
-                                boolean addedAny = false;
-                                for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
-                                {
-                                    int idx = (roundRobinIdx + attempt) % numConsumers;
-                                    CombinationQueue queue = queueArray.getQueue(idx);
-                                    int added = queue.addBatch(batch);
-                                    if (added > 0) 
-                                    {
-                                        // Remove successfully added elements from the front of the batch
-                                        batch.subList(0, added).clear();
-                                        roundRobinIdx = (idx + 1) % numConsumers;
-                                        addedAny = true;
-                                        // Continue trying to add the rest of the batch
-                                    }
-                                }
-                                if (!addedAny) {
-                                    // All queues full, sleep briefly before retrying
-                                    try 
-                                    { 
-                                        Thread.sleep(5); 
-                                    } catch (InterruptedException e) 
-                                    { 
-                                        Thread.currentThread().interrupt(); 
-                                        break; 
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                else if (size + 1 == k) // fallback
-                {
-                    IntList combination = new IntArrayList(k);
-                    for (int j = 0; j < k - 1; j++) 
-                    {
-                        combination.add(nodeList.getInt(newIndices[j]));
-                    }
-                    combination.add(nodeList.getInt(i));
-                    batch.add(combination);
+                    addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
                     if (batch.size() >= BATCH_SIZE) 
-                    {
-                        while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
-                        {
-                            boolean addedAny = false;
-                            for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
-                            {
-                                int idx = (roundRobinIdx + attempt) % numConsumers;
-                                CombinationQueue queue = queueArray.getQueue(idx);
-                                int added = queue.addBatch(batch);
-                                if (added > 0) 
-                                {
-                                    // Remove successfully added elements from the front of the batch
-                                    batch.subList(0, added).clear();
-                                    roundRobinIdx = (idx + 1) % numConsumers;
-                                    addedAny = true;
-                                    // Continue trying to add the rest of the batch
-                                }
-                            }
-                            if (!addedAny) {
-                                // All queues full, sleep briefly before retrying
-                                try 
-                                { 
-                                    Thread.sleep(5); 
-                                } catch (InterruptedException e) 
-                                { 
-                                    Thread.currentThread().interrupt(); 
-                                    break; 
-                                }
-                            }
-                        }
-                    }
+                        roundRobinIdx = flushBatch(batch, roundRobinIdx);
+                }
+                else if (size + 1 == k) 
+                {
+                    addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
+                    if (batch.size() >= BATCH_SIZE) 
+                        roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
             }
         }
         // Flush any remaining combinations in the batch
+        flushBatch(batch, roundRobinIdx);
+        logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
+        queueArray.generatorFinished();
+    }
+    
+    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, List<IntList> batch, int k) 
+    {
+        for (int j = 0; j < k; j++)
+        { 
+            buffer[j] = nodeList.getInt(indices[j]);
+        }
+        batch.add(new IntArrayList(buffer, 0, k));
+    }
+
+    private boolean containsTrueAdjacent(IntList nodeList, int[] indices, int k, int[] trueAdjacents) 
+    {
+        for (int j = 0; j < k; j++) 
+        {
+            int val = nodeList.getInt(indices[j]);
+            for (int adj : trueAdjacents) 
+            {
+                if (val == adj) return true;
+            }
+        }
+        return false;
+    }
+
+    private int flushBatch(List<IntList> batch, int roundRobinIdx) 
+    {
         while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
         {
             boolean addedAny = false;
@@ -254,26 +149,24 @@ public class CombinationGenerator extends Thread
                 int added = queue.addBatch(batch);
                 if (added > 0) 
                 {
-                    // Remove successfully added elements from the front of the batch
                     batch.subList(0, added).clear();
                     roundRobinIdx = (idx + 1) % numConsumers;
                     addedAny = true;
-                    // Continue trying to add the rest of the batch
                 }
             }
-            if (!addedAny) {
-                // All queues full, sleep briefly before retrying
+            if (!addedAny) 
+            {
                 try 
                 { 
                     Thread.sleep(5); 
-                } catch (InterruptedException e) 
+                } 
+                catch (InterruptedException e) 
                 { 
                     Thread.currentThread().interrupt(); 
                     break; 
                 }
             }
         }
-        logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
-        queueArray.generatorFinished();
+        return roundRobinIdx;
     }
 }

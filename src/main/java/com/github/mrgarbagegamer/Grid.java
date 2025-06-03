@@ -7,6 +7,7 @@ import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
+import java.util.BitSet;
 public abstract class Grid {
     // constants
     public static final int NUM_ROWS = 7;
@@ -20,6 +21,10 @@ public abstract class Grid {
     public static final int EVEN_NUM_COLS = 16;
     public static final int LAST_EVEN_COL = (EVEN_NUM_COLS - 1);
 
+    // Rows initialized with false values
+    static final boolean[] ZERO_ROW_EVEN = new boolean[EVEN_NUM_COLS];
+    static final boolean[] ZERO_ROW_ODD = new boolean[ODD_NUM_COLS];
+
     // Initializing the grid of seven rows with alternating columns of 16 and 15
     boolean[][] grid = new boolean[][] 
     {
@@ -32,8 +37,8 @@ public abstract class Grid {
         new boolean[Grid.EVEN_NUM_COLS]
     };
 
-    // Use IntSet for true cells
-    public IntSet trueCells = new IntOpenHashSet();
+    // Use BitSet for true cells
+    public BitSet trueCells = new BitSet(NUM_ROWS * 100 + EVEN_NUM_COLS);
 
     private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][];
 
@@ -115,42 +120,20 @@ public abstract class Grid {
         }
     }
 
-    public IntSet findTrueCells() 
+    public BitSet findTrueCells() 
     {
-        IntSet trueCellsSet = new IntOpenHashSet();
-        // Iterate through the trueCells IntSet and add the true cells to the new IntSet
-        for (IntIterator iter = trueCells.iterator(); iter.hasNext();) 
-        {
-            int key = iter.nextInt();
-            trueCellsSet.add(key);
-        }
-        return trueCellsSet;
+        return (BitSet) trueCells.clone();
     }
 
-    public int findFirstTrueCell()
+    public int findFirstTrueCell() // Return the first element in the trueCells BitSet
     {
-        // Return the first element in the trueCells IntSet
-        if (trueCells.isEmpty()) 
-        {
-            return -1; // No true cells found
-        }
-
-        else if (!recalculationNeeded && firstTrueCell != -1) 
+        if (!recalculationNeeded && firstTrueCell != -1) 
         {
             return firstTrueCell; // Return cached value if recalculation is not needed
         }
 
-        // Iterate through the trueCells IntSet and find the first true cell (comparing the values to determine the first one)
-        firstTrueCell = Integer.MAX_VALUE;
-        for (IntIterator iter = trueCells.iterator(); iter.hasNext();) 
-        {
-            int key = iter.nextInt();
-            if (key < firstTrueCell) 
-            {
-                firstTrueCell = key;
-            }
-        }
-        if (firstTrueCell == Integer.MAX_VALUE) firstTrueCell = -1; // If no true cells were found, set to -1
+        // Find and return the first true cell in the BitSet
+        firstTrueCell = trueCells.nextSetBit(0);
         recalculationNeeded = false; // Reset the recalculation flag after updating the first true cell
         return firstTrueCell;
     }
@@ -175,11 +158,11 @@ public abstract class Grid {
             if (currentState) 
             {
                 if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
-                trueCells.remove(piece);
+                trueCells.clear(piece);
             } else 
             {
                 if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
-                trueCells.add(piece);
+                trueCells.set(piece);
             }
         }
     }
@@ -202,11 +185,11 @@ public abstract class Grid {
             if (currentState) 
             {
                 if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
-                trueCells.remove(piece);
+                trueCells.clear(piece);
             } else 
             {
                 if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
-                trueCells.add(piece);
+                trueCells.set(piece);
             }
         }
     }
@@ -259,14 +242,12 @@ public abstract class Grid {
 
     public boolean isSolved() 
     {
-        boolean isSolved = false;
-
-        // Check if the size of trueCells is 0, meaning no cells are true
-        if (trueCells.size() == 0) 
+        // Check if all cells are false by iterating through the trueCells BitSet
+        if (trueCells.nextSetBit(0) != -1) 
         {
-            isSolved = true;
+            return false; // If there are any true cells, the grid is not solved
         }
-        return isSolved;
+        return true;
     }
 
     public void printGrid() 
@@ -303,7 +284,13 @@ public abstract class Grid {
 
     public int getTrueCount() 
     {
-        return trueCells.size();
+        // Iterate through the trueCells BitSet and count the number of true cells
+        int count = 0;
+        for (int i = trueCells.nextSetBit(0); i >= 0; i = trueCells.nextSetBit(i + 1)) 
+        {
+            count++;
+        }
+        return count;
     }
 
     public Grid clone() 
@@ -318,10 +305,9 @@ public abstract class Grid {
                 System.arraycopy(this.grid[row], 0, newGrid.grid[row], 0, this.grid[row].length);
             }
             
-            newGrid.trueCells = new IntOpenHashSet();
-
             // Add the true cells to the new grid's IntSet
-            newGrid.trueCells.addAll(this.trueCells);
+            newGrid.trueCells = (BitSet) this.trueCells.clone();
+
             newGrid.firstTrueCell = this.firstTrueCell; // Copy the first true cell
 
             return newGrid;

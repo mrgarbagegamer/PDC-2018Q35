@@ -1,16 +1,14 @@
 package com.github.mrgarbagegamer;
-
-import java.util.Arrays;
 public class Grid22 extends Grid 
 {
     void initialize() 
     {
         // Initialize for Q22/Shrek
 
-        // reset the trueCells map and set all cells to false
+        // reset the trueCells BitSet and set all cells to false
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
-            Arrays.fill(this.grid[row], false);
+            System.arraycopy(row % 2 == 0 ? Grid.ZERO_ROW_EVEN : Grid.ZERO_ROW_ODD, 0, this.grid[row], 0, this.grid[row].length);
         }
         this.trueCells.clear();
 
@@ -20,7 +18,7 @@ public class Grid22 extends Grid
         for (int col : topRowCols) 
         {
             this.grid[topRow][col] = true;
-            this.trueCells.add(topRow * 100 + col);
+            this.trueCells.set(topRow * 100 + col);
         }
 
         // Recreate the top row values for the bottom row
@@ -28,7 +26,7 @@ public class Grid22 extends Grid
         this.copyColumnValues(this.grid[topRow], this.grid[bottomRow]);
         for (int col : topRowCols) 
         {
-            this.trueCells.add(bottomRow * 100 + col);
+            this.trueCells.set(bottomRow * 100 + col);
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -39,7 +37,7 @@ public class Grid22 extends Grid
             for (int col : rowOneCols) 
             {
                 this.grid[row][col] = true;
-                this.trueCells.add(row * 100 + col);
+                this.trueCells.set(row * 100 + col);
             }
         }
 

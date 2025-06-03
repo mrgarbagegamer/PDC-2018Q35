@@ -1,16 +1,14 @@
 package com.github.mrgarbagegamer;
-
-import java.util.Arrays;
 public class Grid13 extends Grid 
 {
     void initialize() 
     {
         // Initialize for Q13/Kermit
         
-        // reset the trueCells IntSet and set all cells to false
+        // reset the trueCells BitSet and set all cells to false
         for (int row = 0; row < Grid.NUM_ROWS; row++) 
         {
-            Arrays.fill(this.grid[row], false);
+            System.arraycopy(row % 2 == 0 ? Grid.ZERO_ROW_EVEN : Grid.ZERO_ROW_ODD, 0, this.grid[row], 0, this.grid[row].length);
         }
         this.trueCells.clear();
 
@@ -20,16 +18,16 @@ public class Grid13 extends Grid
             {
                 this.grid[row][col] = true;
                 int cell = row * 100 + col;
-                // Add the true cells to the trueCells IntSet
-                this.trueCells.add(cell);
+                // Add the true cells to the trueCells BitSet
+                this.trueCells.set(cell);
             }
         }
 
         this.grid[3][0] = true;
-        this.trueCells.add(300);
+        this.trueCells.set(300);
 
         this.grid[3][14] = true;
-        this.trueCells.add(314);
+        this.trueCells.set(314);
 
         firstTrueCell = 201; // Set the first true cell to 201 (row 2, col 1)
 

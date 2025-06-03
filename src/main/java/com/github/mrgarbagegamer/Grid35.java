@@ -26,5 +26,6 @@ public class Grid35 extends Grid
         this.trueCells.set(407);
 
         firstTrueCell = 208; // Set the first true cell to 208 (row 2, col 8)
+        trueCellsCount = 4;
     }
 }

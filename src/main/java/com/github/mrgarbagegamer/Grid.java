@@ -38,7 +38,8 @@ public abstract class Grid {
     };
 
     // Use BitSet for true cells
-    public BitSet trueCells = new BitSet(NUM_ROWS * 100 + EVEN_NUM_COLS);
+    BitSet trueCells = new BitSet(NUM_ROWS * 100 + EVEN_NUM_COLS);
+    int trueCellsCount = 0;
 
     private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][];
 
@@ -127,6 +128,11 @@ public abstract class Grid {
 
     public int findFirstTrueCell() // Return the first element in the trueCells BitSet
     {
+        if (trueCellsCount == 0)
+        {
+            return -1;
+        }
+        
         if (!recalculationNeeded && firstTrueCell != -1) 
         {
             return firstTrueCell; // Return cached value if recalculation is not needed
@@ -159,10 +165,12 @@ public abstract class Grid {
             {
                 if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
                 trueCells.clear(piece);
+                trueCellsCount--; // Decrease the count of true cells
             } else 
             {
                 if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
                 trueCells.set(piece);
+                trueCellsCount++; // Increase the count of true cells
             }
         }
     }
@@ -186,10 +194,12 @@ public abstract class Grid {
             {
                 if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
                 trueCells.clear(piece);
+                trueCellsCount--; // Decrease the count of true cells
             } else 
             {
                 if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
                 trueCells.set(piece);
+                trueCellsCount++; // Increase the count of true cells
             }
         }
     }
@@ -282,15 +292,9 @@ public abstract class Grid {
         return grid;
     }
 
-    public int getTrueCount() 
+    public int getTrueCount() // Returns the count of true cells
     {
-        // Iterate through the trueCells BitSet and count the number of true cells
-        int count = 0;
-        for (int i = trueCells.nextSetBit(0); i >= 0; i = trueCells.nextSetBit(i + 1)) 
-        {
-            count++;
-        }
-        return count;
+        return trueCellsCount;
     }
 
     public Grid clone() 
@@ -307,6 +311,7 @@ public abstract class Grid {
             
             // Add the true cells to the new grid's IntSet
             newGrid.trueCells = (BitSet) this.trueCells.clone();
+            newGrid.trueCellsCount = this.trueCellsCount; // Copy the count of true cells
 
             newGrid.firstTrueCell = this.firstTrueCell; // Copy the first true cell
 

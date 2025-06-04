@@ -1,8 +1,8 @@
 package com.github.mrgarbagegamer;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
@@ -21,6 +21,11 @@ public class CombinationGenerator extends Thread
     private final int firstClickStart, firstClickEnd;
     private final int numConsumers;
     private static final int BATCH_SIZE = 2000; // Tune as needed
+    private static final int POOL_SIZE = 4096; // Tune as needed
+
+    // Generator-local pools
+    private final Deque<int[]> indicesPool = new ArrayDeque<>(POOL_SIZE);
+    private final Deque<CombinationState> statePool = new ArrayDeque<>(POOL_SIZE);
 
     public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int[] trueAdjacents, int firstClickStart, int firstClickEnd, int numConsumers) 
     {
@@ -40,28 +45,35 @@ public class CombinationGenerator extends Thread
         generateCombinationsIterative(possibleClicks, numClicks);
     }
 
+    private int[] getIndices(int k) {
+        int[] arr = indicesPool.pollFirst();
+        if (arr == null || arr.length != k) return new int[k];
+        return arr;
+    }
+    private void recycleIndices(int[] arr) {
+        if (indicesPool.size() < POOL_SIZE) indicesPool.offerFirst(arr);
+    }
+    private CombinationState getState(int start, int size, int[] indices) {
+        CombinationState s = statePool.pollFirst();
+        if (s == null) return new CombinationState(start, size, indices);
+        s.start = start;
+        s.size = size;
+        s.indices = indices;
+        return s;
+    }
+    private void recycleState(CombinationState s) {
+        if (statePool.size() < POOL_SIZE) statePool.offerFirst(s);
+    }
+
     private void generateCombinationsIterative(IntList nodeList, int k)
     {
-        class State 
-        {
-            int start;
-            int size;
-            int[] indices;
-
-            State(int start, int size, int[] indices) 
-            {
-                this.start = start;
-                this.size = size;
-                this.indices = indices;
-            }
-        }
-
-        Deque<State> stack = new ArrayDeque<>();
+        
+        Deque<CombinationState> stack = new ArrayDeque<>();
         for (int i = firstClickStart; i < firstClickEnd; i++) 
         {
-            int[] indices = new int[k];
+            int[] indices = getIndices(k);
             indices[0] = i;
-            stack.push(new State(i + 1, 1, indices));
+            stack.push(getState(i + 1, 1, indices));
         }
 
         List<int[]> batch = new ArrayList<>(BATCH_SIZE);
@@ -70,7 +82,7 @@ public class CombinationGenerator extends Thread
 
         while (!stack.isEmpty() && !queueArray.isSolutionFound()) 
         {
-            State state = stack.pop();
+            CombinationState state = stack.pop();
             int start = state.start;
             int size = state.size;
             int[] indices = state.indices;
@@ -78,6 +90,8 @@ public class CombinationGenerator extends Thread
             if (size == k) 
             {
                 addCombinationToBatch(nodeList, indices, buffer, batch, k);
+                recycleIndices(indices);
+                recycleState(state);
                 if (batch.size() >= BATCH_SIZE) 
                     roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 continue;
@@ -85,28 +99,35 @@ public class CombinationGenerator extends Thread
 
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
-                int[] newIndices = indices.clone();
+                int[] newIndices = getIndices(k);
+                System.arraycopy(indices, 0, newIndices, 0, size);
                 newIndices[size] = i;
 
                 if (size + 1 < k) 
                 {
-                    stack.push(new State(i + 1, size + 1, newIndices));
+                    stack.push(getState(i + 1, size + 1, newIndices));
                 } 
                 else if (trueAdjacents != null && size + 1 == k) 
                 {
-                    if (!containsTrueAdjacent(nodeList, newIndices, k, trueAdjacents)) 
+                    if (!containsTrueAdjacent(nodeList, newIndices, k, trueAdjacents)) {
+                        recycleIndices(newIndices);
                         break;
+                    }
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
+                    recycleIndices(newIndices);
                     if (batch.size() >= BATCH_SIZE) 
                         roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
                 else if (size + 1 == k) 
                 {
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
+                    recycleIndices(newIndices);
                     if (batch.size() >= BATCH_SIZE) 
                         roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
             }
+            recycleIndices(indices);
+            recycleState(state);
         }
         // Flush any remaining combinations in the batch
         flushBatch(batch, roundRobinIdx);
@@ -169,5 +190,18 @@ public class CombinationGenerator extends Thread
             }
         }
         return roundRobinIdx;
+    }
+}
+
+class CombinationState 
+{
+    int start, size;
+    int[] indices;
+
+    CombinationState(int start, int size, int[] indices) 
+    {
+        this.start = start;
+        this.size = size;
+        this.indices = indices;
     }
 }

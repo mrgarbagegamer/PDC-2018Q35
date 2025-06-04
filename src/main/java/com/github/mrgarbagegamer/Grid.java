@@ -8,37 +8,17 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
 import java.util.BitSet;
+
 public abstract class Grid {
     // constants
     public static final int NUM_ROWS = 7;
-    public static final int LAST_ROW = (NUM_ROWS - 1);
-
-    // odd column values
     public static final int ODD_NUM_COLS = 15;
-    public static final int LAST_ODD_COL = (ODD_NUM_COLS - 1);
-
-    // even column values
     public static final int EVEN_NUM_COLS = 16;
-    public static final int LAST_EVEN_COL = (EVEN_NUM_COLS - 1);
+    public static final int[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93};
+    public static final int NUM_CELLS = 109;
 
-    // Rows initialized with false values
-    static final boolean[] ZERO_ROW_EVEN = new boolean[EVEN_NUM_COLS];
-    static final boolean[] ZERO_ROW_ODD = new boolean[ODD_NUM_COLS];
-
-    // Initializing the grid of seven rows with alternating columns of 16 and 15
-    boolean[][] grid = new boolean[][] 
-    {
-        new boolean[Grid.EVEN_NUM_COLS],
-        new boolean[Grid.ODD_NUM_COLS],
-        new boolean[Grid.EVEN_NUM_COLS],
-        new boolean[Grid.ODD_NUM_COLS],
-        new boolean[Grid.EVEN_NUM_COLS],
-        new boolean[Grid.ODD_NUM_COLS],
-        new boolean[Grid.EVEN_NUM_COLS]
-    };
-
-    // Use BitSet for true cells
-    BitSet trueCells = new BitSet(NUM_ROWS * 100 + EVEN_NUM_COLS);
+    // Only BitSet for true cells
+    BitSet trueCells = new BitSet(NUM_CELLS);
     int trueCellsCount = 0;
 
     private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][];
@@ -106,20 +86,33 @@ public abstract class Grid {
         return adjacencyArray[cell];
     }
 
+    // --- Packed int <-> compact BitSet index conversion ---
+    public final static int packedToIndex(int packed) 
+    {
+        int row = packed / 100;
+        int col = packed % 100;
+        return ROW_OFFSETS[row] + col;
+    }
+    
+    public final static int indexToPacked(int index) 
+    {
+        if (index < 16) return 0 * 100 + index;
+        if (index < 31) return 1 * 100 + (index - 16);
+        if (index < 47) return 2 * 100 + (index - 31);
+        if (index < 62) return 3 * 100 + (index - 47);
+        if (index < 78) return 4 * 100 + (index - 62);
+        if (index < 93) return 5 * 100 + (index - 78);
+        if (index < 109) return 6 * 100 + (index - 93);
+        throw new IllegalArgumentException("Invalid BitSet index: " + index);
+    }
+    // ------------------------------------------------------
+
     public Grid() 
     {
         initialize();
     }
 
     abstract void initialize();
-
-    void copyColumnValues(boolean[] source, boolean[] target) 
-    {
-        for (int i = 0; i < source.length; i++) 
-        {
-            target[i] = source[i];
-        }
-    }
 
     public BitSet findTrueCells() 
     {
@@ -139,7 +132,7 @@ public abstract class Grid {
         }
 
         // Find and return the first true cell in the BitSet
-        firstTrueCell = trueCells.nextSetBit(0);
+        firstTrueCell = indexToPacked(trueCells.nextSetBit(0));
         recalculationNeeded = false; // Reset the recalculation flag after updating the first true cell
         return firstTrueCell;
     }
@@ -147,59 +140,41 @@ public abstract class Grid {
     public void click(int cell) 
     {
         int[] affectedPieces = findAdjacents(cell);
-
-        // Flip the state of the affected pieces (if the cell is true, remove it from the trueCells map, otherwise add it)
-
-        for (int i = 0; i < affectedPieces.length; i++) 
+        for (int piece : affectedPieces) 
         {
-            int piece = affectedPieces[i];
-            int pieceRow = piece / 100;
-            int pieceCol = piece % 100;
-            boolean currentState = grid[pieceRow][pieceCol];
-
-            // Toggle the state
-            grid[pieceRow][pieceCol] = !currentState;
-
-            // Update the trueCells IntSet
+            int bitIdx = packedToIndex(piece);
+            boolean currentState = trueCells.get(bitIdx);
             if (currentState) 
             {
-                if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
-                trueCells.clear(piece);
-                trueCellsCount--; // Decrease the count of true cells
+                if (piece == firstTrueCell) recalculationNeeded = true;
+                trueCells.clear(bitIdx);
+                trueCellsCount--;
             } else 
             {
-                if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
-                trueCells.set(piece);
-                trueCellsCount++; // Increase the count of true cells
+                if (piece < firstTrueCell) firstTrueCell = piece;
+                trueCells.set(bitIdx);
+                trueCellsCount++;
             }
         }
     }
 
-    public void click(int row, int col) // Identical method with different declaration for backwards compatibility
+    public void click(int row, int col) 
     {
         int[] affectedPieces = findAdjacents(row, col);
-
-        for (int i = 0; i < affectedPieces.length; i++) 
+        for (int piece : affectedPieces) 
         {
-            int piece = affectedPieces[i];
-            int pieceRow = piece / 100;
-            int pieceCol = piece % 100;
-            boolean currentState = grid[pieceRow][pieceCol];
-
-            // Toggle the state
-            grid[pieceRow][pieceCol] = !currentState;
-
-            // Update the trueCells IntSet
+            int bitIdx = packedToIndex(piece);
+            boolean currentState = trueCells.get(bitIdx);
             if (currentState) 
             {
-                if (piece == firstTrueCell) recalculationNeeded = true; // If the first true cell is affected, mark recalculation as needed
-                trueCells.clear(piece);
-                trueCellsCount--; // Decrease the count of true cells
+                if (piece == firstTrueCell) recalculationNeeded = true;
+                trueCells.clear(bitIdx);
+                trueCellsCount--;
             } else 
             {
-                if (piece < firstTrueCell) firstTrueCell = piece; // Update first true cell if the new piece is less than the current first true cell
-                trueCells.set(piece);
-                trueCellsCount++; // Increase the count of true cells
+                if (piece < firstTrueCell) firstTrueCell = piece;
+                trueCells.set(bitIdx);
+                trueCellsCount++;
             }
         }
     }
@@ -212,29 +187,13 @@ public abstract class Grid {
         return (trueAdjacents.length == 0) ? null : trueAdjacents;
     }
 
-    public boolean after(int[] x, int[] y) // Returns true if x is after y and false otherwise, deprecated because packed ints are used instead of int[]
-    {
-        if (x[0] > y[0]) 
-        {
-            return true;
-        } else if (x[0] == y[0]) 
-        {
-            return x[1] > y[1];
-        }
-        return false;
-    }
-
     public int[] findFirstTrueAdjacentsAfter(int cell) 
     {
         int[] firstTrueAdjacents = findFirstTrueAdjacents();
         if (firstTrueAdjacents == null) return null;
         
         int count = 0;
-        for (int adj : firstTrueAdjacents) 
-        {
-            if (adj > cell) count++;
-        }
-
+        for (int adj : firstTrueAdjacents) if (adj > cell) count++;
         if (count == 0) return null;
         int[] filtered = new int[count];
         int idx = 0;
@@ -252,44 +211,7 @@ public abstract class Grid {
 
     public boolean isSolved() 
     {
-        // Check if all cells are false by iterating through the trueCells BitSet
-        if (trueCells.nextSetBit(0) != -1) 
-        {
-            return false; // If there are any true cells, the grid is not solved
-        }
-        return true;
-    }
-
-    public void printGrid() 
-    {
-        Logger logger = LogManager.getLogger(Grid.class);
-
-        for (int i = 0; i <= 6; i++) 
-        {
-            StringBuilder row = new StringBuilder();
-
-            if (i % 2 == 0) 
-            {
-                for (int j = 0; j <= 15; j++) 
-                {
-                    row.append(grid[i][j] ? "1 " : "0 ");
-                }
-            } else 
-            {
-                row.append(" ");
-                for (int j = 0; j <= 14; j++) 
-                {
-                    row.append(grid[i][j] ? "1 " : "0 ");
-                }
-            }
-
-            logger.info(row.toString());
-        }
-    }
-
-    public boolean[][] getGrid() 
-    {
-        return grid;
+        return trueCells.nextSetBit(0) == -1;
     }
 
     public int getTrueCount() // Returns the count of true cells
@@ -302,19 +224,10 @@ public abstract class Grid {
         try 
         {
             Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
-
-            // Copy grid values
-            for (int row = 0; row < NUM_ROWS; row++) 
-            {
-                System.arraycopy(this.grid[row], 0, newGrid.grid[row], 0, this.grid[row].length);
-            }
-            
-            // Add the true cells to the new grid's IntSet
-            newGrid.trueCells = (BitSet) this.trueCells.clone();
-            newGrid.trueCellsCount = this.trueCellsCount; // Copy the count of true cells
-
-            newGrid.firstTrueCell = this.firstTrueCell; // Copy the first true cell
-
+            newGrid.trueCells = new BitSet(NUM_CELLS);
+            newGrid.trueCells.or(this.trueCells);
+            newGrid.trueCellsCount = this.trueCellsCount;
+            newGrid.firstTrueCell = this.firstTrueCell;
             return newGrid;
         } catch (Exception e) 
         {
@@ -339,10 +252,7 @@ public abstract class Grid {
         {
             int[] adj = findAdjacents(0);
             if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-            for (int adjacent : adj) 
-            {
-                if (adjacent == clickCell) return true; // Click is adjacent to the first true cell
-            }
+            for (int adjacent : adj) if (adjacent == clickCell) return true; // Click is adjacent to the first true cell
             return false;
         }
 
@@ -354,5 +264,23 @@ public abstract class Grid {
             if (adjacent == clickCell) return true; // Click is adjacent to the first true cell
         }
         return false;
+    }
+
+    // Optional: Print grid as text using BitSet only
+    public void printGrid() 
+    {
+        Logger logger = LogManager.getLogger(Grid.class);
+        for (int row = 0; row < NUM_ROWS; row++) 
+        {
+            StringBuilder sb = new StringBuilder();
+            if (row % 2 != 0) sb.append(" ");
+            int cols = (row % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS;
+            for (int col = 0; col < cols; col++) 
+            {
+                int bitIdx = packedToIndex(row * 100 + col);
+                sb.append(trueCells.get(bitIdx) ? "1 " : "0 ");
+            }
+            logger.info(sb.toString());
+        }
     }
 }

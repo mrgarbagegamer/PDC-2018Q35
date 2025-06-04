@@ -5,29 +5,22 @@ public class Grid13 extends Grid
     {
         // Initialize for Q13/Kermit
         
-        // reset the trueCells BitSet and set all cells to false
-        for (int row = 0; row < Grid.NUM_ROWS; row++) 
-        {
-            System.arraycopy(row % 2 == 0 ? Grid.ZERO_ROW_EVEN : Grid.ZERO_ROW_ODD, 0, this.grid[row], 0, this.grid[row].length);
-        }
+        // set all cells to false
         this.trueCells.clear();
 
         for (int row = 2; row <= 4; row += 2)
         {
             for (int col = 1; col <= 14; col++)
             {
-                this.grid[row][col] = true;
                 int cell = row * 100 + col;
                 // Add the true cells to the trueCells BitSet
-                this.trueCells.set(cell);
+                this.trueCells.set(packedToIndex(cell));
             }
         }
 
-        this.grid[3][0] = true;
-        this.trueCells.set(300);
+        this.trueCells.set(47); // Set cell 300 (pre-computed index)
 
-        this.grid[3][14] = true;
-        this.trueCells.set(314);
+        this.trueCells.set(61); // Set cell 314 (pre-computed index)
 
         firstTrueCell = 201; // Set the first true cell to 201 (row 2, col 1)
         trueCellsCount = 30;

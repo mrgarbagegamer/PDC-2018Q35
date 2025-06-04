@@ -5,25 +5,17 @@ public class Grid35 extends Grid
     {
         // Initialize for Q35
 
-        // reset the trueCells BitSet and set all cells to false
-        for (int row = 0; row < Grid.NUM_ROWS; row++) 
-        {
-            System.arraycopy(row % 2 == 0 ? Grid.ZERO_ROW_EVEN : Grid.ZERO_ROW_ODD, 0, this.grid[row], 0, this.grid[row].length);
-        }
+        // set all cells to false
         this.trueCells.clear();
 
         // Set specific cells to true and add them to trueCells
-        this.grid[2][8] = true;
-        this.trueCells.set(208);
+        this.trueCells.set(39); // Set cell 208 (pre-computed index)
 
-        this.grid[3][6] = true;
-        this.trueCells.set(306);
+        this.trueCells.set(53); // Set cell 306 (pre-computed index)
 
-        this.grid[3][8] = true;
-        this.trueCells.set(308);
+        this.trueCells.set(55); // Set cell 308 (pre-computed index)
 
-        this.grid[4][7] = true;
-        this.trueCells.set(407);
+        this.trueCells.set(69); // Set cell 407 (pre-computed index)
 
         firstTrueCell = 208; // Set the first true cell to 208 (row 2, col 8)
         trueCellsCount = 4;

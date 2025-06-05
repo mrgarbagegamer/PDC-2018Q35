@@ -1,13 +1,13 @@
 package com.github.mrgarbagegamer;
 
+import java.util.BitSet;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-
-import java.util.BitSet;
 
 public abstract class Grid {
     // constants
@@ -198,21 +198,25 @@ public abstract class Grid {
         int[] firstTrueAdjacents = findFirstTrueAdjacents();
         if (firstTrueAdjacents == null) return null;
         
-        int count = 0;
-        for (int adj : firstTrueAdjacents) if (adj > cell) count++;
-        if (count == 0) return null;
-        int[] filtered = new int[count];
-        int idx = 0;
-
-        for (int adj : firstTrueAdjacents) 
+        // Perform binary search to find the index of the first adjacent cell greater than 'cell'
+        int index = -1;
+        int low = 0, high = firstTrueAdjacents.length - 1;
+        while (low <= high) 
         {
-            if (adj > cell) 
+            int mid = (low + high) / 2;
+            if (firstTrueAdjacents[mid] > cell) 
             {
-                filtered[idx++] = adj;
+                index = mid; // Found a candidate, but keep searching left for the first one
+                high = mid - 1;
+            } else 
+            {
+                low = mid + 1; // Search right
             }
         }
-        return filtered;
-
+        // If the index is found, return the subarray starting from that index
+        int[] result = new int[firstTrueAdjacents.length - index];
+        System.arraycopy(firstTrueAdjacents, index, result, 0, result.length);
+        return result;
     }
 
     public boolean isSolved() 
@@ -258,18 +262,47 @@ public abstract class Grid {
         {
             int[] adj = findAdjacents(0);
             if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-            for (int adjacent : adj) if (adjacent == clickCell) return true; // Click is adjacent to the first true cell
-            return false;
+            
+            // Binary search for the click cell in the adjacents
+            int low = 0, high = adj.length - 1;
+            while (low <= high) 
+            {
+                int mid = (low + high) / 2;
+                if (adj[mid] == clickCell) 
+                {
+                    return true; // Click cell is adjacent to the first true cell
+                } else if (adj[mid] < clickCell) 
+                {
+                    low = mid + 1; // Search right
+                } else 
+                {
+                    high = mid - 1; // Search left
+                }
+            }
+            return false; // Click cell is not adjacent to the first true cell
         }
 
         // General case: check adjacency
         int[] adj = findAdjacents(firstTrueCell);
         if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-        for (int adjacent : adj) 
+
+        // perform binary search to find if clickCell is adjacent
+        int low = 0, high = adj.length - 1;
+        while (low <= high) 
         {
-            if (adjacent == clickCell) return true; // Click is adjacent to the first true cell
+            int mid = (low + high) / 2;
+            if (adj[mid] == clickCell) 
+            {
+                return true; // Click cell is adjacent to the first true cell
+            } else if (adj[mid] < clickCell) 
+            {
+                low = mid + 1; // Search right
+            } else 
+            {
+                high = mid - 1; // Search left
+            }
         }
-        return false;
+        return false; // Click cell is not adjacent to the first true cell
     }
 
     // Optional: Print grid as text using BitSet only

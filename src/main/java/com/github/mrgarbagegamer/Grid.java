@@ -114,9 +114,15 @@ public abstract class Grid {
 
     abstract void initialize();
 
-    public BitSet findTrueCells() 
+    public int[] findTrueCells() // Return an array of packed integers representing the true cells
     {
-        return (BitSet) trueCells.clone();
+        int[] trueCellsArray = new int[trueCellsCount];
+        int idx = 0;
+        for (int i = trueCells.nextSetBit(0); i >= 0 && idx < trueCellsCount; i = trueCells.nextSetBit(i + 1)) 
+        {
+            trueCellsArray[idx++] = indexToPacked(i);
+        }
+        return trueCellsArray;
     }
 
     public int findFirstTrueCell() // Return the first element in the trueCells BitSet

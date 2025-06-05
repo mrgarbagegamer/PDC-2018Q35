@@ -4,8 +4,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import it.unimi.dsi.fastutil.ints.IntIterator;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.BitSet;
 
@@ -33,7 +33,7 @@ public abstract class Grid {
             for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
             {
                 int cell = row * 100 + col;
-                IntSet adjSet = computeAdjacents(row, col);
+                IntList adjSet = computeAdjacents(row, col);
                 int[] adjArr = new int[adjSet.size()];
                 int idx = 0;
                 for (IntIterator it = adjSet.iterator(); it.hasNext();) 
@@ -45,9 +45,9 @@ public abstract class Grid {
         }
     }
 
-    public static IntSet computeAdjacents(int row, int col) 
+    public static IntList computeAdjacents(int row, int col) 
     {
-        IntSet affectedPieces = new IntOpenHashSet();
+        IntList affectedPieces = new IntArrayList(6);
 
         if (row % 2 == 0) // even rows with 16 columns
         { 
@@ -93,7 +93,7 @@ public abstract class Grid {
         int col = packed % 100;
         return ROW_OFFSETS[row] + col;
     }
-    
+
     public final static int indexToPacked(int index) 
     {
         if (index < 16) return 0 * 100 + index;

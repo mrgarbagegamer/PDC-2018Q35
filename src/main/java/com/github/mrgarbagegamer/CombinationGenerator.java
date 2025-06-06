@@ -62,7 +62,7 @@ public class CombinationGenerator extends Thread
                 TRUE_CELLS = baseGrid.findTrueCells();
                 FIRST_TRUE_ADJACENTS = baseGrid.findFirstTrueAdjacents();
                 CURRENT_GRID_TYPE = gridType;
-                precomputeAdjacency(possibleClicks);
+                // precomputeAdjacency(possibleClicks);
             }
         }
     }
@@ -117,10 +117,9 @@ public class CombinationGenerator extends Thread
 
             if (size == k) 
             {
-                if (isValidOddAdjacencyFast(indices)) {
-                    for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(indices[j]);
-                    addCombinationToBatch(nodeList, indices, buffer, batch, k);
-                }
+                for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(indices[j]);
+                addCombinationToBatch(nodeList, indices, buffer, batch, k);
+
                 recycleIndices(indices);
                 recycleState(state);
                 if (batch.size() >= BATCH_SIZE) 
@@ -140,21 +139,16 @@ public class CombinationGenerator extends Thread
                 } 
                 else if (FIRST_TRUE_ADJACENTS != null && size + 1 == k) 
                 {
-                    if (!isValidOddAdjacencyFast(newIndices)) {
-                        recycleIndices(newIndices);
-                        continue;
-                    }
                     for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
+
                     recycleIndices(newIndices);
                     if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
                 else if (size + 1 == k) 
                 {
-                    if (isValidOddAdjacencyFast(newIndices)) {
-                        for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
-                        addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
-                    }
+                    for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
+                    addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
                     recycleIndices(newIndices);
                     if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
@@ -212,64 +206,64 @@ public class CombinationGenerator extends Thread
         return roundRobinIdx;
     }
 
-    /**
-     * Returns true if every true cell has an odd number of adjacent clicks in the combination.
-     * @param combination array of packed ints representing click cells
-     * @return true if valid, false if any true cell has an even number of adjacent clicks
-     */
-    private boolean isValidOddAdjacency(int[] combination) 
-    {
-        for (int trueCell : TRUE_CELLS) 
-        {
-            int count = 0;
-            int[] adj = Grid.findAdjacents(trueCell);
-            if (adj == null || adj.length == 0) continue; // No adjacents, skip
+    // /**
+    //  * Returns true if every true cell has an odd number of adjacent clicks in the combination.
+    //  * @param combination array of packed ints representing click cells
+    //  * @return true if valid, false if any true cell has an even number of adjacent clicks
+    //  */
+    // private boolean isValidOddAdjacency(int[] combination) 
+    // {
+    //     for (int trueCell : TRUE_CELLS) 
+    //     {
+    //         int count = 0;
+    //         int[] adj = Grid.findAdjacents(trueCell);
+    //         if (adj == null || adj.length == 0) continue; // No adjacents, skip
 
-            // For each click in the combination, check if it's adjacent to this true cell
-            for (int click : combination) 
-            {
-                // Linear search is fine for small adj arrays; for large, consider binary search
-                for (int a : adj) 
-                {
-                    if (click == a) 
-                    {
-                        count++;
-                        break;
-                    }
-                }
-            }
-            if ((count & 1) == 0) return false; // Even number of adjacents: invalid
-        }
-        return true;
-    }
+    //         // For each click in the combination, check if it's adjacent to this true cell
+    //         for (int click : combination) 
+    //         {
+    //             // Linear search is fine for small adj arrays; for large, consider binary search
+    //             for (int a : adj) 
+    //             {
+    //                 if (click == a) 
+    //                 {
+    //                     count++;
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //         if ((count & 1) == 0) return false; // Even number of adjacents: invalid
+    //     }
+    //     return true;
+    // }
 
-    // Fast check for a combination (indices into possibleClicks)
-    private boolean isValidOddAdjacencyFast(int[] indices) {
-        for (int t = 0; t < TRUE_CELLS.length; t++) {
-            int count = 0;
-            for (int idx : indices) {
-                if (trueCellToClickAdjacency[t][idx]) count++;
-            }
-            if ((count & 1) == 0) return false;
-        }
-        return true;
-    }
+    // // Fast check for a combination (indices into possibleClicks)
+    // private boolean isValidOddAdjacencyFast(int[] indices) {
+    //     for (int t = 0; t < TRUE_CELLS.length; t++) {
+    //         int count = 0;
+    //         for (int idx : indices) {
+    //             if (trueCellToClickAdjacency[t][idx]) count++;
+    //         }
+    //         if ((count & 1) == 0) return false;
+    //     }
+    //     return true;
+    // }
 
-    private void precomputeAdjacency(IntList possibleClicks) {
-        trueCellToClickAdjacency = new boolean[TRUE_CELLS.length][possibleClicks.size()];
-        for (int t = 0; t < TRUE_CELLS.length; t++) {
-            int[] adj = Grid.findAdjacents(TRUE_CELLS[t]);
-            for (int c = 0; c < possibleClicks.size(); c++) {
-                int click = possibleClicks.getInt(c);
-                for (int a : adj) {
-                    if (click == a) {
-                        trueCellToClickAdjacency[t][c] = true;
-                        break;
-                    }
-                }
-            }
-        }
-    }
+    // private void precomputeAdjacency(IntList possibleClicks) {
+    //     trueCellToClickAdjacency = new boolean[TRUE_CELLS.length][possibleClicks.size()];
+    //     for (int t = 0; t < TRUE_CELLS.length; t++) {
+    //         int[] adj = Grid.findAdjacents(TRUE_CELLS[t]);
+    //         for (int c = 0; c < possibleClicks.size(); c++) {
+    //             int click = possibleClicks.getInt(c);
+    //             for (int a : adj) {
+    //                 if (click == a) {
+    //                     trueCellToClickAdjacency[t][c] = true;
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 class CombinationState 

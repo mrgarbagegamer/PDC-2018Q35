@@ -36,6 +36,8 @@ public class TestClickCombination extends Thread
             }
         }
 
+        int[] trueCells = puzzleGrid.findTrueCells();
+
         while (!iSolvedIt && !queueArray.isSolutionFound())
         {
             int[] combinationClicks = this.combinationQueue.getClicksCombination();
@@ -64,8 +66,14 @@ public class TestClickCombination extends Thread
                 continue; // Retry getting a combination
             }
 
-            int firstTrueCell = puzzleGrid.findFirstTrueCell();
-            int[] firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
+            if (!satisfiesOddAdjacency(combinationClicks, trueCells)) 
+            {
+                // Skip this combination if it does not satisfy the odd adjacency condition
+                continue;
+            }
+
+            // int firstTrueCell = puzzleGrid.findFirstTrueCell();
+            // int[] firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
 
             for (int i = 0; (!iSolvedIt) && (!queueArray.isSolutionFound()) && (i < combinationClicks.length); i++) 
             {
@@ -87,45 +95,45 @@ public class TestClickCombination extends Thread
                     return;
                 }
 
-                // Update firstTrueCell and adjacents cache if changed
-                int newFirstTrueCell = puzzleGrid.findFirstTrueCell();
-                if (newFirstTrueCell != firstTrueCell) 
-                {
-                    firstTrueCell = newFirstTrueCell;
-                    firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
-                }
+                // // Update firstTrueCell and adjacents cache if changed
+                // int newFirstTrueCell = puzzleGrid.findFirstTrueCell();
+                // if (newFirstTrueCell != firstTrueCell) 
+                // {
+                //     firstTrueCell = newFirstTrueCell;
+                //     firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
+                // }
 
-                // Prune if no remaining click can affect the first true cell
-                boolean canAffect = false;
-                for (int j = i + 1; j < combinationClicks.length; j++) 
-                {
-                    int nextClick = combinationClicks[j];
-                    if (Grid.canAffectFirstTrueCell(firstTrueCell, nextClick)) 
-                    {
-                        canAffect = true;
-                        break;
-                    }
-                }
-                if (!canAffect) 
-                {
-                    break;
-                }
+                // // Prune if no remaining click can affect the first true cell
+                // boolean canAffect = false;
+                // for (int j = i + 1; j < combinationClicks.length; j++) 
+                // {
+                //     int nextClick = combinationClicks[j];
+                //     if (Grid.canAffectFirstTrueCell(firstTrueCell, nextClick)) 
+                //     {
+                //         canAffect = true;
+                //         break;
+                //     }
+                // }
+                // if (!canAffect) 
+                // {
+                //     break;
+                // }
 
-                // Uncomment these lines to prune if no remaining click is in firstTrueAdjacents (if you want even more aggressive but less efficient pruning)
-                if (firstTrueAdjacents != null) {
-                    boolean hasTrueAdjacent = false;
-                    for (int j = i + 1; j < combinationClicks.length; j++) {
-                        int nextClick = combinationClicks[j];
-                        for (int adj : firstTrueAdjacents) {
-                            if (nextClick == adj) {
-                                hasTrueAdjacent = true;
-                                break;
-                            }
-                        }
-                        if (hasTrueAdjacent) break; // Found a valid adjacent click                        
-                    }
-                    if (!hasTrueAdjacent) break;
-                }
+                // // Uncomment these lines to prune if no remaining click is in firstTrueAdjacents (if you want even more aggressive but less efficient pruning)
+                // if (firstTrueAdjacents != null) {
+                //     boolean hasTrueAdjacent = false;
+                //     for (int j = i + 1; j < combinationClicks.length; j++) {
+                //         int nextClick = combinationClicks[j];
+                //         for (int adj : firstTrueAdjacents) {
+                //             if (nextClick == adj) {
+                //                 hasTrueAdjacent = true;
+                //                 break;
+                //             }
+                //         }
+                //         if (hasTrueAdjacent) break; // Found a valid adjacent click                        
+                //     }
+                //     if (!hasTrueAdjacent) break;
+                // }
             }
 
             if (!iSolvedIt && !queueArray.isSolutionFound())
@@ -141,5 +149,19 @@ public class TestClickCombination extends Thread
             // reset the grid for the next combination
             puzzleGrid.initialize();
         }
+    }
+
+    private boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
+    {
+        for (int trueCell : trueCells) 
+        {
+            int count = 0;
+            for (int click : combination) 
+            {
+                if (Grid.areAdjacent(trueCell, click)) count++;
+            }
+            if ((count & 1) == 0) return false;
+        }
+        return true;
     }
 }

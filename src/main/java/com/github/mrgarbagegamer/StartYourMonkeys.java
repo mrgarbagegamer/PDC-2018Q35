@@ -55,19 +55,23 @@ public class StartYourMonkeys
         StartYourMonkeys.populatePossibleClicks(possibleClicks);
 
         // start generating different click combinations
-        Grid baseGrid = null;
-
+        Grid baseGrid;
+        GridType gridType;
+        
         if (questionNumber == 35) 
         {
             baseGrid = new Grid35();
+            gridType = GridType.GRID35;
         }
         else if (questionNumber == 13)
         {
             baseGrid = new Grid13();
+            gridType = GridType.GRID13;
         }
         else 
         {
             baseGrid = new Grid22();
+            gridType = GridType.GRID22;
         }
 
         int[] trueAdjacents = baseGrid.findFirstTrueAdjacents();
@@ -93,7 +97,7 @@ public class StartYourMonkeys
             String threadName = String.format("Generator-%d", t);
             int start = t * chunkSize;
             int end = (t == numGeneratorThreads - 1) ? finalFirstTrueAdjIndex + 1 : (t + 1) * chunkSize;
-            CombinationGenerator cb = new CombinationGenerator(threadName, queueArray, possibleClicks, numClicks, trueAdjacents, start, end, numThreads);
+            CombinationGenerator cb = new CombinationGenerator(threadName, queueArray, possibleClicks, numClicks, start, end, numThreads, gridType);
             cb.start();
         }
 

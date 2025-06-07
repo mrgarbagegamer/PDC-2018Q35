@@ -305,6 +305,26 @@ public abstract class Grid {
         return false; // Click cell is not adjacent to the first true cell
     }
 
+    public static boolean areAdjacent(int cellA, int cellB) // TODO: Add comments to this method explaining each conditional in the OR statement
+    {
+        int rowA = cellA / 100, colA = cellA % 100;
+        int rowB = cellB / 100, colB = cellB % 100;
+        int dr = rowB - rowA, dc = colB - colA;
+        if ((rowA & 1) == 0) 
+        {
+            // Even row
+            return (dr == -1 && (dc == -1 || dc == 0)) ||
+                   (dr == 0 && (dc == -1 || dc == 1)) ||
+                   (dr == 1 && (dc == -1 || dc == 0));
+        } else 
+        {
+            // Odd row
+            return (dr == -1 && (dc == 0 || dc == 1)) ||
+                   (dr == 0 && (dc == -1 || dc == 1)) ||
+                   (dr == 1 && (dc == 0 || dc == 1));
+        }
+    }
+
     // Optional: Print grid as text using BitSet only
     public void printGrid() 
     {

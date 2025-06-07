@@ -14,29 +14,53 @@ public class CombinationGenerator extends Thread
 {
     private static final Logger logger = LogManager.getLogger(CombinationGenerator.class);
 
+    private static final int BATCH_SIZE = 2000; // Tune as needed
+    private static final int POOL_SIZE = 4096; // Tune as needed
+
+    // Static caches for each grid type
+    private static int[] TRUE_CELLS;
+    private static int[] FIRST_TRUE_ADJACENTS;
+    private static GridType CURRENT_GRID_TYPE = null;
+
     private final CombinationQueueArray queueArray;
     private final IntList possibleClicks;
     private final int numClicks;
-    private final int[] trueAdjacents;
     private final int firstClickStart, firstClickEnd;
     private final int numConsumers;
-    private static final int BATCH_SIZE = 2000; // Tune as needed
-    private static final int POOL_SIZE = 4096; // Tune as needed
+    
 
     // Generator-local pools
     private final Deque<int[]> indicesPool = new ArrayDeque<>(POOL_SIZE);
     private final Deque<CombinationState> statePool = new ArrayDeque<>(POOL_SIZE);
 
-    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int[] trueAdjacents, int firstClickStart, int firstClickEnd, int numConsumers) 
+    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int firstClickStart, int firstClickEnd, int numConsumers, GridType gridType) 
     {
         super(threadName);
         this.queueArray = queueArray;
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
-        this.trueAdjacents = trueAdjacents;
         this.firstClickStart = firstClickStart;
         this.firstClickEnd = firstClickEnd;
         this.numConsumers = numConsumers;
+
+        // Lazy static initialization for the selected grid type
+        synchronized (CombinationGenerator.class) 
+        {
+            if (CURRENT_GRID_TYPE != gridType) 
+            {
+                Grid baseGrid;
+                switch (gridType) 
+                {
+                    case GRID13: baseGrid = new Grid13(); break;
+                    case GRID22: baseGrid = new Grid22(); break;
+                    case GRID35: baseGrid = new Grid35(); break;
+                    default: throw new IllegalArgumentException("Unknown grid type");
+                }
+                TRUE_CELLS = baseGrid.findTrueCells();
+                FIRST_TRUE_ADJACENTS = baseGrid.findFirstTrueAdjacents();
+                CURRENT_GRID_TYPE = gridType;
+            }
+        }
     }
 
     @Override
@@ -89,7 +113,17 @@ public class CombinationGenerator extends Thread
 
             if (size == k) 
             {
+                for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(indices[j]);
+                if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
+                {
+                    // If we have true cells and the first adjacent is not satisfied, skip this combination
+                    recycleIndices(indices);
+                    recycleState(state);
+                    continue; // Skip this combination
+                }
+
                 addCombinationToBatch(nodeList, indices, buffer, batch, k);
+
                 recycleIndices(indices);
                 recycleState(state);
                 if (batch.size() >= BATCH_SIZE) 
@@ -107,23 +141,36 @@ public class CombinationGenerator extends Thread
                 {
                     stack.push(getState(i + 1, size + 1, newIndices));
                 } 
-                else if (trueAdjacents != null && size + 1 == k) 
+                else if (FIRST_TRUE_ADJACENTS != null && size + 1 == k) 
                 {
-                    if (!containsTrueAdjacent(nodeList, newIndices, k, trueAdjacents)) {
+                    for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
+                    if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
+                    {
+                        // If we have true cells and the first adjacent is not satisfied, skip this combination
                         recycleIndices(newIndices);
-                        break;
+                        recycleState(state);
+                        continue; // Skip this combination
                     }
+
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
+
                     recycleIndices(newIndices);
-                    if (batch.size() >= BATCH_SIZE) 
-                        roundRobinIdx = flushBatch(batch, roundRobinIdx);
+                    if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
                 else if (size + 1 == k) 
                 {
+                    for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
+                    if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
+                    {
+                        // If we have true cells and the first adjacent is not satisfied, skip this combination
+                        recycleIndices(newIndices);
+                        recycleState(state);
+                        continue; // Skip this combination
+                    }
+
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
                     recycleIndices(newIndices);
-                    if (batch.size() >= BATCH_SIZE) 
-                        roundRobinIdx = flushBatch(batch, roundRobinIdx);
+                    if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
             }
             recycleIndices(indices);
@@ -144,19 +191,6 @@ public class CombinationGenerator extends Thread
         int[] combination = new int[k];
         System.arraycopy(buffer, 0, combination, 0, k);
         batch.add(combination);
-    }
-
-    private boolean containsTrueAdjacent(IntList nodeList, int[] indices, int k, int[] trueAdjacents) 
-    {
-        for (int j = 0; j < k; j++) 
-        {
-            int val = nodeList.getInt(indices[j]);
-            for (int adj : trueAdjacents) 
-            {
-                if (val == adj) return true;
-            }
-        }
-        return false;
     }
 
     private int flushBatch(List<int[]> batch, int roundRobinIdx)
@@ -190,6 +224,16 @@ public class CombinationGenerator extends Thread
             }
         }
         return roundRobinIdx;
+    }
+
+    private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
+    {
+        int count = 0;
+        for (int click : combination) 
+        {
+            if (Grid.areAdjacent(firstTrueCell, click)) count++;
+        }
+        return (count & 1) == 1;
     }
 }
 

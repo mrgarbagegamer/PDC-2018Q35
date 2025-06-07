@@ -6,6 +6,7 @@ import org.apache.logging.log4j.Logger;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
+import org.jctools.queues.SpmcArrayQueue;
 public class StartYourMonkeys 
 {
     // Add a logger at the top of the class
@@ -33,22 +34,24 @@ public class StartYourMonkeys
         int defaultNumThreads = 8;
         int defaultQuestionNumber = 35;
 
-        int numClicks  = defaultNumClicks;
-        int numThreads = defaultNumThreads;
-        int questionNumber = defaultQuestionNumber;
+        int parsedNumClicks  = defaultNumClicks;
+        int parsedNumThreads = defaultNumThreads;
+        int parsedQuestionNumber = defaultQuestionNumber;
 
         // retrieve the arguments if any or set a default value
         try 
         {
-            numClicks  = Integer.parseInt(args[0]);
-            numThreads = Integer.parseInt(args[1]);
-            questionNumber = Integer.parseInt(args[2]);
-        } catch (Exception e) {
-            numClicks  = defaultNumClicks;
-            numThreads = defaultNumThreads;
-            questionNumber = defaultQuestionNumber;
+            parsedNumClicks  = Integer.parseInt(args[0]);
+            parsedNumThreads = Integer.parseInt(args[1]);
+            parsedQuestionNumber = Integer.parseInt(args[2]);
+        } catch (Exception e) 
+        {
+            // Keep defaults
         }
 
+        final int numClicks = parsedNumClicks;
+        final int numThreads = parsedNumThreads;
+        final int questionNumber = parsedQuestionNumber;
 
         // generate the list of possible clicks for our grid
         IntList possibleClicks = new IntArrayList();
@@ -86,19 +89,39 @@ public class StartYourMonkeys
         int finalFirstTrueAdjIndex = possibleClicks.indexOf(finalFirstTrueAdjacent); // This is the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
         
 
-        int numGeneratorThreads = numThreads; // or set as desired
-        int chunkSize = (finalFirstTrueAdjIndex + 1) / numGeneratorThreads; // Chunk size for each generator thread, limiting the maximum index to finalFirstTrueAdjIndex
+        int numGeneratorThreads = numThreads;
+        int chunkSize = Math.max(1, (finalFirstTrueAdjIndex + 1) / (numGeneratorThreads * 8)); // Make chunks small for better balance
 
         // Tell the queue how many generators we have on startup
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, numGeneratorThreads);
 
+        // --- Dynamic generator work queue ---
+        int numChunks = ((finalFirstTrueAdjIndex + 1) + chunkSize - 1) / chunkSize;
+        SpmcArrayQueue<PrefixRange> workQueue = new SpmcArrayQueue<>(numChunks + 1);
+        for (int i = 0; i < finalFirstTrueAdjIndex + 1; i += chunkSize) 
+        {
+            int end = Math.min(i + chunkSize, finalFirstTrueAdjIndex + 1);
+            workQueue.offer(new PrefixRange(i, end));
+        }
+
         // Start generator threads
-        for (int t = 0; t < numGeneratorThreads; t++) {
+        for (int t = 0; t < numGeneratorThreads; t++) 
+        {
             String threadName = String.format("Generator-%d", t);
-            int start = t * chunkSize;
-            int end = (t == numGeneratorThreads - 1) ? finalFirstTrueAdjIndex + 1 : (t + 1) * chunkSize;
-            CombinationGenerator cb = new CombinationGenerator(threadName, queueArray, possibleClicks, numClicks, start, end, numThreads, gridType);
-            cb.start();
+            new Thread(() -> {
+                PrefixRange range;
+                while ((range = workQueue.poll()) != null && !queueArray.isSolutionFound()) 
+                {
+                    logger.info("{} - Processing prefix range [{}-{})", threadName, range.start, range.end); // TODO: Remove this line if too verbose
+                    CombinationGenerator cb = new CombinationGenerator(
+                        threadName, queueArray, possibleClicks, numClicks,
+                        range.start, range.end, numThreads, gridType
+                    );
+                    cb.run();
+                }
+                logger.info("{} - Exiting (work queue empty or solution found)", threadName);
+                queueArray.generatorFinished();
+            }, threadName).start();
         }
 
         // create the numThreads to start playing the game
@@ -124,7 +147,7 @@ public class StartYourMonkeys
                 e.printStackTrace();
             }
         }
-        int[] winningCombination = queueArray.getWinningCombination(); // Todo: Change this to use int[] rather than IntList
+        int[] winningCombination = queueArray.getWinningCombination();
 
         long elapsedMillis = System.currentTimeMillis() - startTime;
         String elapsedFormatted = formatElapsedTime(elapsedMillis);
@@ -149,7 +172,7 @@ public class StartYourMonkeys
             return;
         }
 
-        logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination); // Todo: Change this to use int[] rather than IntList
+        logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination);
 
         logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
@@ -157,7 +180,7 @@ public class StartYourMonkeys
         Grid puzzleGrid = baseGrid.clone();
 
         boolean solved = false;
-        for (int i = 0; (i < winningCombination.length) && (!solved); i++) // Todo: Change this to use int[] rather than IntList
+        for (int i = 0; (i < winningCombination.length) && (!solved); i++)
         {
             int clickInt = winningCombination[i];
             int row = clickInt / 100;

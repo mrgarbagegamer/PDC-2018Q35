@@ -179,7 +179,6 @@ public class CombinationGenerator extends Thread
         // Flush any remaining combinations in the batch
         flushBatch(batch, roundRobinIdx);
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
-        queueArray.generatorFinished();
     }
     
     private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, List<int[]> batch, int k) 

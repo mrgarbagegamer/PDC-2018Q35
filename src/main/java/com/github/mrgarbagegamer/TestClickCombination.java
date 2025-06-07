@@ -151,7 +151,7 @@ public class TestClickCombination extends Thread
         }
     }
 
-    private boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
+    private static boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
     {
         for (int trueCell : trueCells) 
         {

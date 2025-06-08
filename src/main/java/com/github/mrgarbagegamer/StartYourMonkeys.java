@@ -1,11 +1,9 @@
 package com.github.mrgarbagegamer;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jctools.queues.SpmcArrayQueue;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -92,65 +90,16 @@ public class StartYourMonkeys
         
 
         int numGeneratorThreads = numThreads;
-        int chunkSize = Math.max(1, (finalFirstTrueAdjIndex + 1) / (numGeneratorThreads * 8)); // Make chunks small for better balance
 
-        // Tell the queue how many generators we have on startup
-        CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, numGeneratorThreads);
+        // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
+        CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, 1);
 
-        // --- Dynamic generator work queue with prefix length 2 ---
-        List<PrefixRange> prefixRanges = new ArrayList<>();
-        int prefixLength = 2; // Set to 2 for prefix pairs
-
-        if (prefixLength == 2) {
-            // Each PrefixRange covers all (i, j) for j in [i+1, finalFirstTrueAdjIndex]
-            // Only go up to finalFirstTrueAdjIndex for i, so that j = i+1 is always valid
-            int max = Math.min(possibleClicks.size() - 2, finalFirstTrueAdjIndex);
-            for (int i = 0; i <= max; i++) {
-                prefixRanges.add(new PrefixRange(i, i + 1));
-            }
-        }
-
-        SpmcArrayQueue<PrefixRange> workQueue = new SpmcArrayQueue<>(prefixRanges.size() + 1);
-        for (PrefixRange p : prefixRanges) {
-            workQueue.offer(p);
-        }
-
-        // Start generator threads
-        for (int t = 0; t < numGeneratorThreads; t++) 
-        {
-            String threadName = String.format("Generator-%d", t);
-            new Thread(() -> {
-                while (!queueArray.isSolutionFound()) 
-                {
-                    PrefixRange range = workQueue.poll();
-                    if (range == null) break;
-
-                    // Dynamic splitting: if chunk is large and queue is empty, split and push half back
-                    final int minChunkSize = 1; // Tune for granularity
-                    while ((range.end - range.start) > minChunkSize && workQueue.isEmpty()) {
-                        int mid = range.start + (range.end - range.start) / 2;
-                        int safeMid = Math.min(mid, possibleClicks.size());
-                        int safeEnd = Math.min(range.end, possibleClicks.size());
-                        workQueue.offer(new PrefixRange(safeMid, safeEnd));
-                        range = new PrefixRange(range.start, safeMid);
-                    }
-
-                    logger.info("{} - Processing prefix i in [{}-{})", threadName, range.start, range.end);
-                    CombinationGenerator cb = new CombinationGenerator(
-                        threadName, queueArray, possibleClicks, numClicks,
-                        range.start, range.end, numThreads, gridType
-                    );
-                    cb.run();
-                }
-                queueArray.generatorFinished();
-                logger.info("{} - Exiting (work queue empty or solution found)", threadName);
-            }, threadName).start();
-        }
+        int[] trueCells = baseGrid.findTrueCells();
 
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
 
-        // Start consumer threads
+        // Start consumer threads BEFORE generation
         for(int i=0; i < numThreads; i++)
         {
             String threadName = String.format("Monkey-%d", i);
@@ -158,6 +107,15 @@ public class StartYourMonkeys
             monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray, baseGrid.clone());
             monkeys[i].start();
         }
+
+        // Now start the generator (ForkJoinPool)
+        ForkJoinPool pool = new ForkJoinPool(numGeneratorThreads);
+        int[] emptyPrefix = new int[0];
+        CombinationGeneratorTask rootTask = new CombinationGeneratorTask(
+            possibleClicks, numClicks, emptyPrefix, 0, queueArray, numGeneratorThreads, trueCells
+        );
+        pool.invoke(rootTask);
+        queueArray.generatorFinished();
 
         // wait for our monkeys to finish working
         for(int i=0; i < numThreads; i++)
@@ -170,6 +128,8 @@ public class StartYourMonkeys
                 e.printStackTrace();
             }
         }
+        pool.close(); // Close the ForkJoinPool
+
         int[] winningCombination = queueArray.getWinningCombination();
 
         long elapsedMillis = System.currentTimeMillis() - startTime;

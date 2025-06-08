@@ -1,12 +1,14 @@
 package com.github.mrgarbagegamer;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jctools.queues.SpmcArrayQueue;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-
-import org.jctools.queues.SpmcArrayQueue;
 public class StartYourMonkeys 
 {
     // Add a logger at the top of the class
@@ -95,13 +97,22 @@ public class StartYourMonkeys
         // Tell the queue how many generators we have on startup
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, numGeneratorThreads);
 
-        // --- Dynamic generator work queue ---
-        int numChunks = ((finalFirstTrueAdjIndex + 1) + chunkSize - 1) / chunkSize;
-        SpmcArrayQueue<PrefixRange> workQueue = new SpmcArrayQueue<>(numChunks + 1);
-        for (int i = 0; i < finalFirstTrueAdjIndex + 1; i += chunkSize) 
-        {
-            int end = Math.min(i + chunkSize, finalFirstTrueAdjIndex + 1);
-            workQueue.offer(new PrefixRange(i, end));
+        // --- Dynamic generator work queue with prefix length 2 ---
+        List<PrefixRange> prefixRanges = new ArrayList<>();
+        int prefixLength = 2; // Set to 2 for prefix pairs
+
+        if (prefixLength == 2) {
+            // Each PrefixRange covers all (i, j) for j in [i+1, finalFirstTrueAdjIndex]
+            // Only go up to finalFirstTrueAdjIndex for i, so that j = i+1 is always valid
+            int max = Math.min(possibleClicks.size() - 2, finalFirstTrueAdjIndex);
+            for (int i = 0; i <= max; i++) {
+                prefixRanges.add(new PrefixRange(i, i + 1));
+            }
+        }
+
+        SpmcArrayQueue<PrefixRange> workQueue = new SpmcArrayQueue<>(prefixRanges.size() + 1);
+        for (PrefixRange p : prefixRanges) {
+            workQueue.offer(p);
         }
 
         // Start generator threads
@@ -109,18 +120,30 @@ public class StartYourMonkeys
         {
             String threadName = String.format("Generator-%d", t);
             new Thread(() -> {
-                PrefixRange range;
-                while ((range = workQueue.poll()) != null && !queueArray.isSolutionFound()) 
+                while (!queueArray.isSolutionFound()) 
                 {
-                    logger.info("{} - Processing prefix range [{}-{})", threadName, range.start, range.end); // TODO: Remove this line if too verbose
+                    PrefixRange range = workQueue.poll();
+                    if (range == null) break;
+
+                    // Dynamic splitting: if chunk is large and queue is empty, split and push half back
+                    final int minChunkSize = 1; // Tune for granularity
+                    while ((range.end - range.start) > minChunkSize && workQueue.isEmpty()) {
+                        int mid = range.start + (range.end - range.start) / 2;
+                        int safeMid = Math.min(mid, possibleClicks.size());
+                        int safeEnd = Math.min(range.end, possibleClicks.size());
+                        workQueue.offer(new PrefixRange(safeMid, safeEnd));
+                        range = new PrefixRange(range.start, safeMid);
+                    }
+
+                    logger.info("{} - Processing prefix i in [{}-{})", threadName, range.start, range.end);
                     CombinationGenerator cb = new CombinationGenerator(
                         threadName, queueArray, possibleClicks, numClicks,
                         range.start, range.end, numThreads, gridType
                     );
                     cb.run();
                 }
-                logger.info("{} - Exiting (work queue empty or solution found)", threadName);
                 queueArray.generatorFinished();
+                logger.info("{} - Exiting (work queue empty or solution found)", threadName);
             }, threadName).start();
         }
 

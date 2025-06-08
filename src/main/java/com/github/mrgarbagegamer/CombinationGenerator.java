@@ -25,7 +25,7 @@ public class CombinationGenerator extends Thread
     private final CombinationQueueArray queueArray;
     private final IntList possibleClicks;
     private final int numClicks;
-    private final int firstClickStart, firstClickEnd;
+    private final int prefixStart, prefixEnd; // Instead of firstClick, secondClick
     private final int numConsumers;
     
 
@@ -33,14 +33,14 @@ public class CombinationGenerator extends Thread
     private final Deque<int[]> indicesPool = new ArrayDeque<>(POOL_SIZE);
     private final Deque<CombinationState> statePool = new ArrayDeque<>(POOL_SIZE);
 
-    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int firstClickStart, int firstClickEnd, int numConsumers, GridType gridType) 
+    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int prefixStart, int prefixEnd, int numConsumers, GridType gridType) 
     {
         super(threadName);
         this.queueArray = queueArray;
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
-        this.firstClickStart = firstClickStart;
-        this.firstClickEnd = firstClickEnd;
+        this.prefixStart = prefixStart;
+        this.prefixEnd = prefixEnd;
         this.numConsumers = numConsumers;
 
         // Lazy static initialization for the selected grid type
@@ -66,7 +66,12 @@ public class CombinationGenerator extends Thread
     @Override
     public void run() 
     {
-        generateCombinationsIterative(possibleClicks, numClicks);
+        int safeEnd = Math.min(prefixEnd, possibleClicks.size());
+        for (int i = prefixStart; i < safeEnd && !queueArray.isSolutionFound(); i++) {
+            for (int j = i + 1; j < possibleClicks.size() && !queueArray.isSolutionFound(); j++) {
+                generateCombinationsIterative(i, j, possibleClicks, numClicks);
+            }
+        }
     }
 
     private int[] getIndices(int k) {
@@ -89,16 +94,14 @@ public class CombinationGenerator extends Thread
         if (statePool.size() < POOL_SIZE) statePool.offerFirst(s);
     }
 
-    private void generateCombinationsIterative(IntList nodeList, int k)
+    // Add this overload for two fixed prefix clicks
+    private void generateCombinationsIterative(int firstClick, int secondClick, IntList nodeList, int k)
     {
-        
         Deque<CombinationState> stack = new ArrayDeque<>();
-        for (int i = firstClickStart; i < firstClickEnd; i++) 
-        {
-            int[] indices = getIndices(k);
-            indices[0] = i;
-            stack.push(getState(i + 1, 1, indices));
-        }
+        int[] initialIndices = getIndices(k);
+        initialIndices[0] = firstClick;
+        initialIndices[1] = secondClick;
+        stack.push(getState(secondClick, 2, initialIndices));
 
         List<int[]> batch = new ArrayList<>(BATCH_SIZE);
         int roundRobinIdx = 0;
@@ -116,18 +119,14 @@ public class CombinationGenerator extends Thread
                 for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(indices[j]);
                 if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
                 {
-                    // If we have true cells and the first adjacent is not satisfied, skip this combination
                     recycleIndices(indices);
                     recycleState(state);
-                    continue; // Skip this combination
+                    continue;
                 }
-
                 addCombinationToBatch(nodeList, indices, buffer, batch, k);
-
                 recycleIndices(indices);
                 recycleState(state);
-                if (batch.size() >= BATCH_SIZE) 
-                    roundRobinIdx = flushBatch(batch, roundRobinIdx);
+                if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 continue;
             }
 
@@ -146,14 +145,11 @@ public class CombinationGenerator extends Thread
                     for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
                     if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
                     {
-                        // If we have true cells and the first adjacent is not satisfied, skip this combination
                         recycleIndices(newIndices);
                         recycleState(state);
-                        continue; // Skip this combination
+                        continue;
                     }
-
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
-
                     recycleIndices(newIndices);
                     if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
@@ -162,12 +158,10 @@ public class CombinationGenerator extends Thread
                     for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
                     if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
                     {
-                        // If we have true cells and the first adjacent is not satisfied, skip this combination
                         recycleIndices(newIndices);
                         recycleState(state);
-                        continue; // Skip this combination
+                        continue;
                     }
-
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
                     recycleIndices(newIndices);
                     if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
@@ -176,9 +170,8 @@ public class CombinationGenerator extends Thread
             recycleIndices(indices);
             recycleState(state);
         }
-        // Flush any remaining combinations in the batch
         flushBatch(batch, roundRobinIdx);
-        logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
+        logger.info("Thread {} finished generating combinations with prefix [{}, {}]", getName(), Grid.indexToPacked(firstClick), Grid.indexToPacked(secondClick));
     }
     
     private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, List<int[]> batch, int k) 

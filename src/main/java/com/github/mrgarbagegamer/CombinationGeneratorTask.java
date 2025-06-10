@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
 import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
@@ -163,49 +164,55 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private void flushBatch(List<int[]> batch) 
     {
-        int roundRobinIdx = 0;
-        while (!batch.isEmpty()) 
+        if (batch.isEmpty()) return;
+        
+        // Try to add the entire batch to one queue first (reduces contention)
+        int startQueue = ThreadLocalRandom.current().nextInt(numConsumers);
+        CombinationQueue queue = queueArray.getQueue(startQueue);
+        int added = queue.addBatch(batch);
+        
+        if (added == batch.size()) {
+            batch.clear();
+            return;
+        }
+        
+        // Remove successfully added items
+        if (added > 0) {
+            batch.subList(0, added).clear();
+        }
+        
+        // Fall back to round-robin for remainder, but with exponential backoff
+        int backoffMs = 1;
+        while (!batch.isEmpty() && !isTaskCancelled()) 
         {
-            // Check for cancellation first
-            if (isTaskCancelled()) {
-                // Recycle all arrays still in the batch
-                for (int[] arr : batch) {
-                    recycleIntArray(arr);
-                }
-                batch.clear();
-                return;
-            }
-            
             boolean addedAny = false;
+            
             for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
             {
-                // Re-check cancellation within the inner loop
-                if (isTaskCancelled()) break;
-                
-                int idx = (roundRobinIdx + attempt) % numConsumers;
-                int added = queueArray.getQueue(idx).addBatch(batch);
+                int idx = (startQueue + attempt) % numConsumers;
+                added = queueArray.getQueue(idx).addBatch(batch);
                 if (added > 0) 
                 {
                     batch.subList(0, added).clear();
-                    roundRobinIdx = (idx + 1) % numConsumers;
                     addedAny = true;
+                    backoffMs = 1; // Reset backoff on success
+                    break;
                 }
             }
             
             if (!addedAny) 
             {
-                try 
-                { 
-                    Thread.sleep(5); 
-                } catch (InterruptedException e) 
-                { 
+                try { 
+                    Thread.sleep(Math.min(backoffMs, 16)); // Exponential backoff up to 16ms
+                    backoffMs = Math.min(backoffMs * 2, 16);
+                } catch (InterruptedException e) { 
                     Thread.currentThread().interrupt();
                     break; 
                 }
             }
         }
         
-        // Any remaining arrays should be recycled
+        // Recycle remaining arrays
         for (int[] arr : batch) {
             recycleIntArray(arr);
         }

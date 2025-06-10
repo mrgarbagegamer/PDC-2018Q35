@@ -8,7 +8,12 @@ import it.unimi.dsi.fastutil.ints.IntList;
 public class CombinationGeneratorTask extends RecursiveAction 
 {
     private static final int BATCH_SIZE = 2000;
-
+    private static final int POOL_SIZE = 4096;  // Match the size used in your updated code
+    
+    // Thread-local pool for integer arrays
+    private static final ThreadLocal<ArrayList<int[]>> intArrayPool = 
+        ThreadLocal.withInitial(() -> new ArrayList<>(POOL_SIZE));
+    
     private final IntList possibleClicks;
     private final int numClicks;
     private final int[] prefix;
@@ -47,7 +52,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                 subtasks.add(new CombinationGeneratorTask(possibleClicks, numClicks, newPrefix, prefixLength + 1, queueArray, numConsumers, trueCells));
             }
             invokeAll(subtasks);
-        } else 
+        } 
+        else 
         {
             // At prefix length numClicks-1, generate the last click and submit the full combination
             List<int[]> batch = new ArrayList<>(BATCH_SIZE);
@@ -55,12 +61,12 @@ public class CombinationGeneratorTask extends RecursiveAction
             int max = possibleClicks.size();
             for (int i = start; i < max; i++) 
             {
-                int[] combination = new int[numClicks];
-                System.arraycopy(prefix, 0, combination, 0, prefixLength);
-
+                int[] combination = getIntArray(numClicks);  // Get from pool instead of creating new
+                
+                // Fill combination with prefix values
                 for (int j = 0; j < prefixLength; j++) 
                 {
-                    combination[j] = possibleClicks.getInt(combination[j]);
+                    combination[j] = possibleClicks.getInt(prefix[j]);
                 }
 
                 combination[prefixLength] = possibleClicks.getInt(i); // Add the last click
@@ -69,6 +75,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                 if (trueCells != null && trueCells.length > 0 &&
                     !quickOddAdjacency(combination, trueCells[0])) 
                 {
+                    recycleIntArray(combination);  // Recycle invalid combinations
                     continue;
                 }
 
@@ -94,6 +101,11 @@ public class CombinationGeneratorTask extends RecursiveAction
                 int added = queueArray.getQueue(idx).addBatch(batch);
                 if (added > 0) 
                 {
+                    // Only recycle after confirming the batch elements were successfully added
+                    // for (int i = 0; i < added; i++) {
+                    //     // DO NOT recycle here - the consumers need these arrays
+                    //     // They were added to the queue and will be processed by consumers
+                    // }
                     batch.subList(0, added).clear();
                     roundRobinIdx = (idx + 1) % numConsumers;
                     addedAny = true;
@@ -110,6 +122,32 @@ public class CombinationGeneratorTask extends RecursiveAction
                     break; 
                 }
             }
+        }
+        
+        // Recycle any remaining arrays that couldn't be added to any queue
+        for (int[] arr : batch) {
+            recycleIntArray(arr);
+        }
+        batch.clear();
+    }
+
+    // Thread-local array pooling methods
+    private static int[] getIntArray(int size) {
+        ArrayList<int[]> pool = intArrayPool.get();
+        for (int i = 0; i < pool.size(); i++) {
+            int[] arr = pool.get(i);
+            if (arr.length == size) {
+                pool.remove(i);
+                return arr;
+            }
+        }
+        return new int[size];
+    }
+
+    private static void recycleIntArray(int[] arr) {
+        ArrayList<int[]> pool = intArrayPool.get();
+        if (pool.size() < POOL_SIZE) {
+            pool.add(arr);
         }
     }
 

@@ -84,7 +84,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                     break;
                 }
                 
-                int[] newPrefix = new int[prefixLength + 1]; // TODO: Look at using one of the thread-local arrays from the pool
+                // Replace with pooled array
+                int[] newPrefix = getIntArray(prefixLength + 1);
                 System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
                 newPrefix[prefixLength] = i;
 
@@ -96,7 +97,11 @@ public class CombinationGeneratorTask extends RecursiveAction
             
             if (!subtasks.isEmpty()) {
                 try {
-                    invokeAll(subtasks); // TODO: Look at placing a statement to recycle the arrays to the pool here
+                    invokeAll(subtasks);
+                    // Add recycling of arrays after subtasks complete
+                    for (CombinationGeneratorTask task : subtasks) {
+                        recycleIntArray(task.prefix);
+                    }
                 } catch (CancellationException ce) {
                     // Task was cancelled, just return
                     return;

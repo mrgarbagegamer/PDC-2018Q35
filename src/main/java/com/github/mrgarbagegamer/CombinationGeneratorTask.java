@@ -14,7 +14,8 @@ import it.unimi.dsi.fastutil.ints.IntList;
 // TODO: Reformat all lines to place curly brackets on different lines than the method signature (for consistency with the rest of the codebase)
 public class CombinationGeneratorTask extends RecursiveAction 
 {
-    private static final int BATCH_SIZE = 2000;
+    private static final int BATCH_SIZE = 4000; // Increase from 2000 to reduce flush overhead
+    private static final int EMERGENCY_BATCH_SIZE = 1000; // Smaller emergency batches
     private static final int POOL_SIZE = 4096;
     
     // Size-specific pools for better performance
@@ -170,7 +171,14 @@ public class CombinationGeneratorTask extends RecursiveAction
                 }
 
                 batch.add(combination);
-                if (batch.size() >= BATCH_SIZE) 
+                
+                // Adaptive batch size based on depth for better distribution
+                int dynamicBatchSize = BATCH_SIZE;
+                if (prefixLength >= numClicks - 3) { // Near leaf level
+                    dynamicBatchSize = BATCH_SIZE / 2; // Flush more frequently for better distribution
+                }
+                
+                if (batch.size() >= dynamicBatchSize) 
                 {
                     flushBatch(batch);
                     
@@ -190,49 +198,35 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
+    // Simplified flushBatch - remove the complex distribution logic
     private void flushBatch(List<int[]> batch) 
     {
         if (batch.isEmpty()) return;
         
-        // Try to add the entire batch to one queue first (reduces contention)
+        // Simple round-robin distribution without complex copying
         int startQueue = ThreadLocalRandom.current().nextInt(numConsumers);
-        CombinationQueue queue = queueArray.getQueue(startQueue);
-        int added = queue.addBatch(batch);
         
-        if (added == batch.size()) {
-            batch.clear();
-            return;
-        }
-        
-        // Remove successfully added items
-        if (added > 0) {
-            batch.subList(0, added).clear();
-        }
-        
-        // Fall back to round-robin for remainder, but with exponential backoff
-        int backoffMs = 1;
-        while (!batch.isEmpty() && !isTaskCancelled()) 
-        {
+        while (!batch.isEmpty() && !isTaskCancelled()) {
             boolean addedAny = false;
             
-            for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
-            {
+            for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) {
                 int idx = (startQueue + attempt) % numConsumers;
-                added = queueArray.getQueue(idx).addBatch(batch);
-                if (added > 0) 
-                {
+                CombinationQueue queue = queueArray.getQueue(idx);
+                int added = queue.addBatch(batch);
+                
+                if (added > 0) {
+                    // Use subList().clear() for efficient removal from start
                     batch.subList(0, added).clear();
                     addedAny = true;
-                    backoffMs = 1; // Reset backoff on success
-                    break;
+                    startQueue = (idx + 1) % numConsumers; // Update for next iteration
+                    break; // Exit attempt loop, continue with while loop
                 }
             }
             
-            if (!addedAny) 
-            {
+            if (!addedAny) {
+                // Only sleep if no progress was made
                 try { 
-                    Thread.sleep(Math.min(backoffMs, 16)); // Exponential backoff up to 16ms
-                    backoffMs = Math.min(backoffMs * 2, 16);
+                    Thread.sleep(1); 
                 } catch (InterruptedException e) { 
                     Thread.currentThread().interrupt();
                     break; 
@@ -240,7 +234,7 @@ public class CombinationGeneratorTask extends RecursiveAction
             }
         }
         
-        // Recycle remaining arrays
+        // Recycle any remaining arrays if task was cancelled
         for (int[] arr : batch) {
             recycleIntArray(arr);
         }

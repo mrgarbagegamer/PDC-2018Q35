@@ -30,21 +30,23 @@ public class CombinationGeneratorTask extends RecursiveAction
     private final CombinationQueueArray queueArray;
     private final int numConsumers;
     private final int[] trueCells;
+    private final int maxFirstClickIndex;
     
     // Added field to track cancellation within a subtask hierarchy
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
     private final CombinationGeneratorTask parent;
 
     public CombinationGeneratorTask(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
-                                   CombinationQueueArray queueArray, int numConsumers, int[] trueCells) 
+                                   CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
+                                   int maxFirstClickIndex) 
     {
-        this(possibleClicks, numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, null);
+        this(possibleClicks, numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
     }
     
     // Private constructor to handle parent relationship
     private CombinationGeneratorTask(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
                                    CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
-                                   CombinationGeneratorTask parent) 
+                                   int maxFirstClickIndex, CombinationGeneratorTask parent) 
     {
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
@@ -54,6 +56,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         this.numConsumers = numConsumers;
         this.trueCells = trueCells;
         this.parent = parent;
+        this.maxFirstClickIndex = maxFirstClickIndex;
     }
 
     // Check if this task or any parent task has been cancelled
@@ -83,6 +86,8 @@ public class CombinationGeneratorTask extends RecursiveAction
             List<CombinationGeneratorTask> subtasks = new ArrayList<>();
             int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
             int max = possibleClicks.size() - (numClicks - prefixLength) + 1;
+
+            if (prefixLength == 0) max = Math.min(max, maxFirstClickIndex + 1);
             
             for (int i = start; i < max; i++) 
             {
@@ -99,7 +104,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                 // Create subtask with this as parent
                 subtasks.add(new CombinationGeneratorTask(
                     possibleClicks, numClicks, newPrefix, prefixLength + 1, 
-                    queueArray, numConsumers, trueCells, this));
+                    queueArray, numConsumers, trueCells, maxFirstClickIndex, this));
             }
             
             if (!subtasks.isEmpty()) {

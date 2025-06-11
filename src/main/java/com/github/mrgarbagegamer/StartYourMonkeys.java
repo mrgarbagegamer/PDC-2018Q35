@@ -112,7 +112,7 @@ public class StartYourMonkeys
         ForkJoinPool pool = new ForkJoinPool(numGeneratorThreads);
         int[] emptyPrefix = new int[0];
         CombinationGeneratorTask rootTask = new CombinationGeneratorTask(
-            possibleClicks, numClicks, emptyPrefix, 0, queueArray, numGeneratorThreads, trueCells
+            possibleClicks, numClicks, emptyPrefix, 0, queueArray, numGeneratorThreads, trueCells, finalFirstTrueAdjIndex
         );
         pool.invoke(rootTask);
         queueArray.generatorFinished();

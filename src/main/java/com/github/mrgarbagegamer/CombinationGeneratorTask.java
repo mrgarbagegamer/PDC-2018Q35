@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.RecursiveAction;
@@ -264,12 +265,28 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
+    // Add these fields to cache adjacents for the current firstTrueCell
+    private static volatile BitSet FIRST_TRUE_ADJACENTS_BITSET = null;
+    private static volatile int CACHED_FIRST_TRUE_CELL = -1;
+
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
+        // Lazy initialization of adjacents BitSet
+        if (CACHED_FIRST_TRUE_CELL != firstTrueCell) {
+            int[] adjacents = Grid.findAdjacents(firstTrueCell);
+            FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700); // Adjust size as needed for your grid
+            for (int adj : adjacents) {
+                FIRST_TRUE_ADJACENTS_BITSET.set(adj);
+            }
+            CACHED_FIRST_TRUE_CELL = firstTrueCell;
+        }
+        
         int count = 0;
-        for (int click : combination) 
-        {
-            if (Grid.areAdjacent(firstTrueCell, click)) count++;
+        // O(1) adjacency check per click
+        for (int click : combination) {
+            if (FIRST_TRUE_ADJACENTS_BITSET.get(click)) {
+                count++;
+            }
         }
         return (count & 1) == 1;
     }

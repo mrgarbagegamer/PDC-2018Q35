@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer;
 
-import java.util.concurrent.RecursiveAction;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CancellationException;
@@ -17,10 +16,12 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final int BATCH_SIZE = 2000;
     private static final int POOL_SIZE = 4096;
     
-    // Thread-local pool for integer arrays
-    private static final ThreadLocal<ArrayList<int[]>> intArrayPool = 
-        ThreadLocal.withInitial(() -> new ArrayList<>(POOL_SIZE));
-    
+    // Size-specific pools for better performance
+    private static final ThreadLocal<ArrayDeque<int[]>> prefixArrayPool = 
+        ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
+    private static final ThreadLocal<ArrayDeque<int[]>> combinationArrayPool = 
+        ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
+
     private final IntList possibleClicks;
     private final int numClicks;
     private final int[] prefix;
@@ -223,23 +224,43 @@ public class CombinationGeneratorTask extends RecursiveAction
         batch.clear();
     }
 
-    // Thread-local array pooling methods - unchanged
-    private static int[] getIntArray(int size) {
-        ArrayList<int[]> pool = intArrayPool.get();
-        for (int i = 0; i < pool.size(); i++) {
-            int[] arr = pool.get(i);
-            if (arr.length == size) {
-                pool.remove(i);
+    // Thread-local array pooling methods - corrected to be non-static
+    private int[] getIntArray(int size) {
+        if (size < numClicks) {  // Prefix arrays (smaller than full combinations)
+            ArrayDeque<int[]> pool = prefixArrayPool.get();
+            int[] arr = pool.pollFirst();
+            if (arr != null && arr.length >= size) {
                 return arr;
+            }
+            // Return smaller array to pool for future use
+            if (arr != null && arr.length < size) {
+                pool.offerFirst(arr);
+            }
+        } else {  // Full combination arrays (size == numClicks)
+            ArrayDeque<int[]> pool = combinationArrayPool.get();
+            int[] arr = pool.pollFirst();
+            if (arr != null && arr.length >= size) {
+                return arr;
+            }
+            // Return smaller array to pool for future use  
+            if (arr != null && arr.length < size) {
+                pool.offerFirst(arr);
             }
         }
         return new int[size];
     }
 
-    private static void recycleIntArray(int[] arr) {
-        ArrayList<int[]> pool = intArrayPool.get();
-        if (pool.size() < POOL_SIZE) {
-            pool.add(arr);
+    private void recycleIntArray(int[] arr) {
+        if (arr.length < numClicks) {  // Prefix arrays
+            ArrayDeque<int[]> pool = prefixArrayPool.get();
+            if (pool.size() < POOL_SIZE / 2) {
+                pool.offerFirst(arr);
+            }
+        } else {  // Full combination arrays (arr.length == numClicks)
+            ArrayDeque<int[]> pool = combinationArrayPool.get();
+            if (pool.size() < POOL_SIZE / 2) {
+                pool.offerFirst(arr);
+            }
         }
     }
 

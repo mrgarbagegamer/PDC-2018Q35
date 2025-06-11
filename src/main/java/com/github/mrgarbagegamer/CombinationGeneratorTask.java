@@ -15,7 +15,6 @@ import it.unimi.dsi.fastutil.ints.IntList;
 public class CombinationGeneratorTask extends RecursiveAction 
 {
     private static final int BATCH_SIZE = 4000; // Increase from 2000 to reduce flush overhead
-    private static final int EMERGENCY_BATCH_SIZE = 1000; // Smaller emergency batches
     private static final int POOL_SIZE = 4096;
     
     // Size-specific pools for better performance

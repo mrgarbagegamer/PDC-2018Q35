@@ -59,22 +59,18 @@ public class StartYourMonkeys
 
         // start generating different click combinations
         Grid baseGrid;
-        GridType gridType;
         
         if (questionNumber == 35) 
         {
             baseGrid = new Grid35();
-            gridType = GridType.GRID35;
         }
         else if (questionNumber == 13)
         {
             baseGrid = new Grid13();
-            gridType = GridType.GRID13;
         }
         else 
         {
             baseGrid = new Grid22();
-            gridType = GridType.GRID22;
         }
 
         int[] trueAdjacents = baseGrid.findFirstTrueAdjacents();

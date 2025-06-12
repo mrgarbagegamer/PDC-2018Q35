@@ -135,53 +135,39 @@ public class CombinationGeneratorTask extends RecursiveAction
         } 
         else 
         {
-            // Use pooled ArrayList instead of new ArrayList<>(BATCH_SIZE)
-            List<int[]> batch = getBatchList();
-            
+            // Direct generation without intermediate arrays for leaf level
             int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
             int max = possibleClicks.size();
             
-            for (int i = start; i < max; i++) 
-            {
-                // Check for solution found at regular intervals
+            // Reuse a single combination array
+            int[] combination = getIntArray(numClicks);
+            
+            // Copy prefix once
+            for (int j = 0; j < prefixLength; j++) {
+                combination[j] = possibleClicks.getInt(prefix[j]);
+            }
+            
+            List<int[]> batch = getBatchList();
+            
+            for (int i = start; i < max; i++) {
                 if (i % 100 == 0 && isTaskCancelled()) {
-                    // Recycle all arrays in the batch and return
-                    for (int[] arr : batch) {
-                        recycleIntArray(arr);
-                    }
                     recycleBatchList(batch);
                     return;
                 }
                 
-                int[] combination = getIntArray(numClicks);
-                
-                for (int j = 0; j < prefixLength; j++) 
-                {
-                    combination[j] = possibleClicks.getInt(prefix[j]);
-                }
-
                 combination[prefixLength] = possibleClicks.getInt(i);
-
+                
                 if (trueCells != null && trueCells.length > 0 &&
-                    !quickOddAdjacency(combination, trueCells[0])) 
-                {
-                    recycleIntArray(combination);
+                    !quickOddAdjacency(combination, trueCells[0])) {
                     continue;
                 }
-
-                batch.add(combination);
                 
-                // Adaptive batch size based on depth for better distribution
-                int dynamicBatchSize = BATCH_SIZE;
-                if (prefixLength >= numClicks - 3) { // Near leaf level
-                    dynamicBatchSize = BATCH_SIZE / 2; // Flush more frequently for better distribution
-                }
+                // Only clone when adding to batch
+                int[] clone = combination.clone();
+                batch.add(clone);
                 
-                if (batch.size() >= dynamicBatchSize) 
-                {
+                if (batch.size() >= BATCH_SIZE) {
                     flushBatch(batch);
-                    
-                    // Check if solution was found during flush
                     if (isTaskCancelled()) {
                         recycleBatchList(batch);
                         return;
@@ -189,10 +175,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                 }
             }
             
-            // Final flush if needed
-            if (!batch.isEmpty()) {
-                flushBatch(batch);
-            }
+            flushBatch(batch);
             recycleBatchList(batch);
         }
     }

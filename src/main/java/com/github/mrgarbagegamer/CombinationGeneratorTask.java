@@ -90,8 +90,62 @@ public class CombinationGeneratorTask extends RecursiveAction
             return;
         }
         
-        if (prefixLength < numClicks - 1)
-        { 
+        if (prefixLength < numClicks - 1) 
+        {
+            // Before creating subtasks, check if this prefix path can possibly lead to a solution
+            if (prefixLength >= 2) 
+            {
+                // Check all true cells, not just the first one
+                if (trueCells != null && trueCells.length > 0) 
+                {
+                    boolean canPotentiallySatisfyAll = true;
+                    
+                    for (int trueCell : trueCells) {
+                        // Count adjacents from the prefix
+                        int adjacentCount = 0;
+                        for (int j = 0; j < prefixLength; j++) 
+                        {
+                            int cell = possibleClicks.getInt(prefix[j]);
+                            if (Grid.areAdjacent(trueCell, cell)) // TODO: Potentially replace this block of code with a check to see if the cell is in a precomputed adjacency list?
+                            {
+                                adjacentCount++;
+                            }
+                        }
+                        
+                        // Check if we could potentially satisfy odd adjacency
+                        boolean needsOdd = (adjacentCount & 1) == 0;
+                        
+                        // If we need an odd number of adjacents, check if it's possible
+                        if (needsOdd) 
+                        {
+                            boolean foundPossible = false;
+                            // Check if any remaining position could be adjacent
+                            for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
+                            {
+                                int cell = possibleClicks.getInt(i);
+                                if (Grid.areAdjacent(trueCell, cell)) // TODO: Replace with a more efficient adjacency check if needed
+                                {
+                                    foundPossible = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (!foundPossible) 
+                            {
+                                canPotentiallySatisfyAll = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Skip this entire branch if it can't possibly satisfy constraints
+                    if (!canPotentiallySatisfyAll) 
+                    {
+                        return;
+                    }
+                }
+            }
+            
             // Use pooled ArrayList instead of new ArrayList<>()
             List<CombinationGeneratorTask> subtasks = getSubtaskList();
             

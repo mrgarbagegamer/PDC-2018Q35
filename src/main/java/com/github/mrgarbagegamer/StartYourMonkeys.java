@@ -111,6 +111,10 @@ public class StartYourMonkeys
             possibleClicks, numClicks, emptyPrefix, 0, queueArray, numGeneratorThreads, trueCells, finalFirstTrueAdjIndex
         );
         pool.invoke(rootTask);
+
+        // Flush all pending batches before marking generation complete
+        CombinationGeneratorTask.flushAllPendingBatches(queueArray, pool);
+
         queueArray.generatorFinished();
 
         // wait for our monkeys to finish working

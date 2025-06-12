@@ -8,6 +8,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ForkJoinPool;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -23,11 +24,13 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<ArrayDeque<int[]>> combinationArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
 
-    // Add ArrayList pools for thread-safe reuse
+    // Add an ArrayList CombinationGeneratorTask pool for thread-safe reuse
     private static final ThreadLocal<ArrayDeque<List<CombinationGeneratorTask>>> SUBTASK_LIST_POOL = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(16));
-    private static final ThreadLocal<ArrayDeque<List<int[]>>> BATCH_LIST_POOL = 
-        ThreadLocal.withInitial(() -> new ArrayDeque<>(16));
+
+    // ThreadLocal batch for each worker thread
+    private static final ThreadLocal<List<int[]>> THREAD_BATCH = 
+        ThreadLocal.withInitial(() -> new ArrayList<>(BATCH_SIZE));
 
     private final IntList possibleClicks;
     private final int numClicks;
@@ -168,40 +171,42 @@ public class CombinationGeneratorTask extends RecursiveAction
                 
                 if (batch.size() >= BATCH_SIZE) {
                     flushBatch(batch);
+                    batch.clear(); // Clear after flushing
                     if (isTaskCancelled()) {
-                        recycleBatchList(batch);
                         return;
                     }
                 }
             }
             
-            flushBatch(batch);
-            recycleBatchList(batch);
+            // Don't flush partial batches - they'll be flushed by the main thread later
         }
     }
 
-    // Simplified flushBatch - remove the complex distribution logic
-    private void flushBatch(List<int[]> batch) 
+    // Extract shared flushing logic
+    private static void flushBatchHelper(List<int[]> batch, CombinationQueueArray queueArray, boolean checkCancellation) 
     {
-        if (batch.isEmpty()) return;
+        if (batch == null || batch.isEmpty()) return;
         
-        // Simple round-robin distribution without complex copying
-        int startQueue = ThreadLocalRandom.current().nextInt(numConsumers);
+        int numQueues = queueArray.getAllQueues().length;
+        int startQueue = ThreadLocalRandom.current().nextInt(numQueues);
+        CombinationQueue[] queues = queueArray.getAllQueues();
         
-        while (!batch.isEmpty() && !isTaskCancelled()) {
+        while (!batch.isEmpty()) 
+        {
             boolean addedAny = false;
             
-            for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) {
-                int idx = (startQueue + attempt) % numConsumers;
-                CombinationQueue queue = queueArray.getQueue(idx);
+            for (int attempt = 0; attempt < numQueues && !batch.isEmpty(); attempt++) 
+            {
+                int idx = (startQueue + attempt) % numQueues;
+                CombinationQueue queue = queues[idx];
                 int added = queue.addBatch(batch);
                 
-                if (added > 0) {
-                    // Use subList().clear() for efficient removal from start
+                if (added > 0) 
+                {
                     batch.subList(0, added).clear();
                     addedAny = true;
-                    startQueue = (idx + 1) % numConsumers; // Update for next iteration
-                    break; // Exit attempt loop, continue with while loop
+                    startQueue = (idx + 1) % numQueues;
+                    break;
                 }
             }
             
@@ -214,15 +219,70 @@ public class CombinationGeneratorTask extends RecursiveAction
                     break; 
                 }
             }
+
+            // Only check cancellation if requested (for task flushing, not final flush)
+            if (checkCancellation && queueArray.isSolutionFound()) 
+            {
+                break;
+            }
         }
-        
-        // Recycle any remaining arrays if task was cancelled
-        for (int[] arr : batch) {
-            recycleIntArray(arr);
-        }
-        batch.clear();
     }
 
+    // Simplified flushBatch method
+    private void flushBatch(List<int[]> batch) 
+    {
+        if (batch.isEmpty()) return;
+        
+        flushBatchHelper(batch, queueArray, true);
+        
+        // Recycle any remaining arrays if task was cancelled
+        if (!batch.isEmpty()) 
+        {
+            for (int[] arr : batch) 
+            {
+                recycleIntArray(arr);
+            }
+            batch.clear();
+        }
+    }
+    
+    // Method to flush all pending batches from worker threads
+    public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
+    {
+        // Submit a small task to each worker thread to flush its batch
+        pool.submit(() -> {
+            List<int[]> batch = THREAD_BATCH.get();
+            if (batch != null && !batch.isEmpty()) 
+            {
+                flushBatchHelper(batch, queueArray, false);
+                batch.clear();
+            }
+            return null;
+        }).join(); // Wait for completion
+    }
+    
+    private List<int[]> getBatchList() 
+    {
+        List<int[]> batch = THREAD_BATCH.get();
+        if (batch.size() >= BATCH_SIZE) {
+            flushBatch(batch);
+            batch.clear();
+        }
+        return batch;
+    }
+    
+    private void recycleBatchList(List<int[]> batch) 
+    {
+        // Don't clear the batch - keep items for reuse across tasks
+        // Only clear if task was cancelled
+        if (isTaskCancelled()) {
+            for (int[] arr : batch) {
+                recycleIntArray(arr);
+            }
+            batch.clear();
+        }
+    }
+    
     // Thread-local array pooling methods - corrected to be non-static
     private int[] getIntArray(int size) {
         if (size < numClicks) {  // Prefix arrays (smaller than full combinations)
@@ -278,26 +338,6 @@ public class CombinationGeneratorTask extends RecursiveAction
         if (list == null) return;
         list.clear(); // Clear contents before recycling
         ArrayDeque<List<CombinationGeneratorTask>> pool = SUBTASK_LIST_POOL.get();
-        if (pool.size() < 16) { // Limit pool size
-            pool.offerFirst(list);
-        }
-    }
-
-    private List<int[]> getBatchList() {
-        ArrayDeque<List<int[]>> pool = BATCH_LIST_POOL.get();
-        List<int[]> list = pool.pollFirst();
-        if (list == null) {
-            return new ArrayList<>(BATCH_SIZE); // Pre-sized for batch size
-        }
-        // Ensure it's empty for reuse
-        list.clear(); // TODO: Look into keeping the elements in the list across tasks and flushing the batch only when it reaches BATCH_SIZE (requires larger refactor)
-        return list;
-    }
-
-    private void recycleBatchList(List<int[]> list) {
-        if (list == null) return;
-        list.clear(); // See #293
-        ArrayDeque<List<int[]>> pool = BATCH_LIST_POOL.get();
         if (pool.size() < 16) { // Limit pool size
             pool.offerFirst(list);
         }

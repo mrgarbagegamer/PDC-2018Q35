@@ -296,7 +296,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private void recycleBatchList(List<int[]> list) {
         if (list == null) return;
-        list.clear(); // Clear contents before recycling
+        list.clear(); // See #293
         ArrayDeque<List<int[]>> pool = BATCH_LIST_POOL.get();
         if (pool.size() < 16) { // Limit pool size
             pool.offerFirst(list);

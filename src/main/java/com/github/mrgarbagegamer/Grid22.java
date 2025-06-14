@@ -1,4 +1,6 @@
 package com.github.mrgarbagegamer;
+
+import java.util.Arrays;
 public class Grid22 extends Grid 
 {
     void initialize() 
@@ -6,21 +8,21 @@ public class Grid22 extends Grid
         // Initialize for Q22/Shrek
 
         // set all cells to false
-        this.trueCells.clear();
+        Arrays.fill(trueCells, false);
 
         // Top row values
         int topRow = 0;
         int[] topRowCols = {1, 2, 4, 5, 7, 8, 10, 11, 13, 14};
         for (int col : topRowCols) 
         {
-            this.trueCells.set(packedToIndex(topRow * 100 + col));
+            trueCells[packedToIndex(topRow * 100 + col)] = true;
         }
 
         // Recreate the top row values for the bottom row
         int bottomRow = NUM_ROWS - 1;
         for (int col : topRowCols) 
         {
-            this.trueCells.set(packedToIndex(bottomRow * 100 + col));
+            trueCells[packedToIndex(bottomRow * 100 + col)] = true;
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -30,7 +32,7 @@ public class Grid22 extends Grid
         {
             for (int col : rowOneCols) 
             {
-                this.trueCells.set(packedToIndex(row * 100 + col));
+                trueCells[packedToIndex(row * 100 + col)] = true;
             }
         }
 

@@ -136,7 +136,7 @@ public class TestClickCombination extends Thread
                 // }
             }
 
-            if (!iSolvedIt && !queueArray.isSolutionFound())
+            if (!iSolvedIt && !queueArray.isSolutionFound()) // TODO: Move the isSolutionFound check inside the loop AFTER the failedCount check to avoid unnecessary calls
             {
                 failedCount++;
                 if (logger.isDebugEnabled() && failedCount == LOG_EVERY_N_FAILURES) 

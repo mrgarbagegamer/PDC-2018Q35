@@ -322,18 +322,29 @@ public abstract class Grid {
 
     public static boolean areAdjacent(int cellA, int cellB) 
     {
+        // Quick rejection for cells that are too far apart (your suggested optimization)
+        int diff = Math.abs(cellA - cellB);
+        if (diff > 101) return false; // Can't be adjacent if more than 1 row + 1 col apart
+        
         int rowA = cellA / 100, colA = cellA % 100;
         int rowB = cellB / 100, colB = cellB % 100;
         int dr = rowB - rowA, dc = colB - colA;
-        if ((rowA & 1) == 0) 
-        {
+        
+        // Quick rejection for obviously non-adjacent cells
+        int absdr = dr < 0 ? -dr : dr;
+        int absdc = dc < 0 ? -dc : dc;
+        
+        if (absdr > 1 || absdc > 1) return false; // Too far apart
+        if (absdr == 0 && absdc == 0) return false; // Same cell
+        
+        // Now check hex adjacency rules (only for potentially adjacent cells)
+        if ((rowA & 1) == 0) {
             // Even row
-            return (dr == -1 && (dc == -1 || dc == 0)) ||
+            return (dr == -1 && (dc == -1 || dc == 0)) || // TODO: Add comments explaining each condition in these checks
                    (dr == 0 && (dc == -1 || dc == 1)) ||
                    (dr == 1 && (dc == -1 || dc == 0));
-        } else 
-        {
-            // Odd row
+        } else {
+            // Odd row  
             return (dr == -1 && (dc == 0 || dc == 1)) ||
                    (dr == 0 && (dc == -1 || dc == 1)) ||
                    (dr == 1 && (dc == 0 || dc == 1));

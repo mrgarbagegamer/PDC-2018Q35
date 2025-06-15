@@ -58,6 +58,20 @@
       <artifactId>jctools-core</artifactId>
       <version>4.0.5</version>
     </dependency>
+
+    <!-- JMH dependencies -->
+    <dependency>
+        <groupId>org.openjdk.jmh</groupId>
+        <artifactId>jmh-core</artifactId>
+        <version>1.37</version>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.openjdk.jmh</groupId>
+        <artifactId>jmh-generator-annprocess</artifactId>
+        <version>1.37</version>
+        <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

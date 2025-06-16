@@ -24,6 +24,8 @@ public abstract class Grid {
     int firstTrueCell = -1; // Track the first true cell, initialized to -1 (no true cells)
     boolean recalculationNeeded = false; // Flag to indicate if a recalculation of the first true cell is needed
 
+    private static final int[] PACKED_TO_INDEX_CACHE = new int[NUM_ROWS * 100 + EVEN_NUM_COLS]; // Pre-computed cache for packed to index conversion
+
     static 
     {
         // Pre-compute adjacency arrays for all cells
@@ -40,6 +42,7 @@ public abstract class Grid {
                     adjArr[idx++] = it.nextInt();
                 }
                 adjacencyArray[cell] = adjArr;
+                PACKED_TO_INDEX_CACHE[cell] = computePackedToIndex(cell); // Pre-fill cache for packed to index conversion
             }
         }
     }
@@ -86,11 +89,20 @@ public abstract class Grid {
     }
 
     // --- Packed int <-> compact array index conversion ---
-    public final static int packedToIndex(int packed) 
+    private static int computePackedToIndex(int packed) 
     {
         int row = packed / 100;
         int col = packed % 100;
         return ROW_OFFSETS[row] + col;
+    }
+
+    public final static int packedToIndex(int packed) 
+    {
+        if (packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length) 
+        {
+            return PACKED_TO_INDEX_CACHE[packed];
+        }
+        throw new IllegalArgumentException("Invalid packed int: " + packed);
     }
 
     public final static int indexToPacked(int index) 

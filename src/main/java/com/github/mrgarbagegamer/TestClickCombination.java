@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 public class TestClickCombination extends Thread 
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
-    private static final int LOG_EVERY_N_FAILURES = 1000; // Log every N failures to avoid flooding the logs
+    private static final int LOG_EVERY_N_FAILURES = 10000; // Log every N failures to avoid flooding the logs
 
     private final CombinationQueue combinationQueue;
     private final CombinationQueueArray queueArray;
@@ -136,10 +136,10 @@ public class TestClickCombination extends Thread
                 // }
             }
 
-            if (!iSolvedIt && !queueArray.isSolutionFound()) // TODO: Move the isSolutionFound check inside the loop AFTER the failedCount check to avoid unnecessary calls
+            if (!iSolvedIt)
             {
                 failedCount++;
-                if (logger.isDebugEnabled() && failedCount == LOG_EVERY_N_FAILURES) 
+                if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.isSolutionFound()) 
                 {
                     logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks));
                     failedCount = 0; // Reset the count after logging

@@ -1,14 +1,13 @@
 package com.github.mrgarbagegamer;
 
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jctools.queues.MpmcArrayQueue;
 
 public class CombinationQueue {
     private final int QUEUE_SIZE = 100_000;
-    private final Queue<int[]> queue = new MpmcArrayQueue<>(QUEUE_SIZE);
+    private final MpmcArrayQueue<int[]> queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     private final AtomicBoolean solutionFound;
     private final AtomicBoolean generationComplete;
 
@@ -19,7 +18,7 @@ public class CombinationQueue {
 
     public boolean add(int[] combinationClicks)
     {
-        if (queue.offer(combinationClicks)) 
+        if (queue.relaxedOffer(combinationClicks)) 
         {
             return true;
         }
@@ -31,7 +30,7 @@ public class CombinationQueue {
 
     public int[] getClicksCombination() 
     {
-        return queue.poll();
+        return queue.relaxedPoll();
     }
 
     /**

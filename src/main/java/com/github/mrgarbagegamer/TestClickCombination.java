@@ -54,9 +54,11 @@ public class TestClickCombination extends Thread
             if (combinationClicks == null) 
             {
                 if (combinationQueue.isSolutionFound() || combinationQueue.isGenerationComplete()) break;
+                
+                // Micro-sleep to reduce CPU spin without hurting responsiveness
                 try
                 {
-                    Thread.sleep(5); // Wait for new combinations to be added
+                    Thread.sleep(0,500_000); // Sleep for 0.5 ms
                 } catch (InterruptedException e) 
                 {
                     Thread.currentThread().interrupt(); // Restore interrupted status

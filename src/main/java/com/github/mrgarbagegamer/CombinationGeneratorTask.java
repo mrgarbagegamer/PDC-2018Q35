@@ -258,7 +258,6 @@ public class CombinationGeneratorTask extends RecursiveAction
             
             for (int i = start; i < max; i++) {
                 if (i % 100 == 0 && isTaskCancelled()) {
-                    recycleBatchList(batch);
                     return;
                 }
                 
@@ -338,16 +337,8 @@ public class CombinationGeneratorTask extends RecursiveAction
         if (batch.isEmpty()) return;
         
         flushBatchHelper(batch, queueArray, true);
-        
-        // Recycle any remaining arrays if task was cancelled
-        if (!batch.isEmpty()) 
-        {
-            for (int[] arr : batch) 
-            {
-                recycleIntArray(arr);
-            }
-            batch.clear();
-        }
+
+        // Removed UAF: Never recycle arrays that have been added to the queue
     }
     
     // Method to flush all pending batches from worker threads
@@ -373,18 +364,6 @@ public class CombinationGeneratorTask extends RecursiveAction
             batch.clear();
         }
         return batch;
-    }
-    
-    private void recycleBatchList(List<int[]> batch) 
-    {
-        // Don't clear the batch - keep items for reuse across tasks
-        // Only clear if task was cancelled
-        if (isTaskCancelled()) {
-            for (int[] arr : batch) {
-                recycleIntArray(arr);
-            }
-            batch.clear();
-        }
     }
     
     // Thread-local array pooling methods - corrected to be non-static

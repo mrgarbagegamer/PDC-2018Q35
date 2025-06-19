@@ -85,30 +85,30 @@ public class CombinationGeneratorTask extends RecursiveAction
     @Override
     protected void compute() 
     {
-        // Check for cancellation before starting work
-        if (isTaskCancelled()) {
-            return;
-        }
-        
-        if (prefixLength < numClicks - 1) 
-        {
-            // Enhanced pruning at special levels of the search tree
-            if (prefixLength >= 2 && trueCells != null && trueCells.length > 0) 
+            // Check for cancellation before starting work
+            if (isTaskCancelled()) {
+                return;
+            }
+            
+            if (prefixLength < numClicks - 1) 
             {
-                // Special case: we're at the N-2 level of the search tree (about to generate leaf nodes)
-                // At this level, we can do more aggressive pruning
-                if (prefixLength == numClicks - 2) {
-                    // We need to count adjacents for each true cell
-                    int[] adjacentCounts = new int[trueCells.length]; // TODO: Grab from a pool rather than allocating a new array
-                    boolean[] needsOdd = new boolean[trueCells.length];
-                    
-                    // Calculate current adjacent count for each true cell
-                    for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
-                        int trueCell = trueCells[tcIdx];
-                        for (int j = 0; j < prefixLength; j++) {
-                            int cell = possibleClicks.getInt(prefix[j]);
-                            if (Grid.areAdjacent(trueCell, cell)) {
-                                adjacentCounts[tcIdx]++;
+                // Enhanced pruning at special levels of the search tree
+                if (prefixLength >= 2 && trueCells != null && trueCells.length > 0) 
+                {
+                    // Special case: we're at the N-2 level of the search tree (about to generate leaf nodes)
+                    // At this level, we can do more aggressive pruning
+                    if (prefixLength == numClicks - 2) {
+                        // We need to count adjacents for each true cell
+                        int[] adjacentCounts = new int[trueCells.length]; // TODO: Grab from a pool rather than allocating a new array
+                        boolean[] needsOdd = new boolean[trueCells.length];
+                        
+                        // Calculate current adjacent count for each true cell
+                        for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
+                            int trueCell = trueCells[tcIdx];
+                            for (int j = 0; j < prefixLength; j++) {
+                                int cell = possibleClicks.getInt(prefix[j]);
+                                if (Grid.areAdjacent(trueCell, cell)) {
+                                    adjacentCounts[tcIdx]++;
                             }
                         }
                         // If count is even, we need an odd number of additional adjacents
@@ -290,9 +290,9 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         if (batch == null || batch.isEmpty()) return;
         
-        int numQueues = queueArray.getAllQueues().length;
-        int startQueue = ThreadLocalRandom.current().nextInt(numQueues);
         CombinationQueue[] queues = queueArray.getAllQueues();
+        int numQueues = queues.length;
+        int startQueue = ThreadLocalRandom.current().nextInt(numQueues);
         
         while (!batch.isEmpty()) 
         {
@@ -302,10 +302,13 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 int idx = (startQueue + attempt) % numQueues;
                 CombinationQueue queue = queues[idx];
-                int added = queue.addBatch(batch);
+                
+                // Use the new batch fill operation instead of individual adds
+                int added = queue.fillFromBatch(batch);
                 
                 if (added > 0) 
                 {
+                    // Remove the successfully added elements
                     batch.subList(0, added).clear();
                     addedAny = true;
                     startQueue = (idx + 1) % numQueues;
@@ -313,8 +316,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                 }
             }
             
-            if (!addedAny) {
-                // Only sleep if no progress was made
+            if (!addedAny) 
+            {
                 try { 
                     Thread.sleep(1); 
                 } catch (InterruptedException e) { 

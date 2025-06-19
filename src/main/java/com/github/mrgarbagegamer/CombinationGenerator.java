@@ -201,7 +201,7 @@ public class CombinationGenerator extends Thread
             {
                 int idx = (roundRobinIdx + attempt) % numConsumers;
                 CombinationQueue queue = queueArray.getQueue(idx);
-                int added = queue.addBatch(batch);
+                int added = queue.fillFromBatch(batch);
                 if (added > 0) 
                 {
                     batch.subList(0, added).clear();

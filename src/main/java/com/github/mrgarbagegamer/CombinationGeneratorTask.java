@@ -4,7 +4,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -18,8 +17,6 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final int BATCH_SIZE = 4000; // Increase from 2000 to reduce flush overhead
     private static final int POOL_SIZE = 4096;
 
-    private static final boolean DEBUG_MODE = true; // Set to true for debugging purposes
-    
     // Size-specific pools for better performance
     private static final ThreadLocal<ArrayDeque<int[]>> prefixArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));

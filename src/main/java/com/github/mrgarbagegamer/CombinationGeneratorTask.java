@@ -17,6 +17,8 @@ public class CombinationGeneratorTask extends RecursiveAction
 {
     private static final int BATCH_SIZE = 4000; // Increase from 2000 to reduce flush overhead
     private static final int POOL_SIZE = 4096;
+
+    private static final boolean DEBUG_MODE = true; // Set to true for debugging purposes
     
     // Size-specific pools for better performance
     private static final ThreadLocal<ArrayDeque<int[]>> prefixArrayPool = 
@@ -28,9 +30,13 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<ArrayDeque<List<CombinationGeneratorTask>>> SUBTASK_LIST_POOL = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(16));
 
-    // ThreadLocal batch for each worker thread
-    private static final ThreadLocal<List<int[]>> THREAD_BATCH = 
-        ThreadLocal.withInitial(() -> new ArrayList<>(BATCH_SIZE));
+    // ThreadLocal batch for each worker thread - CHANGED FROM ArrayList TO ArrayDeque
+    private static final ThreadLocal<ArrayDeque<int[]>> THREAD_BATCH = 
+        ThreadLocal.withInitial(() -> new ArrayDeque<>(BATCH_SIZE));
+
+    // Pool for batch deques to avoid deque creation overhead
+    private static final ThreadLocal<ArrayDeque<ArrayDeque<int[]>>> BATCH_DEQUE_POOL = 
+        ThreadLocal.withInitial(() -> new ArrayDeque<>(16));
 
     private final IntList possibleClicks;
     private final int numClicks;
@@ -85,120 +91,121 @@ public class CombinationGeneratorTask extends RecursiveAction
     @Override
     protected void compute() 
     {
-            // Check for cancellation before starting work
-            if (isTaskCancelled()) {
-                return;
-            }
-            
-            if (prefixLength < numClicks - 1) 
+        // Check for cancellation before starting work
+        if (isTaskCancelled()) {
+            return;
+        }
+        
+        if (prefixLength < numClicks - 1) 
+        {
+            // Enhanced pruning at special levels of the search tree
+            if (prefixLength >= 2 && trueCells != null && trueCells.length > 0) 
             {
-                // Enhanced pruning at special levels of the search tree
-                if (prefixLength >= 2 && trueCells != null && trueCells.length > 0) 
-                {
-                    // Special case: we're at the N-2 level of the search tree (about to generate leaf nodes)
-                    // At this level, we can do more aggressive pruning
-                    if (prefixLength == numClicks - 2) {
-                        // We need to count adjacents for each true cell
-                        int[] adjacentCounts = new int[trueCells.length]; // TODO: Grab from a pool rather than allocating a new array
-                        boolean[] needsOdd = new boolean[trueCells.length];
-                        
-                        // Calculate current adjacent count for each true cell
-                        for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
-                            int trueCell = trueCells[tcIdx];
-                            for (int j = 0; j < prefixLength; j++) {
-                                int cell = possibleClicks.getInt(prefix[j]);
-                                if (Grid.areAdjacent(trueCell, cell)) {
-                                    adjacentCounts[tcIdx]++;
-                            }
+                // Special case: we're at the N-2 level of the search tree (about to generate leaf nodes)
+                // At this level, we can do more aggressive pruning
+                if (prefixLength == numClicks - 2) {
+                    // We need to count adjacents for each true cell
+                    int[] adjacentCounts = new int[trueCells.length]; // TODO: Grab from a pool rather than allocating a new array
+                    boolean[] needsOdd = new boolean[trueCells.length];
+                    
+                    // Calculate current adjacent count for each true cell
+                    for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
+                        int trueCell = trueCells[tcIdx];
+                        for (int j = 0; j < prefixLength; j++) {
+                            int cell = possibleClicks.getInt(prefix[j]);
+                            if (Grid.areAdjacent(trueCell, cell)) {
+                                adjacentCounts[tcIdx]++;
                         }
-                        // If count is even, we need an odd number of additional adjacents
-                        needsOdd[tcIdx] = (adjacentCounts[tcIdx] & 1) == 0;
+                    }
+                    // If count is even, we need an odd number of additional adjacents
+                    needsOdd[tcIdx] = (adjacentCounts[tcIdx] & 1) == 0;
+                }
+                
+                // Determine remaining valid positions
+                int start = prefix[prefixLength - 1] + 1;
+                int remainingPositions = possibleClicks.size() - start;
+                
+                // If we only have 1 or 2 remaining positions, we can do extremely precise pruning
+                if (remainingPositions <= 2) {
+                    // Get all remaining positions
+                    int[] remainingCells = new int[remainingPositions];
+                    for (int i = 0; i < remainingPositions; i++) {
+                        remainingCells[i] = possibleClicks.getInt(start + i);
                     }
                     
-                    // Determine remaining valid positions
-                    int start = prefix[prefixLength - 1] + 1;
-                    int remainingPositions = possibleClicks.size() - start;
-                    
-                    // If we only have 1 or 2 remaining positions, we can do extremely precise pruning
-                    if (remainingPositions <= 2) {
-                        // Get all remaining positions
-                        int[] remainingCells = new int[remainingPositions];
-                        for (int i = 0; i < remainingPositions; i++) {
-                            remainingCells[i] = possibleClicks.getInt(start + i);
+                    // Check if the remaining positions can satisfy all true cells
+                    for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
+                        int trueCell = trueCells[tcIdx];
+                        
+                        // Check each remaining position
+                        int possibleAdjacents = 0;
+                        for (int cell : remainingCells) {
+                            if (Grid.areAdjacent(trueCell, cell)) {
+                                possibleAdjacents++;
+                            }
                         }
                         
-                        // Check if the remaining positions can satisfy all true cells
-                        for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
-                            int trueCell = trueCells[tcIdx];
-                            
-                            // Check each remaining position
-                            int possibleAdjacents = 0;
-                            for (int cell : remainingCells) {
-                                if (Grid.areAdjacent(trueCell, cell)) {
-                                    possibleAdjacents++;
-                                }
-                            }
-                            
-                            // If we need odd but have even possibles (or vice versa), this prefix is invalid
-                            boolean hasValidCompletion = (possibleAdjacents % 2 == 1) == needsOdd[tcIdx];
-                            if (!hasValidCompletion) {
-                                return; // No valid completion possible, prune this branch
-                            }
+                        // If we need odd but have even possibles (or vice versa), this prefix is invalid
+                        boolean hasValidCompletion = (possibleAdjacents % 2 == 1) == needsOdd[tcIdx];
+                        if (!hasValidCompletion) {
+                            return; // No valid completion possible, prune this branch
                         }
                     }
                 }
-                
-                // Standard pruning for all other prefix levels
-                boolean canPotentiallySatisfyAll = true;
-                
-                for (int trueCell : trueCells) {
-                    // Count adjacents from the prefix
-                    int adjacentCount = 0;
-                    for (int j = 0; j < prefixLength; j++) 
+            }
+            
+            // Standard pruning for all other prefix levels
+            boolean canPotentiallySatisfyAll = true;
+            
+            for (int trueCell : trueCells) {
+                // Count adjacents from the prefix
+                int adjacentCount = 0;
+                for (int j = 0; j < prefixLength; j++) 
+                {
+                    int cell = possibleClicks.getInt(prefix[j]);
+                    if (Grid.areAdjacent(trueCell, cell))
                     {
-                        int cell = possibleClicks.getInt(prefix[j]);
+                        adjacentCount++;
+                    }
+                }
+                
+                // Check if we could potentially satisfy odd adjacency
+                boolean needsOdd = (adjacentCount & 1) == 0;
+                
+                // If we need an odd number of adjacents, check if it's possible
+                if (needsOdd) 
+                {
+                    boolean foundPossible = false;
+                    // Check if any remaining position could be adjacent
+                    for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
+                    {
+                        int cell = possibleClicks.getInt(i);
                         if (Grid.areAdjacent(trueCell, cell))
                         {
-                            adjacentCount++;
-                        }
-                    }
-                    
-                    // Check if we could potentially satisfy odd adjacency
-                    boolean needsOdd = (adjacentCount & 1) == 0;
-                    
-                    // If we need an odd number of adjacents, check if it's possible
-                    if (needsOdd) 
-                    {
-                        boolean foundPossible = false;
-                        // Check if any remaining position could be adjacent
-                        for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
-                        {
-                            int cell = possibleClicks.getInt(i);
-                            if (Grid.areAdjacent(trueCell, cell))
-                            {
-                                foundPossible = true;
-                                break;
-                            }
-                        }
-                        
-                        if (!foundPossible) 
-                        {
-                            canPotentiallySatisfyAll = false;
+                            foundPossible = true;
                             break;
                         }
                     }
-                }
-                
-                // Skip this entire branch if it can't possibly satisfy constraints
-                if (!canPotentiallySatisfyAll) 
-                {
-                    return;
+                    
+                    if (!foundPossible) 
+                    {
+                        canPotentiallySatisfyAll = false;
+                        break;
+                    }
                 }
             }
             
-            // Use pooled ArrayList instead of new ArrayList<>()
-            List<CombinationGeneratorTask> subtasks = getSubtaskList();
-            
+            // Skip this entire branch if it can't possibly satisfy constraints
+            if (!canPotentiallySatisfyAll) 
+            {
+                return;
+            }
+        }
+        
+        // Use pooled ArrayList instead of new ArrayList<>()
+        List<CombinationGeneratorTask> subtasks = getSubtaskList();
+        
+        try {
             int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
             int max = possibleClicks.size() - (numClicks - prefixLength) + 1;
 
@@ -208,7 +215,6 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 // Check for solution found at regular intervals
                 if (i % 100 == 0 && isTaskCancelled()) {
-                    recycleSubtaskList(subtasks);
                     return;
                 }
                 
@@ -224,41 +230,40 @@ public class CombinationGeneratorTask extends RecursiveAction
             }
             
             if (!subtasks.isEmpty()) {
-                try {
-                    invokeAll(subtasks);
-                    // Add recycling of arrays after subtasks complete
-                    for (CombinationGeneratorTask task : subtasks) {
-                        recycleIntArray(task.prefix);
-                    }
-                } catch (CancellationException ce) {
-                    // Task was cancelled, just return
-                    return;
-                } finally {
-                    recycleSubtaskList(subtasks);
+                invokeAll(subtasks);
+                
+                // FIX: ONLY recycle prefix arrays - these are safe because they are only used for task creation
+                // and are not shared with consumers
+                for (CombinationGeneratorTask task : subtasks) {
+                    recycleIntArray(task.prefix); // Safe to recycle prefixes after subtasks complete
                 }
-            } else {
-                recycleSubtaskList(subtasks);
             }
-        } 
-        else 
-        {
-            // Direct generation without intermediate arrays for leaf level
-            int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-            int max = possibleClicks.size();
-            
-            // Reuse a single combination array
-            int[] combination = getIntArray(numClicks);
-            
-            // Copy prefix once
-            for (int j = 0; j < prefixLength; j++) {
-                combination[j] = possibleClicks.getInt(prefix[j]);
-            }
-            
-            List<int[]> batch = getBatchList();
-            
+        } finally {
+            recycleSubtaskList(subtasks);
+        }
+    } 
+    else 
+    {
+        // Direct generation without intermediate arrays for leaf level
+        int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
+        int max = possibleClicks.size();
+        
+        // Reuse a single combination array - This is our template, not shared with consumers
+        int[] combination = getIntArray(numClicks);
+        
+        // Copy prefix once
+        for (int j = 0; j < prefixLength; j++) {
+            combination[j] = possibleClicks.getInt(prefix[j]);
+        }
+        
+        // Get a fresh batch for this task's combinations
+        ArrayDeque<int[]> batch = getBatchDeque();
+        
+        try {
             for (int i = start; i < max; i++) {
+                // FIXED: Don't recycle on cancellation - simply return and let finally block handle cleanup
                 if (i % 100 == 0 && isTaskCancelled()) {
-                    return;
+                    return; // Just return, handle cleanup in finally block
                 }
                 
                 combination[prefixLength] = possibleClicks.getInt(i);
@@ -268,25 +273,41 @@ public class CombinationGeneratorTask extends RecursiveAction
                     continue;
                 }
                 
-                // Only clone when adding to batch
-                int[] clone = combination.clone();
-                batch.add(clone);
+                // Create new arrays for consumers - this correctly establishes ownership transfer
+                int[] clone = new int[numClicks]; // Always create new arrays for combinations sent to consumers
+                System.arraycopy(combination, 0, clone, 0, numClicks);
+                batch.addLast(clone);
                 
                 if (batch.size() >= BATCH_SIZE) {
                     flushBatch(batch);
-                    batch.clear(); // Clear after flushing
+                    // Create a new batch deque instead of clearing
+                    batch = getBatchDeque();
                     if (isTaskCancelled()) {
-                        return;
+                        return; // Just return, handle cleanup in finally block
                     }
                 }
             }
             
-            // Don't flush partial batches - they'll be flushed by the main thread later
+            // Only flush if we actually added combinations
+            if (!batch.isEmpty()) {
+                flushBatch(batch);
+            } else {
+                recycleBatchDeque(batch);
+            }
+        } finally {
+            // SAFE: Always recycle the template array at the end - it's not shared with consumers
+            recycleIntArray(combination);
+            
+            // If batch is now empty (after a possible flush), recycle it
+            if (batch != null && batch.isEmpty()) {
+                recycleBatchDeque(batch);
+            }
         }
     }
+}
 
-    // Extract shared flushing logic
-    private static void flushBatchHelper(List<int[]> batch, CombinationQueueArray queueArray, boolean checkCancellation) 
+    // Extract shared flushing logic - UPDATED FOR ArrayDeque
+    private static void flushBatchHelper(ArrayDeque<int[]> batch, CombinationQueueArray queueArray, boolean checkCancellation) 
     {
         if (batch == null || batch.isEmpty()) return;
         
@@ -303,13 +324,11 @@ public class CombinationGeneratorTask extends RecursiveAction
                 int idx = (startQueue + attempt) % numQueues;
                 CombinationQueue queue = queues[idx];
                 
-                // Use the new batch fill operation instead of individual adds
+                // Use the batch fill operation with ArrayDeque
                 int added = queue.fillFromBatch(batch);
                 
                 if (added > 0) 
                 {
-                    // Remove the successfully added elements
-                    batch.subList(0, added).clear();
                     addedAny = true;
                     startQueue = (idx + 1) % numQueues;
                     break;
@@ -334,79 +353,83 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
-    // Simplified flushBatch method
-    private void flushBatch(List<int[]> batch) 
+    // Simplified flushBatch method - UPDATED FOR ArrayDeque
+    private void flushBatch(ArrayDeque<int[]> batch) 
     {
         if (batch.isEmpty()) return;
         
         flushBatchHelper(batch, queueArray, true);
-
-        // Removed UAF: Never recycle arrays that have been added to the queue
+        
+        // Recycle the batch deque if it's now empty
+        if (batch.isEmpty()) {
+            recycleBatchDeque(batch);
+        }
     }
     
-    // Method to flush all pending batches from worker threads
+    // Method to flush all pending batches from worker threads - UPDATED FOR ArrayDeque
     public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
     {
         // Submit a small task to each worker thread to flush its batch
         pool.submit(() -> {
-            List<int[]> batch = THREAD_BATCH.get();
+            ArrayDeque<int[]> batch = THREAD_BATCH.get();
             if (batch != null && !batch.isEmpty()) 
             {
                 flushBatchHelper(batch, queueArray, false);
-                batch.clear();
+                // Create a fresh batch for this thread after flushing
+                ArrayDeque<int[]> newBatch = getEmptyBatchDeque();
+                THREAD_BATCH.set(newBatch);
             }
             return null;
         }).join(); // Wait for completion
     }
     
-    private List<int[]> getBatchList() 
+    // Get a fresh batch deque - create a NEW one EVERY time
+    private ArrayDeque<int[]> getBatchDeque() 
     {
-        List<int[]> batch = THREAD_BATCH.get();
-        if (batch.size() >= BATCH_SIZE) {
-            flushBatch(batch);
-            batch.clear();
+        ArrayDeque<int[]> currentBatch = THREAD_BATCH.get();
+        
+        // If the batch has items, flush them and create a new batch
+        if (!currentBatch.isEmpty()) 
+        {
+            flushBatch(currentBatch);
         }
-        return batch;
+        
+        // Always create a fresh batch - no recycling, no shared state
+        ArrayDeque<int[]> newBatch = new ArrayDeque<>(BATCH_SIZE);
+        THREAD_BATCH.set(newBatch);
+        return newBatch;
     }
     
-    // Thread-local array pooling methods - corrected to be non-static
-    private int[] getIntArray(int size) {
-        if (size < numClicks) {  // Prefix arrays (smaller than full combinations)
-            ArrayDeque<int[]> pool = prefixArrayPool.get();
-            int[] arr = pool.pollFirst();
-            if (arr != null && arr.length >= size) {
-                return arr;
-            }
-            // Return smaller array to pool for future use
-            if (arr != null && arr.length < size) {
-                pool.offerFirst(arr);
-            }
-        } else {  // Full combination arrays (size == numClicks)
-            ArrayDeque<int[]> pool = combinationArrayPool.get();
-            int[] arr = pool.pollFirst();
-            if (arr != null && arr.length >= size) {
-                return arr;
-            }
-            // Return smaller array to pool for future use  
-            if (arr != null && arr.length < size) {
-                pool.offerFirst(arr);
-            }
+    // Get a fresh empty batch deque from pool or create new
+    private static ArrayDeque<int[]> getEmptyBatchDeque() {
+        ArrayDeque<ArrayDeque<int[]>> pool = BATCH_DEQUE_POOL.get();
+        ArrayDeque<int[]> deque = pool.pollFirst();
+        if (deque == null) {
+            return new ArrayDeque<>(BATCH_SIZE);
         }
-        return new int[size];
+        return deque;
+    }
+    
+    // Return an empty batch deque to the pool
+    private static void recycleBatchDeque(ArrayDeque<int[]> deque) 
+    {
+        if (deque == null) return;
+        if (!deque.isEmpty()) return; // Don't recycle non-empty deques
+        
+        ArrayDeque<ArrayDeque<int[]>> pool = BATCH_DEQUE_POOL.get();
+        if (pool.size() < 16) 
+        {
+            pool.offerFirst(deque);
+        }
+    }
+    
+    // Thread-local array pooling methods - DISABLED FOR STABILITY
+    private int[] getIntArray(int size) {
+        return new int[size]; // Always create new arrays
     }
 
     private void recycleIntArray(int[] arr) {
-        if (arr.length < numClicks) {  // Prefix arrays
-            ArrayDeque<int[]> pool = prefixArrayPool.get();
-            if (pool.size() < POOL_SIZE / 2) {
-                pool.offerFirst(arr);
-            }
-        } else {  // Full combination arrays (arr.length == numClicks)
-            ArrayDeque<int[]> pool = combinationArrayPool.get();
-            if (pool.size() < POOL_SIZE / 2) {
-                pool.offerFirst(arr);
-            }
-        }
+        // Do nothing - no more recycling
     }
 
     // ArrayList pool management methods
@@ -432,17 +455,23 @@ public class CombinationGeneratorTask extends RecursiveAction
     // Add these fields to cache adjacents for the current firstTrueCell
     private static volatile BitSet FIRST_TRUE_ADJACENTS_BITSET = null;
     private static volatile int CACHED_FIRST_TRUE_CELL = -1;
+    private static final Object BITSET_LOCK = new Object();
 
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
-        // Lazy initialization of adjacents BitSet
+        // Thread-safe lazy initialization
         if (CACHED_FIRST_TRUE_CELL != firstTrueCell) {
-            int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700); // Adjust size as needed for your grid
-            for (int adj : adjacents) {
-                FIRST_TRUE_ADJACENTS_BITSET.set(adj);
+            synchronized(BITSET_LOCK) {
+                if (CACHED_FIRST_TRUE_CELL != firstTrueCell) {
+                    int[] adjacents = Grid.findAdjacents(firstTrueCell);
+                    BitSet newBitSet = new BitSet(700);
+                    for (int adj : adjacents) {
+                        newBitSet.set(adj);
+                    }
+                    FIRST_TRUE_ADJACENTS_BITSET = newBitSet;
+                    CACHED_FIRST_TRUE_CELL = firstTrueCell;
+                }
             }
-            CACHED_FIRST_TRUE_CELL = firstTrueCell;
         }
         
         int count = 0;

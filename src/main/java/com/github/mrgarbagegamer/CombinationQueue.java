@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -19,7 +20,6 @@ public class CombinationQueue
         this.generationComplete = generationComplete;
     }
 
-    // Existing methods unchanged...
     public boolean add(int[] combinationClicks)
     {
         if (queue.relaxedOffer(combinationClicks)) 
@@ -57,11 +57,48 @@ public class CombinationQueue
         return added;
     }
 
-    // NEW: Batch operations using JCTools built-in methods
+    /**
+     * NEW: Adds combinations from an ArrayDeque rather than List
+     * Returns the number of elements successfully added
+     */
+    public int addBatch(ArrayDeque<int[]> batch)
+    {
+        int added = 0;
+        while (!batch.isEmpty()) 
+        {
+            int[] combination = batch.peekFirst(); // Don't remove until we know it was added
+            if (add(combination)) 
+            {
+                batch.pollFirst(); // Only remove after successful add
+                added++;
+            } else 
+            {
+                break; // Stop at first failure (queue full or solution found)
+            }
+        }
+        return added;
+    }
+
+    /**
+     * Efficiently fill queue using JCTools batch fill operation with ArrayDeque.
+     * This avoids ArrayList bounds checking overhead.
+     */
+    public int fillFromBatch(ArrayDeque<int[]> batch) 
+    {
+        if (batch.isEmpty()) return 0;
+        
+        // Create a supplier that pulls from our deque (O(1) removal from either end)
+        MessagePassingQueue.Supplier<int[]> supplier = () -> {
+            return batch.isEmpty() ? null : batch.pollFirst();
+        };
+        
+        // Use JCTools optimized fill operation
+        int limit = Math.min(batch.size(), QUEUE_SIZE);
+        return queue.fill(supplier, limit);
+    }
     
     /**
-     * Efficiently fill queue using JCTools batch fill operation.
-     * This should be much faster than individual relaxedOffer() calls.
+     * Legacy method for List compatibility
      */
     public int fillFromBatch(List<int[]> batch) 
     {
@@ -79,34 +116,55 @@ public class CombinationQueue
         
         // Use JCTools optimized fill operation
         int limit = Math.min(batch.size(), QUEUE_SIZE);
-        return queue.fill(supplier, limit);
+        int added = queue.fill(supplier, limit);
+        
+        // Remove the added elements from the batch
+        if (added > 0) {
+            batch.subList(0, added).clear();
+        }
+        
+        return added;
     }
     
     /**
-     * Efficiently drain multiple combinations at once.
+     * Efficiently drain multiple combinations at once using ArrayDeque.
      * This should be much faster than individual relaxedPoll() calls.
      */
-    public int drainToBatch(List<int[]> outputBatch, int maxElements) 
+    public int drainToBatch(ArrayDeque<int[]> outputBatch, int maxElements) 
     {
         if (maxElements <= 0) return 0;
         
-        // Create a consumer that adds to our output batch
-        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::add;
+        // Create a consumer that adds to our output deque
+        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::addLast;
         
         // Use JCTools optimized drain operation
         return queue.drain(consumer, maxElements);
     }
-    
+
     /**
-     * Drain all available combinations efficiently
+     * Drain all available combinations efficiently with ArrayDeque
      */
+    public int drainAllToBatch(ArrayDeque<int[]> outputBatch) 
+    {
+        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::addLast;
+        return queue.drain(consumer);
+    }
+
+    // Original drain methods for List compatibility
+    public int drainToBatch(List<int[]> outputBatch, int maxElements) 
+    {
+        if (maxElements <= 0) return 0;
+        
+        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::add;
+        return queue.drain(consumer, maxElements);
+    }
+    
     public int drainAllToBatch(List<int[]> outputBatch) 
     {
         MessagePassingQueue.Consumer<int[]> consumer = outputBatch::add;
         return queue.drain(consumer);
     }
 
-    // Existing methods unchanged...
     public boolean isSolutionFound() 
     {
         return solutionFound.get();

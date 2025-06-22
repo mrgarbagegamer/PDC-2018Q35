@@ -16,7 +16,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 {
     private static final int BATCH_SIZE = 4000; // Increase from 2000 to reduce flush overhead
     private static final int POOL_SIZE = 4096;
-
+    
     // Size-specific pools for better performance
     private static final ThreadLocal<ArrayDeque<int[]>> prefixArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
@@ -420,13 +420,52 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
     
-    // Thread-local array pooling methods - DISABLED FOR STABILITY
+    // Thread-local array pooling methods - unchanged
     private int[] getIntArray(int size) {
-        return new int[size]; // Always create new arrays
+        if (size < numClicks) {  // Prefix arrays (smaller than full combinations)
+            ArrayDeque<int[]> pool = prefixArrayPool.get();
+            int[] arr = pool.pollFirst();
+            if (arr != null && arr.length >= size) {
+                return arr;
+            }
+            // Return smaller array to pool for future use
+            if (arr != null && arr.length < size) {
+                pool.offerFirst(arr);
+            }
+        } else {  // Full combination arrays (size == numClicks)
+            ArrayDeque<int[]> pool = combinationArrayPool.get();
+            int[] arr = pool.pollFirst();
+            if (arr != null && arr.length >= size) {
+                return arr;
+            }
+            // Return smaller array to pool for future use  
+            if (arr != null && arr.length < size) {
+                pool.offerFirst(arr);
+            }
+        }
+        return new int[size];
     }
 
     private void recycleIntArray(int[] arr) {
-        // Do nothing - no more recycling
+        // Use Java assertions instead of DEBUG_MODE
+        assert arr.length > 0 && arr[0] != Integer.MIN_VALUE : "Array already recycled!";
+        
+        // Mark this array as recycled (for prefix/internal arrays only)
+        if (arr.length > 0) {
+            arr[0] = Integer.MIN_VALUE;
+        }
+        
+        if (arr.length < numClicks) {  // Prefix arrays
+            ArrayDeque<int[]> pool = prefixArrayPool.get();
+            if (pool.size() < POOL_SIZE / 2) {
+                pool.offerFirst(arr);
+            }
+        } else {  // Full combination arrays (arr.length == numClicks)
+            ArrayDeque<int[]> pool = combinationArrayPool.get();
+            if (pool.size() < POOL_SIZE / 2) {
+                pool.offerFirst(arr);
+            }
+        }
     }
 
     // ArrayList pool management methods

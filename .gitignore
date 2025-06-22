@@ -9,3 +9,5 @@ target
 *.log
 *.jfr
 .github/*
+*.csv
+*.ps1

@@ -21,7 +21,9 @@ public abstract class Grid {
     BitSet trueCells = new BitSet(NUM_CELLS);
     int trueCellsCount = 0;
 
-    private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][];
+    private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][]; // Used by findAdjacents() for quick operations
+
+    private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_ROWS * 100 + EVEN_NUM_COLS][NUM_ROWS * 100 + EVEN_NUM_COLS]; // Cache for adjacency checks in areAdjacent()
 
     int firstTrueCell = -1; // Track the first true cell, initialized to -1 (no true cells)
     boolean recalculationNeeded = false; // Flag to indicate if a recalculation of the first true cell is needed
@@ -39,6 +41,8 @@ public abstract class Grid {
                 for (IntIterator it = adjSet.iterator(); it.hasNext();) 
                 {
                     adjArr[idx++] = it.nextInt();
+                    ADJACENCY_CACHE[cell][adjArr[idx - 1]] = true; // Fill adjacency cache for quick checks (using adjArr[idx - 1] as key since idx is incremented after assignment)
+                    ADJACENCY_CACHE[adjArr[idx - 1]][cell] = true; // Ensure symmetry in adjacency
                 }
                 adjacencyArray[cell] = adjArr;
             }
@@ -305,24 +309,44 @@ public abstract class Grid {
         return false; // Click cell is not adjacent to the first true cell
     }
 
-    public static boolean areAdjacent(int cellA, int cellB) // TODO: Add comments to this method explaining each conditional in the OR statement
+    // public static boolean areAdjacent(int cellA, int cellB) // Direct calculation approach
+    // {
+    //     // Quick rejection for cells that are too far apart (your suggested optimization)
+    //     int diff = Math.abs(cellA - cellB);
+    //     if (diff > 101) return false; // Can't be adjacent if more than 1 row + 1 col apart
+        
+    //     int rowA = cellA / 100, colA = cellA % 100;
+    //     int rowB = cellB / 100, colB = cellB % 100;
+    //     int dr = rowB - rowA, dc = colB - colA;
+        
+    //     // Quick rejection for obviously non-adjacent cells
+    //     int absdr = dr < 0 ? -dr : dr;
+    //     int absdc = dc < 0 ? -dc : dc;
+        
+    //     if (absdr > 1 || absdc > 1) return false; // Too far apart
+    //     if (absdr == 0 && absdc == 0) return false; // Same cell
+        
+    //     // Now check hex adjacency rules (only for potentially adjacent cells)
+    //     if ((rowA & 1) == 0) {
+    //         // Even row
+    //         return (dr == -1 && (dc == -1 || dc == 0)) ||
+    //                (dr == 0 && (dc == -1 || dc == 1)) ||
+    //                (dr == 1 && (dc == -1 || dc == 0));
+    //     } else {
+    //         // Odd row  
+    //         return (dr == -1 && (dc == 0 || dc == 1)) ||
+    //                (dr == 0 && (dc == -1 || dc == 1)) ||
+    //                (dr == 1 && (dc == 0 || dc == 1));
+    //     }
+    // }
+
+    public static boolean areAdjacent(int cellA, int cellB) // Cached adjacency check
     {
-        int rowA = cellA / 100, colA = cellA % 100;
-        int rowB = cellB / 100, colB = cellB % 100;
-        int dr = rowB - rowA, dc = colB - colA;
-        if ((rowA & 1) == 0) 
+        if (cellA < 0 || cellB < 0 || cellA >= NUM_ROWS * 100 + EVEN_NUM_COLS || cellB >= NUM_ROWS * 100 + EVEN_NUM_COLS) 
         {
-            // Even row
-            return (dr == -1 && (dc == -1 || dc == 0)) ||
-                   (dr == 0 && (dc == -1 || dc == 1)) ||
-                   (dr == 1 && (dc == -1 || dc == 0));
-        } else 
-        {
-            // Odd row
-            return (dr == -1 && (dc == 0 || dc == 1)) ||
-                   (dr == 0 && (dc == -1 || dc == 1)) ||
-                   (dr == 1 && (dc == 0 || dc == 1));
+            return false; // Out of bounds
         }
+        return ADJACENCY_CACHE[cellA][cellB];
     }
 
     // Optional: Print grid as text using BitSet only

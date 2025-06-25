@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -58,6 +59,23 @@ public class CombinationQueue
     }
 
     // NEW: Batch operations using JCTools built-in methods
+
+    /**
+     * Efficiently fill queue using JCTools batch fill operation.
+     * This should be much faster than individual relaxedOffer() calls.
+     */
+
+    public int fillFromBatch(Deque<int[]> batch)
+    {
+        if (batch.isEmpty()) return 0;
+        
+        // Create a supplier that pulls from our batch
+        MessagePassingQueue.Supplier<int[]> supplier = batch::pollFirst;
+        
+        // Use JCTools optimized fill operation
+        int limit = Math.min(batch.size(), QUEUE_SIZE);
+        return queue.fill(supplier, limit);
+    }
     
     /**
      * Efficiently fill queue using JCTools batch fill operation.

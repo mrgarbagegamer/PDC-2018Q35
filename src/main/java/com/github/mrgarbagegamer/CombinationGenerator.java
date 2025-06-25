@@ -2,8 +2,6 @@ package com.github.mrgarbagegamer;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -100,7 +98,7 @@ public class CombinationGenerator extends Thread
             stack.push(getState(i + 1, 1, indices));
         }
 
-        List<int[]> batch = new ArrayList<>(BATCH_SIZE);
+        Deque<int[]> batch = new ArrayDeque<>(BATCH_SIZE);
         int roundRobinIdx = 0;
         int[] buffer = new int[k];
 
@@ -181,7 +179,7 @@ public class CombinationGenerator extends Thread
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
     }
     
-    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, List<int[]> batch, int k) 
+    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, Deque<int[]> batch, int k) 
     {
         for (int j = 0; j < k; j++)
         { 
@@ -189,10 +187,10 @@ public class CombinationGenerator extends Thread
         }
         int[] combination = new int[k];
         System.arraycopy(buffer, 0, combination, 0, k);
-        batch.add(combination);
+        batch.offerLast(combination);
     }
 
-    private int flushBatch(List<int[]> batch, int roundRobinIdx)
+    private int flushBatch(Deque<int[]> batch, int roundRobinIdx)
     {
         while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
         {
@@ -204,7 +202,6 @@ public class CombinationGenerator extends Thread
                 int added = queue.fillFromBatch(batch);
                 if (added > 0) 
                 {
-                    batch.subList(0, added).clear();
                     roundRobinIdx = (idx + 1) % numConsumers;
                     addedAny = true;
                 }

@@ -1,14 +1,13 @@
 package com.github.mrgarbagegamer;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.List;
+import java.util.Deque;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.ForkJoinPool;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -19,18 +18,18 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final int POOL_SIZE = 4096;
     
     // Size-specific pools for better performance
-    private static final ThreadLocal<ArrayDeque<int[]>> prefixArrayPool = 
+    private static final ThreadLocal<Deque<int[]>> prefixArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
-    private static final ThreadLocal<ArrayDeque<int[]>> combinationArrayPool = 
+    private static final ThreadLocal<Deque<int[]>> combinationArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
 
     // Add an ArrayList CombinationGeneratorTask pool for thread-safe reuse
-    private static final ThreadLocal<ArrayDeque<List<CombinationGeneratorTask>>> SUBTASK_LIST_POOL = 
+    private static final ThreadLocal<Deque<Deque<CombinationGeneratorTask>>> SUBTASK_DEQUE_POOL = 
         ThreadLocal.withInitial(() -> new ArrayDeque<>(16));
 
     // ThreadLocal batch for each worker thread
-    private static final ThreadLocal<List<int[]>> THREAD_BATCH = 
-        ThreadLocal.withInitial(() -> new ArrayList<>(BATCH_SIZE));
+    private static final ThreadLocal<Deque<int[]>> THREAD_BATCH = 
+        ThreadLocal.withInitial(() -> new ArrayDeque<>(BATCH_SIZE));
 
     private final IntList possibleClicks;
     private final int numClicks;
@@ -83,7 +82,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     @Override
-    protected void compute() 
+    protected void compute()
     {
             // Check for cancellation before starting work
             if (isTaskCancelled()) {
@@ -196,8 +195,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                 }
             }
             
-            // Use pooled ArrayList instead of new ArrayList<>()
-            List<CombinationGeneratorTask> subtasks = getSubtaskList();
+            // Use pooled ArrayDeque for subtasks
+            Deque<CombinationGeneratorTask> subtasks = getSubtaskDeque();
             
             int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
             int max = possibleClicks.size() - (numClicks - prefixLength) + 1;
@@ -208,7 +207,7 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 // Check for solution found at regular intervals
                 if (i % 100 == 0 && isTaskCancelled()) {
-                    recycleSubtaskList(subtasks);
+                    recycleSubtaskDeque(subtasks);
                     return;
                 }
                 
@@ -223,22 +222,23 @@ public class CombinationGeneratorTask extends RecursiveAction
                     queueArray, numConsumers, trueCells, maxFirstClickIndex, this));
             }
             
-            if (!subtasks.isEmpty()) {
-                try {
+            if (!subtasks.isEmpty()) 
+            {
+                try 
+                {
                     invokeAll(subtasks);
-                    // Add recycling of arrays after subtasks complete
-                    for (CombinationGeneratorTask task : subtasks) {
-                        recycleIntArray(task.prefix);
-                    }
-                } catch (CancellationException ce) {
+                    // Add recycling of prefix arrays after subtasks complete (prefix arrays can be reused safely since they are not used past generation)
+                    for (CombinationGeneratorTask task : subtasks) recycleIntArray(task.prefix);
+                } catch (CancellationException ce) 
+                {
                     // Task was cancelled, just return
                     return;
-                } finally {
-                    recycleSubtaskList(subtasks);
+                } 
+                finally 
+                {
+                    recycleSubtaskDeque(subtasks);
                 }
-            } else {
-                recycleSubtaskList(subtasks);
-            }
+            } else recycleSubtaskDeque(subtasks);
         } 
         else 
         {
@@ -254,7 +254,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                 combination[j] = possibleClicks.getInt(prefix[j]);
             }
             
-            List<int[]> batch = getBatchList();
+            Deque<int[]> batch = getBatch();
             
             for (int i = start; i < max; i++) {
                 if (i % 100 == 0 && isTaskCancelled()) {
@@ -286,7 +286,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Extract shared flushing logic
-    private static void flushBatchHelper(List<int[]> batch, CombinationQueueArray queueArray, boolean checkCancellation) 
+    private static void flushBatchHelper(Deque<int[]> batch, CombinationQueueArray queueArray, boolean checkCancellation)
     {
         if (batch == null || batch.isEmpty()) return;
         
@@ -306,10 +306,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                 // Use the new batch fill operation instead of individual adds
                 int added = queue.fillFromBatch(batch);
                 
-                if (added > 0) 
+                if (added > 0) // The queue has successfully accepted some combinations from the batch
                 {
-                    // Remove the successfully added elements
-                    batch.subList(0, added).clear();
                     addedAny = true;
                     startQueue = (idx + 1) % numQueues;
                     break;
@@ -335,7 +333,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Simplified flushBatch method
-    private void flushBatch(List<int[]> batch) 
+    private void flushBatch(Deque<int[]> batch) 
     {
         if (batch.isEmpty()) return;
         
@@ -349,7 +347,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         // Submit a small task to each worker thread to flush its batch
         pool.submit(() -> {
-            List<int[]> batch = THREAD_BATCH.get();
+            Deque<int[]> batch = THREAD_BATCH.get();
             if (batch != null && !batch.isEmpty()) 
             {
                 flushBatchHelper(batch, queueArray, false);
@@ -359,10 +357,11 @@ public class CombinationGeneratorTask extends RecursiveAction
         }).join(); // Wait for completion
     }
     
-    private List<int[]> getBatchList() 
+    private Deque<int[]> getBatch() 
     {
-        List<int[]> batch = THREAD_BATCH.get();
-        if (batch.size() >= BATCH_SIZE) {
+        Deque<int[]> batch = THREAD_BATCH.get();
+        if (batch.size() >= BATCH_SIZE) 
+        {
             flushBatch(batch);
             batch.clear();
         }
@@ -370,63 +369,59 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
     
     // Thread-local array pooling methods - corrected to be non-static
-    private int[] getIntArray(int size) {
-        if (size < numClicks) {  // Prefix arrays (smaller than full combinations)
-            ArrayDeque<int[]> pool = prefixArrayPool.get();
+    private int[] getIntArray(int size) 
+    {
+        if (size < numClicks) // Prefix arrays (smaller than full combinations)
+        {
+            Deque<int[]> pool = prefixArrayPool.get();
             int[] arr = pool.pollFirst();
-            if (arr != null && arr.length >= size) {
-                return arr;
-            }
+            if (arr != null && arr.length >= size) return arr;
+
             // Return smaller array to pool for future use
-            if (arr != null && arr.length < size) {
-                pool.offerFirst(arr);
-            }
-        } else {  // Full combination arrays (size == numClicks)
-            ArrayDeque<int[]> pool = combinationArrayPool.get();
+            if (arr != null && arr.length < size) pool.offerLast(arr);
+        } else // Full combination arrays (size == numClicks)
+        {
+            Deque<int[]> pool = combinationArrayPool.get();
             int[] arr = pool.pollFirst();
-            if (arr != null && arr.length >= size) {
-                return arr;
-            }
+            if (arr != null && arr.length >= size) return arr;
+
             // Return smaller array to pool for future use  
-            if (arr != null && arr.length < size) {
-                pool.offerFirst(arr);
-            }
+            if (arr != null && arr.length < size) pool.offerLast(arr);
         }
-        return new int[size];
+        return new int[size]; // Allocate a new array if no suitable one was found.
     }
 
-    private void recycleIntArray(int[] arr) {
-        if (arr.length < numClicks) {  // Prefix arrays
-            ArrayDeque<int[]> pool = prefixArrayPool.get();
-            if (pool.size() < POOL_SIZE / 2) {
-                pool.offerFirst(arr);
-            }
-        } else {  // Full combination arrays (arr.length == numClicks)
-            ArrayDeque<int[]> pool = combinationArrayPool.get();
-            if (pool.size() < POOL_SIZE / 2) {
-                pool.offerFirst(arr);
-            }
+    private void recycleIntArray(int[] arr) 
+    {
+        if (arr.length < numClicks) // Prefix arrays (arr.length < numClicks)
+        {
+            Deque<int[]> pool = prefixArrayPool.get();
+            if (pool.size() < POOL_SIZE / 2) pool.offerLast(arr);
+        } else // Full combination arrays (arr.length == numClicks) 
+        {  
+            Deque<int[]> pool = combinationArrayPool.get();
+            if (pool.size() < POOL_SIZE / 2) pool.offerLast(arr);
         }
     }
 
     // ArrayList pool management methods
-    private List<CombinationGeneratorTask> getSubtaskList() {
-        ArrayDeque<List<CombinationGeneratorTask>> pool = SUBTASK_LIST_POOL.get();
-        List<CombinationGeneratorTask> list = pool.pollFirst();
-        if (list == null) {
-            return new ArrayList<>(64); // Pre-sized for typical subtask count
-        }
-        list.clear(); // Ensure it's empty for reuse
-        return list;
+    private Deque<CombinationGeneratorTask> getSubtaskDeque() 
+    {
+        Deque<Deque<CombinationGeneratorTask>> pool = SUBTASK_DEQUE_POOL.get();
+        Deque<CombinationGeneratorTask> deque = pool.pollFirst();
+        if (deque == null) return new ArrayDeque<>(64); // Pre-sized for typical subtask count
+
+        deque.clear(); // Clear contents before reuse (potentially replace this with an invokeAll)
+        return deque;
     }
 
-    private void recycleSubtaskList(List<CombinationGeneratorTask> list) {
-        if (list == null) return;
-        list.clear(); // Clear contents before recycling
-        ArrayDeque<List<CombinationGeneratorTask>> pool = SUBTASK_LIST_POOL.get();
-        if (pool.size() < 16) { // Limit pool size
-            pool.offerFirst(list);
-        }
+    private void recycleSubtaskDeque(Deque<CombinationGeneratorTask> deque) 
+    {
+        if (deque == null) return;
+
+        deque.clear(); // Clear contents before recycling (potentially replace this with an invokeAll)
+        Deque<Deque<CombinationGeneratorTask>> pool = SUBTASK_DEQUE_POOL.get();
+        if (pool.size() < 16) pool.offerLast(deque);
     }
 
     // Add these fields to cache adjacents for the current firstTrueCell

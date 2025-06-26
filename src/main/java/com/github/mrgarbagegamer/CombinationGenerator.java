@@ -131,55 +131,6 @@ public class CombinationGenerator extends Thread
                 continue;
             }
 
-            // Before creating subtasks, check if this prefix path can possibly lead to a solution
-            else if (size >= 2)
-            {
-                // Check all true cells, not just the first one
-                if (TRUE_CELLS != null && TRUE_CELLS.length > 0)
-                {
-                    boolean canPotentiallySatisfyAll = true;
-
-                    for (int trueCell : TRUE_CELLS)
-                    {
-                        // Count adjacents from the prefix
-                        int adjCount = 0;
-                        for (int i = 0; i < size; i++)
-                        {
-                            int cell = nodeList.getInt(indices[i]);
-                            if (Grid.areAdjacent(trueCell, cell)) adjCount++;
-                        }
-
-                        // Check if we could potentially satisfy odd adjacency
-                        boolean needsOdd = (adjCount & 1) == 0;
-
-                        // If we need an odd number of adjacents, check if it's possible
-                        if (needsOdd)
-                        {
-                            boolean foundPossible = false;
-                            // Check if any remaining position could be adjacent
-                            for (int j = indices[size - 1] + 1; j < nodeList.size(); j++)
-                            {
-                                int cell = nodeList.getInt(j);
-                                if (Grid.areAdjacent(trueCell, cell))
-                                {
-                                    foundPossible = true;
-                                    break;
-                                }
-                            }
-
-                            if (!foundPossible)
-                            {
-                                canPotentiallySatisfyAll = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Skip this entire branch if it can't possible satisfy the constraints
-                    if (!canPotentiallySatisfyAll) continue;
-                }
-            }
-
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
                 int[] newIndices = getIndices(k);
@@ -190,7 +141,7 @@ public class CombinationGenerator extends Thread
                 {
                     stack.push(getState(i + 1, size + 1, newIndices));
                 } 
-                else if (FIRST_TRUE_ADJACENTS != null && size + 1 == k) // Leaf node check
+                else if (FIRST_TRUE_ADJACENTS != null && size + 1 == k) 
                 {
                     for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
                     if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
@@ -206,7 +157,7 @@ public class CombinationGenerator extends Thread
                     recycleIndices(newIndices);
                     if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
                 }
-                else if (size + 1 == k) // TODO: Look at deprecating this check
+                else if (size + 1 == k) 
                 {
                     for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
                     if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 

@@ -17,7 +17,7 @@ public class TestClickCombination extends Thread
     private final CombinationQueueArray queueArray;
     private final Grid puzzleGrid;
 
-    private final Deque<int[]> workBatch = new ArrayDeque<>(50); // Worker-local batch
+    private final Deque<int[]> workBatch = new ArrayDeque<>(BATCH_SIZE); // Worker-local batch
 
     public TestClickCombination(String threadName, CombinationQueue combinationQueue, CombinationQueueArray queueArray, Grid puzzleGrid) 
     {

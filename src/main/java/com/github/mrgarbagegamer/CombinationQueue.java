@@ -104,6 +104,30 @@ public class CombinationQueue
      * Efficiently drain multiple combinations at once.
      * This should be much faster than individual relaxedPoll() calls.
      */
+    public int drainToBatch(Deque<int[]> outputBatch, int maxElements) 
+    {
+        if (maxElements <= 0) return 0;
+        
+        // Create a consumer that adds to our output batch
+        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::offerLast;
+        
+        // Use JCTools optimized drain operation
+        return queue.drain(consumer, maxElements);
+    }
+    
+    /**
+     * Drain all available combinations efficiently
+     */
+    public int drainAllToBatch(Deque<int[]> outputBatch) 
+    {
+        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::offerLast;
+        return queue.drain(consumer);
+    }
+    
+    /**
+     * Efficiently drain multiple combinations at once.
+     * This should be much faster than individual relaxedPoll() calls.
+     */
     public int drainToBatch(List<int[]> outputBatch, int maxElements) 
     {
         if (maxElements <= 0) return 0;

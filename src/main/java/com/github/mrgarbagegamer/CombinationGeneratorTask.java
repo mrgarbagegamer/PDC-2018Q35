@@ -91,108 +91,57 @@ public class CombinationGeneratorTask extends RecursiveAction
         
         if (prefixLength < numClicks - 1) 
         {
-            // Enhanced pruning at special levels of the search tree
-            if (prefixLength >= 2 && trueCells != null && trueCells.length > 0) 
+            // Before creating subtasks, check if this prefix path can possibly lead to a solution
+            if (prefixLength >= 2) 
             {
-                // Special case: we're at the N-2 level of the search tree (about to generate leaf nodes)
-                // At this level, we can do more aggressive pruning
-                if (prefixLength == numClicks - 2) {
-                    // We need to count adjacents for each true cell
-                    int[] adjacentCounts = new int[trueCells.length]; // TODO: Grab from a pool rather than allocating a new array
-                    boolean[] needsOdd = new boolean[trueCells.length];
+                // Check all true cells, not just the first one
+                if (trueCells != null && trueCells.length > 0) 
+                {
+                    boolean canPotentiallySatisfyAll = true;
                     
-                    // Calculate current adjacent count for each true cell
-                    for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) 
-                    {
-                        int trueCell = trueCells[tcIdx];
-                        for (int j = 0; j < prefixLength; j++) {
+                    for (int trueCell : trueCells) {
+                        // Count adjacents from the prefix
+                        int adjacentCount = 0;
+                        for (int j = 0; j < prefixLength; j++) 
+                        {
                             int cell = possibleClicks.getInt(prefix[j]);
-                            if (Grid.areAdjacent(trueCell, cell)) {
-                                adjacentCounts[tcIdx]++;
+                            if (Grid.areAdjacent(trueCell, cell))
+                            {
+                                adjacentCount++;
                             }
                         }
-                        // If count is even, we need an odd number of additional adjacents
-                        needsOdd[tcIdx] = (adjacentCounts[tcIdx] & 1) == 0;
-                    }
-                
-                    // Determine remaining valid positions
-                    int start = prefix[prefixLength - 1] + 1;
-                    int remainingPositions = possibleClicks.size() - start;
-                    
-                    // If we only have 1 or 2 remaining positions, we can do extremely precise pruning
-                    if (remainingPositions <= 2) {
-                        // Get all remaining positions
-                        int[] remainingCells = new int[remainingPositions];
-                        for (int i = 0; i < remainingPositions; i++) {
-                            remainingCells[i] = possibleClicks.getInt(start + i);
-                        }
                         
-                        // Check if the remaining positions can satisfy all true cells
-                        for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
-                            int trueCell = trueCells[tcIdx];
-                            
-                            // Check each remaining position
-                            int possibleAdjacents = 0;
-                            for (int cell : remainingCells) {
-                                if (Grid.areAdjacent(trueCell, cell)) {
-                                    possibleAdjacents++;
+                        // Check if we could potentially satisfy odd adjacency
+                        boolean needsOdd = (adjacentCount & 1) == 0;
+                        
+                        // If we need an odd number of adjacents, check if it's possible
+                        if (needsOdd) 
+                        {
+                            boolean foundPossible = false;
+                            // Check if any remaining position could be adjacent
+                            for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
+                            {
+                                int cell = possibleClicks.getInt(i);
+                                if (Grid.areAdjacent(trueCell, cell))
+                                {
+                                    foundPossible = true;
+                                    break;
                                 }
                             }
                             
-                            // If we need odd but have even possibles (or vice versa), this prefix is invalid
-                            boolean hasValidCompletion = (possibleAdjacents % 2 == 1) == needsOdd[tcIdx];
-                            if (!hasValidCompletion) {
-                                return; // No valid completion possible, prune this branch
-                            }
-                        }
-                    }
-                }
-            
-                // Standard pruning for all other prefix levels
-                boolean canPotentiallySatisfyAll = true;
-                
-                for (int trueCell : trueCells) {
-                    // Count adjacents from the prefix
-                    int adjacentCount = 0;
-                    for (int j = 0; j < prefixLength; j++) 
-                    {
-                        int cell = possibleClicks.getInt(prefix[j]);
-                        if (Grid.areAdjacent(trueCell, cell))
-                        {
-                            adjacentCount++;
-                        }
-                    }
-                    
-                    // Check if we could potentially satisfy odd adjacency
-                    boolean needsOdd = (adjacentCount & 1) == 0;
-                    
-                    // If we need an odd number of adjacents, check if it's possible
-                    if (needsOdd) 
-                    {
-                        boolean foundPossible = false;
-                        // Check if any remaining position could be adjacent
-                        for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
-                        {
-                            int cell = possibleClicks.getInt(i);
-                            if (Grid.areAdjacent(trueCell, cell))
+                            if (!foundPossible) 
                             {
-                                foundPossible = true;
+                                canPotentiallySatisfyAll = false;
                                 break;
                             }
                         }
-                        
-                        if (!foundPossible) 
-                        {
-                            canPotentiallySatisfyAll = false;
-                            break;
-                        }
                     }
-                }
-                
-                // Skip this entire branch if it can't possibly satisfy constraints
-                if (!canPotentiallySatisfyAll) 
-                {
-                    return;
+                    
+                    // Skip this entire branch if it can't possibly satisfy constraints
+                    if (!canPotentiallySatisfyAll) 
+                    {
+                        return;
+                    }
                 }
             }
         

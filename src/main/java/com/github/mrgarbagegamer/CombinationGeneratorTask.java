@@ -84,36 +84,37 @@ public class CombinationGeneratorTask extends RecursiveAction
     @Override
     protected void compute()
     {
-            // Check for cancellation before starting work
-            if (isTaskCancelled()) {
-                return;
-            }
-            
-            if (prefixLength < numClicks - 1) 
+        // Check for cancellation before starting work
+        if (isTaskCancelled()) {
+            return;
+        }
+        
+        if (prefixLength < numClicks - 1) 
+        {
+            // Enhanced pruning at special levels of the search tree
+            if (prefixLength >= 2 && trueCells != null && trueCells.length > 0) 
             {
-                // Enhanced pruning at special levels of the search tree
-                if (prefixLength >= 2 && trueCells != null && trueCells.length > 0) 
-                {
-                    // Special case: we're at the N-2 level of the search tree (about to generate leaf nodes)
-                    // At this level, we can do more aggressive pruning
-                    if (prefixLength == numClicks - 2) {
-                        // We need to count adjacents for each true cell
-                        int[] adjacentCounts = new int[trueCells.length]; // TODO: Grab from a pool rather than allocating a new array
-                        boolean[] needsOdd = new boolean[trueCells.length];
-                        
-                        // Calculate current adjacent count for each true cell
-                        for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) {
-                            int trueCell = trueCells[tcIdx];
-                            for (int j = 0; j < prefixLength; j++) {
-                                int cell = possibleClicks.getInt(prefix[j]);
-                                if (Grid.areAdjacent(trueCell, cell)) {
-                                    adjacentCounts[tcIdx]++;
+                // Special case: we're at the N-2 level of the search tree (about to generate leaf nodes)
+                // At this level, we can do more aggressive pruning
+                if (prefixLength == numClicks - 2) {
+                    // We need to count adjacents for each true cell
+                    int[] adjacentCounts = new int[trueCells.length]; // TODO: Grab from a pool rather than allocating a new array
+                    boolean[] needsOdd = new boolean[trueCells.length];
+                    
+                    // Calculate current adjacent count for each true cell
+                    for (int tcIdx = 0; tcIdx < trueCells.length; tcIdx++) 
+                    {
+                        int trueCell = trueCells[tcIdx];
+                        for (int j = 0; j < prefixLength; j++) {
+                            int cell = possibleClicks.getInt(prefix[j]);
+                            if (Grid.areAdjacent(trueCell, cell)) {
+                                adjacentCounts[tcIdx]++;
                             }
                         }
                         // If count is even, we need an odd number of additional adjacents
                         needsOdd[tcIdx] = (adjacentCounts[tcIdx] & 1) == 0;
                     }
-                    
+                
                     // Determine remaining valid positions
                     int start = prefix[prefixLength - 1] + 1;
                     int remainingPositions = possibleClicks.size() - start;
@@ -146,7 +147,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                         }
                     }
                 }
-                
+            
                 // Standard pruning for all other prefix levels
                 boolean canPotentiallySatisfyAll = true;
                 
@@ -194,7 +195,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                     return;
                 }
             }
-            
+        
             // Use pooled ArrayDeque for subtasks
             Deque<CombinationGeneratorTask> subtasks = getSubtaskDeque();
             

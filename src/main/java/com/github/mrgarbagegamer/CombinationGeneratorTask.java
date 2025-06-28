@@ -7,7 +7,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -41,7 +40,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private final int maxFirstClickIndex;
     
     // Added field to track cancellation within a subtask hierarchy
-    private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    private volatile boolean cancelled = false; // Use a volatile boolean instead of an AtomicBoolean to achieve the same goal without temporary object creation (and with greater efficiency)
     private final CombinationGeneratorTask parent;
 
     public CombinationGeneratorTask(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
@@ -68,16 +67,11 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Check if this task or any parent task has been cancelled
-    private boolean isTaskCancelled() {
-        if (cancelled.get()) return true;
-        if (queueArray.isSolutionFound()) {
-            cancelled.set(true);
-            return true;
-        }
-        if (parent != null && parent.isTaskCancelled()) {
-            cancelled.set(true);
-            return true;
-        }
+    private boolean isTaskCancelled() 
+    {
+        if (cancelled) return true;
+        if (queueArray.isSolutionFound()) return cancelled = true;
+        if (parent != null && parent.isTaskCancelled()) return cancelled = true;
         return false;
     }
 

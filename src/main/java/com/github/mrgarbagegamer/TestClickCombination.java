@@ -164,8 +164,6 @@ public class TestClickCombination extends Thread
                 // reset the grid for the next combination
                 puzzleGrid.initialize();
             }
-            
-            workBatch.clear(); // Clear for next batch
         }
     }
 

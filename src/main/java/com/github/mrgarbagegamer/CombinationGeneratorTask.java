@@ -201,7 +201,9 @@ public class CombinationGeneratorTask extends RecursiveAction
             Deque<int[]> batch = getBatch();
             
             for (int i = start; i < max; i++) {
-                if (i % 100 == 0 && isTaskCancelled()) {
+                if (i % 100 == 0 && isTaskCancelled()) 
+                {
+                    recycleIntArray(combination);
                     return;
                 }
                 
@@ -216,15 +218,18 @@ public class CombinationGeneratorTask extends RecursiveAction
                 int[] clone = combination.clone();
                 batch.add(clone);
                 
-                if (batch.size() >= BATCH_SIZE) {
+                if (batch.size() >= BATCH_SIZE) 
+                {
                     flushBatch(batch);
                     batch.clear(); // Clear after flushing
-                    if (isTaskCancelled()) {
+                    if (isTaskCancelled()) 
+                    {
+                        recycleIntArray(combination);
                         return;
                     }
                 }
             }
-            
+            recycleIntArray(combination);
             // Don't flush partial batches - they'll be flushed by the main thread later
         }
     }

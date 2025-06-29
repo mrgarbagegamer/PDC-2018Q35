@@ -195,17 +195,23 @@ public class StartYourMonkeys
         LogManager.shutdown();
     }
 
-    private static String formatElapsedTime(long millis) {
+    private static String formatElapsedTime(long millis) 
+    {
         long seconds = millis / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;
+        
+        // Calculate remainder values
+        long remainingMillis = millis % 1000;
         seconds = seconds % 60;
         minutes = minutes % 60;
 
         StringBuilder sb = new StringBuilder();
-        if (hours > 0) sb.append(hours).append("h");
-        if (minutes > 0 || hours > 0) sb.append(minutes).append("m");
-        sb.append(seconds).append("s");
+        if (hours > 0) sb.append(hours).append("h ");
+        if (minutes > 0 || hours > 0) sb.append(minutes).append("m ");
+        sb.append(seconds).append("s ");
+        sb.append(String.format("%03d", remainingMillis)).append("ms");
+        
         return sb.toString();
     }
 }

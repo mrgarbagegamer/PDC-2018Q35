@@ -1,7 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import java.util.BitSet;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -17,8 +15,8 @@ public abstract class Grid {
     public static final int[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93};
     public static final int NUM_CELLS = 109;
 
-    // Only BitSet for true cells
-    BitSet trueCells = new BitSet(NUM_CELLS);
+    // Replace BitSet with fixed-size boolean array - eliminates expandTo() overhead
+    protected final boolean[] trueCells = new boolean[NUM_CELLS];
     int trueCellsCount = 0;
 
     private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][]; // Used by findAdjacents() for quick operations
@@ -28,8 +26,11 @@ public abstract class Grid {
     int firstTrueCell = -1; // Track the first true cell, initialized to -1 (no true cells)
     boolean recalculationNeeded = false; // Flag to indicate if a recalculation of the first true cell is needed
 
+    private static final int[] PACKED_TO_INDEX_CACHE = new int[NUM_ROWS * 100 + EVEN_NUM_COLS]; // Pre-computed cache for packed to index conversion
+
     static 
     {
+        // Pre-compute adjacency arrays for all cells
         for (int row = 0; row < NUM_ROWS; row++) 
         {
             for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
@@ -45,6 +46,7 @@ public abstract class Grid {
                     ADJACENCY_CACHE[adjArr[idx - 1]][cell] = true; // Ensure symmetry in adjacency
                 }
                 adjacencyArray[cell] = adjArr;
+                PACKED_TO_INDEX_CACHE[cell] = computePackedToIndex(cell); // Pre-fill cache for packed to index conversion
             }
         }
     }
@@ -90,12 +92,21 @@ public abstract class Grid {
         return adjacencyArray[cell];
     }
 
-    // --- Packed int <-> compact BitSet index conversion ---
-    public final static int packedToIndex(int packed) 
+    // --- Packed int <-> compact array index conversion ---
+    private static int computePackedToIndex(int packed) 
     {
         int row = packed / 100;
         int col = packed % 100;
         return ROW_OFFSETS[row] + col;
+    }
+
+    public final static int packedToIndex(int packed) 
+    {
+        if (packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length) 
+        {
+            return PACKED_TO_INDEX_CACHE[packed];
+        }
+        throw new IllegalArgumentException("Invalid packed int: " + packed);
     }
 
     public final static int indexToPacked(int index) 
@@ -118,18 +129,22 @@ public abstract class Grid {
 
     abstract void initialize();
 
-    public int[] findTrueCells() // Return an array of packed integers representing the true cells
+    // Updated methods to use boolean array instead of BitSet
+    public int[] findTrueCells() 
     {
         int[] trueCellsArray = new int[trueCellsCount];
         int idx = 0;
-        for (int i = trueCells.nextSetBit(0); i >= 0 && idx < trueCellsCount; i = trueCells.nextSetBit(i + 1)) 
+        for (int i = 0; i < NUM_CELLS && idx < trueCellsCount; i++) 
         {
-            trueCellsArray[idx++] = indexToPacked(i);
+            if (trueCells[i]) 
+            {
+                trueCellsArray[idx++] = indexToPacked(i);
+            }
         }
         return trueCellsArray;
     }
 
-    public int findFirstTrueCell() // Return the first element in the trueCells BitSet
+    public int findFirstTrueCell() 
     {
         if (trueCellsCount == 0)
         {
@@ -141,9 +156,19 @@ public abstract class Grid {
             return firstTrueCell; // Return cached value if recalculation is not needed
         }
 
-        // Find and return the first true cell in the BitSet
-        firstTrueCell = indexToPacked(trueCells.nextSetBit(0));
-        recalculationNeeded = false; // Reset the recalculation flag after updating the first true cell
+        // Find first true cell in boolean array
+        for (int i = 0; i < NUM_CELLS; i++) 
+        {
+            if (trueCells[i]) 
+            {
+                firstTrueCell = indexToPacked(i);
+                recalculationNeeded = false;
+                return firstTrueCell;
+            }
+        }
+        
+        firstTrueCell = -1;
+        recalculationNeeded = false;
         return firstTrueCell;
     }
 
@@ -153,16 +178,15 @@ public abstract class Grid {
         for (int piece : affectedPieces) 
         {
             int bitIdx = packedToIndex(piece);
-            boolean currentState = trueCells.get(bitIdx);
-            if (currentState) 
+            if (trueCells[bitIdx]) 
             {
                 if (piece == firstTrueCell) recalculationNeeded = true;
-                trueCells.clear(bitIdx);
+                trueCells[bitIdx] = false;
                 trueCellsCount--;
             } else 
             {
                 if (piece < firstTrueCell) firstTrueCell = piece;
-                trueCells.set(bitIdx);
+                trueCells[bitIdx] = true;
                 trueCellsCount++;
             }
         }
@@ -174,16 +198,15 @@ public abstract class Grid {
         for (int piece : affectedPieces) 
         {
             int bitIdx = packedToIndex(piece);
-            boolean currentState = trueCells.get(bitIdx);
-            if (currentState) 
+            if (trueCells[bitIdx]) 
             {
                 if (piece == firstTrueCell) recalculationNeeded = true;
-                trueCells.clear(bitIdx);
+                trueCells[bitIdx] = false;
                 trueCellsCount--;
             } else 
             {
                 if (piece < firstTrueCell) firstTrueCell = piece;
-                trueCells.set(bitIdx);
+                trueCells[bitIdx] = true;
                 trueCellsCount++;
             }
         }
@@ -217,6 +240,10 @@ public abstract class Grid {
                 low = mid + 1; // Search right
             }
         }
+
+        // If no adjacent cell greater than 'cell' is found, return null
+        if (index == -1) return null;
+
         // If the index is found, return the subarray starting from that index
         int[] result = new int[firstTrueAdjacents.length - index];
         System.arraycopy(firstTrueAdjacents, index, result, 0, result.length);
@@ -225,10 +252,10 @@ public abstract class Grid {
 
     public boolean isSolved() 
     {
-        return trueCells.nextSetBit(0) == -1;
+        return trueCellsCount == 0;
     }
 
-    public int getTrueCount() // Returns the count of true cells
+    public int getTrueCount() 
     {
         return trueCellsCount;
     }
@@ -238,8 +265,8 @@ public abstract class Grid {
         try 
         {
             Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
-            newGrid.trueCells = new BitSet(NUM_CELLS);
-            newGrid.trueCells.or(this.trueCells);
+            // Copy boolean array instead of BitSet
+            System.arraycopy(this.trueCells, 0, newGrid.trueCells, 0, NUM_CELLS);
             newGrid.trueCellsCount = this.trueCellsCount;
             newGrid.firstTrueCell = this.firstTrueCell;
             return newGrid;
@@ -289,7 +316,7 @@ public abstract class Grid {
         // General case: check adjacency
         int[] adj = findAdjacents(firstTrueCell);
         if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-
+        
         // perform binary search to find if clickCell is adjacent
         int low = 0, high = adj.length - 1;
         while (low <= high) 
@@ -349,7 +376,7 @@ public abstract class Grid {
         return ADJACENCY_CACHE[cellA][cellB];
     }
 
-    // Optional: Print grid as text using BitSet only
+    // Optional: Print grid as text using boolean array
     public void printGrid() 
     {
         Logger logger = LogManager.getLogger(Grid.class);
@@ -361,7 +388,7 @@ public abstract class Grid {
             for (int col = 0; col < cols; col++) 
             {
                 int bitIdx = packedToIndex(row * 100 + col);
-                sb.append(trueCells.get(bitIdx) ? "1 " : "0 ");
+                sb.append(trueCells[bitIdx] ? "1 " : "0 ");
             }
             logger.info(sb.toString());
         }

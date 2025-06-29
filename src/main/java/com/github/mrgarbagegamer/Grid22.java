@@ -1,26 +1,26 @@
 package com.github.mrgarbagegamer;
+
 public class Grid22 extends Grid 
 {
-    void initialize() 
-    {
-        // Initialize for Q22/Shrek
+    private static final boolean[] reference;
 
-        // set all cells to false
-        this.trueCells.clear();
+    static
+    {
+        reference = new boolean[NUM_CELLS];
 
         // Top row values
         int topRow = 0;
         int[] topRowCols = {1, 2, 4, 5, 7, 8, 10, 11, 13, 14};
         for (int col : topRowCols) 
         {
-            this.trueCells.set(packedToIndex(topRow * 100 + col));
+            reference[packedToIndex(topRow * 100 + col)] = true;
         }
 
         // Recreate the top row values for the bottom row
         int bottomRow = NUM_ROWS - 1;
         for (int col : topRowCols) 
         {
-            this.trueCells.set(packedToIndex(bottomRow * 100 + col));
+            reference[packedToIndex(bottomRow * 100 + col)] = true;
         }
 
         // Set the values for row 1, which will be the same as rows 1, 3, and 5
@@ -30,9 +30,17 @@ public class Grid22 extends Grid
         {
             for (int col : rowOneCols) 
             {
-                this.trueCells.set(packedToIndex(row * 100 + col));
+                reference[packedToIndex(row * 100 + col)] = true;
             }
         }
+    }
+    
+    void initialize() 
+    {
+        // Initialize for Q22/Shrek
+
+        // set all cells to their initial state
+        System.arraycopy(reference, 0, trueCells, 0, NUM_CELLS);
 
         firstTrueCell = 1; // Set the first true cell to 1 (row 0, col 1)
         trueCellsCount = 50;

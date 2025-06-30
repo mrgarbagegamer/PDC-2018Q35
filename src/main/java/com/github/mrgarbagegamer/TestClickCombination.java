@@ -19,12 +19,33 @@ public class TestClickCombination extends Thread
 
     private final Deque<int[]> workBatch = new ArrayDeque<>(50); // Worker-local batch
 
+    // Lookup table: clickCell -> bitset of which true cells it's adjacent to
+    private final long[] clickToTrueCellMask; // TODO: Make this static to minimize useless recalculations
+    
     public TestClickCombination(String threadName, CombinationQueue combinationQueue, CombinationQueueArray queueArray, Grid puzzleGrid) 
     {
         super(threadName);
         this.combinationQueue = combinationQueue;
         this.queueArray = queueArray;
         this.puzzleGrid = puzzleGrid;
+        
+        // Pre-compute lookup table
+        int[] trueCells = puzzleGrid.findTrueCells();
+        this.clickToTrueCellMask = new long[700]; // Adjust size for your grid
+        
+        // For each possible click cell, create a bitmask of which true cells it affects
+        for (int clickCell = 0; clickCell < 700; clickCell++) 
+        {
+            long mask = 0L;
+            for (int i = 0; i < trueCells.length; i++) 
+            {
+                if (Grid.areAdjacent(trueCells[i], clickCell)) 
+                {
+                    mask |= (1L << i);
+                }
+            }
+            this.clickToTrueCellMask[clickCell] = mask;
+        }
     }
 
     @Override
@@ -167,17 +188,19 @@ public class TestClickCombination extends Thread
         }
     }
 
-    private static boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
+    // Ultra-fast implementation using lookup table and bit operations
+    private boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
     {
-        for (int trueCell : trueCells) 
+        long[] trueCellCounts = new long[1]; // Use array to avoid individual bit operations
+        
+        // Accumulate bitmasks for all clicks
+        for (int click : combination) 
         {
-            int count = 0;
-            for (int click : combination) 
-            {
-                if (Grid.areAdjacent(trueCell, click)) count++;
-            }
-            if ((count & 1) == 0) return false;
+            trueCellCounts[0] ^= this.clickToTrueCellMask[click]; // XOR accumulates odd/even
         }
-        return true;
+        
+        // Check if all true cells have odd adjacency count
+        long expectedMask = (1L << trueCells.length) - 1; // All bits set for true cells
+        return trueCellCounts[0] == expectedMask;
     }
 }

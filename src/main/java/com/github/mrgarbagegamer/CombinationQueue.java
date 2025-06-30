@@ -60,6 +60,41 @@ public class CombinationQueue
 
     // NEW: Batch operations using JCTools built-in methods
 
+    private static final class DequeFirstSupplier<T> implements MessagePassingQueue.Supplier<T> 
+    {
+        private Deque<T> deque;
+
+        void setDeque(Deque<T> deque) 
+        {
+            this.deque = deque;
+        }
+
+        @Override
+        public T get() 
+        {
+            return deque.pollFirst();
+        }
+    }
+
+    private static final class DequeLastConsumer<T> implements MessagePassingQueue.Consumer<T> 
+    {
+        private Deque<T> deque;
+
+        void setDeque(Deque<T> deque) 
+        {
+            this.deque = deque;
+        }
+
+        @Override
+        public void accept(T item) 
+        {
+            deque.offerLast(item);
+        }
+    }
+
+    private static final ThreadLocal<DequeFirstSupplier<int[]>> SUPPLIER = ThreadLocal.withInitial(DequeFirstSupplier::new);
+    private static final ThreadLocal<DequeLastConsumer<int[]>> CONSUMER = ThreadLocal.withInitial(DequeLastConsumer::new);
+
     /**
      * Efficiently fill queue using JCTools batch fill operation.
      * This should be much faster than individual relaxedOffer() calls.
@@ -69,31 +104,9 @@ public class CombinationQueue
     {
         if (batch.isEmpty()) return 0;
         
-        // Create a supplier that pulls from our batch
-        MessagePassingQueue.Supplier<int[]> supplier = batch::pollFirst;
-        
-        // Use JCTools optimized fill operation
-        int limit = Math.min(batch.size(), QUEUE_SIZE);
-        return queue.fill(supplier, limit);
-    }
-    
-    /**
-     * Efficiently fill queue using JCTools batch fill operation.
-     * This should be much faster than individual relaxedOffer() calls.
-     */
-    public int fillFromBatch(List<int[]> batch) 
-    {
-        if (batch.isEmpty()) return 0;
-        
-        // Create a supplier that pulls from our batch
-        final int[] batchIndex = {0}; // Mutable counter for lambda
-        MessagePassingQueue.Supplier<int[]> supplier = () -> {
-            if (batchIndex[0] < batch.size()) 
-            {
-                return batch.get(batchIndex[0]++);
-            }
-            return null; // Signal end of batch
-        };
+        // Reuse supplier object
+        DequeFirstSupplier<int[]> supplier = SUPPLIER.get();
+        supplier.setDeque(batch);
         
         // Use JCTools optimized fill operation
         int limit = Math.min(batch.size(), QUEUE_SIZE);
@@ -108,8 +121,9 @@ public class CombinationQueue
     {
         if (maxElements <= 0) return 0;
         
-        // Create a consumer that adds to our output batch
-        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::offerLast;
+        // Reuse consumer object
+        DequeLastConsumer<int[]> consumer = CONSUMER.get();
+        consumer.setDeque(outputBatch);
         
         // Use JCTools optimized drain operation
         return queue.drain(consumer, maxElements);
@@ -120,31 +134,10 @@ public class CombinationQueue
      */
     public int drainAllToBatch(Deque<int[]> outputBatch) 
     {
-        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::offerLast;
-        return queue.drain(consumer);
-    }
-    
-    /**
-     * Efficiently drain multiple combinations at once.
-     * This should be much faster than individual relaxedPoll() calls.
-     */
-    public int drainToBatch(List<int[]> outputBatch, int maxElements) 
-    {
-        if (maxElements <= 0) return 0;
-        
-        // Create a consumer that adds to our output batch
-        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::add;
-        
-        // Use JCTools optimized drain operation
-        return queue.drain(consumer, maxElements);
-    }
-    
-    /**
-     * Drain all available combinations efficiently
-     */
-    public int drainAllToBatch(List<int[]> outputBatch) 
-    {
-        MessagePassingQueue.Consumer<int[]> consumer = outputBatch::add;
+        // Reuse consumer object
+        DequeLastConsumer<int[]> consumer = CONSUMER.get();
+        consumer.setDeque(outputBatch);
+
         return queue.drain(consumer);
     }
 

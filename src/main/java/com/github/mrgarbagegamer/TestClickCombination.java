@@ -22,6 +22,10 @@ public class TestClickCombination extends Thread
     // Lookup table: clickCell -> bitset of which true cells it's adjacent to
     private final long[] clickToTrueCellMask; // TODO: Make this static to minimize useless recalculations
     
+    // Adaptive batch sizing
+    private int currentBatchSize = BATCH_SIZE;
+    private int consecutiveEmptyPolls = 0;
+    
     public TestClickCombination(String threadName, CombinationQueue combinationQueue, CombinationQueueArray queueArray, Grid puzzleGrid) 
     {
         super(threadName);
@@ -68,16 +72,40 @@ public class TestClickCombination extends Thread
 
         while (!iSolvedIt && !queueArray.isSolutionFound())
         {
+            // Adaptive batch sizing based on queue fullness
+            int targetBatchSize = workBatch.isEmpty() ? currentBatchSize : Math.min(currentBatchSize, BATCH_SIZE - workBatch.size());
+            
             // Try to fill work batch from my primary queue
-            int obtained = combinationQueue.drainToBatch(workBatch, BATCH_SIZE);
+            int obtained = combinationQueue.drainToBatch(workBatch, targetBatchSize);
             
             // If my queue is empty, try work stealing from other queues
             if (obtained == 0) 
             {
-                for (int i = 0; i < queues.length && workBatch.isEmpty(); i++) 
+                consecutiveEmptyPolls++;
+                
+                // Work stealing with exponential backoff (though I'm not sure if the term "exponential backoff" is appropriate here)
+                if (consecutiveEmptyPolls < 3) 
                 {
-                    if (i == myIndex) continue;
-                    queues[i].drainToBatch(workBatch, STEAL_SIZE); // Steal smaller batches
+                    // Aggressive stealing when queues are recently empty
+                    for (int i = 0; i < queues.length && workBatch.size() < STEAL_SIZE; i++) 
+                    {
+                        if (i == myIndex) continue;
+                        queues[i].drainToBatch(workBatch, STEAL_SIZE - workBatch.size());
+                    }
+                } 
+                else 
+                {
+                    // Reduce batch size when consistently empty
+                    currentBatchSize = Math.max(10, currentBatchSize / 2);
+                }
+            } 
+            else 
+            {
+                consecutiveEmptyPolls = 0;
+                // Increase batch size when queue is consistently full
+                if (obtained == targetBatchSize && currentBatchSize < BATCH_SIZE * 2) 
+                {
+                    currentBatchSize = Math.min(BATCH_SIZE * 2, currentBatchSize + 5);
                 }
             }
             

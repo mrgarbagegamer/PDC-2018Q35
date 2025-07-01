@@ -1,8 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -17,7 +14,8 @@ public class TestClickCombination extends Thread
     private final CombinationQueueArray queueArray;
     private final Grid puzzleGrid;
 
-    private final Deque<int[]> workBatch = new ArrayDeque<>(50); // Worker-local batch
+    // Replace ArrayDeque with custom WorkBatch
+    private final WorkBatch workBatch = new WorkBatch(BATCH_SIZE); // Worker-local batch
 
     // Lookup table: clickCell -> bitset of which true cells it's adjacent to
     private final long[] clickToTrueCellMask; // TODO: Make this static to minimize useless recalculations
@@ -72,11 +70,11 @@ public class TestClickCombination extends Thread
 
         while (!iSolvedIt && !queueArray.isSolutionFound())
         {
-            // Adaptive batch sizing based on queue fullness
-            int targetBatchSize = workBatch.isEmpty() ? currentBatchSize : Math.min(currentBatchSize, BATCH_SIZE - workBatch.size());
+            // Adaptive batch sizing based on current batch fullness
+            int targetBatchSize = workBatch.isEmpty() ? currentBatchSize : Math.min(currentBatchSize, workBatch.remainingCapacity());
             
-            // Try to fill work batch from my primary queue
-            int obtained = combinationQueue.drainToBatch(workBatch, targetBatchSize);
+            // Try to fill work batch from my primary queue using optimized method
+            int obtained = combinationQueue.drainToWorkBatch(workBatch, targetBatchSize);
             
             // If my queue is empty, try work stealing from other queues
             if (obtained == 0) 
@@ -87,10 +85,12 @@ public class TestClickCombination extends Thread
                 if (consecutiveEmptyPolls < 3) 
                 {
                     // Aggressive stealing when queues are recently empty
-                    for (int i = 0; i < queues.length && workBatch.size() < STEAL_SIZE; i++) 
+                    for (int i = 0; i < queues.length && workBatch.remainingCapacity() > 0; i++) 
                     {
                         if (i == myIndex) continue;
-                        queues[i].drainToBatch(workBatch, STEAL_SIZE - workBatch.size());
+                        
+                        int stealAmount = Math.min(STEAL_SIZE, workBatch.remainingCapacity());
+                        queues[i].drainToWorkBatch(workBatch, stealAmount);
                     }
                 } 
                 else 
@@ -125,11 +125,11 @@ public class TestClickCombination extends Thread
                 continue; // Retry getting a combination
             }
             
-            // Process the entire batch
+            // Process the entire batch with direct WorkBatch operations
             while (!workBatch.isEmpty()) 
             {
-                int[] combinationClicks = workBatch.pollFirst();
-                if (queueArray.isSolutionFound()) break;
+                int[] combinationClicks = workBatch.poll();
+                if (combinationClicks == null || queueArray.isSolutionFound()) break;
                 
                 if (!satisfiesOddAdjacency(combinationClicks, trueCells)) 
                 {
@@ -219,16 +219,16 @@ public class TestClickCombination extends Thread
     // Ultra-fast implementation using lookup table and bit operations
     private boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
     {
-        long[] trueCellCounts = new long[1]; // Use array to avoid individual bit operations
+        long trueCellCounts = 0L; // Simplified - no need for array wrapper
         
         // Accumulate bitmasks for all clicks
         for (int click : combination) 
         {
-            trueCellCounts[0] ^= this.clickToTrueCellMask[click]; // XOR accumulates odd/even
+            trueCellCounts ^= this.clickToTrueCellMask[click];
         }
         
         // Check if all true cells have odd adjacency count
         long expectedMask = (1L << trueCells.length) - 1; // All bits set for true cells
-        return trueCellCounts[0] == expectedMask;
+        return trueCellCounts == expectedMask;
     }
 }

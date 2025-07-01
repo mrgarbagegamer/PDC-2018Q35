@@ -58,8 +58,35 @@ public class CombinationQueue
         return added;
     }
 
-    // NEW: Batch operations using JCTools built-in methods
+    // NEW: WorkBatch integration methods
 
+    /**
+     * Efficiently drain combinations directly into WorkBatch.
+     * Uses JCTools optimized drain operation with WorkBatch as consumer.
+     */
+    public int drainToWorkBatch(WorkBatch workBatch, int maxElements) 
+    {
+        if (maxElements <= 0 || workBatch.isFull()) return 0;
+        
+        // Limit by both requested amount and available space in WorkBatch
+        int limit = Math.min(maxElements, workBatch.remainingCapacity());
+        
+        // Use JCTools optimized drain directly into WorkBatch
+        return queue.drain(workBatch, limit);
+    }
+
+    /**
+     * Drain all available combinations into WorkBatch.
+     */
+    public int drainAllToWorkBatch(WorkBatch workBatch) 
+    {
+        if (workBatch.isFull()) return 0;
+        
+        // Drain up to WorkBatch capacity
+        return queue.drain(workBatch, workBatch.remainingCapacity());
+    }
+
+    // Keep existing Deque methods for backward compatibility
     private static final class DequeFirstSupplier<T> implements MessagePassingQueue.Supplier<T> 
     {
         private Deque<T> deque;
@@ -96,9 +123,17 @@ public class CombinationQueue
     private static final ThreadLocal<DequeLastConsumer<int[]>> CONSUMER = ThreadLocal.withInitial(DequeLastConsumer::new);
 
     /**
-     * Efficiently fill queue using JCTools batch fill operation.
-     * This should be much faster than individual relaxedOffer() calls.
+     * Legacy method - prefer drainToWorkBatch for better performance
      */
+    public int drainToBatch(Deque<int[]> outputBatch, int maxElements) 
+    {
+        if (maxElements <= 0) return 0;
+        
+        DequeLastConsumer<int[]> consumer = CONSUMER.get();
+        consumer.setDeque(outputBatch);
+        
+        return queue.drain(consumer, maxElements);
+    }
 
     public int fillFromBatch(Deque<int[]> batch)
     {
@@ -112,26 +147,7 @@ public class CombinationQueue
         int limit = Math.min(batch.size(), QUEUE_SIZE);
         return queue.fill(supplier, limit);
     }
-    
-    /**
-     * Efficiently drain multiple combinations at once.
-     * This should be much faster than individual relaxedPoll() calls.
-     */
-    public int drainToBatch(Deque<int[]> outputBatch, int maxElements) 
-    {
-        if (maxElements <= 0) return 0;
-        
-        // Reuse consumer object
-        DequeLastConsumer<int[]> consumer = CONSUMER.get();
-        consumer.setDeque(outputBatch);
-        
-        // Use JCTools optimized drain operation
-        return queue.drain(consumer, maxElements);
-    }
-    
-    /**
-     * Drain all available combinations efficiently
-     */
+
     public int drainAllToBatch(Deque<int[]> outputBatch) 
     {
         // Reuse consumer object

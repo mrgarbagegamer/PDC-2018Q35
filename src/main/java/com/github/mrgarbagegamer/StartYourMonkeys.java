@@ -110,7 +110,7 @@ public class StartYourMonkeys
             String threadName = String.format("Generator-%d", t);
             new Thread(() -> {
                 PrefixRange range;
-                while ((range = workQueue.poll()) != null && !queueArray.isSolutionFound()) 
+                while ((range = workQueue.poll()) != null && !queueArray.solutionFound) 
                 {
                     logger.info("{} - Processing prefix range [{}-{})", threadName, range.start, range.end); // TODO: Remove this line if too verbose
                     CombinationGenerator cb = new CombinationGenerator(

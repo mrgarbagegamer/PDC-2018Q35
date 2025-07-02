@@ -102,7 +102,7 @@ public class CombinationGenerator extends Thread
         int roundRobinIdx = 0;
         int[] buffer = new int[k];
 
-        while (!stack.isEmpty() && !queueArray.isSolutionFound()) 
+        while (!stack.isEmpty() && !queueArray.solutionFound) 
         {
             CombinationState state = stack.pop();
             int start = state.start;
@@ -192,7 +192,7 @@ public class CombinationGenerator extends Thread
 
     private int flushBatch(WorkBatch batch, int roundRobinIdx)
     {
-        while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
+        while (!batch.isEmpty() && !queueArray.solutionFound) 
         {
             boolean addedAny = false;
             for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 

@@ -1,8 +1,8 @@
 package com.github.mrgarbagegamer;
 
-import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Deque;
+import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
@@ -14,17 +14,17 @@ import it.unimi.dsi.fastutil.ints.IntList;
 public class CombinationGeneratorTask extends RecursiveAction 
 {
     private static final int BATCH_SIZE = 4000; // Increase from 2000 to reduce flush overhead
-    private static final int POOL_SIZE = 4096;
+    private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
     
-    // Size-specific pools for better performance
-    private static final ThreadLocal<Deque<int[]>> prefixArrayPool = 
-        ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
-    private static final ThreadLocal<Deque<int[]>> combinationArrayPool = 
-        ThreadLocal.withInitial(() -> new ArrayDeque<>(POOL_SIZE / 2));
-
-    // Add an ArrayList CombinationGeneratorTask pool for thread-safe reuse
-    private static final ThreadLocal<Deque<Deque<CombinationGeneratorTask>>> SUBTASK_DEQUE_POOL = 
-        ThreadLocal.withInitial(() -> new ArrayDeque<>(16));
+    // Replace ArrayDeque pools with custom high-performance pools
+    private static final ThreadLocal<ArrayPool> prefixArrayPool = 
+        ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 32)); // Smaller arrays
+    private static final ThreadLocal<ArrayPool> combinationArrayPool = 
+        ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 64)); // Full combination arrays
+        
+    // Custom subtask pool instead of nested ArrayDeques
+    private static final ThreadLocal<SubtaskPool> subtaskPool = 
+        ThreadLocal.withInitial(() -> new SubtaskPool(32));
 
     // ThreadLocal batch for each worker thread
     private static final ThreadLocal<WorkBatch> THREAD_BATCH = 
@@ -79,9 +79,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     protected void compute()
     {
         // Check for cancellation before starting work
-        if (isTaskCancelled()) {
-            return;
-        }
+        if (isTaskCancelled()) return;
         
         if (prefixLength < numClicks - 1) 
         {
@@ -93,7 +91,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                 {
                     boolean canPotentiallySatisfyAll = true;
                     
-                    for (int trueCell : trueCells) {
+                    for (int trueCell : trueCells) 
+                    {
                         // Count adjacents from the prefix
                         int adjacentCount = 0;
                         for (int j = 0; j < prefixLength; j++) 
@@ -139,50 +138,59 @@ public class CombinationGeneratorTask extends RecursiveAction
                 }
             }
         
-            // Use pooled ArrayDeque for subtasks
-            Deque<CombinationGeneratorTask> subtasks = getSubtaskDeque();
-            
+            // Use simple array instead of Deque for subtasks
             int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
             int max = possibleClicks.size() - (numClicks - prefixLength) + 1;
 
             if (prefixLength == 0) max = Math.min(max, maxFirstClickIndex + 1);
             
+            int numSubtasks = max - start;
+            if (numSubtasks <= 0) return;
+            
+            // Get subtask array from pool or allocate new one
+            CombinationGeneratorTask[] subtasks = getSubtaskArray(numSubtasks);
+            int subtaskCount = 0;
+            
             for (int i = start; i < max; i++) 
             {
                 // Check for solution found at regular intervals
-                if (i % 100 == 0 && isTaskCancelled()) {
-                    recycleSubtaskDeque(subtasks);
+                if (i % 100 == 0 && isTaskCancelled()) 
+                {
+                    putSubtaskArray(subtasks);
                     return;
                 }
                 
-                // Replace with pooled array
+                // Get prefix array from pool
                 int[] newPrefix = getIntArray(prefixLength + 1);
                 System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
                 newPrefix[prefixLength] = i;
 
                 // Create subtask with this as parent
-                subtasks.add(new CombinationGeneratorTask(
+                subtasks[subtaskCount++] = new CombinationGeneratorTask(
                     possibleClicks, numClicks, newPrefix, prefixLength + 1, 
-                    queueArray, numConsumers, trueCells, maxFirstClickIndex, this));
+                    queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
             }
             
-            if (!subtasks.isEmpty()) 
+            if (subtaskCount > 0) 
             {
                 try 
                 {
-                    invokeAll(subtasks);
-                    // Add recycling of prefix arrays after subtasks complete (prefix arrays can be reused safely since they are not used past generation)
-                    for (CombinationGeneratorTask task : subtasks) recycleIntArray(task.prefix);
+                    List<CombinationGeneratorTask> taskList = Arrays.asList(subtasks).subList(0, subtaskCount);
+                    invokeAll(taskList);
+
+                    // Recycle prefix arrays after subtasks complete
+                    for (CombinationGeneratorTask subtask : taskList) putIntArray(subtask.prefix);
                 } catch (CancellationException ce) 
                 {
                     // Task was cancelled, just return
-                    return;
+                    
                 } 
                 finally 
                 {
-                    recycleSubtaskDeque(subtasks);
+                    putSubtaskArray(subtasks);
                 }
-            } else recycleSubtaskDeque(subtasks);
+            } 
+            else putSubtaskArray(subtasks);
         } 
         else 
         {
@@ -194,23 +202,23 @@ public class CombinationGeneratorTask extends RecursiveAction
             int[] combination = getIntArray(numClicks);
             
             // Copy prefix once
-            for (int j = 0; j < prefixLength; j++) {
-                combination[j] = possibleClicks.getInt(prefix[j]);
-            }
+            for (int j = 0; j < prefixLength; j++) combination[j] = possibleClicks.getInt(prefix[j]);
             
             WorkBatch batch = getBatch();
             
-            for (int i = start; i < max; i++) {
+            for (int i = start; i < max; i++) 
+            {
                 if (i % 100 == 0 && isTaskCancelled()) 
                 {
-                    recycleIntArray(combination);
+                    putIntArray(combination);
                     return;
                 }
                 
                 combination[prefixLength] = possibleClicks.getInt(i);
                 
                 if (trueCells != null && trueCells.length > 0 &&
-                    !quickOddAdjacency(combination, trueCells[0])) {
+                    !quickOddAdjacency(combination, trueCells[0])) 
+                {
                     continue;
                 }
                 
@@ -224,12 +232,12 @@ public class CombinationGeneratorTask extends RecursiveAction
                     batch.clear(); // Clear after flushing
                     if (isTaskCancelled()) 
                     {
-                        recycleIntArray(combination);
+                        putIntArray(combination);
                         return;
                     }
                 }
             }
-            recycleIntArray(combination);
+            putIntArray(combination);
             // Don't flush partial batches - they'll be flushed by the main thread later
         }
     }
@@ -265,19 +273,18 @@ public class CombinationGeneratorTask extends RecursiveAction
             
             if (!addedAny) 
             {
-                try { 
+                try 
+                { 
                     Thread.sleep(1); 
-                } catch (InterruptedException e) { 
+                } catch (InterruptedException e) 
+                { 
                     Thread.currentThread().interrupt();
                     break; 
                 }
             }
 
             // Only check cancellation if requested (for task flushing, not final flush)
-            if (checkCancellation && queueArray.isSolutionFound()) 
-            {
-                break;
-            }
+            if (checkCancellation && queueArray.isSolutionFound()) break;
         }
     }
 
@@ -317,60 +324,60 @@ public class CombinationGeneratorTask extends RecursiveAction
         return batch;
     }
     
-    // Thread-local array pooling methods - corrected to be non-static
+    // High-performance array pooling using custom pools
     private int[] getIntArray(int size) 
     {
         if (size < numClicks) // Prefix arrays (smaller than full combinations)
         {
-            Deque<int[]> pool = prefixArrayPool.get();
-            int[] arr = pool.pollFirst();
-            if (arr != null && arr.length >= size) return arr;
-
-            // Return smaller array to pool for future use
-            if (arr != null && arr.length < size) pool.offerLast(arr);
-        } else // Full combination arrays (size == numClicks)
+            ArrayPool pool = prefixArrayPool.get();
+            int[] arr = pool.get(size);
+            if (arr != null) return arr;
+        } 
+        else // Full combination arrays (size == numClicks)
         {
-            Deque<int[]> pool = combinationArrayPool.get();
-            int[] arr = pool.pollFirst();
-            if (arr != null && arr.length >= size) return arr;
-
-            // Return smaller array to pool for future use  
-            if (arr != null && arr.length < size) pool.offerLast(arr);
+            ArrayPool pool = combinationArrayPool.get();
+            int[] arr = pool.get(size);
+            if (arr != null) return arr;
         }
-        return new int[size]; // Allocate a new array if no suitable one was found.
+        return new int[size]; // Allocate a new array if no suitable one was found
     }
 
-    private void recycleIntArray(int[] arr) 
+    private void putIntArray(int[] arr) 
     {
-        if (arr.length < numClicks) // Prefix arrays (arr.length < numClicks)
+        if (arr == null) return;
+        
+        if (arr.length < numClicks) // Prefix arrays
         {
-            Deque<int[]> pool = prefixArrayPool.get();
-            if (pool.size() < POOL_SIZE / 2) pool.offerLast(arr);
-        } else // Full combination arrays (arr.length == numClicks) 
+            ArrayPool pool = prefixArrayPool.get();
+            pool.put(arr);
+        } 
+        else // Full combination arrays
         {  
-            Deque<int[]> pool = combinationArrayPool.get();
-            if (pool.size() < POOL_SIZE / 2) pool.offerLast(arr);
+            ArrayPool pool = combinationArrayPool.get();
+            pool.put(arr);
         }
     }
 
-    // ArrayList pool management methods
-    private Deque<CombinationGeneratorTask> getSubtaskDeque() 
+    // High-performance subtask array pooling
+    private CombinationGeneratorTask[] getSubtaskArray(int minSize) 
     {
-        Deque<Deque<CombinationGeneratorTask>> pool = SUBTASK_DEQUE_POOL.get();
-        Deque<CombinationGeneratorTask> deque = pool.pollFirst();
-        if (deque == null) return new ArrayDeque<>(64); // Pre-sized for typical subtask count
-
-        deque.clear(); // Clear contents before reuse (potentially replace this with an invokeAll)
-        return deque;
+        SubtaskPool pool = subtaskPool.get();
+        CombinationGeneratorTask[] array = pool.get();
+        
+        if (array != null && array.length >= minSize) return array;
+        
+        // Put back if too small and allocate new one
+        if (array != null) pool.put(array);
+        
+        return new CombinationGeneratorTask[Math.max(minSize, 64)]; // Pre-size for typical use
     }
 
-    private void recycleSubtaskDeque(Deque<CombinationGeneratorTask> deque) 
+    private void putSubtaskArray(CombinationGeneratorTask[] array) 
     {
-        if (deque == null) return;
-
-        deque.clear(); // Clear contents before recycling (potentially replace this with an invokeAll)
-        Deque<Deque<CombinationGeneratorTask>> pool = SUBTASK_DEQUE_POOL.get();
-        if (pool.size() < 16) pool.offerLast(deque);
+        if (array == null) return;
+        
+        SubtaskPool pool = subtaskPool.get();
+        pool.put(array);
     }
 
     // Add these fields to cache adjacents for the current firstTrueCell
@@ -380,21 +387,19 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
         // Lazy initialization of adjacents BitSet
-        if (CACHED_FIRST_TRUE_CELL != firstTrueCell) {
+        if (CACHED_FIRST_TRUE_CELL != firstTrueCell) 
+        {
             int[] adjacents = Grid.findAdjacents(firstTrueCell);
             FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700); // Adjust size as needed for your grid
-            for (int adj : adjacents) {
-                FIRST_TRUE_ADJACENTS_BITSET.set(adj);
-            }
+            for (int adj : adjacents) FIRST_TRUE_ADJACENTS_BITSET.set(adj);
             CACHED_FIRST_TRUE_CELL = firstTrueCell;
         }
         
         int count = 0;
         // O(1) adjacency check per click
-        for (int click : combination) {
-            if (FIRST_TRUE_ADJACENTS_BITSET.get(click)) {
-                count++;
-            }
+        for (int click : combination) 
+        {
+            if (FIRST_TRUE_ADJACENTS_BITSET.get(click)) count++;
         }
         return (count & 1) == 1;
     }

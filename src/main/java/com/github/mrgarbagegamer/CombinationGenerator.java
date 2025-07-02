@@ -67,8 +67,8 @@ public class CombinationGenerator extends Thread
     public void run() 
     {
         int safeEnd = Math.min(prefixEnd, possibleClicks.size());
-        for (int i = prefixStart; i < safeEnd && !queueArray.isSolutionFound(); i++) {
-            for (int j = i + 1; j < possibleClicks.size() && !queueArray.isSolutionFound(); j++) {
+        for (int i = prefixStart; i < safeEnd && !queueArray.solutionFound; i++) {
+            for (int j = i + 1; j < possibleClicks.size() && !queueArray.solutionFound; j++) {
                 generateCombinationsIterative(i, j, possibleClicks, numClicks);
             }
         }
@@ -107,7 +107,7 @@ public class CombinationGenerator extends Thread
         int roundRobinIdx = 0;
         int[] buffer = new int[k];
 
-        while (!stack.isEmpty() && !queueArray.isSolutionFound()) 
+        while (!stack.isEmpty() && !queueArray.solutionFound) 
         {
             CombinationState state = stack.pop();
             int start = state.start;
@@ -187,7 +187,7 @@ public class CombinationGenerator extends Thread
 
     private int flushBatch(List<int[]> batch, int roundRobinIdx)
     {
-        while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
+        while (!batch.isEmpty() && !queueArray.solutionFound) 
         {
             boolean addedAny = false;
             for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 

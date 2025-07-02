@@ -68,7 +68,7 @@ public class TestClickCombination extends Thread
 
         int[] trueCells = puzzleGrid.findTrueCells();
 
-        while (!iSolvedIt && !queueArray.isSolutionFound())
+        while (!iSolvedIt && !queueArray.solutionFound)
         {
             // Adaptive batch sizing based on current batch fullness
             int targetBatchSize = workBatch.isEmpty() ? currentBatchSize : Math.min(currentBatchSize, workBatch.remainingCapacity());
@@ -112,7 +112,7 @@ public class TestClickCombination extends Thread
             // If still no work, short sleep and continue
             if (workBatch.isEmpty()) 
             {
-                if (combinationQueue.isSolutionFound() || combinationQueue.isGenerationComplete()) break;
+                if (queueArray.solutionFound || queueArray.generationComplete) break;
                 try 
                 { 
                     Thread.sleep(0, 500_000); 
@@ -129,8 +129,8 @@ public class TestClickCombination extends Thread
             while (!workBatch.isEmpty()) 
             {
                 int[] combinationClicks = workBatch.poll();
-                if (combinationClicks == null || queueArray.isSolutionFound()) break;
-                
+                if (combinationClicks == null || queueArray.solutionFound) break;
+
                 if (!satisfiesOddAdjacency(combinationClicks, trueCells)) 
                 {
                     continue;
@@ -139,7 +139,7 @@ public class TestClickCombination extends Thread
                 // int firstTrueCell = puzzleGrid.findFirstTrueCell();
                 // int[] firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
 
-                for (int i = 0; (!iSolvedIt) && (!queueArray.isSolutionFound()) && (i < combinationClicks.length); i++) 
+                for (int i = 0; (!iSolvedIt) && (!queueArray.solutionFound) && (i < combinationClicks.length); i++) 
                 {
                     int click = combinationClicks[i];
                     puzzleGrid.click(click);
@@ -203,7 +203,7 @@ public class TestClickCombination extends Thread
                 if (!iSolvedIt)
                 {
                     failedCount++;
-                    if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.isSolutionFound()) 
+                    if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.solutionFound) 
                     {
                         logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks));
                         failedCount = 0; // Reset the count after logging

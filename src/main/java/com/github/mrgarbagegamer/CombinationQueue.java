@@ -2,7 +2,6 @@ package com.github.mrgarbagegamer;
 
 import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jctools.queues.MpmcArrayQueue;
 import org.jctools.queues.MessagePassingQueue;
@@ -10,14 +9,11 @@ import org.jctools.queues.MessagePassingQueue;
 public class CombinationQueue 
 {
     private final int QUEUE_SIZE = 100_000;
-    private final MpmcArrayQueue<int[]> queue = new MpmcArrayQueue<>(QUEUE_SIZE);
-    private final AtomicBoolean solutionFound;
-    private final AtomicBoolean generationComplete;
+    private final MpmcArrayQueue<int[]> queue;
 
-    public CombinationQueue(AtomicBoolean solutionFound, AtomicBoolean generationComplete) 
+    public CombinationQueue() 
     {
-        this.solutionFound = solutionFound;
-        this.generationComplete = generationComplete;
+        queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     }
 
     // Existing methods unchanged...
@@ -166,16 +162,5 @@ public class CombinationQueue
         consumer.setDeque(outputBatch);
 
         return queue.drain(consumer);
-    }
-
-    // Existing methods unchanged...
-    public boolean isSolutionFound() 
-    {
-        return solutionFound.get();
-    }
-
-    public boolean isGenerationComplete() 
-    {
-        return generationComplete.get();
     }
 }

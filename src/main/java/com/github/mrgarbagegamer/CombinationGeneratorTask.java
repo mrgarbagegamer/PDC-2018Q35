@@ -70,7 +70,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private boolean isTaskCancelled() 
     {
         if (cancelled) return true;
-        if (queueArray.isSolutionFound()) return cancelled = true;
+        if (queueArray.solutionFound) return cancelled = true;
         if (parent != null && parent.isTaskCancelled()) return cancelled = true;
         return false;
     }
@@ -284,7 +284,7 @@ public class CombinationGeneratorTask extends RecursiveAction
             }
 
             // Only check cancellation if requested (for task flushing, not final flush)
-            if (checkCancellation && queueArray.isSolutionFound()) break;
+            if (checkCancellation && queueArray.solutionFound) break;
         }
     }
 

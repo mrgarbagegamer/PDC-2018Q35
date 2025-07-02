@@ -60,6 +60,17 @@ public class CombinationQueue
 
     // NEW: WorkBatch integration methods
 
+    public int fillFromWorkBatch(WorkBatch workBatch) 
+    {
+        if (workBatch.isEmpty()) return 0;
+
+        // Limit by both requested amount and available space in queue
+        int limit = Math.min(workBatch.size(), QUEUE_SIZE);
+        
+        // Use JCTools optimized fill operation
+        return queue.fill(workBatch, limit);
+    }
+    
     /**
      * Efficiently drain combinations directly into WorkBatch.
      * Uses JCTools optimized drain operation with WorkBatch as consumer.

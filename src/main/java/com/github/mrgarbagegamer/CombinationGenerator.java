@@ -98,7 +98,7 @@ public class CombinationGenerator extends Thread
             stack.push(getState(i + 1, 1, indices));
         }
 
-        Deque<int[]> batch = new ArrayDeque<>(BATCH_SIZE);
+        WorkBatch batch = new WorkBatch(BATCH_SIZE);
         int roundRobinIdx = 0;
         int[] buffer = new int[k];
 
@@ -179,7 +179,7 @@ public class CombinationGenerator extends Thread
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
     }
     
-    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, Deque<int[]> batch, int k) 
+    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, WorkBatch batch, int k) 
     {
         for (int j = 0; j < k; j++)
         { 
@@ -187,10 +187,10 @@ public class CombinationGenerator extends Thread
         }
         int[] combination = new int[k];
         System.arraycopy(buffer, 0, combination, 0, k);
-        batch.offerLast(combination);
+        batch.add(combination);
     }
 
-    private int flushBatch(Deque<int[]> batch, int roundRobinIdx)
+    private int flushBatch(WorkBatch batch, int roundRobinIdx)
     {
         while (!batch.isEmpty() && !queueArray.isSolutionFound()) 
         {
@@ -199,7 +199,7 @@ public class CombinationGenerator extends Thread
             {
                 int idx = (roundRobinIdx + attempt) % numConsumers;
                 CombinationQueue queue = queueArray.getQueue(idx);
-                int added = queue.fillFromBatch(batch);
+                int added = queue.fillFromWorkBatch(batch);
                 if (added > 0) 
                 {
                     roundRobinIdx = (idx + 1) % numConsumers;
@@ -210,7 +210,7 @@ public class CombinationGenerator extends Thread
             {
                 try 
                 { 
-                    Thread.sleep(5); 
+                    Thread.sleep(1); 
                 } 
                 catch (InterruptedException e) 
                 { 

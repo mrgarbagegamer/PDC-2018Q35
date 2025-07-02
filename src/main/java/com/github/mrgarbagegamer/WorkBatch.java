@@ -6,7 +6,7 @@ import org.jctools.queues.MessagePassingQueue;
  * High-performance circular buffer for worker thread batching.
  * Eliminates ArrayDeque overhead while maintaining the same semantics.
  */
-public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>
+public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, MessagePassingQueue.Supplier<int[]>
 {
     private final int[][] buffer;
     private final int capacity;
@@ -90,6 +90,16 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>
     public void accept(int[] combination) 
     {
         add(combination);
+    }
+
+    /**
+     * MessagePassingQueue.Supplier implementation for JCTools integration.
+     * This allows CombinationQueue to poll directly from WorkBatch.
+     */
+    @Override
+    public int[] get() 
+    {
+        return poll();
     }
 
     /**

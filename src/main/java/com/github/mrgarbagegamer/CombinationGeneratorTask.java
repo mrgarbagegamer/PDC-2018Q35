@@ -27,8 +27,8 @@ public class CombinationGeneratorTask extends RecursiveAction
         ThreadLocal.withInitial(() -> new ArrayDeque<>(16));
 
     // ThreadLocal batch for each worker thread
-    private static final ThreadLocal<Deque<int[]>> THREAD_BATCH = 
-        ThreadLocal.withInitial(() -> new ArrayDeque<>(BATCH_SIZE));
+    private static final ThreadLocal<WorkBatch> THREAD_BATCH = 
+        ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
 
     private final IntList possibleClicks;
     private final int numClicks;
@@ -198,7 +198,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                 combination[j] = possibleClicks.getInt(prefix[j]);
             }
             
-            Deque<int[]> batch = getBatch();
+            WorkBatch batch = getBatch();
             
             for (int i = start; i < max; i++) {
                 if (i % 100 == 0 && isTaskCancelled()) 
@@ -235,7 +235,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Extract shared flushing logic
-    private static void flushBatchHelper(Deque<int[]> batch, CombinationQueueArray queueArray, boolean checkCancellation)
+    private static void flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation)
     {
         if (batch == null || batch.isEmpty()) return;
         
@@ -253,7 +253,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                 CombinationQueue queue = queues[idx];
                 
                 // Use the new batch fill operation instead of individual adds
-                int added = queue.fillFromBatch(batch);
+                int added = queue.fillFromWorkBatch(batch);
                 
                 if (added > 0) // The queue has successfully accepted some combinations from the batch
                 {
@@ -282,7 +282,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Simplified flushBatch method
-    private void flushBatch(Deque<int[]> batch) 
+    private void flushBatch(WorkBatch batch) 
     {
         if (batch.isEmpty()) return;
         
@@ -296,7 +296,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         // Submit a small task to each worker thread to flush its batch
         pool.submit(() -> {
-            Deque<int[]> batch = THREAD_BATCH.get();
+            WorkBatch batch = THREAD_BATCH.get();
             if (batch != null && !batch.isEmpty()) 
             {
                 flushBatchHelper(batch, queueArray, false);
@@ -305,10 +305,10 @@ public class CombinationGeneratorTask extends RecursiveAction
             return null;
         }).join(); // Wait for completion
     }
-    
-    private Deque<int[]> getBatch() 
+
+    private WorkBatch getBatch() 
     {
-        Deque<int[]> batch = THREAD_BATCH.get();
+        WorkBatch batch = THREAD_BATCH.get();
         if (batch.size() >= BATCH_SIZE) 
         {
             flushBatch(batch);

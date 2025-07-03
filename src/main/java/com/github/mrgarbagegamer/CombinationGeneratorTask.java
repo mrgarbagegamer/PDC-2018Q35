@@ -75,6 +75,10 @@ public class CombinationGeneratorTask extends RecursiveAction
         return false;
     }
 
+    /**
+     * Main compute method - split into smaller methods to enable JIT inlining.
+     * The original large method was marked as "too big" by the JIT compiler.
+     */
     @Override
     protected void compute()
     {
@@ -83,162 +87,229 @@ public class CombinationGeneratorTask extends RecursiveAction
         
         if (prefixLength < numClicks - 1) 
         {
-            // Before creating subtasks, check if this prefix path can possibly lead to a solution
-            if (prefixLength >= 2) 
-            {
-                // Check all true cells, not just the first one
-                if (trueCells != null && trueCells.length > 0) 
-                {
-                    boolean canPotentiallySatisfyAll = true;
-                    
-                    for (int trueCell : trueCells) 
-                    {
-                        // Count adjacents from the prefix
-                        int adjacentCount = 0;
-                        for (int j = 0; j < prefixLength; j++) 
-                        {
-                            int cell = possibleClicks.getInt(prefix[j]);
-                            if (Grid.areAdjacent(trueCell, cell))
-                            {
-                                adjacentCount++;
-                            }
-                        }
-                        
-                        // Check if we could potentially satisfy odd adjacency
-                        boolean needsOdd = (adjacentCount & 1) == 0;
-                        
-                        // If we need an odd number of adjacents, check if it's possible
-                        if (needsOdd) 
-                        {
-                            boolean foundPossible = false;
-                            // Check if any remaining position could be adjacent
-                            for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
-                            {
-                                int cell = possibleClicks.getInt(i);
-                                if (Grid.areAdjacent(trueCell, cell))
-                                {
-                                    foundPossible = true;
-                                    break;
-                                }
-                            }
-                            
-                            if (!foundPossible) 
-                            {
-                                canPotentiallySatisfyAll = false;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // Skip this entire branch if it can't possibly satisfy constraints
-                    if (!canPotentiallySatisfyAll) 
-                    {
-                        return;
-                    }
-                }
-            }
-        
-            // Use simple array instead of Deque for subtasks
-            int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-            int max = possibleClicks.size() - (numClicks - prefixLength) + 1;
-
-            if (prefixLength == 0) max = Math.min(max, maxFirstClickIndex + 1);
-            
-            int numSubtasks = max - start;
-            if (numSubtasks <= 0) return;
-            
-            // Get subtask array from pool or allocate new one
-            CombinationGeneratorTask[] subtasks = getSubtaskArray(numSubtasks);
-            int subtaskCount = 0;
-            
-            for (int i = start; i < max; i++) 
-            {
-                // Check for solution found at regular intervals
-                if (i % 100 == 0 && isTaskCancelled()) 
-                {
-                    putSubtaskArray(subtasks);
-                    return;
-                }
-                
-                // Get prefix array from pool
-                int[] newPrefix = getIntArray(prefixLength + 1);
-                System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
-                newPrefix[prefixLength] = i;
-
-                // Create subtask with this as parent
-                subtasks[subtaskCount++] = new CombinationGeneratorTask(
-                    possibleClicks, numClicks, newPrefix, prefixLength + 1, 
-                    queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
-            }
-            
-            if (subtaskCount > 0) 
-            {
-                try 
-                {
-                    List<CombinationGeneratorTask> taskList = Arrays.asList(subtasks).subList(0, subtaskCount);
-                    invokeAll(taskList);
-
-                    // Recycle prefix arrays after subtasks complete
-                    for (CombinationGeneratorTask subtask : taskList) putIntArray(subtask.prefix);
-                } catch (CancellationException ce) 
-                {
-                    // Task was cancelled, just return
-                    
-                } 
-                finally 
-                {
-                    putSubtaskArray(subtasks);
-                }
-            } 
-            else putSubtaskArray(subtasks);
+            // Handle recursive subtask creation for intermediate levels
+            computeSubtasks();
         } 
         else 
         {
-            // Direct generation without intermediate arrays for leaf level
-            int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-            int max = possibleClicks.size();
-            
-            // Reuse a single combination array
-            int[] combination = getIntArray(numClicks);
-            
-            // Copy prefix once
-            for (int j = 0; j < prefixLength; j++) combination[j] = possibleClicks.getInt(prefix[j]);
-            
-            WorkBatch batch = getBatch();
-            
-            for (int i = start; i < max; i++) 
+            // Handle direct combination generation for leaf level
+            computeLeafCombinations();
+        }
+    }
+
+    /**
+     * Handles subtask creation and execution for non-leaf nodes.
+     * Split from main compute() to enable JIT inlining of this hot path.
+     */
+    private void computeSubtasks()
+    {
+        // Before creating subtasks, check if this prefix path can possibly lead to a solution
+        if (prefixLength >= 2 && !canPotentiallySatisfyConstraints()) 
+        {
+            return; // Early pruning - skip this entire branch
+        }
+
+        // Calculate subtask range
+        int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
+        int max = possibleClicks.size() - (numClicks - prefixLength) + 1;
+        if (prefixLength == 0) max = Math.min(max, maxFirstClickIndex + 1);
+        
+        int numSubtasks = max - start;
+        if (numSubtasks <= 0) return;
+        
+        // Create and execute subtasks
+        createAndExecuteSubtasks(start, max, numSubtasks);
+    }
+
+    /**
+     * Early pruning logic extracted to separate method for better JIT optimization.
+     * Checks if the current prefix can potentially satisfy all true cell constraints.
+     */
+    private boolean canPotentiallySatisfyConstraints()
+    {
+        // Check all true cells, not just the first one
+        if (trueCells == null || trueCells.length == 0) return true;
+        
+        boolean canPotentiallySatisfyAll = true;
+        
+        for (int trueCell : trueCells) 
+        {
+            // Count adjacents from the prefix
+            int adjacentCount = 0;
+            for (int j = 0; j < prefixLength; j++) 
             {
-                if (i % 100 == 0 && isTaskCancelled()) 
+                int cell = possibleClicks.getInt(prefix[j]);
+                if (Grid.areAdjacent(trueCell, cell))
                 {
-                    putIntArray(combination);
-                    return;
-                }
-                
-                combination[prefixLength] = possibleClicks.getInt(i);
-                
-                if (trueCells != null && trueCells.length > 0 &&
-                    !quickOddAdjacency(combination, trueCells[0])) 
-                {
-                    continue;
-                }
-                
-                // Only clone when adding to batch
-                int[] clone = combination.clone();
-                batch.add(clone);
-                
-                if (batch.size() >= BATCH_SIZE) 
-                {
-                    flushBatch(batch);
-                    batch.clear(); // Clear after flushing
-                    if (isTaskCancelled()) 
-                    {
-                        putIntArray(combination);
-                        return;
-                    }
+                    adjacentCount++;
                 }
             }
-            putIntArray(combination);
-            // Don't flush partial batches - they'll be flushed by the main thread later
+            
+            // Check if we could potentially satisfy odd adjacency
+            boolean needsOdd = (adjacentCount & 1) == 0;
+            
+            // If we need an odd number of adjacents, check if it's possible
+            if (needsOdd) 
+            {
+                if (!hasRemainingAdjacentOption(trueCell)) 
+                {
+                    canPotentiallySatisfyAll = false;
+                    break;
+                }
+            }
+        }
+        
+        return canPotentiallySatisfyAll;
+    }
+
+    /**
+     * Checks if there are remaining click positions that could be adjacent to the given true cell.
+     * Extracted for better method size management and JIT optimization.
+     */
+    private boolean hasRemainingAdjacentOption(int trueCell)
+    {
+        // Check if any remaining position could be adjacent
+        for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
+        {
+            int cell = possibleClicks.getInt(i);
+            if (Grid.areAdjacent(trueCell, cell))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Creates subtasks and manages their execution.
+     * Separated from computeSubtasks() to keep methods small and inlinable.
+     */
+    private void createAndExecuteSubtasks(int start, int max, int numSubtasks)
+    {
+        // Get subtask array from pool or allocate new one
+        CombinationGeneratorTask[] subtasks = getSubtaskArray(numSubtasks);
+        int subtaskCount = 0;
+        
+        // Create all subtasks
+        for (int i = start; i < max; i++) 
+        {
+            // Check for solution found at regular intervals
+            if (i % 100 == 0 && isTaskCancelled()) 
+            {
+                putSubtaskArray(subtasks);
+                return;
+            }
+            
+            // Get prefix array from pool
+            int[] newPrefix = getIntArray(prefixLength + 1);
+            System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
+            newPrefix[prefixLength] = i;
+
+            // Create subtask with this as parent
+            subtasks[subtaskCount++] = new CombinationGeneratorTask(
+                possibleClicks, numClicks, newPrefix, prefixLength + 1, 
+                queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
+        }
+        
+        // Execute all created subtasks
+        executeSubtasks(subtasks, subtaskCount);
+    }
+
+    /**
+     * Executes the created subtasks using invokeAll and handles cleanup.
+     * Final piece of the subtask execution pipeline.
+     */
+    private void executeSubtasks(CombinationGeneratorTask[] subtasks, int subtaskCount)
+    {
+        if (subtaskCount > 0) 
+        {
+            try 
+            {
+                List<CombinationGeneratorTask> taskList = Arrays.asList(subtasks).subList(0, subtaskCount);
+                invokeAll(taskList);
+
+                // Recycle prefix arrays after subtasks complete
+                for (CombinationGeneratorTask subtask : taskList) putIntArray(subtask.prefix);
+            } catch (CancellationException ce) 
+            {
+                // Task was cancelled, just return
+            } 
+            finally 
+            {
+                putSubtaskArray(subtasks);
+            }
+        } 
+        else 
+        {
+            putSubtaskArray(subtasks);
+        }
+    }
+
+    /**
+     * Handles direct combination generation for leaf-level tasks.
+     * Split from main compute() to enable better JIT optimization of this hot path.
+     */
+    private void computeLeafCombinations()
+    {
+        // Direct generation without intermediate arrays for leaf level
+        int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
+        int max = possibleClicks.size();
+        
+        // Reuse a single combination array
+        int[] combination = getIntArray(numClicks);
+        
+        // Copy prefix once
+        for (int j = 0; j < prefixLength; j++) 
+        {
+            combination[j] = possibleClicks.getInt(prefix[j]);
+        }
+        
+        WorkBatch batch = getBatch();
+        
+        // Generate all combinations for this leaf
+        generateCombinations(start, max, combination, batch);
+        
+        putIntArray(combination);
+        // Don't flush partial batches - they'll be flushed by the main thread later
+    }
+
+    /**
+     * Core combination generation loop extracted for better JIT optimization.
+     * This is one of the hottest paths in the entire application.
+     */
+    private void generateCombinations(int start, int max, int[] combination, WorkBatch batch)
+    {
+        for (int i = start; i < max; i++) 
+        {
+            // Check for cancellation at regular intervals
+            if (i % 100 == 0 && isTaskCancelled()) 
+            {
+                return;
+            }
+            
+            combination[prefixLength] = possibleClicks.getInt(i);
+            
+            // Apply pruning filter - skip combinations that can't satisfy odd adjacency
+            if (trueCells != null && trueCells.length > 0 &&
+                !quickOddAdjacency(combination, trueCells[0])) 
+            {
+                continue;
+            }
+            
+            // Only clone when adding to batch (avoid unnecessary allocations)
+            int[] clone = combination.clone();
+            batch.add(clone);
+            
+            // Flush batch when it reaches capacity
+            if (batch.size() >= BATCH_SIZE) 
+            {
+                flushBatch(batch);
+                batch.clear(); // Clear after flushing
+                if (isTaskCancelled()) 
+                {
+                    return;
+                }
+            }
         }
     }
 

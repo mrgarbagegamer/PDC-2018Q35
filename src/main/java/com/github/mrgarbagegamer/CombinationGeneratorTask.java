@@ -67,12 +67,11 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Check if this task or any parent task has been cancelled
+    // Cache-friendly cancellation checking
     private boolean isTaskCancelled() 
     {
-        if (cancelled) return true;
-        if (queueArray.solutionFound) return cancelled = true;
-        if (parent != null && parent.isTaskCancelled()) return cancelled = true;
-        return false;
+        // Single volatile read per call
+        return cancelled || queueArray.solutionFound || (parent != null && parent.cancelled);
     }
 
     /**

@@ -66,7 +66,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     // Cache-friendly cancellation checking
     private boolean isTaskCancelled() 
     {
-        // Single volatile read per call
+        // Up to 3 volatile reads per call depending on branching: cancelled, solutionFound, and parent.cancelled
         return cancelled || queueArray.solutionFound || (parent != null && parent.cancelled);
     }
 

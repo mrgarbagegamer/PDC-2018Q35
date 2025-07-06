@@ -167,14 +167,13 @@ public class CombinationGeneratorTask extends RecursiveAction
      */
     private boolean hasRemainingAdjacentOption(int trueCell)
     {
-        // Check if any remaining position could be adjacent
-        for (int i = prefix[prefixLength-1] + 1; i < possibleClicks.size(); i++)
+        int startIdx = prefix[prefixLength-1] + 1;
+        int maxIdx = possibleClicks.size();
+        
+        // Use simple loop without method calls to enable C2 inlining
+        for (int i = startIdx; i < maxIdx; i++)
         {
-            int cell = possibleClicks.getInt(i);
-            if (Grid.areAdjacent(trueCell, cell))
-            {
-                return true;
-            }
+            if (Grid.areAdjacent(trueCell, possibleClicks.getInt(i))) return true;
         }
         return false;
     }

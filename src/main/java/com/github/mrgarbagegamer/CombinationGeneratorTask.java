@@ -22,10 +22,6 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<ArrayPool> combinationArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 64)); // Full combination arrays
         
-    // Custom subtask pool instead of nested ArrayDeques
-    private static final ThreadLocal<SubtaskPool> subtaskPool = 
-        ThreadLocal.withInitial(() -> new SubtaskPool(32));
-
     // ThreadLocal batch for each worker thread
     private static final ThreadLocal<WorkBatch> THREAD_BATCH = 
         ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
@@ -184,19 +180,14 @@ public class CombinationGeneratorTask extends RecursiveAction
      */
     private void createAndExecuteSubtasks(int start, int max, int numSubtasks)
     {
-        // Get subtask array from pool or allocate new one
-        CombinationGeneratorTask[] subtasks = getSubtaskArray(numSubtasks);
+        // Direct allocation - no pooling overhead for small arrays
+        CombinationGeneratorTask[] subtasks = new CombinationGeneratorTask[numSubtasks];
         int subtaskCount = 0;
         
-        // Create all subtasks
         for (int i = start; i < max; i++) 
         {
             // Check for solution found at regular intervals
-            if (i % 100 == 0 && isTaskCancelled()) 
-            {
-                putSubtaskArray(subtasks);
-                return;
-            }
+            if (i % 100 == 0 && isTaskCancelled()) return;
             
             // Get prefix array from pool
             int[] newPrefix = getIntArray(prefixLength + 1);
@@ -234,13 +225,10 @@ public class CombinationGeneratorTask extends RecursiveAction
             } 
             finally 
             {
-                putSubtaskArray(subtasks);
+                // Removed subtask array pooling - now directly allocated
             }
         } 
-        else 
-        {
-            putSubtaskArray(subtasks);
-        }
+        // Removed else branch - no longer needed
     }
 
     /**
@@ -425,28 +413,6 @@ public class CombinationGeneratorTask extends RecursiveAction
             ArrayPool pool = combinationArrayPool.get();
             pool.put(arr);
         }
-    }
-
-    // High-performance subtask array pooling
-    private CombinationGeneratorTask[] getSubtaskArray(int minSize) 
-    {
-        SubtaskPool pool = subtaskPool.get();
-        CombinationGeneratorTask[] array = pool.get();
-        
-        if (array != null && array.length >= minSize) return array;
-        
-        // Put back if too small and allocate new one
-        if (array != null) pool.put(array);
-        
-        return new CombinationGeneratorTask[Math.max(minSize, 64)]; // Pre-size for typical use
-    }
-
-    private void putSubtaskArray(CombinationGeneratorTask[] array) 
-    {
-        if (array == null) return;
-        
-        SubtaskPool pool = subtaskPool.get();
-        pool.put(array);
     }
 
     // Add these fields to cache adjacents for the current firstTrueCell

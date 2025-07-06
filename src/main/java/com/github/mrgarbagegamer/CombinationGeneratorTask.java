@@ -116,62 +116,111 @@ public class CombinationGeneratorTask extends RecursiveAction
         createAndExecuteSubtasks(start, max, numSubtasks);
     }
 
-    /**
-     * Early pruning logic extracted to separate method for better JIT optimization.
-     * Checks if the current prefix can potentially satisfy all true cell constraints.
-     */
-    private boolean canPotentiallySatisfyConstraints()
+    // Add these static fields for pre-computed adjacency data
+    private static long[][] TRUE_CELL_ADJACENCY_MASKS = initTrueCellMasks();
+    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
+    private static final int GRID_SIZE = 700; // Adjust for your grid
+
+    private static long[][] initTrueCellMasks() 
     {
-        // Check all true cells, not just the first one
-        if (trueCells == null || trueCells.length == 0) return true;
-        
-        boolean canPotentiallySatisfyAll = true;
-        
-        for (int trueCell : trueCells) 
+        // This will be set when the first task is created with actual trueCells
+        return null;
+    }
+
+    private static boolean[][] initClickAdjacencyMatrix() 
+    {
+        boolean[][] matrix = new boolean[GRID_SIZE][GRID_SIZE];
+        for (int i = 0; i < GRID_SIZE; i++) 
         {
-            // Count adjacents from the prefix
-            int adjacentCount = 0;
-            for (int j = 0; j < prefixLength; j++) 
+            int[] adjacents = Grid.findAdjacents(i);
+            if (adjacents != null) 
             {
-                int cell = possibleClicks.getInt(prefix[j]);
-                if (Grid.areAdjacent(trueCell, cell))
+                for (int adj : adjacents) 
                 {
-                    adjacentCount++;
-                }
-            }
-            
-            // Check if we could potentially satisfy odd adjacency
-            boolean needsOdd = (adjacentCount & 1) == 0;
-            
-            // If we need an odd number of adjacents, check if it's possible
-            if (needsOdd) 
-            {
-                if (!hasRemainingAdjacentOption(trueCell)) 
-                {
-                    canPotentiallySatisfyAll = false;
-                    break;
+                    if (adj < GRID_SIZE) matrix[i][adj] = true;
                 }
             }
         }
-        
-        return canPotentiallySatisfyAll;
+        return matrix;
+    }
+
+    // Lazy initialization of true cell masks when first needed
+    private static void ensureTrueCellMasks(int[] trueCells) 
+    {
+        if (TRUE_CELL_ADJACENCY_MASKS == null && trueCells != null) 
+        {
+            synchronized (CombinationGeneratorTask.class) 
+            {
+                if (TRUE_CELL_ADJACENCY_MASKS == null) 
+                {
+                    long[][] masks = new long[GRID_SIZE][];
+                    
+                    for (int clickCell = 0; clickCell < GRID_SIZE; clickCell++) 
+                    {
+                        long mask = 0L;
+                        for (int i = 0; i < trueCells.length; i++) 
+                        {
+                            if (CLICK_ADJACENCY_MATRIX[trueCells[i]][clickCell]) 
+                            {
+                                mask |= (1L << i);
+                            }
+                        }
+                        masks[clickCell] = new long[] { mask };
+                    }
+                    
+                    TRUE_CELL_ADJACENCY_MASKS = masks;
+                }
+            }
+        }
     }
 
     /**
-     * Checks if there are remaining click positions that could be adjacent to the given true cell.
-     * Extracted for better method size management and JIT optimization.
+     * Ultra-fast constraint checking using pre-computed bitmasks.
+     * This should be small enough for C2 inlining.
      */
-    private boolean hasRemainingAdjacentOption(int trueCell)
+    private boolean canPotentiallySatisfyConstraints()
     {
-        int startIdx = prefix[prefixLength-1] + 1;
+        if (trueCells == null || trueCells.length == 0) return true;
+        
+        // Ensure masks are initialized
+        ensureTrueCellMasks(trueCells);
+        
+        // Compute current adjacency state using bitmasks
+        long currentAdjacencies = 0L;
+        
+        for (int j = 0; j < prefixLength; j++) 
+        {
+            int clickIndex = possibleClicks.getInt(prefix[j]);
+            if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
+            {
+                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0];
+            }
+        }
+        
+        // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
+        long targetMask = (1L << trueCells.length) - 1;
+        long needed = currentAdjacencies ^ targetMask;
+        
+        // If no bits need to be flipped, we're already good
+        if (needed == 0L) return true;
+        
+        // Check if remaining clicks can provide the needed adjacencies
+        int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
         int maxIdx = possibleClicks.size();
         
-        // Use simple loop without method calls to enable C2 inlining
+        long availableAdjacencies = 0L;
+        
         for (int i = startIdx; i < maxIdx; i++)
         {
-            if (Grid.areAdjacent(trueCell, possibleClicks.getInt(i))) return true;
+            int clickIndex = possibleClicks.getInt(i);
+            if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
+            {
+                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0];
+            }
         }
-        return false;
+        
+        // Check if available clicks can satisfy all needed adjacencies
+        return (availableAdjacencies & needed) == needed;
     }
 
     /**

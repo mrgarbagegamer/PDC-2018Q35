@@ -482,21 +482,31 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
-        // Lazy initialization of adjacents BitSet
+        // Skip lazy initialization if it causes inlining issues
         if (CACHED_FIRST_TRUE_CELL != firstTrueCell) 
         {
-            int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700); // Adjust size as needed for your grid
-            for (int adj : adjacents) FIRST_TRUE_ADJACENTS_BITSET.set(adj);
-            CACHED_FIRST_TRUE_CELL = firstTrueCell;
+            updateAdjacencyCache(firstTrueCell); // Extract to separate method
         }
         
         int count = 0;
+        
         // O(1) adjacency check per click
         for (int click : combination) 
         {
             if (FIRST_TRUE_ADJACENTS_BITSET.get(click)) count++;
         }
         return (count & 1) == 1;
+    }
+
+    // Extract cache update to separate method to keep quickOddAdjacency small
+    private static void updateAdjacencyCache(int firstTrueCell)
+    {
+        synchronized (CombinationGeneratorTask.class)
+        {
+            int[] adjacents = Grid.findAdjacents(firstTrueCell);
+            FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700);
+            for (int adj : adjacents) FIRST_TRUE_ADJACENTS_BITSET.set(adj);
+            CACHED_FIRST_TRUE_CELL = firstTrueCell;
+        }
     }
 }

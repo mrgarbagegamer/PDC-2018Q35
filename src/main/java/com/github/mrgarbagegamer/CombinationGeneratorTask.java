@@ -60,14 +60,24 @@ public class CombinationGeneratorTask extends RecursiveAction
         this.trueCells = trueCells;
         this.parent = parent;
         this.maxFirstClickIndex = maxFirstClickIndex;
+        propagateParentCancellation();
     }
 
-    // Check if this task or any parent task has been cancelled
     // Cache-friendly cancellation checking
     private boolean isTaskCancelled() 
     {
-        // Up to 3 volatile reads per call depending on branching: cancelled, solutionFound, and parent.cancelled
-        return cancelled || queueArray.solutionFound || (parent != null && parent.cancelled);
+        // Only check solution found in hot paths
+        if (queueArray.solutionFound) return cancelled = true; // Set cancelled if the solution is found.
+        return false;
+    }
+
+    /**
+     * Propagate cancellation based on the parent task's state.
+     * This method is called at the start of compute() to ensure that if the parent task is cancelled, we stop right then and there.
+     */
+    private void propagateParentCancellation()
+    {
+        if (parent != null && parent.cancelled) this.cancelled = true;
     }
 
     /**
@@ -346,10 +356,6 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 flushBatch(batch);
                 batch.clear(); // Clear after flushing
-                if (isTaskCancelled()) 
-                {
-                    return;
-                }
             }
         }
     }

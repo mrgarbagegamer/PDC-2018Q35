@@ -347,9 +347,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                 continue;
             }
             
-            // Only clone when adding to batch (avoid unnecessary allocations)
-            int[] clone = combination.clone();
-            batch.add(clone);
+            // NO CLONE HERE: Pass the array and length to the batch, which handles copying.
+            batch.add(combination, numClicks);
             
             // Flush batch when it reaches capacity
             if (batch.size() >= BATCH_SIZE) 

@@ -229,14 +229,21 @@ public class CombinationGeneratorTask extends RecursiveAction
      */
     private void createAndExecuteSubtasks(int start, int max, int numSubtasks)
     {
-        // Direct allocation - no pooling overhead for small arrays
+        // Split into two phases to reduce call depth
+        CombinationGeneratorTask[] subtasks = createSubtaskArray(start, max, numSubtasks);
+        executeSubtaskArray(subtasks, numSubtasks);
+    }
+
+    // Separate method to reduce inlining depth
+    private CombinationGeneratorTask[] createSubtaskArray(int start, int max, int numSubtasks)
+    {
         CombinationGeneratorTask[] subtasks = new CombinationGeneratorTask[numSubtasks];
         int subtaskCount = 0;
         
         for (int i = start; i < max; i++) 
         {
-            // Check for solution found at regular intervals
-            if (i % 100 == 0 && isTaskCancelled()) return;
+            // Reduce check frequency here too
+            if ((i & 511) == 0 && isTaskCancelled()) return Arrays.copyOf(subtasks, subtaskCount);
             
             // Get prefix array from pool
             int[] newPrefix = getIntArray(prefixLength + 1);
@@ -249,15 +256,14 @@ public class CombinationGeneratorTask extends RecursiveAction
                 queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
         }
         
-        // Execute all created subtasks
-        executeSubtasks(subtasks, subtaskCount);
+        return Arrays.copyOf(subtasks, subtaskCount);
     }
 
     /**
      * Executes the created subtasks using invokeAll and handles cleanup.
      * Final piece of the subtask execution pipeline.
      */
-    private void executeSubtasks(CombinationGeneratorTask[] subtasks, int subtaskCount)
+    private void executeSubtaskArray(CombinationGeneratorTask[] subtasks, int subtaskCount)
     {
         if (subtaskCount > 0) 
         {

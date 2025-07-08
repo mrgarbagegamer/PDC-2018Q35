@@ -203,9 +203,7 @@ public class CombinationGenerator extends Thread
         { 
             buffer[j] = nodeList.getInt(indices[j]);
         }
-        int[] combination = new int[k];
-        System.arraycopy(buffer, 0, combination, 0, k);
-        batch.add(combination);
+        batch.add(buffer);
     }
 
     private boolean flushBatch(WorkBatch batch, int roundRobinIdx)

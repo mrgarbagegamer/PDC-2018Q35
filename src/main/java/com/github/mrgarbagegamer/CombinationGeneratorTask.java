@@ -13,7 +13,8 @@ import it.unimi.dsi.fastutil.ints.IntList;
 // TODO: Reformat all lines to place curly brackets on different lines than the method signature (for consistency with the rest of the codebase)
 public class CombinationGeneratorTask extends RecursiveAction 
 {
-    private static final int BATCH_SIZE = 4000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach half this size, but will always be flushed when they reach this size.
+    private static final int BATCH_SIZE = 4000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach the FLUSH_THRESHOLD, but will always be flushed when they reach this size.
+    private static final int FLUSH_THRESHOLD = BATCH_SIZE / 2; // The threshold at which we flush the batch to the queue. This is half the batch size to ensure we don't hold too many combinations in memory at once.
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
     
     // Replace ArrayDeque pools with custom high-performance pools
@@ -354,8 +355,8 @@ public class CombinationGeneratorTask extends RecursiveAction
             // The batch is the recycled unit, so we must clone the combination array.
             batch.add(combination.clone());
             
-            // Flush the batch if it reaches half the size
-            if (batch.size() >= BATCH_SIZE / 2) 
+            // Flush the batch if it reaches the threshold
+            if (batch.size() >= FLUSH_THRESHOLD) 
             {
                 if (flushBatch(batch)) 
                 {

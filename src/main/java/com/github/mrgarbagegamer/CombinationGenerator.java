@@ -14,6 +14,7 @@ public class CombinationGenerator extends Thread
     private static final Logger logger = LogManager.getLogger(CombinationGenerator.class);
 
     private static final int BATCH_SIZE = 2000; // Tune as needed
+    private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE / 2);
     private static final int POOL_SIZE = 4096; // Tune as needed
 
     // Static caches for each grid type
@@ -136,7 +137,7 @@ public class CombinationGenerator extends Thread
 
                 recycleIndices(indices);
                 recycleState(state);
-                if (batch.size() >= BATCH_SIZE) 
+                if (batch.size() >= FLUSH_THRESHOLD) 
                     if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch(); // Get a new batch if we flushed
                 continue;
             }
@@ -165,7 +166,7 @@ public class CombinationGenerator extends Thread
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
 
                     recycleIndices(newIndices);
-                    if (batch.size() >= BATCH_SIZE) 
+                    if (batch.size() >= FLUSH_THRESHOLD) 
                     {
                         if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch();
                     }
@@ -183,7 +184,7 @@ public class CombinationGenerator extends Thread
 
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
                     recycleIndices(newIndices);
-                    if (batch.size() >= BATCH_SIZE)
+                    if (batch.size() >= FLUSH_THRESHOLD)
                     {
                         if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch();
                     }
@@ -200,15 +201,15 @@ public class CombinationGenerator extends Thread
     private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, WorkBatch batch, int k) 
     {
         for (int j = 0; j < k; j++)
-        { 
-            buffer[j] = nodeList.getInt(indices[j]);
+        {
+            buffer[j] = nodeList.getInt(indices[j]); // TODO: Investigate whether this is necessary (it's weird that we do this calculation twice in our generator)
         }
         batch.add(buffer);
     }
 
     private boolean flushBatch(WorkBatch batch, int roundRobinIdx)
     {
-        while (!batch.isEmpty() && !queueArray.solutionFound) 
+        while (true) 
         {
             for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
             {
@@ -216,15 +217,20 @@ public class CombinationGenerator extends Thread
                 CombinationQueue queue = queueArray.getQueue(idx);
                 if (queue.add(batch)) return true;
             }
-            try 
-            { 
-                Thread.sleep(1); 
-            } 
-            catch (InterruptedException e) 
-            { 
-                Thread.currentThread().interrupt(); 
-                break; 
+            if (batch.isFull())
+            {
+                try 
+                { 
+                    Thread.sleep(1); 
+                } 
+                catch (InterruptedException e) 
+                { 
+                    Thread.currentThread().interrupt(); 
+                    break; 
+                }
             }
+            else return false;
+            if (queueArray.solutionFound) return false;
         }
         return false;
     }

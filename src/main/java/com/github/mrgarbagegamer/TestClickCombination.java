@@ -150,7 +150,7 @@ public class TestClickCombination extends Thread
                     failedCount++;
                     if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.solutionFound) 
                     {
-                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks));
+                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone()));
                         failedCount = 0; // Reset the count after logging
                     }
                 }

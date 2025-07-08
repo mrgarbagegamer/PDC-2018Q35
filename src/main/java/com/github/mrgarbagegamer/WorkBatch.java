@@ -5,7 +5,7 @@ import org.jctools.queues.MessagePassingQueue;
 /**
  * High-performance circular buffer for worker thread batching.
  * Eliminates ArrayDeque overhead while maintaining the same semantics.
- * This object is now pooled and recycled.
+ * This object is now pooled and recycled, with the assumption that only one thread will have access to the object at a time.
  */
 public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, MessagePassingQueue.Supplier<int[]>
 {
@@ -22,45 +22,27 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
     }
 
     /**
-     * Adds a combination by copying its contents into a new pooled array.
-     * This avoids the caller needing to clone.
+     * Adds a combination by copying its contents into the array at the tail of the buffer.
+     * This avoids the caller needing to clone and prevents allocation of temporary objects.
      * @param source The source combination array.
-     * @param length The number of elements to copy from the source.
      * @return true if the element was added, false if the batch is full.
      */
-    public boolean add(int[] source, int length)
+    public boolean add(int[] source) 
     {
         if (isFull())
         {
             return false;
         }
-        // For now, we still clone here, but the key is that the generator doesn't.
-        // A more advanced version would use an ArrayPool here.
-        int[] newArr = new int[length];
-        System.arraycopy(source, 0, newArr, 0, length);
-        this.buffer[size++] = newArr;
-        return true;
-    }
-
-    /**
-     * Add combination to batch. Returns false if full.
-     * The generator is responsible for providing a new array instance.
-     */
-    public boolean add(int[] combination) 
-    {
-        if (size >= capacity)
-        {
-            return false;
-        }
-        
-        buffer[tail] = combination;
+        if (buffer[tail] == null) buffer[tail] = new int[source.length];
+        System.arraycopy(source, 0, buffer[tail], 0, source.length);
         tail = (tail + 1) % capacity;
         size++;
         return true;
     }
 
     /**
-     * Remove and return next combination. Returns null if empty.
+     * Remove and return next combination.
+     * @return result if there is a valid combination in the array, null if the batch is empty.
      */
     public int[] poll() 
     {
@@ -70,7 +52,6 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
         }
         
         int[] result = buffer[head];
-        buffer[head] = null; // Help GC
         head = (head + 1) % capacity;
         size--;
         return result;
@@ -101,15 +82,10 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
     }
 
     /**
-     * Clear all elements and reset pointers for recycling.
-     * Nulls out references to help the GC.
+     * "Clears" the batch for reuse, making sure not to null the previous arrays (as this would force add() to create a new array).
      */
     public void clear() 
     {
-        for (int i = 0; i < capacity; i++)
-        {
-            buffer[i] = null;
-        }
         head = 0;
         tail = 0;
         size = 0;

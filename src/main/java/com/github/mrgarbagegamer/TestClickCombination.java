@@ -159,8 +159,7 @@ public class TestClickCombination extends Thread
                 puzzleGrid.initialize();
             }
 
-            // After processing, clear the batch and recycle it.
-            workBatch.clear();
+            // After processing, recycle the batch
             queueArray.getWorkBatchPool().offer(workBatch);
         }
     }

@@ -13,18 +13,21 @@ import it.unimi.dsi.fastutil.ints.IntList;
 // TODO: Reformat all lines to place curly brackets on different lines than the method signature (for consistency with the rest of the codebase)
 public class CombinationGeneratorTask extends RecursiveAction 
 {
-    private static final int BATCH_SIZE = 4000; // Increase from 2000 to reduce flush overhead
+    private static final int BATCH_SIZE = 4000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach half this size, but will always be flushed when they reach this size.
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
     
     // Replace ArrayDeque pools with custom high-performance pools
     private static final ThreadLocal<ArrayPool> prefixArrayPool = 
-        ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 32)); // Smaller arrays
-    private static final ThreadLocal<ArrayPool> combinationArrayPool = 
-        ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 64)); // Full combination arrays
-        
-    // ThreadLocal batch for each worker thread
-    private static final ThreadLocal<WorkBatch> THREAD_BATCH = 
+        ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 32));
+    
+    // Thread-local variable to hold the current batch being processed. This batch should be released whenever we flush it to the queue and replaced by a new batch.
+    private static final ThreadLocal<WorkBatch> batchHolder = 
         ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
+
+    // Thread-local array for final combination building. We avoid initializing it until needed so the array can be perfectly sized for numClicks.
+    private static final ThreadLocal<int[]> combinationBuilder =
+        new ThreadLocal<int[]>();
+
 
     private final IntList possibleClicks;
     private final int numClicks;
@@ -100,12 +103,15 @@ public class CombinationGeneratorTask extends RecursiveAction
             // Handle direct combination generation for leaf level
             computeLeafCombinations();
         }
+
+        // We don't flush partial batches anymore; they will either be flushed when the batch is full or when the final task completes.
     }
 
     /**
      * Handles subtask creation and execution for non-leaf nodes.
      * Split from main compute() to enable JIT inlining of this hot path.
      */
+
     private void computeSubtasks()
     {
         // Before creating subtasks, check if this prefix path can possibly lead to a solution
@@ -305,9 +311,8 @@ public class CombinationGeneratorTask extends RecursiveAction
         // Direct generation without intermediate arrays for leaf level
         int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
         int max = possibleClicks.size();
-        
-        // Reuse a single combination array
-        int[] combination = getIntArray(numClicks);
+
+        int[] combination = getCombinationArray();
         
         // Copy prefix once
         for (int j = 0; j < prefixLength; j++) 
@@ -315,13 +320,12 @@ public class CombinationGeneratorTask extends RecursiveAction
             combination[j] = possibleClicks.getInt(prefix[j]);
         }
         
-        WorkBatch batch = getBatch();
-        
-        // Generate all combinations for this leaf
+        // Get the thread batch for this task.
+        WorkBatch batch = batchHolder.get();
+
         generateCombinations(start, max, combination, batch);
-        
+
         putIntArray(combination);
-        // Don't flush partial batches - they'll be flushed by the main thread later
     }
 
     /**
@@ -333,7 +337,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         for (int i = start; i < max; i++) 
         {
             // Check for cancellation at regular intervals
-            if (i % 100 == 0 && isTaskCancelled()) 
+            if ((i & 127) == 0 && isTaskCancelled()) 
             {
                 return;
             }
@@ -347,48 +351,64 @@ public class CombinationGeneratorTask extends RecursiveAction
                 continue;
             }
             
-            // NO CLONE HERE: Pass the array and length to the batch, which handles copying.
-            batch.add(combination, numClicks);
+            // The batch is the recycled unit, so we must clone the combination array.
+            batch.add(combination.clone());
             
-            // Flush batch when it reaches capacity
-            if (batch.size() >= BATCH_SIZE) 
+            // Flush the batch if it reaches half the size
+            if (batch.size() >= BATCH_SIZE / 2) 
             {
-                flushBatch(batch);
-                batch.clear(); // Clear after flushing
+                if (flushBatch(batch)) 
+                {
+                    // If the flush succeeds, we need to get a new batch.
+                    batch = getNewBatch();
+                    batchHolder.set(batch); // Update the thread-local batch holder
+                }
             }
         }
     }
 
-    // Extract shared flushing logic
-    private static void flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation)
+    private int[] getCombinationArray()
     {
-        if (batch == null || batch.isEmpty()) return;
+        // Get a recycled combination array or create a new one if necessary
+        int[] combination = combinationBuilder.get();
+        if (combination == null) 
+        {
+            combination = new int[numClicks];
+            combinationBuilder.set(combination); // Store the new array for future use.
+        }
+        return combination;
+    }
+
+    // NEW: Gets a recycled or new WorkBatch.
+    private WorkBatch getNewBatch()
+    {
+        WorkBatch batch = queueArray.getWorkBatchPool().poll();
+        if (batch != null) return batch;
+        return new WorkBatch(BATCH_SIZE);
+    }
+
+    private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) 
+    {
+        if (batch == null || batch.isEmpty())
+        {
+            return false;
+        }
         
         CombinationQueue[] queues = queueArray.getAllQueues();
         int numQueues = queues.length;
         int startQueue = ThreadLocalRandom.current().nextInt(numQueues);
-        
-        while (!batch.isEmpty()) 
-        {
-            boolean addedAny = false;
-            
-            for (int attempt = 0; attempt < numQueues && !batch.isEmpty(); attempt++) 
+
+        // Try to offer the entire batch to a queue.
+        while (true) 
+        {   
+            for (int attempt = 0; attempt < numQueues; attempt++) 
             {
                 int idx = (startQueue + attempt) % numQueues;
                 CombinationQueue queue = queues[idx];
                 
-                // Use the new batch fill operation instead of individual adds
-                int added = queue.fillFromWorkBatch(batch);
-                
-                if (added > 0) // The queue has successfully accepted some combinations from the batch
-                {
-                    addedAny = true;
-                    startQueue = (idx + 1) % numQueues;
-                    break;
-                }
+                if (queue.add(batch)) return true;
             }
-            
-            if (!addedAny) 
+            if (forceFlush)
             {
                 try 
                 { 
@@ -396,67 +416,64 @@ public class CombinationGeneratorTask extends RecursiveAction
                 } catch (InterruptedException e) 
                 { 
                     Thread.currentThread().interrupt();
-                    break; 
+                    return false; // Exit if interrupted 
                 }
             }
-
+            else
+            {
+                // If not forcing flush, we can break after one attempt
+                return false; // No queue accepted the batch
+            }
             // Only check cancellation if requested (for task flushing, not final flush)
-            if (checkCancellation && queueArray.solutionFound) break;
+            if (checkCancellation && queueArray.solutionFound) return false;
         }
     }
 
-    // Simplified flushBatch method
-    private void flushBatch(WorkBatch batch) 
+    private boolean flushBatch(WorkBatch batch) 
     {
-        if (batch.isEmpty()) return;
+        if (batch == null || batch.isEmpty()) 
+        {
+            return false; // Nothing to flush
+        }
         
-        flushBatchHelper(batch, queueArray, true);
-
-        // Removed UAF: Never recycle arrays that have been added to the queue
+        // Use the helper method to flush the batch to the queues
+        return flushBatchHelper(batch, queueArray, true, batch.isFull() ? true : false);
     }
     
-    // Method to flush all pending batches from worker threads
+    /**
+     * Flush all pending generator thread batches to the queues.
+     * This method is called when generation is complete or when a solution is found.
+     * It ensures that all pending batches are processed and added to the queues.
+     * @param queueArray - the CombinationQueueArray to which batches will be flushed.
+     * @param pool - the ForkJoinPool used for processing batches.
+     */
     public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
     {
-        // Submit a small task to each worker thread to flush its batch
         pool.submit(() -> {
-            WorkBatch batch = THREAD_BATCH.get();
+            WorkBatch batch = batchHolder.get();
             if (batch != null && !batch.isEmpty()) 
             {
-                flushBatchHelper(batch, queueArray, false);
-                batch.clear();
+                flushBatchHelper(batch, queueArray, false, !queueArray.solutionFound); // Only force flush the batch if a solution hasn't been found yet
+
+                // Clear the thread-local batch holder (this isn't strictly necessary, but doing it helps avoid a potential memory leak or race condition)
+                batchHolder.remove();
             }
-            return null;
-        }).join(); // Wait for completion
+        }).join(); // Wait for completion to ensure all batches are flushed
     }
 
-    private WorkBatch getBatch() 
-    {
-        WorkBatch batch = THREAD_BATCH.get();
-        if (batch.size() >= BATCH_SIZE) 
-        {
-            flushBatch(batch);
-            batch.clear();
-        }
-        return batch;
-    }
-    
-    // High-performance array pooling using custom pools
     private int[] getIntArray(int size) 
     {
-        if (size < numClicks) // Prefix arrays (smaller than full combinations)
+        // Only pool prefix arrays. Combination arrays are cloned.
+        if (size < numClicks)
         {
             ArrayPool pool = prefixArrayPool.get();
             int[] arr = pool.get(size);
-            if (arr != null) return arr;
+            if (arr != null)
+            {
+                return arr;
+            }
         } 
-        else // Full combination arrays (size == numClicks)
-        {
-            ArrayPool pool = combinationArrayPool.get();
-            int[] arr = pool.get(size);
-            if (arr != null) return arr;
-        }
-        return new int[size]; // Allocate a new array if no suitable one was found
+        return new int[size];
     }
 
     private void putIntArray(int[] arr) 
@@ -468,11 +485,7 @@ public class CombinationGeneratorTask extends RecursiveAction
             ArrayPool pool = prefixArrayPool.get();
             pool.put(arr);
         } 
-        else // Full combination arrays
-        {  
-            ArrayPool pool = combinationArrayPool.get();
-            pool.put(arr);
-        }
+        // Do not pool full combination arrays.
     }
 
     // Add these fields to cache adjacents for the current firstTrueCell

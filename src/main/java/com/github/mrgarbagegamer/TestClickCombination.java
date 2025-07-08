@@ -7,22 +7,13 @@ public class TestClickCombination extends Thread
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
     private static final int LOG_EVERY_N_FAILURES = 10000; // Log every N failures to avoid flooding the logs
-    private static final int BATCH_SIZE = 50; // Size of work to take from my queue
-    private static final int STEAL_SIZE = BATCH_SIZE / 5; // Size of the batch to steal from other queues
 
     private final CombinationQueue combinationQueue;
     private final CombinationQueueArray queueArray;
     private final Grid puzzleGrid;
 
-    // Replace ArrayDeque with custom WorkBatch
-    private final WorkBatch workBatch = new WorkBatch(BATCH_SIZE); // Worker-local batch
-
     // Lookup table: clickCell -> bitset of which true cells it's adjacent to
-    private final long[] clickToTrueCellMask; // TODO: Make this static to minimize useless recalculations
-    
-    // Adaptive batch sizing
-    private int currentBatchSize = BATCH_SIZE;
-    private int consecutiveEmptyPolls = 0;
+    private final long[] clickToTrueCellMask;
     
     public TestClickCombination(String threadName, CombinationQueue combinationQueue, CombinationQueueArray queueArray, Grid puzzleGrid) 
     {
@@ -56,67 +47,24 @@ public class TestClickCombination extends Thread
         int failedCount = 0; // Count of failed attempts for logging
         boolean iSolvedIt = false;
         CombinationQueue[] queues = queueArray.getAllQueues();
-        int myIndex = -1;
-        for (int i = 0; i < queues.length; i++) 
-        {
-            if (queues[i] == this.combinationQueue) 
-            {
-                myIndex = i;
-                break;
-            }
-        }
 
         int[] trueCells = puzzleGrid.findTrueCells();
 
         while (!iSolvedIt && !queueArray.solutionFound)
         {
-            // Adaptive batch sizing based on current batch fullness
-            int targetBatchSize = workBatch.isEmpty() ? currentBatchSize : Math.min(currentBatchSize, workBatch.remainingCapacity());
-            
-            // Try to fill work batch from my primary queue using optimized method
-            int obtained = combinationQueue.drainToWorkBatch(workBatch, targetBatchSize);
-            
-            // If my queue is empty, try work stealing from other queues
-            if (obtained == 0) 
+            WorkBatch workBatch = getWork();
+
+            if (workBatch == null)
             {
-                consecutiveEmptyPolls++;
-                
-                // Work stealing with exponential backoff (though I'm not sure if the term "exponential backoff" is appropriate here)
-                if (consecutiveEmptyPolls < 3) 
+                if (queueArray.solutionFound || (queueArray.generationComplete && allQueuesEmpty(queues)))
                 {
-                    // Aggressive stealing when queues are recently empty
-                    for (int i = 0; i < queues.length && workBatch.remainingCapacity() > 0; i++) 
-                    {
-                        if (i == myIndex) continue;
-                        
-                        int stealAmount = Math.min(STEAL_SIZE, workBatch.remainingCapacity());
-                        queues[i].drainToWorkBatch(workBatch, stealAmount);
-                    }
-                } 
-                else 
-                {
-                    // Reduce batch size when consistently empty
-                    currentBatchSize = Math.max(10, currentBatchSize / 2);
+                    break; // Exit if solution found or generation is done and all queues are empty
                 }
-            } 
-            else 
-            {
-                consecutiveEmptyPolls = 0;
-                // Increase batch size when queue is consistently full
-                if (obtained == targetBatchSize && currentBatchSize < BATCH_SIZE * 2) 
-                {
-                    currentBatchSize = Math.min(BATCH_SIZE * 2, currentBatchSize + 5);
-                }
-            }
-            
-            // If still no work, short sleep and continue
-            if (workBatch.isEmpty()) 
-            {
-                if (queueArray.solutionFound || queueArray.generationComplete) break;
                 try 
                 { 
-                    Thread.sleep(0, 500_000); 
-                } catch (InterruptedException e) 
+                    Thread.sleep(1); 
+                }
+                catch (InterruptedException e) 
                 {
                     Thread.currentThread().interrupt(); // Restore interrupted status
                     logger.error("Thread interrupted while waiting for new combinations", e);
@@ -125,29 +73,19 @@ public class TestClickCombination extends Thread
                 continue; // Retry getting a combination
             }
             
-            // Process the entire batch with direct WorkBatch operations
             while (!workBatch.isEmpty()) 
             {
                 int[] combinationClicks = workBatch.poll();
-                if (combinationClicks == null || queueArray.solutionFound) break;
-
-                if (!satisfiesOddAdjacency(combinationClicks, trueCells)) 
+                if (combinationClicks == null || queueArray.solutionFound)
                 {
-                    continue;
+                    break;
                 }
-                
-                // int firstTrueCell = puzzleGrid.findFirstTrueCell();
-                // int[] firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
 
-                for (int i = 0; (!iSolvedIt) && (!queueArray.solutionFound) && (i < combinationClicks.length); i++) 
+                if (satisfiesOddAdjacency(combinationClicks, trueCells)) 
                 {
-                    int click = combinationClicks[i];
-                    puzzleGrid.click(click);
-
-                    // Early prune: too many trues left for remaining clicks
-                    if (puzzleGrid.getTrueCount() > (combinationClicks.length - i - 1) * 6) 
+                    for (int click : combinationClicks)
                     {
-                        break;
+                        puzzleGrid.click(click);
                     }
 
                     iSolvedIt = puzzleGrid.isSolved();
@@ -156,6 +94,8 @@ public class TestClickCombination extends Thread
                     {
                         logger.info("Found the solution as the following click combination: {}", new CombinationMessage(combinationClicks));
                         queueArray.solutionFound(this.getName(), combinationClicks);
+                        // Do NOT recycle the batch containing the winning combination to avoid UAF on the winning array.
+                        // Let it be garbage collected.
                         return;
                     }
 
@@ -199,13 +139,18 @@ public class TestClickCombination extends Thread
                     //     if (!hasTrueAdjacent) break;
                     // }
                 }
+                else
+                {
+                    puzzleGrid.initialize();
+                    continue;
+                }
 
                 if (!iSolvedIt)
                 {
                     failedCount++;
                     if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.solutionFound) 
                     {
-                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks));
+                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone()));
                         failedCount = 0; // Reset the count after logging
                     }
                 }
@@ -213,7 +158,50 @@ public class TestClickCombination extends Thread
                 // reset the grid for the next combination
                 puzzleGrid.initialize();
             }
+
+            // After processing, recycle the batch
+            queueArray.getWorkBatchPool().offer(workBatch);
         }
+    }
+
+    /**
+     * Gets a batch of work, first from the primary queue, then by stealing.
+     */
+    private WorkBatch getWork()
+    {
+        // Try my own queue first
+        WorkBatch batch = combinationQueue.getWorkBatch();
+        if (batch != null)
+        {
+            return batch;
+        }
+
+        // My queue is empty, try to steal
+        CombinationQueue[] queues = queueArray.getAllQueues();
+        for (int i = 0; i < queues.length; i++)
+        {
+            batch = queues[i].getWorkBatch();
+            if (batch != null)
+            {
+                return batch;
+            }
+        }
+
+        return null; // No work found anywhere
+    }
+
+    private boolean allQueuesEmpty(CombinationQueue[] queues)
+    {
+        for (CombinationQueue q : queues)
+        {
+            if (q.getWorkBatch() != null)
+            {
+                // This is not ideal as it consumes an item, but for end-of-work check it's a simple approach.
+                // A better way would be a size() method, but MpmcArrayQueue size is not linearizable.
+                return false;
+            }
+        }
+        return true;
     }
 
     // Ultra-fast implementation using lookup table and bit operations

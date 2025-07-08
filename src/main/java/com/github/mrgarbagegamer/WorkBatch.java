@@ -5,6 +5,7 @@ import org.jctools.queues.MessagePassingQueue;
 /**
  * High-performance circular buffer for worker thread batching.
  * Eliminates ArrayDeque overhead while maintaining the same semantics.
+ * This object is now pooled and recycled, with the assumption that only one thread will have access to the object at a time.
  */
 public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, MessagePassingQueue.Supplier<int[]>
 {
@@ -21,48 +22,36 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
     }
 
     /**
-     * Adds a combination by copying its contents into a new pooled array.
-     * This avoids the caller needing to clone.
+     * Adds a combination by copying its contents into the array at the tail of the buffer.
+     * This avoids the caller needing to clone and prevents allocation of temporary objects.
      * @param source The source combination array.
-     * @param length The number of elements to copy from the source.
      * @return true if the element was added, false if the batch is full.
      */
-    public boolean add(int[] source, int length)
+    public boolean add(int[] source) 
     {
         if (isFull())
         {
             return false;
         }
-        // For now, we still clone here, but the key is that the generator doesn't.
-        // A more advanced version would use an ArrayPool here.
-        int[] newArr = new int[length];
-        System.arraycopy(source, 0, newArr, 0, length);
-        this.buffer[size++] = newArr;
-        return true;
-    }
-
-    /**
-     * Add combination to batch. Returns false if full.
-     */
-    public boolean add(int[] combination) 
-    {
-        if (size >= capacity) return false;
-        
-        buffer[tail] = combination;
+        if (buffer[tail] == null) buffer[tail] = new int[source.length];
+        System.arraycopy(source, 0, buffer[tail], 0, source.length);
         tail = (tail + 1) % capacity;
         size++;
         return true;
     }
 
     /**
-     * Remove and return next combination. Returns null if empty.
+     * Remove and return next combination.
+     * @return result if there is a valid combination in the array, null if the batch is empty.
      */
     public int[] poll() 
     {
-        if (size == 0) return null;
+        if (size == 0)
+        {
+            return null;
+        }
         
         int[] result = buffer[head];
-        buffer[head] = null; // Help GC
         head = (head + 1) % capacity;
         size--;
         return result;
@@ -93,19 +82,17 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
     }
 
     /**
-     * Clear all elements.
+     * "Clears" the batch for reuse, making sure not to null the previous arrays (as this would force add() to create a new array).
      */
     public void clear() 
     {
-        while (!isEmpty()) 
-        {
-            poll();
-        }
+        head = 0;
+        tail = 0;
+        size = 0;
     }
 
     /**
      * MessagePassingQueue.Consumer implementation for JCTools integration.
-     * This allows CombinationQueue to drain directly into WorkBatch.
      */
     @Override
     public void accept(int[] combination) 
@@ -115,7 +102,6 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
 
     /**
      * MessagePassingQueue.Supplier implementation for JCTools integration.
-     * This allows CombinationQueue to poll directly from WorkBatch.
      */
     @Override
     public int[] get() 
@@ -124,49 +110,10 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
     }
 
     /**
-     * Drain up to maxElements from this batch into another WorkBatch.
-     * Used for work stealing between threads.
-     */
-    public int drainTo(WorkBatch targetBatch, int maxElements) 
-    {
-        int transferred = 0;
-        while (transferred < maxElements && !this.isEmpty() && !targetBatch.isFull()) 
-        {
-            int[] combination = this.poll();
-            if (combination != null && targetBatch.add(combination)) 
-            {
-                transferred++;
-            } else 
-            {
-                // Put it back if target is full
-                if (combination != null) 
-                {
-                    this.addFirst(combination);
-                }
-                break;
-            }
-        }
-        return transferred;
-    }
-
-    /**
      * Check if batch is full.
      */
     public boolean isFull() 
     {
         return size >= capacity;
-    }
-
-    /**
-     * Add to front of batch (for putting back elements).
-     * Only used internally for work stealing edge cases.
-     */
-    private void addFirst(int[] combination) 
-    {
-        if (size >= capacity) return;
-        
-        head = (head - 1 + capacity) % capacity;
-        buffer[head] = combination;
-        size++;
     }
 }

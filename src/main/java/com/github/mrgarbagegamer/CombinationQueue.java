@@ -14,6 +14,11 @@ public class CombinationQueue
         queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     }
 
+    public int getCapacity()
+    {
+        return QUEUE_SIZE;
+    }
+
     /**
      * Adds a full WorkBatch to the queue for a worker to process.
      * @param workBatch The batch of combinations to add.

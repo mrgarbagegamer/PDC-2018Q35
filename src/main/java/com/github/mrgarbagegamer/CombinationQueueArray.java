@@ -21,9 +21,17 @@ public class CombinationQueueArray
     {
         this.queues = new CombinationQueue[numConsumers];
         this.generatorsRemaining = new AtomicInteger(numGenerators);
-        // Initialize with a capacity for a few batches per thread.
-        this.workBatchPool = new MpmcArrayQueue<>(numConsumers * 4); 
-        for (int i = 0; i < numConsumers; i++) queues[i] = new CombinationQueue();
+        
+        // The total number of batches that can be in-flight is the sum of all queue capacities
+        // The pool must be at least this large to guarantee a recycled batch is never discarded
+        int totalWorkQueueCapacity = 0;
+        for (int i = 0; i < numConsumers; i++) 
+        {
+            queues[i] = new CombinationQueue();
+            totalWorkQueueCapacity += queues[i].getCapacity();
+        }
+        // Set the recycle pool size to match the total work queue capacity
+        this.workBatchPool = new MpmcArrayQueue<>(totalWorkQueueCapacity);
     }
 
     // NEW: Accessors for the WorkBatch pool

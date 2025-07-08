@@ -5,6 +5,7 @@ import java.util.Deque;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jctools.queues.MpmcArrayQueue;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -30,6 +31,10 @@ public class CombinationGenerator extends Thread
     // Generator-local pools
     private final Deque<int[]> indicesPool = new ArrayDeque<>(POOL_SIZE);
     private final Deque<CombinationState> statePool = new ArrayDeque<>(POOL_SIZE);
+
+    private final MpmcArrayQueue<WorkBatch> workBatchPool;
+
+    private int roundRobinIdx = 0;
 
     public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int firstClickStart, int firstClickEnd, int numConsumers, GridType gridType) 
     {
@@ -58,6 +63,7 @@ public class CombinationGenerator extends Thread
                 FIRST_TRUE_ADJACENTS = baseGrid.findFirstTrueAdjacents();
                 CURRENT_GRID_TYPE = gridType;
             }
+            workBatchPool = queueArray.getWorkBatchPool();
         }
     }
 
@@ -87,6 +93,13 @@ public class CombinationGenerator extends Thread
         if (statePool.size() < POOL_SIZE) statePool.offerFirst(s);
     }
 
+    private WorkBatch getWorkBatch() 
+    {
+        WorkBatch batch = workBatchPool.poll();
+        if (batch == null) return new WorkBatch(BATCH_SIZE);
+        return batch;
+    }
+
     private void generateCombinationsIterative(IntList nodeList, int k)
     {
         
@@ -98,8 +111,7 @@ public class CombinationGenerator extends Thread
             stack.push(getState(i + 1, 1, indices));
         }
 
-        WorkBatch batch = new WorkBatch(BATCH_SIZE);
-        int roundRobinIdx = 0;
+        WorkBatch batch = getWorkBatch();
         int[] buffer = new int[k];
 
         while (!stack.isEmpty() && !queueArray.solutionFound) 
@@ -125,7 +137,7 @@ public class CombinationGenerator extends Thread
                 recycleIndices(indices);
                 recycleState(state);
                 if (batch.size() >= BATCH_SIZE) 
-                    roundRobinIdx = flushBatch(batch, roundRobinIdx);
+                    if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch(); // Get a new batch if we flushed
                 continue;
             }
 
@@ -153,7 +165,10 @@ public class CombinationGenerator extends Thread
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
 
                     recycleIndices(newIndices);
-                    if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
+                    if (batch.size() >= BATCH_SIZE) 
+                    {
+                        if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch();
+                    }
                 }
                 else if (size + 1 == k) 
                 {
@@ -168,7 +183,10 @@ public class CombinationGenerator extends Thread
 
                     addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
                     recycleIndices(newIndices);
-                    if (batch.size() >= BATCH_SIZE) roundRobinIdx = flushBatch(batch, roundRobinIdx);
+                    if (batch.size() >= BATCH_SIZE)
+                    {
+                        if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch();
+                    }
                 }
             }
             recycleIndices(indices);
@@ -190,36 +208,27 @@ public class CombinationGenerator extends Thread
         batch.add(combination);
     }
 
-    private int flushBatch(WorkBatch batch, int roundRobinIdx)
+    private boolean flushBatch(WorkBatch batch, int roundRobinIdx)
     {
         while (!batch.isEmpty() && !queueArray.solutionFound) 
         {
-            boolean addedAny = false;
             for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
             {
                 int idx = (roundRobinIdx + attempt) % numConsumers;
                 CombinationQueue queue = queueArray.getQueue(idx);
-                int added = queue.fillFromWorkBatch(batch);
-                if (added > 0) 
-                {
-                    roundRobinIdx = (idx + 1) % numConsumers;
-                    addedAny = true;
-                }
+                if (queue.add(batch)) return true;
             }
-            if (!addedAny) 
-            {
-                try 
-                { 
-                    Thread.sleep(1); 
-                } 
-                catch (InterruptedException e) 
-                { 
-                    Thread.currentThread().interrupt(); 
-                    break; 
-                }
+            try 
+            { 
+                Thread.sleep(1); 
+            } 
+            catch (InterruptedException e) 
+            { 
+                Thread.currentThread().interrupt(); 
+                break; 
             }
         }
-        return roundRobinIdx;
+        return false;
     }
 
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 

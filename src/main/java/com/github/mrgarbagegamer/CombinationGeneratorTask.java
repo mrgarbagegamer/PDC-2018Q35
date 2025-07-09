@@ -325,8 +325,6 @@ public class CombinationGeneratorTask extends RecursiveAction
         WorkBatch batch = batchHolder.get();
 
         generateCombinations(start, max, combination, batch);
-
-        putIntArray(combination);
     }
 
     /**
@@ -352,8 +350,9 @@ public class CombinationGeneratorTask extends RecursiveAction
                 continue;
             }
             
-            // The batch is the recycled unit, so we must clone the combination array.
-            batch.add(combination.clone());
+            // The batch is the recycled unit, so we copy the combination into the batch's internal array.
+            // This avoids creating new arrays for each combination.
+            batch.add(combination);
             
             // Flush the batch if it reaches the threshold
             if (batch.size() >= FLUSH_THRESHOLD) 

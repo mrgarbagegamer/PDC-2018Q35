@@ -139,11 +139,7 @@ public class TestClickCombination extends Thread
                     //     if (!hasTrueAdjacent) break;
                     // }
                 }
-                else
-                {
-                    puzzleGrid.initialize();
-                    continue;
-                }
+                else continue;
 
                 if (!iSolvedIt)
                 {

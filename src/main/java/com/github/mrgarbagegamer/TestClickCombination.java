@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 public class TestClickCombination extends Thread 
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
-    private static final int LOG_EVERY_N_FAILURES = 10000; // Log every N failures to avoid flooding the logs
+    private static final int LOG_EVERY_N_FAILURES = 100_000; // Log every N failures to avoid flooding the logs
 
     private final CombinationQueue combinationQueue;
     private final CombinationQueueArray queueArray;

@@ -20,6 +20,10 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<ArrayPool> prefixArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 32));
     
+    // Pool for CombinationGeneratorTask objects to reduce allocation churn.
+    private static final ThreadLocal<TaskPool> taskPool =
+        ThreadLocal.withInitial(() -> new TaskPool(128)); // Start with a reasonable pool size
+
     // Thread-local variable to hold the current batch being processed. This batch should be released whenever we flush it to the queue and replaced by a new batch.
     private static final ThreadLocal<WorkBatch> batchHolder = 
         ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
@@ -29,30 +33,34 @@ public class CombinationGeneratorTask extends RecursiveAction
         new ThreadLocal<int[]>();
 
 
-    private final IntList possibleClicks;
-    private final int numClicks;
-    private final int[] prefix;
-    private final int prefixLength;
-    private final CombinationQueueArray queueArray;
-    private final int numConsumers;
-    private final int[] trueCells;
-    private final int maxFirstClickIndex;
+    private IntList possibleClicks;
+    private int numClicks;
+    private int[] prefix;
+    private int prefixLength;
+    private CombinationQueueArray queueArray;
+    private int numConsumers;
+    private int[] trueCells;
+    private int maxFirstClickIndex;
     
     // Added field to track cancellation within a subtask hierarchy
     private volatile boolean cancelled = false; // Use a volatile boolean instead of an AtomicBoolean to achieve the same goal without temporary object creation (and with greater efficiency)
-    private final CombinationGeneratorTask parent;
+    private CombinationGeneratorTask parent;
 
+    // Public constructor for the root task
     public CombinationGeneratorTask(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
                                    CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
                                    int maxFirstClickIndex) 
     {
-        this(possibleClicks, numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
+        this.init(possibleClicks, numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
     }
+
+    // Default constructor for pool creation
+    public CombinationGeneratorTask() {}
     
-    // Private constructor to handle parent relationship
-    private CombinationGeneratorTask(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
-                                   CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
-                                   int maxFirstClickIndex, CombinationGeneratorTask parent) 
+    // "init" method to re-initialize a recycled task
+    public void init(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
+                     CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
+                     int maxFirstClickIndex, CombinationGeneratorTask parent) 
     {
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
@@ -63,6 +71,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         this.trueCells = trueCells;
         this.parent = parent;
         this.maxFirstClickIndex = maxFirstClickIndex;
+        reinitialize();
         propagateParentCancellation();
     }
 
@@ -255,6 +264,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         CombinationGeneratorTask[] subtasks = new CombinationGeneratorTask[numSubtasks];
         int subtaskCount = 0;
+        TaskPool pool = taskPool.get();
         
         for (int i = start; i < max; i++) 
         {
@@ -266,10 +276,11 @@ public class CombinationGeneratorTask extends RecursiveAction
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = i;
 
-            // Create subtask with this as parent
-            subtasks[subtaskCount++] = new CombinationGeneratorTask(
-                possibleClicks, numClicks, newPrefix, prefixLength + 1, 
-                queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
+            // Get a recycled task from the pool and initialize it
+            CombinationGeneratorTask subtask = pool.get();
+            subtask.init(possibleClicks, numClicks, newPrefix, prefixLength + 1, 
+                         queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
+            subtasks[subtaskCount++] = subtask;
         }
         
         return subtasks;
@@ -287,8 +298,14 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 invokeAll(subtasks);
 
-                // Recycle prefix arrays after subtasks complete
-                for (CombinationGeneratorTask subtask : subtasks) putIntArray(subtask.prefix);
+                // Recycle prefix arrays and tasks after subtasks complete
+                TaskPool pool = taskPool.get();
+                for (CombinationGeneratorTask subtask : subtasks) 
+                {
+                    if (subtask == null) continue;
+                    putIntArray(subtask.prefix);
+                    pool.put(subtask);
+                }
             } catch (CancellationException ce) 
             {
                 // Task was cancelled, just return

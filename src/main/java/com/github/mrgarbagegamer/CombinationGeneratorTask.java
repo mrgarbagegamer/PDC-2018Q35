@@ -2,7 +2,6 @@ package com.github.mrgarbagegamer;
 
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
@@ -273,7 +272,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                 queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
         }
         
-        return Arrays.copyOf(subtasks, subtaskCount);
+        return subtasks;
     }
 
     /**
@@ -286,11 +285,10 @@ public class CombinationGeneratorTask extends RecursiveAction
         {
             try 
             {
-                List<CombinationGeneratorTask> taskList = Arrays.asList(subtasks).subList(0, subtaskCount);
-                invokeAll(taskList);
+                invokeAll(subtasks);
 
                 // Recycle prefix arrays after subtasks complete
-                for (CombinationGeneratorTask subtask : taskList) putIntArray(subtask.prefix);
+                for (CombinationGeneratorTask subtask : subtasks) putIntArray(subtask.prefix);
             } catch (CancellationException ce) 
             {
                 // Task was cancelled, just return

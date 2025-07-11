@@ -133,7 +133,7 @@ public class CombinationGenerator extends Thread
                     continue; // Skip this combination
                 }
 
-                addCombinationToBatch(nodeList, indices, buffer, batch, k);
+                batch.add(buffer);
 
                 recycleIndices(indices);
                 recycleState(state);
@@ -163,7 +163,7 @@ public class CombinationGenerator extends Thread
                         continue; // Skip this combination
                     }
 
-                    addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
+                    batch.add(buffer);
 
                     recycleIndices(newIndices);
                     if (batch.size() >= FLUSH_THRESHOLD) 
@@ -182,7 +182,7 @@ public class CombinationGenerator extends Thread
                         continue; // Skip this combination
                     }
 
-                    addCombinationToBatch(nodeList, newIndices, buffer, batch, k);
+                    batch.add(buffer);
                     recycleIndices(newIndices);
                     if (batch.size() >= FLUSH_THRESHOLD)
                     {
@@ -198,15 +198,6 @@ public class CombinationGenerator extends Thread
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
     }
     
-    private void addCombinationToBatch(IntList nodeList, int[] indices, int[] buffer, WorkBatch batch, int k) 
-    {
-        for (int j = 0; j < k; j++)
-        {
-            buffer[j] = nodeList.getInt(indices[j]); // TODO: Investigate whether this is necessary (it's weird that we do this calculation twice in our generator)
-        }
-        batch.add(buffer);
-    }
-
     private boolean flushBatch(WorkBatch batch, int roundRobinIdx)
     {
         while (true) 

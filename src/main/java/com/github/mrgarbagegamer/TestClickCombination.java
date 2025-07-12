@@ -26,15 +26,15 @@ public class TestClickCombination extends Thread
         int[] trueCells = puzzleGrid.findTrueCells();
         this.clickToTrueCellMask = new long[700]; // Adjust size for your grid
         
-        // For each possible click cell, create a bitmask of which true cells it affects
+        // For each possible click cell, create a bitmask of which initial true cells it affects
         for (int clickCell = 0; clickCell < 700; clickCell++) 
         {
-            long mask = 0L;
+            long mask = 0L; // Start with no true cells affected (0)
             for (int i = 0; i < trueCells.length; i++) 
             {
-                if (Grid.areAdjacent(trueCells[i], clickCell)) 
+                if (Grid.areAdjacent(trueCells[i], clickCell)) // If the true cell is adjacent to the click cell
                 {
-                    mask |= (1L << i);
+                    mask |= (1L << i); // Add this true cell to the mask by OR-ing with the bit at position i
                 }
             }
             this.clickToTrueCellMask[clickCell] = mask;
@@ -203,16 +203,16 @@ public class TestClickCombination extends Thread
     // Ultra-fast implementation using lookup table and bit operations
     private boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
     {
-        long trueCellCounts = 0L; // Simplified - no need for array wrapper
+        long trueCellCounts = 0L; // Create a mask with all true cells set to 0
         
         // Accumulate bitmasks for all clicks
-        for (int click : combination) 
+        for (int click : combination) // For each click in the combination
         {
-            trueCellCounts ^= this.clickToTrueCellMask[click];
+            trueCellCounts ^= this.clickToTrueCellMask[click]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
         }
         
         // Check if all true cells have odd adjacency count
-        long expectedMask = (1L << trueCells.length) - 1; // All bits set for true cells
-        return trueCellCounts == expectedMask;
+        long expectedMask = (1L << trueCells.length) - 1; // Create a mask with all true cells set to 1
+        return trueCellCounts == expectedMask; // If the mask matches, all true cells have odd adjacency counts
     }
 }

@@ -178,22 +178,23 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 if (TRUE_CELL_ADJACENCY_MASKS == null) 
                 {
-                    long[][] masks = new long[GRID_SIZE][];
+                    // TODO: Look at replacing the 2D array with a 1D array of long[] for better memory efficiency (the longs will be packed into a single long for each click cell)
+                    long[][] masks = new long[GRID_SIZE][]; // Create an array to store masks for each click cell
                     
-                    for (int clickCell = 0; clickCell < GRID_SIZE; clickCell++) 
+                    for (int clickCell = 0; clickCell < GRID_SIZE; clickCell++) // For each cell in the grid
                     {
-                        long mask = 0L;
-                        for (int i = 0; i < trueCells.length; i++) 
+                        long mask = 0L; // Create a mask with all true cells set to 0
+                        for (int i = 0; i < trueCells.length; i++) // For each true cell
                         {
-                            if (CLICK_ADJACENCY_MATRIX[trueCells[i]][clickCell]) 
+                            if (CLICK_ADJACENCY_MATRIX[trueCells[i]][clickCell]) // If the true cell is adjacent to the click cell
                             {
-                                mask |= (1L << i);
+                                mask |= (1L << i); // Add this true cell to the mask by OR-ing with the bit at position i
                             }
                         }
-                        masks[clickCell] = new long[] { mask };
+                        masks[clickCell] = new long[] { mask }; // Store the mask for this click cell in a single-element long array
                     }
                     
-                    TRUE_CELL_ADJACENCY_MASKS = masks;
+                    TRUE_CELL_ADJACENCY_MASKS = masks; // Assign the masks to the static field
                 }
             }
         }
@@ -211,20 +212,20 @@ public class CombinationGeneratorTask extends RecursiveAction
         ensureTrueCellMasks(trueCells);
         
         // Compute current adjacency state using bitmasks
-        long currentAdjacencies = 0L;
+        long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
         
-        for (int j = 0; j < prefixLength; j++) 
+        for (int j = 0; j < prefixLength; j++) // For each click in the prefix
         {
-            int clickIndex = possibleClicks.getInt(prefix[j]);
+            int clickIndex = possibleClicks.getInt(prefix[j]); // Get the packed int corresponding to the click
             if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
             {
-                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0];
+                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
             }
         }
         
         // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
         long targetMask = (1L << trueCells.length) - 1;
-        long needed = currentAdjacencies ^ targetMask;
+        long needed = currentAdjacencies ^ targetMask; // XOR with target to find which bits need to be flipped
         
         // If no bits need to be flipped, we're already good
         if (needed == 0L) return true;
@@ -233,19 +234,19 @@ public class CombinationGeneratorTask extends RecursiveAction
         int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
         int maxIdx = possibleClicks.size();
         
-        long availableAdjacencies = 0L;
+        long availableAdjacencies = 0L; // Create a mask with all true cells set to 0
         
-        for (int i = startIdx; i < maxIdx; i++)
+        for (int i = startIdx; i < maxIdx; i++) // For each remaining possible click
         {
-            int clickIndex = possibleClicks.getInt(i);
+            int clickIndex = possibleClicks.getInt(i); // Get the packed int corresponding to the click
             if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
             {
-                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0];
+                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0]; // Add the mask for this click to the available adjacencies
             }
         }
         
         // Check if available clicks can satisfy all needed adjacencies
-        return (availableAdjacencies & needed) == needed;
+        return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
     }
 
     /**
@@ -507,6 +508,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static volatile BitSet FIRST_TRUE_ADJACENTS_BITSET = null;
     private static volatile int CACHED_FIRST_TRUE_CELL = -1;
 
+    // TODO: Consider how useful this method is and look at moving satisfiesOddAdjacency to CombinationGeneratorTask
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
         // Skip lazy initialization if it causes inlining issues

@@ -207,15 +207,9 @@ public class CombinationGenerator extends Thread
     }
 
     // Add these static fields for pre-computed adjacency data
-    private static long[][] TRUE_CELL_ADJACENCY_MASKS = initTrueCellMasks();
+    private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
     private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
-    private static final int GRID_SIZE = 615; // Adjust for your grid
-
-    private static long[][] initTrueCellMasks() 
-    {
-        // This will be set when the first generator is initialized with actual trueCells
-        return null;
-    }
+    private static final int GRID_SIZE = 700; // Adjust for your grid
 
     private static boolean[][] initClickAdjacencyMatrix() 
     {
@@ -243,8 +237,7 @@ public class CombinationGenerator extends Thread
             {
                 if (TRUE_CELL_ADJACENCY_MASKS == null) 
                 {
-                    // TODO: Look at replacing the 2D array with a 1D array of long[] for better memory efficiency (the longs will be packed into a single long for each click cell)
-                    long[][] masks = new long[GRID_SIZE][]; // Create an array to store masks for each click cell
+                    long[] masks = new long[GRID_SIZE]; // Create an array to store masks for each click cell
                     
                     for (int clickCell = 0; clickCell < GRID_SIZE; clickCell++) // For each cell in the grid
                     {
@@ -256,7 +249,7 @@ public class CombinationGenerator extends Thread
                                 mask |= (1L << i); // Add this true cell to the mask by OR-ing with the bit at position i
                             }
                         }
-                        masks[clickCell] = new long[] { mask }; // Store the mask for this click cell in a single-element long array
+                        masks[clickCell] = mask; // Store the mask for this click cell in the long array.
                     }
                     
                     TRUE_CELL_ADJACENCY_MASKS = masks; // Assign the masks to the static field
@@ -282,9 +275,9 @@ public class CombinationGenerator extends Thread
         for (int j = 0; j < prefixLength; j++) // For each click in the prefix
         {
             int clickIndex = possibleClicks.getInt(prefix[j]); // Get the packed int corresponding to the click
-            if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
+            if (clickIndex < GRID_SIZE) 
             {
-                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
+                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
             }
         }
         
@@ -304,9 +297,9 @@ public class CombinationGenerator extends Thread
         for (int i = startIdx; i < maxIdx; i++) // For each remaining possible click
         {
             int clickIndex = possibleClicks.getInt(i); // Get the packed int corresponding to the click
-            if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
+            if (clickIndex < GRID_SIZE) 
             {
-                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0]; // Add the mask for this click to the available adjacencies
+                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex]; // Add the mask for this click to the available adjacencies
             }
         }
         

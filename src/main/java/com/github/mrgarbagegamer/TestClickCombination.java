@@ -12,32 +12,56 @@ public class TestClickCombination extends Thread
     private final CombinationQueueArray queueArray;
     private final Grid puzzleGrid;
 
-    // Lookup table: clickCell -> bitset of which true cells it's adjacent to
-    private final long[] clickToTrueCellMask;
+    // Make these static and initialize once
+    private static volatile long[][] CLICK_TO_TRUE_CELL_MASK = null;
+    private static volatile long EXPECTED_MASK = 0L;
     
-    public TestClickCombination(String threadName, CombinationQueue combinationQueue, CombinationQueueArray queueArray, Grid puzzleGrid) 
+    public TestClickCombination(String threadName, CombinationQueue combinationQueue, 
+                               CombinationQueueArray queueArray, Grid puzzleGrid) 
     {
         super(threadName);
         this.combinationQueue = combinationQueue;
         this.queueArray = queueArray;
         this.puzzleGrid = puzzleGrid;
         
-        // Pre-compute lookup table
+        // Initialize lookup table once for all threads
         int[] trueCells = puzzleGrid.findTrueCells();
-        this.clickToTrueCellMask = new long[700]; // Adjust size for your grid
-        
-        // For each possible click cell, create a bitmask of which initial true cells it affects
-        for (int clickCell = 0; clickCell < 700; clickCell++) 
+        initializeLookupTable(trueCells);
+    }
+
+    private static void initializeLookupTable(int[] trueCells)
+    {
+        // Double-checked locking for thread-safe lazy initialization
+        if (CLICK_TO_TRUE_CELL_MASK == null)
         {
-            long mask = 0L; // Start with no true cells affected (0)
-            for (int i = 0; i < trueCells.length; i++) 
+            synchronized (TestClickCombination.class)
             {
-                if (Grid.areAdjacent(trueCells[i], clickCell)) // If the true cell is adjacent to the click cell
+                if (CLICK_TO_TRUE_CELL_MASK == null)
                 {
-                    mask |= (1L << i); // Add this true cell to the mask by OR-ing with the bit at position i
+                    long[][] lookup = new long[700][2];
+                    
+                    for (int clickCell = 0; clickCell < 700; clickCell++) 
+                    {
+                        for (int i = 0; i < trueCells.length; i++) 
+                        {
+                            if (Grid.areAdjacent(trueCells[i], clickCell))
+                            {
+                                int longIndex = i / 64;
+                                int bitPosition = i % 64;
+                                lookup[clickCell][longIndex] |= (1L << bitPosition);
+                            }
+                        }
+                    }
+                    
+                    // Compute expected mask once
+                    long expectedMask = trueCells.length >= 64 ? 
+                        0xFFFFFFFFFFFFFFFFL : (1L << trueCells.length) - 1;
+                    
+                    // Atomically publish the results
+                    EXPECTED_MASK = expectedMask;
+                    CLICK_TO_TRUE_CELL_MASK = lookup; // This must be last
                 }
             }
-            this.clickToTrueCellMask[clickCell] = mask;
         }
     }
 
@@ -92,7 +116,8 @@ public class TestClickCombination extends Thread
 
                     if (iSolvedIt) 
                     {
-                        logger.info("Found the solution as the following click combination: {}", new CombinationMessage(combinationClicks));
+                        logger.info("Found the solution as the following click combination: {}", 
+                                   new CombinationMessage(combinationClicks));
                         queueArray.solutionFound(this.getName(), combinationClicks);
                         // Do NOT recycle the batch containing the winning combination to avoid UAF on the winning array.
                         // Let it be garbage collected.
@@ -200,19 +225,34 @@ public class TestClickCombination extends Thread
         return true;
     }
 
-    // Ultra-fast implementation using lookup table and bit operations
+    // Ultra-fast bitmask-based odd adjacency check using static lookup
     private boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
     {
-        long trueCellCounts = 0L; // Create a mask with all true cells set to 0
+        if (trueCells.length == 0) return true;
         
-        // Accumulate bitmasks for all clicks
-        for (int click : combination) // For each click in the combination
+        long trueCellCounts0 = 0L;
+        long trueCellCounts1 = 0L;
+        
+        // Use static lookup table
+        for (int click : combination) 
         {
-            trueCellCounts ^= this.clickToTrueCellMask[click]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
+            trueCellCounts0 ^= CLICK_TO_TRUE_CELL_MASK[click][0];
+            if (trueCells.length > 64)
+            {
+                trueCellCounts1 ^= CLICK_TO_TRUE_CELL_MASK[click][1];
+            }
         }
         
-        // Check if all true cells have odd adjacency count
-        long expectedMask = (1L << trueCells.length) - 1; // Create a mask with all true cells set to 1
-        return trueCellCounts == expectedMask; // If the mask matches, all true cells have odd adjacency counts
+        // Use static expected mask
+        if (trueCells.length <= 64)
+        {
+            return trueCellCounts0 == EXPECTED_MASK;
+        }
+        else
+        {
+            long expectedMask1 = trueCells.length >= 128 ? 
+                0xFFFFFFFFFFFFFFFFL : (1L << (trueCells.length - 64)) - 1;
+            return trueCellCounts0 == 0xFFFFFFFFFFFFFFFFL && trueCellCounts1 == expectedMask1;
+        }
     }
 }

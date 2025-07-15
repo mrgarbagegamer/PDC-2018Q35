@@ -211,6 +211,7 @@ public class TestClickCombination extends Thread
         return null; // No work found anywhere
     }
 
+    // TODO: Look at replacing the boolean return type with a workbatch and returning the batch if it finds one
     private boolean allQueuesEmpty(CombinationQueue[] queues)
     {
         for (CombinationQueue q : queues)

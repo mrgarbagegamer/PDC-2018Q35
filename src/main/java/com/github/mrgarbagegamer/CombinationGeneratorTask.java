@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer;
 
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
@@ -13,7 +12,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 public class CombinationGeneratorTask extends RecursiveAction 
 {
     private static final int BATCH_SIZE = 8000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach the FLUSH_THRESHOLD, but will always be flushed when they reach this size.
-    private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead.
+    private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead.
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
     
     // Replace ArrayDeque pools with custom high-performance pools
@@ -143,6 +142,8 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     // Add these static fields for pre-computed adjacency data
     private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
+    // NEW: Add a field for the pre-computed suffix OR masks
+    private static long[] SUFFIX_OR_MASKS = null;
     private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
     private static final int GRID_SIZE = 700; // Adjust for your grid
 
@@ -164,7 +165,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Lazy initialization of true cell masks when first needed
-    private static void ensureTrueCellMasks(int[] trueCells) 
+    private static void ensureTrueCellMasks(IntList possibleClicks, int[] trueCells) 
     {
         if (TRUE_CELL_ADJACENCY_MASKS == null && trueCells != null) 
         {
@@ -188,6 +189,23 @@ public class CombinationGeneratorTask extends RecursiveAction
                     }
                     
                     TRUE_CELL_ADJACENCY_MASKS = masks; // Assign the masks to the static field
+
+                    // NEW: Pre-compute the suffix OR masks after the main masks are ready
+                    int numPossibleClicks = possibleClicks.size();
+                    long[] suffixMasks = new long[numPossibleClicks + 1]; // +1 for sentinel
+                    for (int i = numPossibleClicks - 1; i >= 0; i--)
+                    {
+                        int clickIndex = possibleClicks.getInt(i);
+                        if (clickIndex < GRID_SIZE)
+                        {
+                            suffixMasks[i] = suffixMasks[i + 1] | TRUE_CELL_ADJACENCY_MASKS[clickIndex];
+                        }
+                        else
+                        {
+                            suffixMasks[i] = suffixMasks[i + 1];
+                        }
+                    }
+                    SUFFIX_OR_MASKS = suffixMasks;
                 }
             }
         }
@@ -202,7 +220,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         if (trueCells == null || trueCells.length == 0) return true;
         
         // Ensure masks are initialized
-        ensureTrueCellMasks(trueCells);
+        ensureTrueCellMasks(possibleClicks, trueCells);
         
         // Compute current adjacency state using bitmasks
         long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
@@ -225,18 +243,9 @@ public class CombinationGeneratorTask extends RecursiveAction
         
         // Check if remaining clicks can provide the needed adjacencies
         int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        int maxIdx = possibleClicks.size();
         
-        long availableAdjacencies = 0L; // Create a mask with all true cells set to 0
-        
-        for (int i = startIdx; i < maxIdx; i++) // For each remaining possible click
-        {
-            int clickIndex = possibleClicks.getInt(i); // Get the packed int corresponding to the click
-            if (clickIndex < GRID_SIZE) 
-            {
-                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex]; // Add the mask for this click to the available adjacencies
-            }
-        }
+        // OPTIMIZED: Replace the expensive loop with a single array lookup
+        long availableAdjacencies = SUFFIX_OR_MASKS[startIdx];
         
         // Check if available clicks can satisfy all needed adjacencies
         return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
@@ -498,37 +507,52 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Add these fields to cache adjacents for the current firstTrueCell
-    private static volatile BitSet FIRST_TRUE_ADJACENTS_BITSET = null;
+    private static volatile long[] FIRST_TRUE_ADJACENTS_MASK = null;
     private static volatile int CACHED_FIRST_TRUE_CELL = -1;
 
-    // TODO: Consider how useful this method is and look at moving satisfiesOddAdjacency to CombinationGeneratorTask
+    // Ultra-fast O(1) adjacency check using bitmasks
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
-        // Skip lazy initialization if it causes inlining issues
         if (CACHED_FIRST_TRUE_CELL != firstTrueCell) 
         {
-            updateAdjacencyCache(firstTrueCell); // Extract to separate method
+            updateAdjacencyMask(firstTrueCell);
         }
         
         int count = 0;
+        long[] mask = FIRST_TRUE_ADJACENTS_MASK;
         
-        // O(1) adjacency check per click
+        // Direct bit checking - much faster than BitSet.get()
         for (int click : combination) 
         {
-            if (FIRST_TRUE_ADJACENTS_BITSET.get(click)) count++;
+            int longIndex = click / 64;
+            int bitPosition = click % 64;
+            if (longIndex < mask.length && (mask[longIndex] & (1L << bitPosition)) != 0) 
+            {
+                count++;
+            }
         }
         return (count & 1) == 1;
     }
 
-    // Extract cache update to separate method to keep quickOddAdjacency small
-    private static void updateAdjacencyCache(int firstTrueCell)
+    private static void updateAdjacencyMask(int firstTrueCell)
     {
         synchronized (CombinationGeneratorTask.class)
         {
-            int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700);
-            for (int adj : adjacents) FIRST_TRUE_ADJACENTS_BITSET.set(adj);
-            CACHED_FIRST_TRUE_CELL = firstTrueCell;
+            if (CACHED_FIRST_TRUE_CELL != firstTrueCell)
+            {
+                int[] adjacents = Grid.findAdjacents(firstTrueCell);
+                long[] mask = new long[11]; // 700 bits = 11 longs
+                
+                for (int adj : adjacents) 
+                {
+                    int longIndex = adj / 64;
+                    int bitPosition = adj % 64;
+                    mask[longIndex] |= (1L << bitPosition);
+                }
+                
+                FIRST_TRUE_ADJACENTS_MASK = mask;
+                CACHED_FIRST_TRUE_CELL = firstTrueCell;
+            }
         }
     }
 }

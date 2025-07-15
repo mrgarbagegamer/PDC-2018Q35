@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
 import java.util.ArrayDeque;
+import java.util.BitSet;
 import java.util.Deque;
 
 import org.apache.logging.log4j.LogManager;
@@ -174,6 +175,8 @@ public class CombinationGenerator extends Thread
 
     // Add these static fields for pre-computed adjacency data
     private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
+    // NEW: Add a field for the pre-computed suffix OR masks
+    private static long[] SUFFIX_OR_MASKS = null;
     private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
     private static final int GRID_SIZE = 700; // Adjust for your grid
 
@@ -195,9 +198,9 @@ public class CombinationGenerator extends Thread
     }
 
     // Lazy initialization of true cell masks when first needed
-    private static void ensureTrueCellMasks(int[] trueCells) 
+    private static void ensureTrueCellMasks(IntList possibleClicks, int[] trueCells) 
     {
-        if (TRUE_CELL_ADJACENCY_MASKS == null && trueCells != null) 
+        if ((TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null) && trueCells != null) 
         {
             synchronized (CombinationGenerator.class) 
             {
@@ -220,6 +223,25 @@ public class CombinationGenerator extends Thread
                     
                     TRUE_CELL_ADJACENCY_MASKS = masks; // Assign the masks to the static field
                 }
+                if (SUFFIX_OR_MASKS == null) 
+                {
+                    // NEW: Pre-compute the suffix OR masks after the main masks are ready
+                    int numPossibleClicks = possibleClicks.size();
+                    long[] suffixMasks = new long[numPossibleClicks + 1]; // +1 for sentinel
+                    for (int i = numPossibleClicks - 1; i >= 0; i--)
+                    {
+                        int clickIndex = possibleClicks.getInt(i);
+                        if (clickIndex < GRID_SIZE) 
+                        {
+                            suffixMasks[i] = suffixMasks[i + 1] | TRUE_CELL_ADJACENCY_MASKS[clickIndex];
+                        } 
+                        else 
+                        {
+                            suffixMasks[i] = suffixMasks[i + 1];
+                        }
+                    }
+                    SUFFIX_OR_MASKS = suffixMasks;
+                }
             }
         }
     }
@@ -233,7 +255,7 @@ public class CombinationGenerator extends Thread
         if (TRUE_CELLS == null || TRUE_CELLS.length == 0) return true;
         
         // Ensure masks are initialized
-        ensureTrueCellMasks(TRUE_CELLS);
+        ensureTrueCellMasks(possibleClicks, TRUE_CELLS);
         
         // Compute current adjacency state using bitmasks
         long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
@@ -256,18 +278,9 @@ public class CombinationGenerator extends Thread
         
         // Check if remaining clicks can provide the needed adjacencies
         int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        int maxIdx = possibleClicks.size();
         
-        long availableAdjacencies = 0L; // Create a mask with all true cells set to 0
-        
-        for (int i = startIdx; i < maxIdx; i++) // For each remaining possible click
-        {
-            int clickIndex = possibleClicks.getInt(i); // Get the packed int corresponding to the click
-            if (clickIndex < GRID_SIZE) 
-            {
-                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex]; // Add the mask for this click to the available adjacencies
-            }
-        }
+        // OPTIMIZED: Replace the expensive loop with a single array lookup
+        long availableAdjacencies = SUFFIX_OR_MASKS[startIdx];
         
         // Check if available clicks can satisfy all needed adjacencies
         return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
@@ -301,14 +314,38 @@ public class CombinationGenerator extends Thread
         return false;
     }
 
+    // Add these fields to cache adjacents for the current firstTrueCell
+    private static volatile BitSet FIRST_TRUE_ADJACENTS_BITSET = null;
+    private static volatile int CACHED_FIRST_TRUE_CELL = -1;
+
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
+        // Skip lazy initialization if it causes inlining issues
+        if (CACHED_FIRST_TRUE_CELL != firstTrueCell) 
+        {
+            updateAdjacencyCache(firstTrueCell); // Extract to separate method
+        }
+        
         int count = 0;
+        
+        // O(1) adjacency check per click
         for (int click : combination) 
         {
-            if (Grid.areAdjacent(firstTrueCell, click)) count++;
+            if (FIRST_TRUE_ADJACENTS_BITSET.get(click)) count++;
         }
         return (count & 1) == 1;
+    }
+
+    // Extract cache update to separate method to keep quickOddAdjacency small
+    private static void updateAdjacencyCache(int firstTrueCell)
+    {
+        synchronized (CombinationGenerator.class)
+        {
+            int[] adjacents = Grid.findAdjacents(firstTrueCell);
+            FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700);
+            for (int adj : adjacents) FIRST_TRUE_ADJACENTS_BITSET.set(adj);
+            CACHED_FIRST_TRUE_CELL = firstTrueCell;
+        }
     }
 }
 

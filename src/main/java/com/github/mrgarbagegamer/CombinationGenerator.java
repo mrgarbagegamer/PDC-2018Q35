@@ -313,27 +313,24 @@ public class CombinationGenerator extends Thread
         return false;
     }
 
-    // Add these fields to cache adjacents for the current firstTrueCell
-    private static volatile long[] FIRST_TRUE_ADJACENTS_MASK = null;
-    private static volatile int CACHED_FIRST_TRUE_CELL = -1;
+    // Cache multiple adjacency mmasks to reduce synchronization
+    private static volatile long[][] ADJACENCY_MASK_CACHE = new long[16][];
+    private static volatile int[] CACHED_TRUE_CELLS = new int[16];
+    private static volatile int CACHE_SIZE = 0;
 
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
-        // Skip lazy initialization if it causes inlining issues
-        if (CACHED_FIRST_TRUE_CELL != firstTrueCell) 
-        {
-            updateAdjacencyMask(firstTrueCell);
-        }
+        long[] mask = getCachedAdjacencyMask(firstTrueCell);
         
         int count = 0;
-        long[] mask = FIRST_TRUE_ADJACENTS_MASK;
-        
-        // Direct bit checking - much faster than BitSet.get()
-        for (int click : combination) 
+        // Unroll the loop for better performance on small combinations
+        int length = combination.length;
+        for (int i = 0; i < length; i++)
         {
-            int longIndex = click / 64;
-            int bitIndex = click % 64;
-            if (longIndex < mask.length && (mask[longIndex] & (1L << bitIndex)) != 0) 
+            int click = combination[i];
+            int longIndex = click >>> 6; // Faster than click / 64
+            int bitPosition = click & 63; // Faster than click % 64
+            if (longIndex < mask.length && (mask[longIndex] & (1L << bitPosition)) != 0) 
             {
                 count++;
             }
@@ -341,25 +338,53 @@ public class CombinationGenerator extends Thread
         return (count & 1) == 1;
     }
 
-    private static void updateAdjacencyMask(int firstTrueCell)
+    private static long[] getCachedAdjacencyMask(int firstTrueCell)
+    {
+        // Try cache first
+        for (int i = 0; i < CACHE_SIZE; i++)
+        {
+            if (CACHED_TRUE_CELLS[i] == firstTrueCell)
+            {
+                return ADJACENCY_MASK_CACHE[i];
+            }
+        }
+        
+        // Cache miss - compute and store
+        return computeAndCacheAdjacencyMask(firstTrueCell);
+    }
+    
+    private static long[] computeAndCacheAdjacencyMask(int firstTrueCell)
     {
         synchronized (CombinationGenerator.class)
         {
-            if (CACHED_FIRST_TRUE_CELL != firstTrueCell) 
+            // Double-check after acquiring lock
+            for (int i = 0; i < CACHE_SIZE; i++)
             {
-                int[] adjacents = Grid.findAdjacents(firstTrueCell);
-                long[] mask = new long[11]; // 700 bits = 11 longs
-
-                for (int adj : adjacents)
+                if (CACHED_TRUE_CELLS[i] == firstTrueCell)
                 {
-                    int longIndex = adj / 64;
-                    int bitPosition = adj % 64;
-                    mask[longIndex] |= (1L << bitPosition);
+                    return ADJACENCY_MASK_CACHE[i];
                 }
-
-                FIRST_TRUE_ADJACENTS_MASK = mask;
-                CACHED_FIRST_TRUE_CELL = firstTrueCell;
             }
+            
+            // Compute new mask
+            int[] adjacents = Grid.findAdjacents(firstTrueCell);
+            long[] mask = new long[11]; // 700 bits = 11 longs
+            
+            for (int adj : adjacents) 
+            {
+                int longIndex = adj >>> 6;
+                int bitPosition = adj & 63;
+                mask[longIndex] |= (1L << bitPosition);
+            }
+            
+            // Add to cache (with simple replacement if full)
+            int cacheIndex = CACHE_SIZE < 16 ? CACHE_SIZE++ : 
+                            (firstTrueCell & 15); // Simple hash for replacement
+            
+            ADJACENCY_MASK_CACHE[cacheIndex] = mask;
+            CACHED_TRUE_CELLS[cacheIndex] = firstTrueCell;
+            
+            return mask;
         }
     }
 }

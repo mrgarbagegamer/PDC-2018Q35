@@ -167,7 +167,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     // Lazy initialization of true cell masks when first needed
     private static void ensureTrueCellMasks(IntList possibleClicks, int[] trueCells) 
     {
-        if (TRUE_CELL_ADJACENCY_MASKS == null && trueCells != null) 
+        if ((TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null) && trueCells != null) 
         {
             synchronized (CombinationGeneratorTask.class) 
             {
@@ -189,7 +189,9 @@ public class CombinationGeneratorTask extends RecursiveAction
                     }
                     
                     TRUE_CELL_ADJACENCY_MASKS = masks; // Assign the masks to the static field
-
+                }
+                if (SUFFIX_OR_MASKS == null) 
+                {
                     // NEW: Pre-compute the suffix OR masks after the main masks are ready
                     int numPossibleClicks = possibleClicks.size();
                     long[] suffixMasks = new long[numPossibleClicks + 1]; // +1 for sentinel

@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer;
 
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
@@ -508,37 +507,52 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Add these fields to cache adjacents for the current firstTrueCell
-    private static volatile BitSet FIRST_TRUE_ADJACENTS_BITSET = null;
+    private static volatile long[] FIRST_TRUE_ADJACENTS_MASK = null;
     private static volatile int CACHED_FIRST_TRUE_CELL = -1;
 
-    // TODO: Consider how useful this method is and look at moving satisfiesOddAdjacency to CombinationGeneratorTask
+    // Ultra-fast O(1) adjacency check using bitmasks
     private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
-        // Skip lazy initialization if it causes inlining issues
         if (CACHED_FIRST_TRUE_CELL != firstTrueCell) 
         {
-            updateAdjacencyCache(firstTrueCell); // Extract to separate method
+            updateAdjacencyMask(firstTrueCell);
         }
         
         int count = 0;
+        long[] mask = FIRST_TRUE_ADJACENTS_MASK;
         
-        // O(1) adjacency check per click
+        // Direct bit checking - much faster than BitSet.get()
         for (int click : combination) 
         {
-            if (FIRST_TRUE_ADJACENTS_BITSET.get(click)) count++;
+            int longIndex = click / 64;
+            int bitPosition = click % 64;
+            if (longIndex < mask.length && (mask[longIndex] & (1L << bitPosition)) != 0) 
+            {
+                count++;
+            }
         }
         return (count & 1) == 1;
     }
 
-    // Extract cache update to separate method to keep quickOddAdjacency small
-    private static void updateAdjacencyCache(int firstTrueCell)
+    private static void updateAdjacencyMask(int firstTrueCell)
     {
         synchronized (CombinationGeneratorTask.class)
         {
-            int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            FIRST_TRUE_ADJACENTS_BITSET = new BitSet(700);
-            for (int adj : adjacents) FIRST_TRUE_ADJACENTS_BITSET.set(adj);
-            CACHED_FIRST_TRUE_CELL = firstTrueCell;
+            if (CACHED_FIRST_TRUE_CELL != firstTrueCell)
+            {
+                int[] adjacents = Grid.findAdjacents(firstTrueCell);
+                long[] mask = new long[11]; // 700 bits = 11 longs
+                
+                for (int adj : adjacents) 
+                {
+                    int longIndex = adj / 64;
+                    int bitPosition = adj % 64;
+                    mask[longIndex] |= (1L << bitPosition);
+                }
+                
+                FIRST_TRUE_ADJACENTS_MASK = mask;
+                CACHED_FIRST_TRUE_CELL = firstTrueCell;
+            }
         }
     }
 }

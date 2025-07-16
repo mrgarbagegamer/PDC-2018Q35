@@ -41,9 +41,6 @@ public class CombinationGeneratorTask extends RecursiveAction
     private int[] trueCells;
     private int maxFirstClickIndex;
     
-    // NEW: Add a field to carry the current adjacency mask through the recursion
-    private long currentAdjacencyMask;
-    
     // Added field to track cancellation within a subtask hierarchy
     private volatile boolean cancelled = false; // Use a volatile boolean instead of an AtomicBoolean to achieve the same goal without temporary object creation (and with greater efficiency)
     private CombinationGeneratorTask parent;
@@ -53,8 +50,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                                    CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
                                    int maxFirstClickIndex) 
     {
-        // For the root task, the initial mask is 0
-        this.init(possibleClicks, numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null, 0L);
+        this.init(possibleClicks, numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
     }
 
     // Default constructor for pool creation
@@ -63,7 +59,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     // "init" method to re-initialize a recycled task
     public void init(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
                      CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
-                     int maxFirstClickIndex, CombinationGeneratorTask parent, long initialAdjacencyMask) 
+                     int maxFirstClickIndex, CombinationGeneratorTask parent) 
     {
         this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
@@ -74,8 +70,6 @@ public class CombinationGeneratorTask extends RecursiveAction
         this.trueCells = trueCells;
         this.parent = parent;
         this.maxFirstClickIndex = maxFirstClickIndex;
-        // NEW: Set the adjacency mask from the parent
-        this.currentAdjacencyMask = initialAdjacencyMask;
         reinitialize();
         propagateParentCancellation();
     }
@@ -230,11 +224,21 @@ public class CombinationGeneratorTask extends RecursiveAction
         // Ensure masks are initialized
         ensureTrueCellMasks(possibleClicks, trueCells);
         
-        // OPTIMIZED: No loop needed. The currentAdjacencyMask is passed down from the parent.
+        // Compute current adjacency state using bitmasks
+        long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
+        
+        for (int j = 0; j < prefixLength; j++) // For each click in the prefix
+        {
+            int clickIndex = possibleClicks.getInt(prefix[j]); // Get the packed int corresponding to the click
+            if (clickIndex < GRID_SIZE) 
+            {
+                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
+            }
+        }
         
         // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
         long targetMask = (1L << trueCells.length) - 1;
-        long needed = currentAdjacencyMask ^ targetMask; // XOR with target to find which bits need to be flipped
+        long needed = currentAdjacencies ^ targetMask; // XOR with target to find which bits need to be flipped
         
         // If no bits need to be flipped, we're already good
         if (needed == 0L) return true;
@@ -266,7 +270,6 @@ public class CombinationGeneratorTask extends RecursiveAction
         CombinationGeneratorTask[] subtasks = new CombinationGeneratorTask[numSubtasks];
         int subtaskCount = 0;
         TaskPool pool = taskPool.get();
-        ensureTrueCellMasks(possibleClicks, trueCells);
         
         for (int i = start; i < max; i++) 
         {
@@ -278,18 +281,10 @@ public class CombinationGeneratorTask extends RecursiveAction
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = i;
 
-            // NEW: Calculate the next adjacency mask to pass to the child
-            long nextAdjacencyMask = this.currentAdjacencyMask;
-            int clickIndex = possibleClicks.getInt(i);
-            if (clickIndex < GRID_SIZE)
-            {
-                nextAdjacencyMask ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex];
-            }
-
             // Get a recycled task from the pool and initialize it
             CombinationGeneratorTask subtask = pool.get();
             subtask.init(possibleClicks, numClicks, newPrefix, prefixLength + 1, 
-                         queueArray, numConsumers, trueCells, maxFirstClickIndex, this, nextAdjacencyMask);
+                         queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
             subtasks[subtaskCount++] = subtask;
         }
         

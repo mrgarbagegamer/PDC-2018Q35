@@ -12,7 +12,8 @@ public abstract class Grid
     public enum ValueFormat
     {
         PackedInt, // row * 100 + col
-        Index // 0-108
+        Index, // 0-108
+        Bitmask // Unused for the moment, but we could directly store combinations as an array of two bitmasks
     }
     
     // Constants

@@ -142,6 +142,14 @@ public class CombinationGenerator extends Thread
                 continue;
             }
 
+            if (size >= 2 && !canPotentiallySatisfyConstraints(size, indices)) 
+            {
+                // If we can't potentially satisfy constraints, skip this state
+                recycleIndices(indices);
+                recycleState(state);
+                continue;
+            }
+
             for (int i = nodeList.size() - 1; i >= start; i--) 
             {
                 int[] newIndices = getIndices(k);
@@ -196,6 +204,114 @@ public class CombinationGenerator extends Thread
         // Flush any remaining combinations in the batch
         flushBatch(batch, roundRobinIdx);
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
+    }
+
+    // Add these static fields for pre-computed adjacency data
+    private static long[][] TRUE_CELL_ADJACENCY_MASKS = initTrueCellMasks();
+    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
+    private static final int GRID_SIZE = 615; // Adjust for your grid
+
+    private static long[][] initTrueCellMasks() 
+    {
+        // This will be set when the first generator is initialized with actual trueCells
+        return null;
+    }
+
+    private static boolean[][] initClickAdjacencyMatrix() 
+    {
+        boolean[][] matrix = new boolean[GRID_SIZE][GRID_SIZE];
+        for (int i = 0; i < GRID_SIZE; i++) 
+        {
+            int[] adjacents = Grid.findAdjacents(i);
+            if (adjacents != null) 
+            {
+                for (int adj : adjacents) 
+                {
+                    if (adj < GRID_SIZE) matrix[i][adj] = true;
+                }
+            }
+        }
+        return matrix;
+    }
+
+    // Lazy initialization of true cell masks when first needed
+    private static void ensureTrueCellMasks(int[] trueCells) 
+    {
+        if (TRUE_CELL_ADJACENCY_MASKS == null && trueCells != null) 
+        {
+            synchronized (CombinationGenerator.class) 
+            {
+                if (TRUE_CELL_ADJACENCY_MASKS == null) 
+                {
+                    // TODO: Look at replacing the 2D array with a 1D array of long[] for better memory efficiency (the longs will be packed into a single long for each click cell)
+                    long[][] masks = new long[GRID_SIZE][]; // Create an array to store masks for each click cell
+                    
+                    for (int clickCell = 0; clickCell < GRID_SIZE; clickCell++) // For each cell in the grid
+                    {
+                        long mask = 0L; // Create a mask with all true cells set to 0
+                        for (int i = 0; i < trueCells.length; i++) // For each true cell
+                        {
+                            if (CLICK_ADJACENCY_MATRIX[trueCells[i]][clickCell]) // If the true cell is adjacent to the click cell
+                            {
+                                mask |= (1L << i); // Add this true cell to the mask by OR-ing with the bit at position i
+                            }
+                        }
+                        masks[clickCell] = new long[] { mask }; // Store the mask for this click cell in a single-element long array
+                    }
+                    
+                    TRUE_CELL_ADJACENCY_MASKS = masks; // Assign the masks to the static field
+                }
+            }
+        }
+    }
+
+    /**
+     * Ultra-fast constraint checking using pre-computed bitmasks.
+     * This should be small enough for C2 inlining.
+     */
+    private boolean canPotentiallySatisfyConstraints(int prefixLength, int[] prefix)
+    {
+        if (TRUE_CELLS == null || TRUE_CELLS.length == 0) return true;
+        
+        // Ensure masks are initialized
+        ensureTrueCellMasks(TRUE_CELLS);
+        
+        // Compute current adjacency state using bitmasks
+        long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
+        
+        for (int j = 0; j < prefixLength; j++) // For each click in the prefix
+        {
+            int clickIndex = possibleClicks.getInt(prefix[j]); // Get the packed int corresponding to the click
+            if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
+            {
+                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
+            }
+        }
+        
+        // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
+        long targetMask = (1L << TRUE_CELLS.length) - 1;
+        long needed = currentAdjacencies ^ targetMask; // XOR with target to find which bits need to be flipped
+        
+        // If no bits need to be flipped, we're already good
+        if (needed == 0L) return true;
+        
+        // Check if remaining clicks can provide the needed adjacencies
+        int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
+        int maxIdx = possibleClicks.size();
+        
+        long availableAdjacencies = 0L; // Create a mask with all true cells set to 0
+        
+        for (int i = startIdx; i < maxIdx; i++) // For each remaining possible click
+        {
+            int clickIndex = possibleClicks.getInt(i); // Get the packed int corresponding to the click
+            if (clickIndex < GRID_SIZE && TRUE_CELL_ADJACENCY_MASKS[clickIndex] != null) 
+            {
+                availableAdjacencies |= TRUE_CELL_ADJACENCY_MASKS[clickIndex][0]; // Add the mask for this click to the available adjacencies
+            }
+        }
+        
+        // Check if available clicks can satisfy all needed adjacencies
+        return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
     }
     
     private boolean flushBatch(WorkBatch batch, int roundRobinIdx)

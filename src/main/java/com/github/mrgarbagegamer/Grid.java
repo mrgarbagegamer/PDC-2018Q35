@@ -9,6 +9,12 @@ import it.unimi.dsi.fastutil.ints.IntList;
 
 public abstract class Grid 
 {
+    public enum ValueFormat
+    {
+        PackedInt, // row * 100 + col
+        Index // 0-108
+    }
+    
     // Constants
     public static final int NUM_ROWS = 7;
     public static final int ODD_NUM_COLS = 15;
@@ -30,6 +36,8 @@ public abstract class Grid
     private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_ROWS * 100 + EVEN_NUM_COLS][NUM_ROWS * 100 + EVEN_NUM_COLS];
     private static final int[] PACKED_TO_INDEX_CACHE = new int[NUM_ROWS * 100 + EVEN_NUM_COLS];
 
+    // We don't necessarily need to worry too much about how optimized this block
+    // is, since it's only run once at startup.
     static 
     {
         // Pre-compute all adjacency data

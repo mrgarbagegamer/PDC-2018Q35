@@ -26,7 +26,7 @@ public abstract class Grid
     // Bitmask grid state - 109 cells fit in 2 longs (128 bits)
     protected final long[] gridState = new long[2];
     protected int trueCellsCount = 0;
-    protected int firstTrueCell = -1;
+    protected int firstTrueCell = -1; // The first true cell is in index format (0-108)
     protected boolean recalculationNeeded = false;
 
     // Pre-computed adjacency masks for each possible cell (700 total)
@@ -291,7 +291,7 @@ public abstract class Grid
         return findTrueCells(ValueFormat.PackedInt);
     }
 
-    public int findFirstTrueCell() 
+    public int findFirstTrueCell(ValueFormat format) 
     {
         if (!recalculationNeeded && trueCellsCount == 0) 
         {
@@ -306,12 +306,10 @@ public abstract class Grid
         // Find first true cell using bit operations
         if (gridState[0] != 0L) 
         {
-            int bitPosition = Long.numberOfTrailingZeros(gridState[0]);
-            firstTrueCell = indexToPacked(bitPosition);
+            firstTrueCell = Long.numberOfTrailingZeros(gridState[0]);
         } else if (gridState[1] != 0L) 
         {
-            int bitPosition = Long.numberOfTrailingZeros(gridState[1]);
-            firstTrueCell = indexToPacked(64 + bitPosition);
+            firstTrueCell = 64 + Long.numberOfTrailingZeros(gridState[1]);
         } else 
         {
             firstTrueCell = -1;
@@ -321,7 +319,27 @@ public abstract class Grid
         trueCellsCount = Long.bitCount(gridState[0]) + Long.bitCount(gridState[1]);
         
         recalculationNeeded = false;
+        if (firstTrueCell == -1) return -1; // No true cells found
+        switch (format) 
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case Index:
+                // Convert packed int to index
+                firstTrueCell = packedToIndex(firstTrueCell);
+                break;
+            case PackedInt:
+                // Already in packed int format, no conversion needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + format);
+        }
         return firstTrueCell;
+    }
+
+    public int findFirstTrueCell() 
+    {
+        return findFirstTrueCell(ValueFormat.PackedInt);
     }
 
     // Ultra-fast click operation using pre-computed bitmasks

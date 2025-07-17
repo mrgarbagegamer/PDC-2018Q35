@@ -10,7 +10,7 @@ public class Grid22 extends Grid
         gridState[0] = 3293960916490350006L;
         gridState[1] = 15078939901952L;
 
-        firstTrueCell = 1; // Set the first true cell to 1 (row 0, col 1)
+        firstTrueCell = 1; // Set the first true cell to bit index 1 (row 0, col 1)
         trueCellsCount = 50;
         recalculationNeeded = false;
 

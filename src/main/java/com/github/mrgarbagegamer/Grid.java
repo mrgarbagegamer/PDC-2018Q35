@@ -46,7 +46,7 @@ public abstract class Grid
             for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
             {
                 int cell = row * 100 + col;
-                IntList adjSet = computeAdjacents(cell, ValueFormat.PackedInt);
+                IntList adjSet = computeAdjacents(cell);
                 int[] adjArr = new int[adjSet.size()];
                 int idx = 0;
                 
@@ -76,12 +76,12 @@ public abstract class Grid
         }
     }
 
-    public static IntList computeAdjacents(int cell, ValueFormat format) throws IllegalArgumentException
+    public static IntList computeAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat) throws IllegalArgumentException
     {
         IntList affectedPieces = new IntArrayList(6);
 
         // We need to handle different formats for adjacency 
-        switch (format) 
+        switch (inputFormat) 
         {
             case Bitmask:
                 throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
@@ -117,10 +117,10 @@ public abstract class Grid
             return r < 0 || r >= NUM_ROWS || c < 0 || c >= ((r % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS);
         });
 
-        switch (format)
+        switch (outputFormat)
         {
             case Bitmask:
-                throw new IllegalArgumentException("...how did you even end up here? whatever, Bitmask format is not supported for representing a single cell.");
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
             case Index:
                 // Convert packed int to index
                 affectedPieces.replaceAll(Grid::packedToIndex);
@@ -131,6 +131,16 @@ public abstract class Grid
         }
 
         return affectedPieces;
+    }
+
+    public static IntList computeAdjacents(int cell, ValueFormat format) 
+    {
+        return computeAdjacents(cell, format, format);
+    }
+
+    public static IntList computeAdjacents(int cell) 
+    {
+        return computeAdjacents(cell, ValueFormat.PackedInt);
     }
 
     // Legacy support methods

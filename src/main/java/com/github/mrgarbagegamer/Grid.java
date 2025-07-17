@@ -258,19 +258,37 @@ public abstract class Grid
     }
 
     // Legacy compatibility method - maintains existing behavior
-    public int[] findTrueCells() 
+    public int[] findTrueCells(ValueFormat format) 
     {
         int[] trueCellsArray = new int[getTrueCount()];
         int idx = 0;
         
         for (int i = 0; i < NUM_CELLS && idx < trueCellsCount; i++) 
         {
-            if (getBit(i)) 
-            {
-                trueCellsArray[idx++] = indexToPacked(i);
-            }
+            if (getBit(i)) trueCellsArray[idx++] = i;
         }
+        
+        switch (format) 
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing true cells (since that's just the Grid).");
+            case Index:
+                // Convert packed int to index
+                for (int i = 0; i < trueCellsArray.length; i++) trueCellsArray[i] = packedToIndex(trueCellsArray[i]);
+                break;
+            case PackedInt:
+                // Already in packed int format, no conversion needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + format);
+        }
+
         return trueCellsArray;
+    }
+
+    public int[] findTrueCells() 
+    {
+        return findTrueCells(ValueFormat.PackedInt);
     }
 
     public int findFirstTrueCell() 

@@ -203,6 +203,11 @@ public abstract class Grid
     {
         if (packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length) 
         {
+            if (PACKED_TO_INDEX_CACHE[packed] == 0 && packed != 0) 
+            {
+                // If the cache is not initialized, compute it
+                PACKED_TO_INDEX_CACHE[packed] = computePackedToIndex(packed);
+            }
             return PACKED_TO_INDEX_CACHE[packed];
         }
         throw new IllegalArgumentException("Invalid packed int: " + packed);

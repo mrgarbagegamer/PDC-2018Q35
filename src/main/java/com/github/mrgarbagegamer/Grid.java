@@ -76,7 +76,7 @@ public abstract class Grid
         }
     }
 
-    public static IntList computeAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat) throws IllegalArgumentException
+    public static IntList computeAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat)
     {
         IntList affectedPieces = new IntArrayList(6);
 
@@ -143,7 +143,7 @@ public abstract class Grid
         return computeAdjacents(cell, ValueFormat.PackedInt);
     }
 
-    public static int[] findAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat) throws IllegalArgumentException
+    public static int[] findAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat)
     {
         int[] result;
         switch (inputFormat)

@@ -36,7 +36,6 @@ public abstract class Grid
     private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][];
     private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_ROWS * 100 + EVEN_NUM_COLS][NUM_ROWS * 100 + EVEN_NUM_COLS];
     private static final int[] PACKED_TO_INDEX_CACHE = new int[NUM_ROWS * 100 + EVEN_NUM_COLS];
-
     // We don't necessarily need to worry too much about how optimized this block
     // is, since it's only run once at startup.
     static 
@@ -47,7 +46,7 @@ public abstract class Grid
             for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
             {
                 int cell = row * 100 + col;
-                IntList adjSet = computeAdjacents(row, col);
+                IntList adjSet = computeAdjacents(cell, ValueFormat.PackedInt);
                 int[] adjArr = new int[adjSet.size()];
                 int idx = 0;
                 
@@ -77,26 +76,39 @@ public abstract class Grid
         }
     }
 
-    public static IntList computeAdjacents(int row, int col) 
+    public static IntList computeAdjacents(int cell, ValueFormat format) throws IllegalArgumentException
     {
         IntList affectedPieces = new IntArrayList(6);
 
-        if (row % 2 == 0) // even rows with 16 columns
+        // We need to handle different formats for adjacency 
+        switch (format) 
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case Index:
+                // Convert the cell to packed int format
+                cell = indexToPacked(cell);
+            case PackedInt:
+                // If the cell is in packed int format, we can directly compute adjacents
+                break;
+        }
+
+        if (cell % 200 == 0) // even rows with 16 columns
         { 
-            affectedPieces.add((row - 1) * 100 + (col - 1));
-            affectedPieces.add((row - 1) * 100 + col);
-            affectedPieces.add(row * 100 + (col - 1));
-            affectedPieces.add(row * 100 + (col + 1));
-            affectedPieces.add((row + 1) * 100 + (col - 1));
-            affectedPieces.add((row + 1) * 100 + col);
+            affectedPieces.add(cell - 101); // (row - 1, col - 1)
+            affectedPieces.add(cell - 100); // (row - 1, col)
+            affectedPieces.add(cell - 1);   // (row, col - 1)
+            affectedPieces.add(cell + 1);   // (row, col + 1)
+            affectedPieces.add(cell + 99);  // (row + 1, col - 1)
+            affectedPieces.add(cell + 100); // (row + 1, col)
         } else // odd rows with 15 columns
         { 
-            affectedPieces.add((row - 1) * 100 + col);
-            affectedPieces.add((row - 1) * 100 + (col + 1));
-            affectedPieces.add(row * 100 + (col - 1));
-            affectedPieces.add(row * 100 + (col + 1));
-            affectedPieces.add((row + 1) * 100 + col);
-            affectedPieces.add((row + 1) * 100 + (col + 1));
+            affectedPieces.add(cell - 100); // (row - 1, col)
+            affectedPieces.add(cell - 99);  // (row - 1, col + 1)
+            affectedPieces.add(cell - 1);   // (row, col - 1)
+            affectedPieces.add(cell + 1);   // (row, col + 1)
+            affectedPieces.add(cell + 100); // (row + 1, col)
+            affectedPieces.add(cell + 101); // (row + 1, col + 1)
         }
 
         // Remove out-of-bounds cells
@@ -104,6 +116,19 @@ public abstract class Grid
             int r = key / 100, c = key % 100;
             return r < 0 || r >= NUM_ROWS || c < 0 || c >= ((r % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS);
         });
+
+        switch (format)
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("...how did you even end up here? whatever, Bitmask format is not supported for representing a single cell.");
+            case Index:
+                // Convert packed int to index
+                affectedPieces.replaceAll(Grid::packedToIndex);
+                break;
+            case PackedInt:
+                // Already in packed int format, no conversion needed
+                break;
+        }
 
         return affectedPieces;
     }

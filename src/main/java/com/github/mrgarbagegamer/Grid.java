@@ -348,19 +348,50 @@ public abstract class Grid
     }
 
     // Ultra-fast click operation using pre-computed bitmasks
+    public void click(int cell, ValueFormat format) 
+    {
+        switch (format) 
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Unsupported format: Bitmask must be a long[] of length 1 or 2.");
+            case Index:
+                // Convert the cell to packed int format
+                cell = indexToPacked(cell);
+            case PackedInt:
+                // If the cell is in packed int format, we can directly use it
+                // XOR the grid state with the pre-computed adjacency mask
+                gridState[0] ^= ADJACENCY_MASKS[cell][0];
+                gridState[1] ^= ADJACENCY_MASKS[cell][1];
+                
+                // Mark for recalculation of first true cell
+                recalculationNeeded = true;
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + format);
+        }
+    }
+
     public void click(int cell) 
     {
-        // XOR the grid state with the pre-computed adjacency mask
-        gridState[0] ^= ADJACENCY_MASKS[cell][0];
-        gridState[1] ^= ADJACENCY_MASKS[cell][1];
-        
-        // Mark for recalculation of first true cell
-        recalculationNeeded = true;
+        click(cell, ValueFormat.PackedInt);
     }
 
     public void click(int row, int col) 
     {
         click(row * 100 + col);
+    }
+
+    public void click(long[] bitmask) 
+    {
+        if (bitmask.length != 2) 
+        {
+            throw new IllegalArgumentException("Bitmask must be of length 2.");
+        }
+        gridState[0] ^= bitmask[0];
+        gridState[1] ^= bitmask[1];
+        
+        // Mark for recalculation of first true cell
+        recalculationNeeded = true;
     }
 
     public int[] findFirstTrueAdjacents() 

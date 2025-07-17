@@ -143,15 +143,52 @@ public abstract class Grid
         return computeAdjacents(cell, ValueFormat.PackedInt);
     }
 
-    // Legacy support methods
-    public static int[] findAdjacents(int row, int col) 
+    public static int[] findAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat) throws IllegalArgumentException
     {
-        return adjacencyArray[row * 100 + col];
+        int[] result;
+        switch (inputFormat)
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case Index:
+                // Convert the cell to packed int format
+                cell = indexToPacked(cell);
+            case PackedInt:
+                // If the cell is in packed int format, we can directly compute adjacents
+                result = adjacencyArray[cell];
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + inputFormat);
+        }
+        switch (outputFormat) 
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case Index:
+                // Convert packed int to index
+                for (int i = 0; i < result.length; i++) 
+                {
+                    result[i] = packedToIndex(result[i]);
+                }
+                break;
+            case PackedInt:
+                // Already in packed int format, no conversion needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + outputFormat);
+        }
+
+        return result;
+    }
+
+    public static int[] findAdjacents(int cell, ValueFormat format) 
+    {
+        return findAdjacents(cell, format, format);
     }
 
     public static int[] findAdjacents(int cell) 
     {
-        return adjacencyArray[cell];
+        return findAdjacents(cell, ValueFormat.PackedInt);
     }
 
     // Packed int <-> compact array index conversion

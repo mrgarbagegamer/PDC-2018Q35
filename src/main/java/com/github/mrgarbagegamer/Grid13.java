@@ -11,7 +11,7 @@ public class Grid13 extends Grid
         gridState[0] = -6917317925703516160L;
         gridState[1] = 8191L;
 
-        firstTrueCell = 201; // Set the first true cell to 201 (row 2, col 1)
+        firstTrueCell = 32; // Set the first true cell to bit index 32 (row 2, col 1)
         trueCellsCount = 30;
         recalculationNeeded = false;
 

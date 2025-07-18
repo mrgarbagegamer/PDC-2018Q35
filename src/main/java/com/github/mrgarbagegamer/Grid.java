@@ -381,8 +381,10 @@ public abstract class Grid
         int firstTrueCell = findFirstTrueCell(format);
         if (firstTrueCell == -1) return null;
         int[] trueAdjacents = findAdjacents(firstTrueCell, format);
+
+        if (trueAdjacents == null || trueAdjacents.length == 0) return null;
         
-        return trueAdjacents.length == 0 ? null : trueAdjacents;
+        return trueAdjacents;
     }
 
     public int[] findFirstTrueAdjacents() 

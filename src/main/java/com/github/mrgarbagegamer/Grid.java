@@ -264,12 +264,18 @@ public abstract class Grid
         return (gridState[longIndex] & (1L << bitPosition)) != 0;
     }
 
-    // Legacy compatibility method - maintains existing behavior
+    /**
+     * Returns the true cells in the requested format.
+     * Internally, true cells are stored as bit indices (0-108).
+     * @param format The desired output format (Index or PackedInt).
+     * @return An array of true cells in the requested format.
+     */
     public int[] findTrueCells(ValueFormat format) 
     {
         int[] trueCellsArray = new int[trueCellsCount];
         int idx = 0;
         
+        // Internally, we iterate over bit indices (0-108)
         for (int i = 0; i < NUM_CELLS && idx < trueCellsCount; i++) 
         {
             if (getBit(i)) trueCellsArray[idx++] = i;
@@ -298,6 +304,12 @@ public abstract class Grid
         return findTrueCells(ValueFormat.PackedInt);
     }
 
+    /**
+     * Returns the first true cell in the requested format.
+     * Internally, firstTrueCell is stored as a bit index (0-108).
+     * @param format The desired output format (Index or PackedInt).
+     * @return The first true cell, or -1 if none found.
+     */
     public int findFirstTrueCell(ValueFormat format) 
     {
         if (!recalculationNeeded && trueCellsCount == 0) 
@@ -397,6 +409,11 @@ public abstract class Grid
         recalculationNeeded = true;
     }
 
+    /**
+     * Returns the adjacents of the first true cell in the requested format.
+     * @param format The desired output format (Index or PackedInt).
+     * @return An array of adjacent cells, or null if no true cell exists.
+     */
     public int[] findFirstTrueAdjacents(ValueFormat format) 
     {
         int firstTrueCell = findFirstTrueCell(format);
@@ -413,6 +430,13 @@ public abstract class Grid
         return findFirstTrueAdjacents(ValueFormat.PackedInt);
     }
 
+    /**
+     * Returns the adjacents of the first true cell after a given cell, in the requested formats.
+     * @param cell The cell after which to search (format specified by inputFormat).
+     * @param inputFormat The format of the input cell.
+     * @param outputFormat The desired output format.
+     * @return An array of adjacent cells after the given cell, or null if none found.
+     */
     public int[] findFirstTrueAdjacentsAfter(int cell, ValueFormat inputFormat, ValueFormat outputFormat) 
     {
         int[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);

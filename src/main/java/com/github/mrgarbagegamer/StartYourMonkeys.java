@@ -3,28 +3,11 @@ package com.github.mrgarbagegamer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
-
 import org.jctools.queues.SpmcArrayQueue;
 public class StartYourMonkeys 
 {
     // Add a logger at the top of the class
     private static final Logger logger = LogManager.getLogger(StartYourMonkeys.class);
-
-    private static void populatePossibleClicks(IntList possibleClicks)
-    {
-        int numRows = 7; // Total rows in the grid
-        int[] numCols = { 16, 15, 16, 15, 16, 15, 16 }; // Number of columns for each row
-
-        for (int row = 0; row < numRows; row++) 
-        {
-            for (int col = 0; col < numCols[row]; col++) 
-            {
-                possibleClicks.add(row * 100 + col);
-            }
-        }
-    }
 
     public static void main(String[] args) 
     {
@@ -53,10 +36,6 @@ public class StartYourMonkeys
         final int numThreads = parsedNumThreads;
         final int questionNumber = parsedQuestionNumber;
 
-        // generate the list of possible clicks for our grid
-        IntList possibleClicks = new IntArrayList();
-        StartYourMonkeys.populatePossibleClicks(possibleClicks);
-
         // start generating different click combinations
         Grid baseGrid;
         
@@ -73,8 +52,9 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
-        int[] trueAdjacents = baseGrid.findFirstTrueAdjacents();
+        int[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the first true adjacents in index format
         int finalFirstTrueAdjacent = -1;
+        // This will be the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
         if (trueAdjacents != null) {
             for (int adjacent : trueAdjacents) {
                 if (adjacent > finalFirstTrueAdjacent) {
@@ -82,25 +62,23 @@ public class StartYourMonkeys
                 }
             }
         }
-        int finalFirstTrueAdjIndex = possibleClicks.indexOf(finalFirstTrueAdjacent); // This is the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
-        
 
         int numGeneratorThreads = numThreads;
-        int chunkSize = Math.max(1, (finalFirstTrueAdjIndex + 1) / (numGeneratorThreads * 8)); // Make chunks small for better balance
+        int chunkSize = Math.max(1, (finalFirstTrueAdjacent + 1) / (numGeneratorThreads * 8)); // Make chunks small for better balance
 
         // Tell the queue how many generators we have on startup
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, numGeneratorThreads);
 
         // --- Dynamic generator work queue ---
-        int numChunks = ((finalFirstTrueAdjIndex + 1) + chunkSize - 1) / chunkSize;
+        int numChunks = ((finalFirstTrueAdjacent + 1) + chunkSize - 1) / chunkSize;
         SpmcArrayQueue<PrefixRange> workQueue = new SpmcArrayQueue<>(numChunks + 1);
-        for (int i = 0; i < finalFirstTrueAdjIndex + 1; i += chunkSize) 
+        for (int i = 0; i < finalFirstTrueAdjacent + 1; i += chunkSize) 
         {
-            int end = Math.min(i + chunkSize, finalFirstTrueAdjIndex + 1);
+            int end = Math.min(i + chunkSize, finalFirstTrueAdjacent + 1);
             workQueue.offer(new PrefixRange(i, end));
         }
 
-        int[] trueCells = baseGrid.findTrueCells();
+        int[] trueCells = baseGrid.findTrueCells(); // Find all true cells in index format
 
         // Start generator threads
         for (int t = 0; t < numGeneratorThreads; t++) 
@@ -112,7 +90,7 @@ public class StartYourMonkeys
                 {
                     logger.info("{} - Processing prefix range [{}-{})", threadName, range.start, range.end); // TODO: Remove this line if too verbose
                     CombinationGenerator cb = new CombinationGenerator(
-                        threadName, queueArray, possibleClicks, numClicks,
+                        threadName, queueArray, numClicks,
                         range.start, range.end, numThreads, trueCells
                     );
                     cb.run();
@@ -170,6 +148,12 @@ public class StartYourMonkeys
             return;
         }
 
+        // Convert the winning combination from index format to packed int format
+        for (int i = 0; i < winningCombination.length; i++) 
+        {
+            winningCombination[i] = Grid.indexToPacked(winningCombination[i]);
+        }
+
         logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination);
 
         logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
@@ -180,11 +164,7 @@ public class StartYourMonkeys
         boolean solved = false;
         for (int i = 0; (i < winningCombination.length) && (!solved); i++)
         {
-            int clickInt = winningCombination[i];
-            int row = clickInt / 100;
-            int col = clickInt % 100;
-
-            puzzleGrid.click(row, col);
+            puzzleGrid.click(winningCombination[i], Grid.ValueFormat.PackedInt); // Click the cell in packed int format
             solved = puzzleGrid.isSolved();
         }
         puzzleGrid.printGrid();

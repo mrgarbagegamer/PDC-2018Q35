@@ -7,8 +7,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jctools.queues.MpmcArrayQueue;
 
-import it.unimi.dsi.fastutil.ints.IntList;
-
 public class CombinationGenerator extends Thread 
 {
     private static final Logger logger = LogManager.getLogger(CombinationGenerator.class);
@@ -20,7 +18,6 @@ public class CombinationGenerator extends Thread
     private static int[] TRUE_CELLS = null;
 
     private final CombinationQueueArray queueArray;
-    private final IntList possibleClicks;
     private final int numClicks;
     private final int firstClickStart, firstClickEnd;
     private final int numConsumers;
@@ -34,11 +31,10 @@ public class CombinationGenerator extends Thread
 
     private int roundRobinIdx = 0;
 
-    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, IntList possibleClicks, int numClicks, int firstClickStart, int firstClickEnd, int numConsumers, int[] trueCells) 
+    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, int numClicks, int firstClickStart, int firstClickEnd, int numConsumers, int[] trueCells) 
     {
         super(threadName);
         this.queueArray = queueArray;
-        this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.firstClickStart = firstClickStart;
         this.firstClickEnd = firstClickEnd;
@@ -56,7 +52,7 @@ public class CombinationGenerator extends Thread
     @Override
     public void run() 
     {
-        generateCombinationsIterative(possibleClicks, numClicks);
+        generateCombinationsIterative(numClicks);
     }
 
     private int[] getIndices(int k) {
@@ -86,7 +82,7 @@ public class CombinationGenerator extends Thread
         return batch;
     }
 
-    private void generateCombinationsIterative(IntList nodeList, int k)
+    private void generateCombinationsIterative(int k)
     {
         
         Deque<CombinationState> stack = new ArrayDeque<>();
@@ -107,9 +103,10 @@ public class CombinationGenerator extends Thread
             int size = state.size;
             int[] indices = state.indices;
 
+            // TODO: Look at removing this section (it should never be reached in practice, but it makes the bytecode longer and stifles inlining efforts)
             if (size == k) 
             {
-                for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(indices[j]);
+                for (int j = 0; j < k; j++) buffer[j] = indices[j];
                 if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
                 {
                     // If we have true cells and the first adjacent is not satisfied, skip this combination
@@ -135,7 +132,7 @@ public class CombinationGenerator extends Thread
                 continue;
             }
 
-            for (int i = nodeList.size() - 1; i >= start; i--) 
+            for (int i = Grid.NUM_CELLS - 1; i >= start; i--) 
             {
                 int[] newIndices = getIndices(k);
                 System.arraycopy(indices, 0, newIndices, 0, size);
@@ -147,7 +144,7 @@ public class CombinationGenerator extends Thread
                 }
                 else if (size + 1 == k) 
                 {
-                    for (int j = 0; j < k; j++) buffer[j] = nodeList.getInt(newIndices[j]);
+                    for (int j = 0; j < k; j++) buffer[j] = newIndices[j];
                     if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
                     {
                         // If we have true cells and the first adjacent is not satisfied, skip this combination
@@ -176,20 +173,19 @@ public class CombinationGenerator extends Thread
     private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
     // NEW: Add a field for the pre-computed suffix OR masks
     private static long[] SUFFIX_OR_MASKS = null;
-    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
-    private static final int GRID_SIZE = 700; // Adjust for your grid
+    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix(); // Stored in index format
 
     private static boolean[][] initClickAdjacencyMatrix() 
     {
-        boolean[][] matrix = new boolean[GRID_SIZE][GRID_SIZE];
-        for (int i = 0; i < GRID_SIZE; i++) 
+        boolean[][] matrix = new boolean[Grid.NUM_CELLS][Grid.NUM_CELLS];
+        for (int i = 0; i < Grid.NUM_CELLS; i++) 
         {
-            int[] adjacents = Grid.findAdjacents(i);
+            int[] adjacents = Grid.findAdjacents(i, Grid.ValueFormat.Index);
             if (adjacents != null) 
             {
                 for (int adj : adjacents) 
                 {
-                    if (adj < GRID_SIZE) matrix[i][adj] = true;
+                    if (adj < Grid.NUM_CELLS) matrix[i][adj] = true;
                 }
             }
         }
@@ -197,7 +193,7 @@ public class CombinationGenerator extends Thread
     }
 
     // Lazy initialization of true cell masks when first needed
-    private static void ensureTrueCellMasks(IntList possibleClicks, int[] trueCells) 
+    private static void ensureTrueCellMasks(int[] trueCells) 
     {
         if ((TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null) && trueCells != null) 
         {
@@ -205,9 +201,9 @@ public class CombinationGenerator extends Thread
             {
                 if (TRUE_CELL_ADJACENCY_MASKS == null) 
                 {
-                    long[] masks = new long[GRID_SIZE]; // Create an array to store masks for each click cell
+                    long[] masks = new long[Grid.NUM_CELLS]; // Create an array to store masks for each click cell
                     
-                    for (int clickCell = 0; clickCell < GRID_SIZE; clickCell++) // For each cell in the grid
+                    for (int clickCell = 0; clickCell < Grid.NUM_CELLS; clickCell++) // For each cell in the grid
                     {
                         long mask = 0L; // Create a mask with all true cells set to 0
                         for (int i = 0; i < trueCells.length; i++) // For each true cell
@@ -225,19 +221,10 @@ public class CombinationGenerator extends Thread
                 if (SUFFIX_OR_MASKS == null) 
                 {
                     // NEW: Pre-compute the suffix OR masks after the main masks are ready
-                    int numPossibleClicks = possibleClicks.size();
-                    long[] suffixMasks = new long[numPossibleClicks + 1]; // +1 for sentinel
-                    for (int i = numPossibleClicks - 1; i >= 0; i--)
+                    long[] suffixMasks = new long[Grid.NUM_CELLS + 1]; // +1 for sentinel
+                    for (int i = Grid.NUM_CELLS - 1; i >= 0; i--)
                     {
-                        int clickIndex = possibleClicks.getInt(i);
-                        if (clickIndex < GRID_SIZE) 
-                        {
-                            suffixMasks[i] = suffixMasks[i + 1] | TRUE_CELL_ADJACENCY_MASKS[clickIndex];
-                        } 
-                        else 
-                        {
-                            suffixMasks[i] = suffixMasks[i + 1];
-                        }
+                        suffixMasks[i] = suffixMasks[i + 1] | TRUE_CELL_ADJACENCY_MASKS[i];
                     }
                     SUFFIX_OR_MASKS = suffixMasks;
                 }
@@ -254,18 +241,14 @@ public class CombinationGenerator extends Thread
         if (TRUE_CELLS == null || TRUE_CELLS.length == 0) return true;
         
         // Ensure masks are initialized
-        ensureTrueCellMasks(possibleClicks, TRUE_CELLS);
+        ensureTrueCellMasks(TRUE_CELLS);
         
         // Compute current adjacency state using bitmasks
         long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
         
         for (int j = 0; j < prefixLength; j++) // For each click in the prefix
         {
-            int clickIndex = possibleClicks.getInt(prefix[j]); // Get the packed int corresponding to the click
-            if (clickIndex < GRID_SIZE) 
-            {
-                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
-            }
+            currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[prefix[j]]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
         }
         
         // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
@@ -368,7 +351,7 @@ public class CombinationGenerator extends Thread
             
             // Compute new mask
             int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            long[] mask = new long[11]; // 700 bits = 11 longs
+            long[] mask = new long[2]; // 109 bits, 2 longs
             
             for (int adj : adjacents) 
             {

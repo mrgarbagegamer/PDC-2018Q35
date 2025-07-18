@@ -25,10 +25,11 @@ public class TestClickCombination extends Thread
         this.puzzleGrid = puzzleGrid;
         
         // Initialize lookup table once for all threads
-        int[] trueCells = puzzleGrid.findTrueCells();
+        int[] trueCells = puzzleGrid.findTrueCells(Grid.ValueFormat.Index); // Find all true cells in index format
         initializeLookupTable(trueCells);
     }
 
+    // Initialize the static lookup table for fast odd adjacency checks
     private static void initializeLookupTable(int[] trueCells)
     {
         // Double-checked locking for thread-safe lazy initialization
@@ -38,13 +39,13 @@ public class TestClickCombination extends Thread
             {
                 if (CLICK_TO_TRUE_CELL_MASK == null)
                 {
-                    long[][] lookup = new long[700][2];
+                    long[][] lookup = new long[Grid.NUM_CELLS][2]; // 109 possible clicks, 2 long values for 128 bits
                     
-                    for (int clickCell = 0; clickCell < 700; clickCell++) 
+                    for (int clickCell = 0; clickCell < 109; clickCell++) // Generate all possible clicks in index format
                     {
                         for (int i = 0; i < trueCells.length; i++) 
                         {
-                            if (Grid.areAdjacent(trueCells[i], clickCell))
+                            if (Grid.areAdjacent(trueCells[i], clickCell, Grid.ValueFormat.Index))
                             {
                                 int longIndex = i / 64;
                                 int bitPosition = i % 64;
@@ -99,7 +100,7 @@ public class TestClickCombination extends Thread
             
             while (!workBatch.isEmpty()) 
             {
-                int[] combinationClicks = workBatch.poll();
+                int[] combinationClicks = workBatch.poll(); // Get the next combination of clicks (in index format)
                 if (combinationClicks == null || queueArray.solutionFound)
                 {
                     break;
@@ -117,8 +118,8 @@ public class TestClickCombination extends Thread
                     if (iSolvedIt) 
                     {
                         logger.info("Found the solution as the following click combination: {}", 
-                                   new CombinationMessage(combinationClicks, Grid.ValueFormat.PackedInt));
-                        queueArray.solutionFound(this.getName(), combinationClicks);
+                                   new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
+                        queueArray.solutionFound(this.getName(), combinationClicks.clone());
                         // Do NOT recycle the batch containing the winning combination to avoid UAF on the winning array.
                         // Let it be garbage collected.
                         return;
@@ -171,7 +172,7 @@ public class TestClickCombination extends Thread
                     failedCount++;
                     if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.solutionFound) 
                     {
-                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.PackedInt));
+                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
                         failedCount = 0; // Reset the count after logging
                     }
                 }

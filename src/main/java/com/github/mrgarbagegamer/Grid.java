@@ -394,12 +394,18 @@ public abstract class Grid
         recalculationNeeded = true;
     }
 
+    public int[] findFirstTrueAdjacents(ValueFormat format) 
+    {
+        int firstTrueCell = findFirstTrueCell(format);
+        if (firstTrueCell == -1) return null;
+        int[] trueAdjacents = findAdjacents(firstTrueCell, format);
+        
+        return trueAdjacents.length == 0 ? null : trueAdjacents;
+    }
+
     public int[] findFirstTrueAdjacents() 
     {
-        int firstTrueCell = findFirstTrueCell();
-        if (firstTrueCell == -1) return null;
-        int[] trueAdjacents = findAdjacents(firstTrueCell);
-        return (trueAdjacents.length == 0) ? null : trueAdjacents;
+        return findFirstTrueAdjacents(ValueFormat.PackedInt);
     }
 
     public int[] findFirstTrueAdjacentsAfter(int cell) 

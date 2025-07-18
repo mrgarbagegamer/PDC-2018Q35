@@ -6,8 +6,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 
-import it.unimi.dsi.fastutil.ints.IntList;
-
 // TODO: Reformat all lines to place curly brackets on different lines than the method signature (for consistency with the rest of the codebase)
 public class CombinationGeneratorTask extends RecursiveAction 
 {
@@ -31,8 +29,6 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<int[]> combinationBuilder =
         new ThreadLocal<int[]>();
 
-
-    private IntList possibleClicks;
     private int numClicks;
     private int[] prefix;
     private int prefixLength;
@@ -46,22 +42,21 @@ public class CombinationGeneratorTask extends RecursiveAction
     private CombinationGeneratorTask parent;
 
     // Public constructor for the root task
-    public CombinationGeneratorTask(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
+    public CombinationGeneratorTask(int numClicks, int[] prefix, int prefixLength,
                                    CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
                                    int maxFirstClickIndex) 
     {
-        this.init(possibleClicks, numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
+        this.init(numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
     }
 
     // Default constructor for pool creation
     public CombinationGeneratorTask() {}
     
     // "init" method to re-initialize a recycled task
-    public void init(IntList possibleClicks, int numClicks, int[] prefix, int prefixLength,
+    public void init(int numClicks, int[] prefix, int prefixLength,
                      CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
                      int maxFirstClickIndex, CombinationGeneratorTask parent) 
     {
-        this.possibleClicks = possibleClicks;
         this.numClicks = numClicks;
         this.prefix = prefix;
         this.prefixLength = prefixLength;
@@ -130,7 +125,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
         // Calculate subtask range
         int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        int max = possibleClicks.size() - (numClicks - prefixLength) + 1;
+        int max = Grid.NUM_CELLS - (numClicks - prefixLength) + 1;
         if (prefixLength == 0) max = Math.min(max, maxFirstClickIndex + 1);
         
         int numSubtasks = max - start;
@@ -144,20 +139,19 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
     // NEW: Add a field for the pre-computed suffix OR masks
     private static long[] SUFFIX_OR_MASKS = null;
-    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
-    private static final int GRID_SIZE = 700; // Adjust for your grid
+    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix(); // Stored in index format
 
     private static boolean[][] initClickAdjacencyMatrix() 
     {
-        boolean[][] matrix = new boolean[GRID_SIZE][GRID_SIZE];
-        for (int i = 0; i < GRID_SIZE; i++) 
+        boolean[][] matrix = new boolean[Grid.NUM_CELLS][Grid.NUM_CELLS];
+        for (int i = 0; i < Grid.NUM_CELLS; i++) 
         {
-            int[] adjacents = Grid.findAdjacents(i);
+            int[] adjacents = Grid.findAdjacents(i, Grid.ValueFormat.Index);
             if (adjacents != null) 
             {
                 for (int adj : adjacents) 
                 {
-                    if (adj < GRID_SIZE) matrix[i][adj] = true;
+                    if (adj < Grid.NUM_CELLS) matrix[i][adj] = true;
                 }
             }
         }
@@ -165,7 +159,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Lazy initialization of true cell masks when first needed
-    private static void ensureTrueCellMasks(IntList possibleClicks, int[] trueCells) 
+    private static void ensureTrueCellMasks(int[] trueCells) 
     {
         if ((TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null) && trueCells != null) 
         {
@@ -173,9 +167,9 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 if (TRUE_CELL_ADJACENCY_MASKS == null) 
                 {
-                    long[] masks = new long[GRID_SIZE]; // Create an array to store masks for each click cell
+                    long[] masks = new long[Grid.NUM_CELLS]; // Create an array to store masks for each click cell
                     
-                    for (int clickCell = 0; clickCell < GRID_SIZE; clickCell++) // For each cell in the grid
+                    for (int clickCell = 0; clickCell < Grid.NUM_CELLS; clickCell++) // For each cell in the grid
                     {
                         long mask = 0L; // Create a mask with all true cells set to 0
                         for (int i = 0; i < trueCells.length; i++) // For each true cell
@@ -193,19 +187,10 @@ public class CombinationGeneratorTask extends RecursiveAction
                 if (SUFFIX_OR_MASKS == null) 
                 {
                     // NEW: Pre-compute the suffix OR masks after the main masks are ready
-                    int numPossibleClicks = possibleClicks.size();
-                    long[] suffixMasks = new long[numPossibleClicks + 1]; // +1 for sentinel
-                    for (int i = numPossibleClicks - 1; i >= 0; i--)
+                    long[] suffixMasks = new long[Grid.NUM_CELLS + 1]; // +1 for sentinel
+                    for (int i = Grid.NUM_CELLS - 1; i >= 0; i--)
                     {
-                        int clickIndex = possibleClicks.getInt(i);
-                        if (clickIndex < GRID_SIZE)
-                        {
-                            suffixMasks[i] = suffixMasks[i + 1] | TRUE_CELL_ADJACENCY_MASKS[clickIndex];
-                        }
-                        else
-                        {
-                            suffixMasks[i] = suffixMasks[i + 1];
-                        }
+                        suffixMasks[i] = suffixMasks[i + 1] | TRUE_CELL_ADJACENCY_MASKS[i];
                     }
                     SUFFIX_OR_MASKS = suffixMasks;
                 }
@@ -222,18 +207,14 @@ public class CombinationGeneratorTask extends RecursiveAction
         if (trueCells == null || trueCells.length == 0) return true;
         
         // Ensure masks are initialized
-        ensureTrueCellMasks(possibleClicks, trueCells);
+        ensureTrueCellMasks(trueCells);
         
         // Compute current adjacency state using bitmasks
         long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
         
         for (int j = 0; j < prefixLength; j++) // For each click in the prefix
         {
-            int clickIndex = possibleClicks.getInt(prefix[j]); // Get the packed int corresponding to the click
-            if (clickIndex < GRID_SIZE) 
-            {
-                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[clickIndex]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
-            }
+            currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[prefix[j]]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
         }
         
         // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
@@ -283,7 +264,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
             // Get a recycled task from the pool and initialize it
             CombinationGeneratorTask subtask = pool.get();
-            subtask.init(possibleClicks, numClicks, newPrefix, prefixLength + 1, 
+            subtask.init(numClicks, newPrefix, prefixLength + 1, 
                          queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
             subtasks[subtaskCount++] = subtask;
         }
@@ -331,37 +312,33 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         // Direct generation without intermediate arrays for leaf level
         int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        int max = possibleClicks.size();
 
         int[] combination = getCombinationArray();
         
         // Copy prefix once
-        for (int j = 0; j < prefixLength; j++) 
-        {
-            combination[j] = possibleClicks.getInt(prefix[j]);
-        }
+        System.arraycopy(prefix, 0, combination, 0, prefixLength);
         
         // Get the thread batch for this task.
         WorkBatch batch = batchHolder.get();
 
-        generateCombinations(start, max, combination, batch);
+        generateCombinations(start, combination, batch);
     }
 
     /**
      * Core combination generation loop extracted for better JIT optimization.
      * This is one of the hottest paths in the entire application.
      */
-    private void generateCombinations(int start, int max, int[] combination, WorkBatch batch)
+    private void generateCombinations(int start, int[] combination, WorkBatch batch)
     {
-        for (int i = start; i < max; i++) 
+        for (int i = start; i < Grid.NUM_CELLS; i++) 
         {
             // Check for cancellation at regular intervals
             if ((i & 127) == 0 && isTaskCancelled()) 
             {
                 return;
             }
-            
-            combination[prefixLength] = possibleClicks.getInt(i);
+
+            combination[prefixLength] = i;
             
             // Apply pruning filter - skip combinations that can't satisfy odd adjacency
             if (trueCells != null && trueCells.length > 0 &&
@@ -564,7 +541,7 @@ public class CombinationGeneratorTask extends RecursiveAction
             
             // Compute new mask
             int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            long[] mask = new long[11]; // 700 bits = 11 longs
+            long[] mask = new long[2]; // 109 bits, 2 longs
             
             for (int adj : adjacents) 
             {

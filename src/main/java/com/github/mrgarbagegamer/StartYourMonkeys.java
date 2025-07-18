@@ -5,26 +5,10 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 public class StartYourMonkeys 
 {
     // Add a logger at the top of the class
     private static final Logger logger = LogManager.getLogger(StartYourMonkeys.class);
-
-    private static void populatePossibleClicks(IntList possibleClicks)
-    {
-        int numRows = 7; // Total rows in the grid
-        int[] numCols = { 16, 15, 16, 15, 16, 15, 16 }; // Number of columns for each row
-
-        for (int row = 0; row < numRows; row++) 
-        {
-            for (int col = 0; col < numCols[row]; col++) 
-            {
-                possibleClicks.add(row * 100 + col);
-            }
-        }
-    }
 
     public static void main(String[] args) 
     {
@@ -53,10 +37,6 @@ public class StartYourMonkeys
         final int numThreads = parsedNumThreads;
         final int questionNumber = parsedQuestionNumber;
 
-        // generate the list of possible clicks for our grid
-        IntList possibleClicks = new IntArrayList();
-        StartYourMonkeys.populatePossibleClicks(possibleClicks);
-
         // start generating different click combinations
         Grid baseGrid;
         
@@ -73,8 +53,9 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
-        int[] trueAdjacents = baseGrid.findFirstTrueAdjacents();
+        int[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the first true adjacents in index format
         int finalFirstTrueAdjacent = -1;
+        // This will be the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
         if (trueAdjacents != null) {
             for (int adjacent : trueAdjacents) {
                 if (adjacent > finalFirstTrueAdjacent) {
@@ -82,15 +63,13 @@ public class StartYourMonkeys
                 }
             }
         }
-        int finalFirstTrueAdjIndex = possibleClicks.indexOf(finalFirstTrueAdjacent); // This is the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
-        
 
         int numGeneratorThreads = numThreads;
 
         // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, 1);
 
-        int[] trueCells = baseGrid.findTrueCells();
+        int[] trueCells = baseGrid.findTrueCells(); // Find all true cells in index format
 
         // create the numThreads to start playing the game
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
@@ -108,7 +87,7 @@ public class StartYourMonkeys
         ForkJoinPool pool = new ForkJoinPool(numGeneratorThreads);
         int[] emptyPrefix = new int[0];
         CombinationGeneratorTask rootTask = new CombinationGeneratorTask(
-            possibleClicks, numClicks, emptyPrefix, 0, queueArray, numGeneratorThreads, trueCells, finalFirstTrueAdjIndex
+            numClicks, emptyPrefix, 0, queueArray, numGeneratorThreads, trueCells, finalFirstTrueAdjacent
         );
         pool.invoke(rootTask);
 
@@ -130,7 +109,7 @@ public class StartYourMonkeys
         }
         pool.close(); // Close the ForkJoinPool
 
-        int[] winningCombination = queueArray.getWinningCombination();
+        int[] winningCombination = queueArray.getWinningCombination(); // Get the winning combination from the queue (values are in index format)
 
         long elapsedMillis = System.currentTimeMillis() - startTime;
         String elapsedFormatted = formatElapsedTime(elapsedMillis);
@@ -155,6 +134,12 @@ public class StartYourMonkeys
             return;
         }
 
+        // Convert the winning combination from index format to packed int format
+        for (int i = 0; i < winningCombination.length; i++) 
+        {
+            winningCombination[i] = Grid.indexToPacked(winningCombination[i]);
+        }
+
         logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination);
 
         logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
@@ -165,11 +150,7 @@ public class StartYourMonkeys
         boolean solved = false;
         for (int i = 0; (i < winningCombination.length) && (!solved); i++)
         {
-            int clickInt = winningCombination[i];
-            int row = clickInt / 100;
-            int col = clickInt % 100;
-
-            puzzleGrid.click(row, col);
+            puzzleGrid.click(winningCombination[i], Grid.ValueFormat.PackedInt); // Click the cell in packed int format
             solved = puzzleGrid.isSolved();
         }
         puzzleGrid.printGrid();

@@ -29,53 +29,84 @@ public abstract class Grid
     protected int firstTrueCell = -1; // The first true cell is in index format (0-108)
     protected boolean recalculationNeeded = false;
 
-    // Pre-computed adjacency masks for each possible cell (700 total)
-    private static final long[][] ADJACENCY_MASKS = new long[NUM_ROWS * 100 + EVEN_NUM_COLS][2];
+    // Pre-computed adjacency masks for each possible cell (in bit index format)
+    private static final long[][] ADJACENCY_MASKS = new long[NUM_CELLS][2];
     
     // Legacy support for existing code that expects adjacency arrays
-    private static final int[][] adjacencyArray = new int[NUM_ROWS * 100 + EVEN_NUM_COLS][];
-    private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_ROWS * 100 + EVEN_NUM_COLS][NUM_ROWS * 100 + EVEN_NUM_COLS];
-    private static final int[] PACKED_TO_INDEX_CACHE = new int[NUM_ROWS * 100 + EVEN_NUM_COLS];
+    private static final int[][] adjacencyArray = new int[NUM_CELLS][]; // Index format
+    private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_CELLS][NUM_CELLS]; // Index format
+    private static final int[] PACKED_TO_INDEX_CACHE = new int[NUM_ROWS * 100 + EVEN_NUM_COLS]; // Cache for packed to index conversion
+
     // We don't necessarily need to worry too much about how optimized this block
     // is, since it's only run once at startup.
     static 
     {
-        // Pre-compute all adjacency data
-        for (int row = 0; row < NUM_ROWS; row++) 
+        // // Pre-compute all adjacency data
+        // for (int row = 0; row < NUM_ROWS; row++) 
+        // {
+        //     for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
+        //     {
+        //         int cell = row * 100 + col;
+        //         IntList adjSet = computeAdjacents(cell);
+        //         int[] adjArr = new int[adjSet.size()];
+        //         int idx = 0;
+                
+        //         // Initialize bitmask for this cell
+        //         long[] mask = new long[2];
+                
+        //         for (IntIterator it = adjSet.iterator(); it.hasNext();) 
+        //         {
+        //             int adjacent = it.nextInt();
+        //             adjArr[idx++] = adjacent;
+                    
+        //             // Fill legacy adjacency cache
+        //             ADJACENCY_CACHE[cell][adjacent] = true;
+        //             ADJACENCY_CACHE[adjacent][cell] = true;
+                    
+        //             // Build bitmask for this adjacency
+        //             int adjIndex = computePackedToIndex(adjacent);
+        //             int longIndex = adjIndex / 64;
+        //             int bitPosition = adjIndex % 64;
+        //             mask[longIndex] |= (1L << bitPosition);
+        //         }
+                
+        //         adjacencyArray[cell] = adjArr;
+        //         ADJACENCY_MASKS[cell] = mask;
+        //         PACKED_TO_INDEX_CACHE[cell] = computePackedToIndex(cell);
+        //     }
+        // }
+
+        // Our goal is to replicate the above static block while iterating on bit indices
+        for (int cell = 0; cell < NUM_CELLS; cell++)
         {
-            for (int col = 0; col < (row % 2 == 0 ? EVEN_NUM_COLS : ODD_NUM_COLS); col++) 
+            IntList adjSet = computeAdjacents(cell, ValueFormat.Index, ValueFormat.Index);
+            int[] adjArr = new int[adjSet.size()];
+            int idx = 0;
+
+            // Initialize bitmask for this cell
+            long[] mask = new long[2];
+            for (IntIterator it = adjSet.iterator(); it.hasNext();) 
             {
-                int cell = row * 100 + col;
-                IntList adjSet = computeAdjacents(cell);
-                int[] adjArr = new int[adjSet.size()];
-                int idx = 0;
-                
-                // Initialize bitmask for this cell
-                long[] mask = new long[2];
-                
-                for (IntIterator it = adjSet.iterator(); it.hasNext();) 
-                {
-                    int adjacent = it.nextInt();
-                    adjArr[idx++] = adjacent;
-                    
-                    // Fill legacy adjacency cache
-                    ADJACENCY_CACHE[cell][adjacent] = true;
-                    ADJACENCY_CACHE[adjacent][cell] = true;
-                    
-                    // Build bitmask for this adjacency
-                    int adjIndex = computePackedToIndex(adjacent);
-                    int longIndex = adjIndex / 64;
-                    int bitPosition = adjIndex % 64;
-                    mask[longIndex] |= (1L << bitPosition);
-                }
-                
-                adjacencyArray[cell] = adjArr;
-                ADJACENCY_MASKS[cell] = mask;
-                PACKED_TO_INDEX_CACHE[cell] = computePackedToIndex(cell);
+                int adjacent = it.nextInt();
+                adjArr[idx++] = adjacent;
+
+                // Fill legacy adjacency cache
+                ADJACENCY_CACHE[cell][adjacent] = true;
+                ADJACENCY_CACHE[adjacent][cell] = true;
+
+                // Build bitmask for this adjacency
+                int longIndex = adjacent / 64;
+                int bitPosition = adjacent % 64;
+                mask[longIndex] |= (1L << bitPosition);
             }
+
+            adjacencyArray[cell] = adjArr;
+            ADJACENCY_MASKS[cell] = mask;
+            PACKED_TO_INDEX_CACHE[computePackedToIndex(cell)] = cell;
         }
     }
 
+    // Computes the adjacent cells for a given cell in the grid, internally requiring the cell to be in packed int format.
     public static IntList computeAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat)
     {
         IntList affectedPieces = new IntArrayList(6);
@@ -142,9 +173,10 @@ public abstract class Grid
 
     public static IntList computeAdjacents(int cell) 
     {
-        return computeAdjacents(cell, ValueFormat.PackedInt);
+        return computeAdjacents(cell, ValueFormat.Index);
     }
 
+    // Finds the adjacent cells for a given cell in the grid, returning them in the requested format (with the array storing in index format).
     public static int[] findAdjacents(int cell, ValueFormat inputFormat, ValueFormat outputFormat)
     {
         int[] result;
@@ -152,11 +184,11 @@ public abstract class Grid
         {
             case Bitmask:
                 throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Convert the cell to packed int format
-                cell = indexToPacked(cell);
             case PackedInt:
-                // If the cell is in packed int format, we can directly compute adjacents
+                // Convert packed int to index
+                cell = packedToIndex(cell);
+            case Index:
+                // Already in index format, no conversion needed.
                 result = adjacencyArray[cell];
                 break;
             default:
@@ -167,14 +199,14 @@ public abstract class Grid
             case Bitmask:
                 throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
             case Index:
-                // Convert packed int to index
-                for (int i = 0; i < result.length; i++) 
-                {
-                    result[i] = packedToIndex(result[i]);
-                }
+                // Already in index format, no conversion needed
                 break;
             case PackedInt:
-                // Already in packed int format, no conversion needed
+                // Convert index to packed int format
+                for (int i = 0; i < result.length; i++) 
+                {
+                    result[i] = indexToPacked(result[i]);
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported format: " + outputFormat);
@@ -190,7 +222,7 @@ public abstract class Grid
 
     public static int[] findAdjacents(int cell) 
     {
-        return findAdjacents(cell, ValueFormat.PackedInt);
+        return findAdjacents(cell, ValueFormat.Index);
     }
 
     // Packed int <-> compact array index conversion
@@ -224,7 +256,7 @@ public abstract class Grid
         if (index < 78) return 4 * 100 + (index - 62);
         if (index < 93) return 5 * 100 + (index - 78);
         if (index < 109) return 6 * 100 + (index - 93);
-        throw new IllegalArgumentException("Invalid BitSet index: " + index);
+        throw new IllegalArgumentException("Invalid index: " + index);
     }
 
     public Grid() 
@@ -301,7 +333,7 @@ public abstract class Grid
 
     public int[] findTrueCells() 
     {
-        return findTrueCells(ValueFormat.PackedInt);
+        return findTrueCells(ValueFormat.Index);
     }
 
     /**
@@ -359,21 +391,21 @@ public abstract class Grid
 
     public int findFirstTrueCell() 
     {
-        return findFirstTrueCell(ValueFormat.PackedInt);
+        return findFirstTrueCell(ValueFormat.Index);
     }
 
-    // Ultra-fast click operation using pre-computed bitmasks
+    // Ultra-fast click operation using pre-computed bitmasks. This method uses pre-computed adjacency masks that are of the index format.
     public void click(int cell, ValueFormat format) 
     {
         switch (format) 
         {
             case Bitmask:
                 throw new IllegalArgumentException("Unsupported format: Bitmask must be a long[] of length 1 or 2.");
-            case Index:
-                // Convert the cell to packed int format
-                cell = indexToPacked(cell);
             case PackedInt:
-                // If the cell is in packed int format, we can directly use it
+                // Convert packed int to index format
+                cell = packedToIndex(cell);
+            case Index:
+                // If the cell is in index format, we can directly use it
                 // XOR the grid state with the pre-computed adjacency mask
                 gridState[0] ^= ADJACENCY_MASKS[cell][0];
                 gridState[1] ^= ADJACENCY_MASKS[cell][1];
@@ -388,7 +420,7 @@ public abstract class Grid
 
     public void click(int cell) 
     {
-        click(cell, ValueFormat.PackedInt);
+        click(cell, ValueFormat.Index);
     }
 
     public void click(int row, int col) 
@@ -416,6 +448,11 @@ public abstract class Grid
      */
     public int[] findFirstTrueAdjacents(ValueFormat format) 
     {
+        if (format == ValueFormat.Bitmask) 
+        {
+            throw new IllegalArgumentException("Bitmask format is not supported for this operation.");
+        }
+        
         int firstTrueCell = findFirstTrueCell(format);
         if (firstTrueCell == -1) return null;
         int[] trueAdjacents = findAdjacents(firstTrueCell, format);
@@ -427,7 +464,7 @@ public abstract class Grid
 
     public int[] findFirstTrueAdjacents() 
     {
-        return findFirstTrueAdjacents(ValueFormat.PackedInt);
+        return findFirstTrueAdjacents(ValueFormat.Index);
     }
 
     /**
@@ -441,6 +478,20 @@ public abstract class Grid
     {
         int[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
         if (firstTrueAdjacents == null) return null;
+
+        // Convert the input cell to index format if necessary
+        switch (inputFormat)
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case PackedInt:
+                cell = packedToIndex(cell);
+            case Index:
+                // Already in index format, no conversion needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + inputFormat);
+        }
         
         // Binary search to find the index of the first adjacent cell greater than 'cell'
         int index = -1;
@@ -471,11 +522,14 @@ public abstract class Grid
             case Bitmask:
                 throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
             case Index:
-                // Convert packed int to index
-                for (int i = 0; i < result.length; i++) result[i] = packedToIndex(result[i]);
+                // Already in index format, no conversion needed
                 break;
             case PackedInt:
-                // Already in packed int format, no conversion needed
+                // Convert index to packed int format
+                for (int i = 0; i < result.length; i++) 
+                {
+                    result[i] = indexToPacked(result[i]);
+                }
                 break;
             default:
                 throw new IllegalArgumentException("Unsupported format: " + outputFormat);
@@ -524,11 +578,26 @@ public abstract class Grid
      * - If the click is before or equal to the first true cell (by packed int order), it can create a new one.
      * - If the click is adjacent to the first true cell, it can affect it.
      */
-    public static boolean canAffectFirstTrueCell(int firstTrueCell, int clickCell) 
+    public static boolean canAffectFirstTrueCell(int firstTrueCell, int clickCell, ValueFormat format) 
     {
         if (firstTrueCell == -1) return true; // No true cells, any click can create one
         if (clickCell <= firstTrueCell) return true; // packed int order: row * 100 + col
 
+        // Convert both cells to index format if necessary
+        switch (format) 
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case PackedInt:
+                firstTrueCell = packedToIndex(firstTrueCell);
+                clickCell = packedToIndex(clickCell);
+            case Index:
+                // Already in index format, no conversion needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + format);
+        }
+        
         // Edge case: first true cell is top-left (0,0)
         if (firstTrueCell == 0) 
         {
@@ -577,13 +646,28 @@ public abstract class Grid
         return false; // Click cell is not adjacent to the first true cell
     }
 
-    public static boolean areAdjacent(int cellA, int cellB) 
+    public static boolean areAdjacent(int cellA, int cellB, ValueFormat format) 
     {
-        if (cellA < 0 || cellB < 0 || cellA >= NUM_ROWS * 100 + EVEN_NUM_COLS || cellB >= NUM_ROWS * 100 + EVEN_NUM_COLS) 
+        // Convert both cells to index format if necessary
+        switch (format)
         {
-            return false; // Out of bounds
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case PackedInt:
+                cellA = packedToIndex(cellA);
+                cellB = packedToIndex(cellB);
+            case Index:
+                // Already in index format, no conversion needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + format);
         }
         return ADJACENCY_CACHE[cellA][cellB];
+    }
+
+    public static boolean areAdjacent(int cellA, int cellB) 
+    {
+        return areAdjacent(cellA, cellB, ValueFormat.Index);
     }
 
     // Legacy compatibility - expose bitmask for direct access when needed

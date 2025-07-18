@@ -15,12 +15,13 @@ public class Grid13 extends Grid
         trueCellsCount = 30;
         recalculationNeeded = false;
 
-        // this.click(3,1);
-        // this.click(3,3);
-        // this.click(3,5);
-        // this.click(3,7);
-        // this.click(3,9);
-        // this.click(3,11);
-        // this.click(3,13);
+        // Initial clicks for Q13 (pre computed in index format to avoid recalculations)
+        // this.click(48); // row 3, col 0
+        // this.click(50); // row 3, col 2
+        // this.click(52); // row 3, col 4
+        // this.click(54); // row 3, col 6
+        // this.click(56); // row 3, col 8
+        // this.click(58); // row 3, col 10
+        // this.click(60); // row 3, col 12
     }
 }

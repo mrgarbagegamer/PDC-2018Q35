@@ -117,7 +117,7 @@ public class TestClickCombination extends Thread
                     if (iSolvedIt) 
                     {
                         logger.info("Found the solution as the following click combination: {}", 
-                                   new CombinationMessage(combinationClicks));
+                                   new CombinationMessage(combinationClicks, Grid.ValueFormat.PackedInt));
                         queueArray.solutionFound(this.getName(), combinationClicks);
                         // Do NOT recycle the batch containing the winning combination to avoid UAF on the winning array.
                         // Let it be garbage collected.
@@ -171,7 +171,7 @@ public class TestClickCombination extends Thread
                     failedCount++;
                     if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.solutionFound) 
                     {
-                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone()));
+                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.PackedInt));
                         failedCount = 0; // Reset the count after logging
                     }
                 }

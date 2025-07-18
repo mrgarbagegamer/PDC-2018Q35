@@ -408,9 +408,9 @@ public abstract class Grid
         return findFirstTrueAdjacents(ValueFormat.PackedInt);
     }
 
-    public int[] findFirstTrueAdjacentsAfter(int cell) 
+    public int[] findFirstTrueAdjacentsAfter(int cell, ValueFormat inputFormat, ValueFormat outputFormat) 
     {
-        int[] firstTrueAdjacents = findFirstTrueAdjacents();
+        int[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
         if (firstTrueAdjacents == null) return null;
         
         // Binary search to find the index of the first adjacent cell greater than 'cell'
@@ -435,6 +435,23 @@ public abstract class Grid
         // If the index is found, return the subarray starting from that index
         int[] result = new int[firstTrueAdjacents.length - index];
         System.arraycopy(firstTrueAdjacents, index, result, 0, result.length);
+
+        // Convert the result to the desired output format
+        switch (outputFormat)
+        {
+            case Bitmask:
+                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+            case Index:
+                // Convert packed int to index
+                for (int i = 0; i < result.length; i++) result[i] = packedToIndex(result[i]);
+                break;
+            case PackedInt:
+                // Already in packed int format, no conversion needed
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported format: " + outputFormat);
+        }
+
         return result;
     }
 

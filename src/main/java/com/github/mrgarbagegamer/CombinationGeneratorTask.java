@@ -316,7 +316,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     /**
      * Ultra-fast constraint checking using pre-computed bitmasks.
-     * This should be small enough for C2 inlining.
+     * Uses incremental state tracking to avoid recomputing XORs.
      */
     private boolean canPotentiallySatisfyConstraints()
     {
@@ -325,13 +325,25 @@ public class CombinationGeneratorTask extends RecursiveAction
         // Ensure masks are initialized
         ensureTrueCellMasks(trueCells);
         
-        // Compute current adjacency state using bitmasks
-        long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
-        
-        for (int j = 0; j < prefixLength; j++) // For each click in the prefix
+        // Use cached adjacency state from parent if available
+        long currentAdjacencies;
+        if (parent != null && parent.cachedAdjacencyState != -1) 
         {
-            currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[prefix[j]]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
+            // Incrementally update from parent's state
+            currentAdjacencies = parent.cachedAdjacencyState ^ TRUE_CELL_ADJACENCY_MASKS[prefix[prefixLength - 1]];
         }
+        else 
+        {
+            // Compute from scratch (only for root tasks)
+            currentAdjacencies = 0L;
+            for (int j = 0; j < prefixLength; j++) 
+            {
+                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[prefix[j]];
+            }
+        }
+        
+        // Cache for child tasks
+        this.cachedAdjacencyState = currentAdjacencies;
         
         // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
         long targetMask = (1L << trueCells.length) - 1;
@@ -340,13 +352,16 @@ public class CombinationGeneratorTask extends RecursiveAction
         // If no bits need to be flipped, we're already good
         if (needed == 0L) return true;
         
-        // Check if remaining clicks can provide the needed adjacencies
+        // Use pre-computed suffix masks
         int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
         long availableAdjacencies = SUFFIX_OR_MASKS[startIdx];
         
         // Check if available clicks can satisfy all needed adjacencies
         return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
     }
+
+    // Add field to cache adjacency state
+    private long cachedAdjacencyState = -1;
 
     // Keep existing subtask creation logic unchanged but make key methods final
     private void createAndExecuteSubtasks(int start, int max, int numSubtasks)

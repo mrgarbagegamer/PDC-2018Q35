@@ -331,9 +331,23 @@ public abstract class Grid
         return trueCellsArray;
     }
 
-    public int[] findTrueCells() 
+    /**
+     * Returns the true cells in the default (Index) format.
+     * This is a final method to encourage inlining.
+     * @return An array of true cells in Index format.
+     */
+    public final int[] findTrueCells() 
     {
-        return findTrueCells(ValueFormat.Index);
+        int[] trueCellsArray = new int[trueCellsCount];
+        int idx = 0;
+        
+        // Internally, we iterate over bit indices (0-108)
+        for (int i = 0; i < NUM_CELLS && idx < trueCellsCount; i++) 
+        {
+            if (getBit(i)) trueCellsArray[idx++] = i;
+        }
+        
+        return trueCellsArray;
     }
 
     /**
@@ -389,9 +403,38 @@ public abstract class Grid
         return result;
     }
 
-    public int findFirstTrueCell() 
+    /**
+     * Returns the first true cell in the default (Index) format.
+     * This is a final method to encourage inlining.
+     * @return The first true cell in Index format, or -1 if none found.
+     */
+    public final int findFirstTrueCell() 
     {
-        return findFirstTrueCell(ValueFormat.Index);
+        if (!recalculationNeeded && trueCellsCount == 0) 
+        {
+            return -1;
+        }
+
+        if (recalculationNeeded)
+        {
+            // Find first true cell using bit operations
+            if (gridState[0] != 0L) 
+            {
+                firstTrueCell = Long.numberOfTrailingZeros(gridState[0]);
+            } else if (gridState[1] != 0L) 
+            {
+                firstTrueCell = 64 + Long.numberOfTrailingZeros(gridState[1]);
+            } else 
+            {
+                firstTrueCell = -1;
+            }
+
+            // Recalculate true cells count
+            trueCellsCount = Long.bitCount(gridState[0]) + Long.bitCount(gridState[1]);
+            
+            recalculationNeeded = false;
+        }
+        return firstTrueCell;
     }
 
     // Ultra-fast click operation using pre-computed bitmasks. This method uses pre-computed adjacency masks that are of the index format.
@@ -418,14 +461,37 @@ public abstract class Grid
         }
     }
 
-    public void click(int cell) 
+    /**
+     * Specialized click method for Index format. Made final to encourage inlining.
+     * This is the hottest path for worker threads.
+     * @param cell The cell to click, in Index format (0-108).
+     */
+    public final void click(int cell) 
     {
-        click(cell, ValueFormat.Index);
+        // XOR the grid state with the pre-computed adjacency mask
+        gridState[0] ^= ADJACENCY_MASKS[cell][0];
+        gridState[1] ^= ADJACENCY_MASKS[cell][1];
+        
+        // Mark for recalculation of first true cell and count
+        recalculationNeeded = true;
     }
 
-    public void click(int row, int col) 
+    /**
+     * Specialized click method for PackedInt format. Made final to encourage inlining.
+     * @param row The row of the cell to click.
+     * @param col The column of the cell to click.
+     */
+    public final void click(int row, int col) 
     {
-        click(row * 100 + col);
+        // Convert packed int to index format first
+        int cell = packedToIndex(row * 100 + col);
+
+        // XOR the grid state with the pre-computed adjacency mask
+        gridState[0] ^= ADJACENCY_MASKS[cell][0];
+        gridState[1] ^= ADJACENCY_MASKS[cell][1];
+        
+        // Mark for recalculation of first true cell and count
+        recalculationNeeded = true;
     }
 
     public void click(long[] bitmask) 

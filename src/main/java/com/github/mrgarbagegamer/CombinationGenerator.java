@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.concurrent.ThreadLocalRandom;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -20,25 +21,21 @@ public class CombinationGenerator extends Thread
     private final CombinationQueueArray queueArray;
     private final int numClicks;
     private final int firstClickStart, firstClickEnd;
-    private final int numConsumers;
     
 
     // Generator-local pools
-    private final Deque<int[]> indicesPool = new ArrayDeque<>(POOL_SIZE);
-    private final Deque<CombinationState> statePool = new ArrayDeque<>(POOL_SIZE);
+    private final ArrayPool indicesPool = new ArrayPool(POOL_SIZE, 64); // Pool for indices arrays
+    private final Deque<CombinationState> statePool = new ArrayDeque<>(POOL_SIZE); // TODO: Make a StatePool class similar to the TaskPool class of CombinationGeneratorTask
 
     private final MpmcArrayQueue<WorkBatch> workBatchPool;
 
-    private int roundRobinIdx = 0;
-
-    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, int numClicks, int firstClickStart, int firstClickEnd, int numConsumers, int[] trueCells) 
+    public CombinationGenerator(String threadName, CombinationQueueArray queueArray, int numClicks, int firstClickStart, int firstClickEnd, int[] trueCells) 
     {
         super(threadName);
         this.queueArray = queueArray;
         this.numClicks = numClicks;
         this.firstClickStart = firstClickStart;
         this.firstClickEnd = firstClickEnd;
-        this.numConsumers = numConsumers;
 
         // Lazy static initialization of true cells
         if (TRUE_CELLS == null)
@@ -56,12 +53,12 @@ public class CombinationGenerator extends Thread
     }
 
     private int[] getIndices(int k) {
-        int[] arr = indicesPool.pollFirst();
-        if (arr == null || arr.length != k) return new int[k];
+        int[] arr = indicesPool.get(k);
+        if (arr == null) return new int[k];
         return arr;
     }
     private void recycleIndices(int[] arr) {
-        if (indicesPool.size() < POOL_SIZE) indicesPool.offerFirst(arr);
+        if (indicesPool.size() < POOL_SIZE) indicesPool.put(arr);
     }
     private CombinationState getState(int start, int size, int[] indices) {
         CombinationState s = statePool.pollFirst();
@@ -84,7 +81,6 @@ public class CombinationGenerator extends Thread
 
     private void generateCombinationsIterative(int k)
     {
-        
         Deque<CombinationState> stack = new ArrayDeque<>();
         for (int i = firstClickStart; i < firstClickEnd; i++) 
         {
@@ -102,27 +98,6 @@ public class CombinationGenerator extends Thread
             int start = state.start;
             int size = state.size;
             int[] indices = state.indices;
-
-            // TODO: Look at removing this section (it should never be reached in practice, but it makes the bytecode longer and stifles inlining efforts)
-            if (size == k) 
-            {
-                for (int j = 0; j < k; j++) buffer[j] = indices[j];
-                if (TRUE_CELLS != null && TRUE_CELLS.length > 0 && !quickOddAdjacency(buffer, TRUE_CELLS[0])) 
-                {
-                    // If we have true cells and the first adjacent is not satisfied, skip this combination
-                    recycleIndices(indices);
-                    recycleState(state);
-                    continue; // Skip this combination
-                }
-
-                batch.add(buffer);
-
-                recycleIndices(indices);
-                recycleState(state);
-                if (batch.size() >= FLUSH_THRESHOLD) 
-                    if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch(); // Get a new batch if we flushed
-                continue;
-            }
 
             if (size >= 2 && !canPotentiallySatisfyConstraints(size, indices)) 
             {
@@ -152,20 +127,24 @@ public class CombinationGenerator extends Thread
                         recycleState(state);
                         continue; // Skip this combination
                     }
-
-                    batch.add(buffer);
-                    recycleIndices(newIndices);
-                    if (batch.size() >= FLUSH_THRESHOLD)
+                    
+                    if (!batch.add(buffer))
                     {
-                        if (flushBatch(batch, roundRobinIdx)) batch = getWorkBatch();
+                        if (flushBatch(batch)) 
+                        {
+                            batch = getWorkBatch();
+                            batch.add(buffer);
+                        }
                     }
+
+                    recycleIndices(newIndices);
                 }
             }
             recycleIndices(indices);
             recycleState(state);
         }
         // Flush any remaining combinations in the batch
-        flushBatch(batch, roundRobinIdx);
+        while (!flushBatch(batch));
         logger.info("Thread {} finished generating combinations for prefix range [{}-{})", getName(), firstClickStart, firstClickEnd);
     }
 
@@ -268,107 +247,75 @@ public class CombinationGenerator extends Thread
         return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
     }
     
-    private boolean flushBatch(WorkBatch batch, int roundRobinIdx)
+    private final boolean flushBatch(WorkBatch batch)
     {
-        while (true) 
+        if (batch.isEmpty()) return false;
+
+        CombinationQueue[] queues = queueArray.getAllQueues();
+        int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
+
+        for (int i = 0; i < queues.length; i++)
         {
-            for (int attempt = 0; attempt < numConsumers && !batch.isEmpty(); attempt++) 
-            {
-                int idx = (roundRobinIdx + attempt) % numConsumers;
-                CombinationQueue queue = queueArray.getQueue(idx);
-                if (queue.add(batch)) return true;
-            }
-            if (batch.isFull())
-            {
-                try 
-                { 
-                    Thread.sleep(1); 
-                } 
-                catch (InterruptedException e) 
-                { 
-                    Thread.currentThread().interrupt(); 
-                    break; 
-                }
-            }
-            else return false;
-            if (queueArray.solutionFound) return false;
+            if (queues[(startIdx + i) % queues.length].add(batch)) return true;
         }
+
         return false;
     }
 
     // Cache multiple adjacency mmasks to reduce synchronization
-    private static volatile long[][] ADJACENCY_MASK_CACHE = new long[16][];
-    private static volatile int[] CACHED_TRUE_CELLS = new int[16];
-    private static volatile int CACHE_SIZE = 0;
+    private static final long[][] ADJACENCY_MASK_CACHE_FAST = new long[16][];
+    private static final int[] CACHED_TRUE_CELLS_FAST = new int[16];
 
-    private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
+    private static final boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
     {
-        long[] mask = getCachedAdjacencyMask(firstTrueCell);
-        
+        // Get mask with minimal overhead
+        long[] mask = ADJACENCY_MASK_CACHE_FAST[firstTrueCell & 15];
+        if (mask == null || CACHED_TRUE_CELLS_FAST[firstTrueCell & 15] != firstTrueCell) 
+        {
+            mask = computeAdjacencyMaskFast(firstTrueCell);
+        }
+
+        // Count adjacencies with unrolled checks for small arrays
         int count = 0;
-        // Unroll the loop for better performance on small combinations
         int length = combination.length;
+
         for (int i = 0; i < length; i++)
         {
             int click = combination[i];
-            int longIndex = click >>> 6; // Faster than click / 64
-            int bitPosition = click & 63; // Faster than click % 64
-            if (longIndex < mask.length && (mask[longIndex] & (1L << bitPosition)) != 0) 
-            {
-                count++;
-            }
+            if ((mask[click >>> 6] & (1L << (click & 63))) != 0) count++;
         }
-        return (count & 1) == 1;
+
+        return (count & 1) == 1; 
     }
 
-    private static long[] getCachedAdjacencyMask(int firstTrueCell)
+    private static long[] computeAdjacencyMaskFast(int firstTrueCell)
     {
-        // Try cache first
-        for (int i = 0; i < CACHE_SIZE; i++)
+        int cacheIdx = firstTrueCell & 15;
+
+        // Simple double-check without heavy synchronization
+        if (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrueCell) 
         {
-            if (CACHED_TRUE_CELLS[i] == firstTrueCell)
-            {
-                return ADJACENCY_MASK_CACHE[i];
-            }
+            return ADJACENCY_MASK_CACHE_FAST[cacheIdx];
         }
-        
-        // Cache miss - compute and store
-        return computeAndCacheAdjacencyMask(firstTrueCell);
-    }
-    
-    private static long[] computeAndCacheAdjacencyMask(int firstTrueCell)
-    {
+
         synchronized (CombinationGenerator.class)
         {
-            // Double-check after acquiring lock
-            for (int i = 0; i < CACHE_SIZE; i++)
+            if (CACHED_TRUE_CELLS_FAST[cacheIdx] != firstTrueCell)
             {
-                if (CACHED_TRUE_CELLS[i] == firstTrueCell)
+                int[] adjacents = Grid.findAdjacents(firstTrueCell);
+                long[] mask = new long[2];
+
+                for (int adj : adjacents)
                 {
-                    return ADJACENCY_MASK_CACHE[i];
+                    mask[adj >>> 6] |= (1L << (adj & 63));
                 }
+
+                ADJACENCY_MASK_CACHE_FAST[cacheIdx] = mask;
+                CACHED_TRUE_CELLS_FAST[cacheIdx] = firstTrueCell;
             }
-            
-            // Compute new mask
-            int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            long[] mask = new long[2]; // 109 bits, 2 longs
-            
-            for (int adj : adjacents) 
-            {
-                int longIndex = adj >>> 6;
-                int bitPosition = adj & 63;
-                mask[longIndex] |= (1L << bitPosition);
-            }
-            
-            // Add to cache (with simple replacement if full)
-            int cacheIndex = CACHE_SIZE < 16 ? CACHE_SIZE++ : 
-                            (firstTrueCell & 15); // Simple hash for replacement
-            
-            ADJACENCY_MASK_CACHE[cacheIndex] = mask;
-            CACHED_TRUE_CELLS[cacheIndex] = firstTrueCell;
-            
-            return mask;
         }
+
+        return ADJACENCY_MASK_CACHE_FAST[cacheIdx];
     }
 }
 

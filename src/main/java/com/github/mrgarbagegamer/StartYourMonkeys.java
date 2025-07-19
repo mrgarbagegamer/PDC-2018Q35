@@ -91,7 +91,7 @@ public class StartYourMonkeys
                     logger.info("{} - Processing prefix range [{}-{})", threadName, range.start, range.end); // TODO: Remove this line if too verbose
                     CombinationGenerator cb = new CombinationGenerator(
                         threadName, queueArray, numClicks,
-                        range.start, range.end, numThreads, trueCells
+                        range.start, range.end, trueCells
                     );
                     cb.run();
                 }

@@ -60,12 +60,13 @@ public class CombinationGenerator extends Thread
     private void recycleIndices(int[] arr) {
         if (indicesPool.size() < POOL_SIZE) indicesPool.put(arr);
     }
-    private CombinationState getState(int start, int size, int[] indices) {
+    private CombinationState getState(int start, int size, int[] indices, long adjacencyMask) {
         CombinationState s = statePool.pollFirst();
-        if (s == null) return new CombinationState(start, size, indices);
+        if (s == null) return new CombinationState(start, size, indices, -1);
         s.start = start;
         s.size = size;
         s.indices = indices;
+        s.adjacencies = adjacencyMask;
         return s;
     }
     private void recycleState(CombinationState s) {
@@ -86,7 +87,7 @@ public class CombinationGenerator extends Thread
         {
             int[] indices = getIndices(k);
             indices[0] = i;
-            stack.push(getState(i + 1, 1, indices));
+            stack.push(getState(i + 1, 1, indices, -1));
         }
 
         WorkBatch batch = getWorkBatch();
@@ -99,7 +100,7 @@ public class CombinationGenerator extends Thread
             int size = state.size;
             int[] indices = state.indices;
 
-            if (size >= 2 && !canPotentiallySatisfyConstraints(size, indices)) 
+            if (size >= 2 && !canPotentiallySatisfyConstraints(state)) 
             {
                 // If we can't potentially satisfy constraints, skip this state
                 recycleIndices(indices);
@@ -115,7 +116,7 @@ public class CombinationGenerator extends Thread
 
                 if (size + 1 < k) 
                 {
-                    stack.push(getState(i + 1, size + 1, newIndices));
+                    stack.push(getState(i + 1, size + 1, newIndices, state.adjacencies));
                 }
                 else if (size + 1 == k) 
                 {
@@ -213,22 +214,37 @@ public class CombinationGenerator extends Thread
 
     /**
      * Ultra-fast constraint checking using pre-computed bitmasks.
-     * This should be small enough for C2 inlining.
+     * Uses incremental state tracking to avoid recomputing XORs.
      */
-    private boolean canPotentiallySatisfyConstraints(int prefixLength, int[] prefix)
+    private boolean canPotentiallySatisfyConstraints(CombinationState state)
     {
         if (TRUE_CELLS == null || TRUE_CELLS.length == 0) return true;
+        
+        int prefixLength = state.size;
+        int[] prefix = state.indices;
         
         // Ensure masks are initialized
         ensureTrueCellMasks(TRUE_CELLS);
         
-        // Compute current adjacency state using bitmasks
-        long currentAdjacencies = 0L; // Create a mask with all true cells set to 0
-        
-        for (int j = 0; j < prefixLength; j++) // For each click in the prefix
+        // Use cached adjacency state from parent if available
+        long currentAdjacencies;
+        if (state.adjacencies != -1)
         {
-            currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[prefix[j]]; // Toggle the affected true cells by XOR-ing the mask generated on initialization
+            // Incrementally update from parent's state
+            currentAdjacencies = state.adjacencies ^ TRUE_CELL_ADJACENCY_MASKS[prefix[prefixLength - 1]];
         }
+        else
+        {
+            // Compute from scratch (only for root tasks)
+            currentAdjacencies = 0L;
+            for (int j = 0; j < prefixLength; j++)
+            {
+                currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[prefix[j]];
+            }
+        }
+        
+        // Cache for child tasks
+        state.adjacencies = currentAdjacencies;
         
         // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
         long targetMask = (1L << TRUE_CELLS.length) - 1;
@@ -237,10 +253,9 @@ public class CombinationGenerator extends Thread
         // If no bits need to be flipped, we're already good
         if (needed == 0L) return true;
         
-        // Check if remaining clicks can provide the needed adjacencies
+        // Use pre-computed suffix masks
+
         int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        
-        // OPTIMIZED: Replace the expensive loop with a single array lookup
         long availableAdjacencies = SUFFIX_OR_MASKS[startIdx];
         
         // Check if available clicks can satisfy all needed adjacencies
@@ -323,11 +338,13 @@ class CombinationState
 {
     int start, size;
     int[] indices;
+    long adjacencies = -1;
 
-    CombinationState(int start, int size, int[] indices) 
+    CombinationState(int start, int size, int[] indices, long adjacencyMask) 
     {
         this.start = start;
         this.size = size;
         this.indices = indices;
+        this.adjacencies = adjacencyMask;
     }
 }

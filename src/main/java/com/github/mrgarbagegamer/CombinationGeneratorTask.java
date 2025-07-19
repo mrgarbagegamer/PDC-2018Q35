@@ -13,13 +13,12 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead.
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
     
-    // Replace ArrayDeque pools with custom high-performance pools
+    // Keep existing thread-local pools
     private static final ThreadLocal<ArrayPool> prefixArrayPool = 
         ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 32));
     
-    // Pool for CombinationGeneratorTask objects to reduce allocation churn.
     private static final ThreadLocal<TaskPool> taskPool =
-        ThreadLocal.withInitial(() -> new TaskPool(128)); // Start with a reasonable pool size
+        ThreadLocal.withInitial(() -> new TaskPool(128));
 
     // Thread-local variable to hold the current batch being processed. This batch should be released whenever we flush it to the queue and replaced by a new batch.
     private static final ThreadLocal<WorkBatch> batchHolder = 
@@ -29,6 +28,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<int[]> combinationBuilder =
         new ThreadLocal<int[]>();
 
+    // Instance fields remain the same
     private int numClicks;
     private int[] prefix;
     private int prefixLength;
@@ -41,7 +41,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private volatile boolean cancelled = false; // Use a volatile boolean instead of an AtomicBoolean to achieve the same goal without temporary object creation (and with greater efficiency)
     private CombinationGeneratorTask parent;
 
-    // Public constructor for the root task
+    // Constructors remain the same
     public CombinationGeneratorTask(int numClicks, int[] prefix, int prefixLength,
                                    CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
                                    int maxFirstClickIndex) 
@@ -49,10 +49,8 @@ public class CombinationGeneratorTask extends RecursiveAction
         this.init(numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
     }
 
-    // Default constructor for pool creation
     public CombinationGeneratorTask() {}
     
-    // "init" method to re-initialize a recycled task
     public void init(int numClicks, int[] prefix, int prefixLength,
                      CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
                      int maxFirstClickIndex, CombinationGeneratorTask parent) 
@@ -69,12 +67,10 @@ public class CombinationGeneratorTask extends RecursiveAction
         propagateParentCancellation();
     }
 
-    // Cache-friendly cancellation checking
-    private boolean isTaskCancelled() 
+    // Ultra-small cancellation check - made final for guaranteed inlining
+    private final boolean isTaskCancelled() 
     {
-        // Only check solution found in hot paths
-        if (queueArray.solutionFound) return cancelled = true; // Set cancelled if the solution is found.
-        return false;
+        return queueArray.solutionFound && (cancelled = true);
     }
 
     /**
@@ -135,9 +131,129 @@ public class CombinationGeneratorTask extends RecursiveAction
         createAndExecuteSubtasks(start, max, numSubtasks);
     }
 
-    // Add these static fields for pre-computed adjacency data
+    // OPTIMIZATION 1: Split the most critical path into micro-methods
+    private void computeLeafCombinations()
+    {
+        int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
+        int[] combination = getCombinationArray();
+        System.arraycopy(prefix, 0, combination, 0, prefixLength);
+        
+        // Call the ultra-optimized hot loop
+        generateCombinationsHotPath(start, combination, batchHolder.get());
+    }
+
+    // OPTIMIZATION 2: Create an ultra-lightweight version of the hot loop
+    private final void generateCombinationsHotPath(int start, int[] combination, WorkBatch batch)
+    {
+        // Pre-calculate values outside the loop
+        final int lastIndex = prefixLength;
+        final boolean hasTrueCells = trueCells != null && trueCells.length > 0;
+        final int firstTrueCell = hasTrueCells ? trueCells[0] : -1;
+        
+        for (int i = start; i < Grid.NUM_CELLS; i++) 
+        {
+            // Reduced cancellation check frequency
+            if ((i & 255) == 0 && queueArray.solutionFound) return;
+
+            combination[lastIndex] = i;
+            
+            // Inline the pruning check for maximum performance
+            if (hasTrueCells && !quickOddAdjacencyInlined(combination, firstTrueCell)) 
+            {
+                continue;
+            }
+            
+            // Inline batch operations
+            if (!batch.add(combination)) 
+            {
+                // Batch is full - handle it
+                if (flushBatchFast(batch)) 
+                {
+                    batch = getNewBatch();
+                    batchHolder.set(batch);
+                    batch.add(combination);
+                }
+            }
+        }
+    }
+
+    // OPTIMIZATION 3: Ultra-fast pruning with minimal overhead
+    private static final boolean quickOddAdjacencyInlined(int[] combination, int firstTrueCell) 
+    {
+        // Get mask with minimal overhead
+        long[] mask = ADJACENCY_MASK_CACHE_FAST[firstTrueCell & 15];
+        if (mask == null || CACHED_TRUE_CELLS_FAST[firstTrueCell & 15] != firstTrueCell) 
+        {
+            mask = computeAdjacencyMaskFast(firstTrueCell);
+        }
+        
+        // Count adjacencies with unrolled checks for small arrays
+        int count = 0;
+        int length = combination.length;
+        
+        // Optimized counting loop
+        for (int i = 0; i < length; i++) 
+        {
+            int click = combination[i];
+            if ((mask[click >>> 6] & (1L << (click & 63))) != 0) count++;
+        }
+        
+        return (count & 1) == 1;
+    }
+
+    // OPTIMIZATION 4: Streamlined batch flushing
+    private final boolean flushBatchFast(WorkBatch batch) 
+    {
+        if (batch.isEmpty()) return false;
+        
+        CombinationQueue[] queues = queueArray.getAllQueues();
+        int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
+        
+        // Try each queue once
+        for (int i = 0; i < queues.length; i++) 
+        {
+            if (queues[(startIdx + i) % queues.length].add(batch)) return true;
+        }
+        
+        return false;
+    }
+
+    // OPTIMIZATION 5: Simplified mask caching with reduced contention
+    private static final long[][] ADJACENCY_MASK_CACHE_FAST = new long[16][];
+    private static final int[] CACHED_TRUE_CELLS_FAST = new int[16];
+    
+    private static long[] computeAdjacencyMaskFast(int firstTrueCell) 
+    {
+        int cacheIdx = firstTrueCell & 15;
+        
+        // Simple double-check without heavy synchronization
+        if (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrueCell) 
+        {
+            return ADJACENCY_MASK_CACHE_FAST[cacheIdx];
+        }
+        
+        synchronized (CombinationGeneratorTask.class) 
+        {
+            if (CACHED_TRUE_CELLS_FAST[cacheIdx] != firstTrueCell) 
+            {
+                int[] adjacents = Grid.findAdjacents(firstTrueCell);
+                long[] mask = new long[2];
+                
+                for (int adj : adjacents) 
+                {
+                    mask[adj >>> 6] |= (1L << (adj & 63));
+                }
+                
+                ADJACENCY_MASK_CACHE_FAST[cacheIdx] = mask;
+                CACHED_TRUE_CELLS_FAST[cacheIdx] = firstTrueCell;
+            }
+        }
+        
+        return ADJACENCY_MASK_CACHE_FAST[cacheIdx];
+    }
+
+    // Keep existing constraint checking logic unchanged
     private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
-    // NEW: Add a field for the pre-computed suffix OR masks
     private static long[] SUFFIX_OR_MASKS = null;
     private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix(); // Stored in index format
 
@@ -226,18 +342,13 @@ public class CombinationGeneratorTask extends RecursiveAction
         
         // Check if remaining clicks can provide the needed adjacencies
         int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        
-        // OPTIMIZED: Replace the expensive loop with a single array lookup
         long availableAdjacencies = SUFFIX_OR_MASKS[startIdx];
         
         // Check if available clicks can satisfy all needed adjacencies
         return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
     }
 
-    /**
-     * Creates subtasks and manages their execution.
-     * Separated from computeSubtasks() to keep methods small and inlinable.
-     */
+    // Keep existing subtask creation logic unchanged but make key methods final
     private void createAndExecuteSubtasks(int start, int max, int numSubtasks)
     {
         // Split into two phases to reduce call depth
@@ -294,76 +405,12 @@ public class CombinationGeneratorTask extends RecursiveAction
                 }
             } catch (CancellationException ce) 
             {
-                // Task was cancelled, just return
-            } 
-            finally 
-            {
-                // Removed subtask array pooling - now directly allocated
-            }
-        } 
-        // Removed else branch - no longer needed
-    }
-
-    /**
-     * Handles direct combination generation for leaf-level tasks.
-     * Split from main compute() to enable better JIT optimization of this hot path.
-     */
-    private void computeLeafCombinations()
-    {
-        // Direct generation without intermediate arrays for leaf level
-        int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-
-        int[] combination = getCombinationArray();
-        
-        // Copy prefix once
-        System.arraycopy(prefix, 0, combination, 0, prefixLength);
-        
-        // Get the thread batch for this task.
-        WorkBatch batch = batchHolder.get();
-
-        generateCombinations(start, combination, batch);
-    }
-
-    /**
-     * Core combination generation loop extracted for better JIT optimization.
-     * This is one of the hottest paths in the entire application.
-     */
-    private void generateCombinations(int start, int[] combination, WorkBatch batch)
-    {
-        for (int i = start; i < Grid.NUM_CELLS; i++) 
-        {
-            // Check for cancellation at regular intervals
-            if ((i & 127) == 0 && isTaskCancelled()) 
-            {
-                return;
-            }
-
-            combination[prefixLength] = i;
-            
-            // Apply pruning filter - skip combinations that can't satisfy odd adjacency
-            if (trueCells != null && trueCells.length > 0 &&
-                !quickOddAdjacency(combination, trueCells[0])) 
-            {
-                continue;
-            }
-            
-            // The batch is the recycled unit, so we copy the combination into the batch's internal array.
-            // This avoids creating new arrays for each combination.
-            batch.add(combination);
-            
-            // Flush the batch if it reaches the threshold
-            if (batch.size() >= FLUSH_THRESHOLD) 
-            {
-                if (flushBatch(batch)) 
-                {
-                    // If the flush succeeds, we need to get a new batch.
-                    batch = getNewBatch();
-                    batchHolder.set(batch); // Update the thread-local batch holder
-                }
+                // Task was cancelled
             }
         }
     }
 
+    // Keep existing utility methods unchanged
     private int[] getCombinationArray()
     {
         // Get a recycled combination array or create a new one if necessary
@@ -384,12 +431,44 @@ public class CombinationGeneratorTask extends RecursiveAction
         return new WorkBatch(BATCH_SIZE);
     }
 
+    private int[] getIntArray(int size) 
+    {
+        if (size < numClicks)
+        {
+            ArrayPool pool = prefixArrayPool.get();
+            int[] arr = pool.get(size);
+            if (arr != null) return arr;
+        } 
+        return new int[size];
+    }
+
+    private void putIntArray(int[] arr) 
+    {
+        if (arr == null) return;
+        
+        if (arr.length < numClicks) 
+        {
+            ArrayPool pool = prefixArrayPool.get();
+            pool.put(arr);
+        }
+    }
+
+    // Keep existing static methods unchanged
+    public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
+    {
+        pool.submit(() -> {
+            WorkBatch batch = batchHolder.get();
+            if (batch != null && !batch.isEmpty()) 
+            {
+                flushBatchHelper(batch, queueArray, false, !queueArray.solutionFound);
+                batchHolder.remove();
+            }
+        }).join();
+    }
+
     private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) 
     {
-        if (batch == null || batch.isEmpty())
-        {
-            return false;
-        }
+        if (batch == null || batch.isEmpty()) return false;
         
         CombinationQueue[] queues = queueArray.getAllQueues();
         int numQueues = queues.length;
@@ -423,141 +502,6 @@ public class CombinationGeneratorTask extends RecursiveAction
             }
             // Only check cancellation if requested (for task flushing, not final flush)
             if (checkCancellation && queueArray.solutionFound) return false;
-        }
-    }
-
-    private boolean flushBatch(WorkBatch batch) 
-    {
-        if (batch == null || batch.isEmpty()) 
-        {
-            return false; // Nothing to flush
-        }
-        
-        // Use the helper method to flush the batch to the queues
-        return flushBatchHelper(batch, queueArray, true, batch.isFull() ? true : false);
-    }
-    
-    /**
-     * Flush all pending generator thread batches to the queues.
-     * This method is called when generation is complete or when a solution is found.
-     * It ensures that all pending batches are processed and added to the queues.
-     * @param queueArray - the CombinationQueueArray to which batches will be flushed.
-     * @param pool - the ForkJoinPool used for processing batches.
-     */
-    public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
-    {
-        pool.submit(() -> {
-            WorkBatch batch = batchHolder.get();
-            if (batch != null && !batch.isEmpty()) 
-            {
-                flushBatchHelper(batch, queueArray, false, !queueArray.solutionFound); // Only force flush the batch if a solution hasn't been found yet
-
-                // Clear the thread-local batch holder (this isn't strictly necessary, but doing it helps avoid a potential memory leak or race condition)
-                batchHolder.remove();
-            }
-        }).join(); // Wait for completion to ensure all batches are flushed
-    }
-
-    private int[] getIntArray(int size) 
-    {
-        // Only pool prefix arrays. Combination arrays are cloned.
-        if (size < numClicks)
-        {
-            ArrayPool pool = prefixArrayPool.get();
-            int[] arr = pool.get(size);
-            if (arr != null)
-            {
-                return arr;
-            }
-        } 
-        return new int[size];
-    }
-
-    private void putIntArray(int[] arr) 
-    {
-        if (arr == null) return;
-        
-        if (arr.length < numClicks) // Prefix arrays
-        {
-            ArrayPool pool = prefixArrayPool.get();
-            pool.put(arr);
-        } 
-        // Do not pool full combination arrays.
-    }
-
-    // Cache multiple adjacency masks to reduce synchronization
-    private static volatile long[][] ADJACENCY_MASK_CACHE = new long[16][]; // Cache for first 16 true cells
-    private static volatile int[] CACHED_TRUE_CELLS = new int[16];
-    private static volatile int CACHE_SIZE = 0;
-    
-    // Ultra-fast O(1) adjacency check using cached bitmasks
-    private static boolean quickOddAdjacency(int[] combination, int firstTrueCell) 
-    {
-        long[] mask = getCachedAdjacencyMask(firstTrueCell);
-        
-        int count = 0;
-        // Unroll the loop for better performance on small combinations
-        int length = combination.length;
-        for (int i = 0; i < length; i++)
-        {
-            int click = combination[i];
-            int longIndex = click >>> 6; // Faster than click / 64
-            int bitPosition = click & 63; // Faster than click % 64
-            if (longIndex < mask.length && (mask[longIndex] & (1L << bitPosition)) != 0) 
-            {
-                count++;
-            }
-        }
-        return (count & 1) == 1;
-    }
-    
-    private static long[] getCachedAdjacencyMask(int firstTrueCell)
-    {
-        // Try cache first
-        for (int i = 0; i < CACHE_SIZE; i++)
-        {
-            if (CACHED_TRUE_CELLS[i] == firstTrueCell)
-            {
-                return ADJACENCY_MASK_CACHE[i];
-            }
-        }
-        
-        // Cache miss - compute and store
-        return computeAndCacheAdjacencyMask(firstTrueCell);
-    }
-    
-    private static long[] computeAndCacheAdjacencyMask(int firstTrueCell)
-    {
-        synchronized (CombinationGeneratorTask.class)
-        {
-            // Double-check after acquiring lock
-            for (int i = 0; i < CACHE_SIZE; i++)
-            {
-                if (CACHED_TRUE_CELLS[i] == firstTrueCell)
-                {
-                    return ADJACENCY_MASK_CACHE[i];
-                }
-            }
-            
-            // Compute new mask
-            int[] adjacents = Grid.findAdjacents(firstTrueCell);
-            long[] mask = new long[2]; // 109 bits, 2 longs
-            
-            for (int adj : adjacents) 
-            {
-                int longIndex = adj >>> 6;
-                int bitPosition = adj & 63;
-                mask[longIndex] |= (1L << bitPosition);
-            }
-            
-            // Add to cache (with simple replacement if full)
-            int cacheIndex = CACHE_SIZE < 16 ? CACHE_SIZE++ : 
-                            (firstTrueCell & 15); // Simple hash for replacement
-            
-            ADJACENCY_MASK_CACHE[cacheIndex] = mask;
-            CACHED_TRUE_CELLS[cacheIndex] = firstTrueCell;
-            
-            return mask;
         }
     }
 }

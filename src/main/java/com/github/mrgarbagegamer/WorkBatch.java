@@ -29,12 +29,41 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
      */
     public boolean add(int[] source) 
     {
-        if (isFull())
+        if (size >= capacity)
         {
             return false;
         }
         if (buffer[tail] == null) buffer[tail] = new int[source.length];
         System.arraycopy(source, 0, buffer[tail], 0, source.length);
+        tail = (tail + 1) % capacity;
+        size++;
+        return true;
+    }
+
+    /**
+     * Adds a combination by assembling it from a prefix and a final element.
+     * This avoids the caller needing to create a temporary full combination array.
+     * @param prefix The prefix of the combination.
+     * @param lastElement The final element to append.
+     * @return true if the element was added, false if the batch is full.
+     */
+    public boolean add(int[] prefix, int lastElement)
+    {
+        if (size >= capacity)
+        {
+            return false;
+        }
+
+        int[] dest = buffer[tail];
+        if (dest == null)
+        {
+            dest = new int[prefix.length + 1];
+            buffer[tail] = dest;
+        }
+
+        System.arraycopy(prefix, 0, dest, 0, prefix.length);
+        dest[prefix.length] = lastElement;
+
         tail = (tail + 1) % capacity;
         size++;
         return true;

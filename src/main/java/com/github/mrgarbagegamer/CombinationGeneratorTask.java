@@ -24,10 +24,6 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<WorkBatch> batchHolder = 
         ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
 
-    // Thread-local array for final combination building. We avoid initializing it until needed so the array can be perfectly sized for numClicks.
-    private static final ThreadLocal<int[]> combinationBuilder =
-        new ThreadLocal<int[]>();
-
     // Instance fields remain the same
     private int numClicks;
     private int[] prefix;
@@ -135,18 +131,15 @@ public class CombinationGeneratorTask extends RecursiveAction
     private void computeLeafCombinations()
     {
         int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        int[] combination = getCombinationArray();
-        System.arraycopy(prefix, 0, combination, 0, prefixLength);
         
-        // Call the ultra-optimized hot loop
-        generateCombinationsHotPath(start, combination, batchHolder.get());
+        // Call the ultra-optimized hot loop, passing the prefix directly.
+        generateCombinationsHotPath(start, prefix, batchHolder.get());
     }
 
     // OPTIMIZATION 2: Create an ultra-lightweight version of the hot loop
-    private final void generateCombinationsHotPath(int start, int[] combination, WorkBatch batch)
+    private final void generateCombinationsHotPath(int start, int[] prefix, WorkBatch batch)
     {
         // Pre-calculate values outside the loop
-        final int lastIndex = prefixLength;
         final boolean hasTrueCells = trueCells != null && trueCells.length > 0;
         final int firstTrueCell = hasTrueCells ? trueCells[0] : -1;
         
@@ -155,30 +148,28 @@ public class CombinationGeneratorTask extends RecursiveAction
             // Reduced cancellation check frequency
             if ((i & 255) == 0 && queueArray.solutionFound) return;
 
-            combination[lastIndex] = i;
-            
             // Inline the pruning check for maximum performance
-            if (hasTrueCells && !quickOddAdjacencyInlined(combination, firstTrueCell)) 
+            if (hasTrueCells && !quickOddAdjacencyInlined(prefix, i, firstTrueCell)) 
             {
                 continue;
             }
             
             // Inline batch operations
-            if (!batch.add(combination)) 
+            if (!batch.add(prefix, i)) 
             {
                 // Batch is full - handle it
                 if (flushBatchFast(batch)) 
                 {
                     batch = getNewBatch();
                     batchHolder.set(batch);
-                    batch.add(combination);
+                    batch.add(prefix, i);
                 }
             }
         }
     }
 
     // OPTIMIZATION 3: Ultra-fast pruning with minimal overhead
-    private static final boolean quickOddAdjacencyInlined(int[] combination, int firstTrueCell) 
+    private static final boolean quickOddAdjacencyInlined(int[] prefix, int lastClick, int firstTrueCell) 
     {
         // Get mask with minimal overhead
         long[] mask = ADJACENCY_MASK_CACHE_FAST[firstTrueCell & 15];
@@ -189,14 +180,16 @@ public class CombinationGeneratorTask extends RecursiveAction
         
         // Count adjacencies with unrolled checks for small arrays
         int count = 0;
-        int length = combination.length;
         
-        // Optimized counting loop
-        for (int i = 0; i < length; i++) 
+        // Optimized counting loop for prefix
+        for (int i = 0; i < prefix.length; i++) 
         {
-            int click = combination[i];
+            int click = prefix[i];
             if ((mask[click >>> 6] & (1L << (click & 63))) != 0) count++;
         }
+
+        // Check the last click
+        if ((mask[lastClick >>> 6] & (1L << (lastClick & 63))) != 0) count++;
         
         return (count & 1) == 1;
     }
@@ -425,18 +418,18 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
-    // Keep existing utility methods unchanged
-    private int[] getCombinationArray()
-    {
-        // Get a recycled combination array or create a new one if necessary
-        int[] combination = combinationBuilder.get();
-        if (combination == null) 
-        {
-            combination = new int[numClicks];
-            combinationBuilder.set(combination); // Store the new array for future use.
-        }
-        return combination;
-    }
+    // REMOVED: This method is no longer needed.
+    // private int[] getCombinationArray()
+    // {
+    //     // Get a recycled combination array or create a new one if necessary
+    //     int[] combination = combinationBuilder.get();
+    //     if (combination == null) 
+    //     {
+    //         combination = new int[numClicks];
+    //         combinationBuilder.set(combination); // Store the new array for future use.
+    //     }
+    //     return combination;
+    // }
 
     // NEW: Gets a recycled or new WorkBatch.
     private WorkBatch getNewBatch()

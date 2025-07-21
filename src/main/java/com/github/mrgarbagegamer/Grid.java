@@ -132,7 +132,7 @@ public abstract class Grid {
     // Updated methods to use boolean array instead of BitSet
     public int[] findTrueCells() 
     {
-        int[] trueCellsArray = new int[trueCellsCount];
+        int[] trueCellsArray = new int[getTrueCount()];
         int idx = 0;
         for (int i = 0; i < NUM_CELLS && idx < trueCellsCount; i++) 
         {

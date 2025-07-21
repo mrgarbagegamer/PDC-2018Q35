@@ -59,22 +59,18 @@ public class StartYourMonkeys
 
         // start generating different click combinations
         Grid baseGrid;
-        GridType gridType;
         
         if (questionNumber == 35) 
         {
             baseGrid = new Grid35();
-            gridType = GridType.GRID35;
         }
         else if (questionNumber == 13)
         {
             baseGrid = new Grid13();
-            gridType = GridType.GRID13;
         }
         else 
         {
             baseGrid = new Grid22();
-            gridType = GridType.GRID22;
         }
 
         int[] trueAdjacents = baseGrid.findFirstTrueAdjacents();
@@ -104,6 +100,8 @@ public class StartYourMonkeys
             workQueue.offer(new PrefixRange(i, end));
         }
 
+        int[] trueCells = baseGrid.findTrueCells();
+
         // Start generator threads
         for (int t = 0; t < numGeneratorThreads; t++) 
         {
@@ -115,7 +113,7 @@ public class StartYourMonkeys
                     logger.info("{} - Processing prefix range [{}-{})", threadName, range.start, range.end); // TODO: Remove this line if too verbose
                     CombinationGenerator cb = new CombinationGenerator(
                         threadName, queueArray, possibleClicks, numClicks,
-                        range.start, range.end, numThreads, gridType
+                        range.start, range.end, numThreads, trueCells
                     );
                     cb.run();
                 }

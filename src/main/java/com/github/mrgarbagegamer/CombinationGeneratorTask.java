@@ -1,7 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import java.util.Arrays;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
@@ -24,7 +22,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<WorkBatch> batchHolder = 
         ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
 
-    // Instance fields remain the same
+    // Instance fields
     private int numClicks;
     private int[] prefix;
     private int prefixLength;
@@ -33,23 +31,34 @@ public class CombinationGeneratorTask extends RecursiveAction
     private int[] trueCells;
     private int maxFirstClickIndex;
     
-    // Added field to track cancellation within a subtask hierarchy
-    private volatile boolean cancelled = false; // Use a volatile boolean instead of an AtomicBoolean to achieve the same goal without temporary object creation (and with greater efficiency)
-    private CombinationGeneratorTask parent;
+    // Cached adjacency state for constraint checking
+    private long cachedAdjacencyState = -1;
 
-    // Constructors remain the same
+    private static ForkJoinPool pool;
+
+    public static void setForkJoinPool(ForkJoinPool pool) 
+    {
+        CombinationGeneratorTask.pool = pool;
+    }
+
+    public static ForkJoinPool getForkJoinPool() 
+    {
+        return pool;
+    }
+
+    // Constructors
     public CombinationGeneratorTask(int numClicks, int[] prefix, int prefixLength,
                                    CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
                                    int maxFirstClickIndex) 
     {
-        this.init(numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, null);
+        this.init(numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, -1);
     }
 
     public CombinationGeneratorTask() {}
     
     public void init(int numClicks, int[] prefix, int prefixLength,
                      CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
-                     int maxFirstClickIndex, CombinationGeneratorTask parent) 
+                     int maxFirstClickIndex, long parentAdjacencyState) 
     {
         this.numClicks = numClicks;
         this.prefix = prefix;
@@ -57,55 +66,42 @@ public class CombinationGeneratorTask extends RecursiveAction
         this.queueArray = queueArray;
         this.numConsumers = numConsumers;
         this.trueCells = trueCells;
-        this.parent = parent;
         this.maxFirstClickIndex = maxFirstClickIndex;
+        this.cachedAdjacencyState = parentAdjacencyState;
         reinitialize();
-        propagateParentCancellation();
     }
 
     // Ultra-small cancellation check - made final for guaranteed inlining
     private final boolean isTaskCancelled() 
     {
-        return queueArray.solutionFound && (cancelled = true);
+        return queueArray.solutionFound;
     }
 
-    /**
-     * Propagate cancellation based on the parent task's state.
-     * This method is called at the start of compute() to ensure that if the parent task is cancelled, we stop right then and there.
-     */
-    private void propagateParentCancellation()
-    {
-        if (parent != null && parent.cancelled) this.cancelled = true;
-    }
-
-    /**
-     * Main compute method - split into smaller methods to enable JIT inlining.
-     * The original large method was marked as "too big" by the JIT compiler.
-     */
     @Override
     protected void compute()
     {
-        // Check for cancellation before starting work
-        if (isTaskCancelled()) return;
-        
-        if (prefixLength < numClicks - 1) 
+        try 
         {
-            // Handle recursive subtask creation for intermediate levels
-            computeSubtasks();
-        } 
-        else 
-        {
-            // Handle direct combination generation for leaf level
-            computeLeafCombinations();
+            // Check for cancellation before starting work
+            if (isTaskCancelled()) return;
+            
+            if (prefixLength < numClicks - 1) 
+            {
+                // Handle recursive subtask creation for intermediate levels
+                computeSubtasks();
+            } 
+            else 
+            {
+                // Handle direct combination generation for leaf level
+                computeLeafCombinations();
+            }
         }
-
-        // We don't flush partial batches anymore; they will either be flushed when the batch is full or when the final task completes.
+        finally
+        {
+            // Self-cleanup: recycle our own resources
+            recycleOwnResources();
+        }
     }
-
-    /**
-     * Handles subtask creation and execution for non-leaf nodes.
-     * Split from main compute() to enable JIT inlining of this hot path.
-     */
 
     private void computeSubtasks()
     {
@@ -123,20 +119,61 @@ public class CombinationGeneratorTask extends RecursiveAction
         int numSubtasks = max - start;
         if (numSubtasks <= 0) return;
         
-        // Create and execute subtasks
-        createAndExecuteSubtasks(start, max, numSubtasks);
+        // Fork subtasks directly without array collection
+        forkSubtasks(start, max);
     }
 
-    // OPTIMIZATION 1: Split the most critical path into micro-methods
+    private void forkSubtasks(int start, int max)
+    {
+        TaskPool pool = taskPool.get();
+        
+        for (int i = start; i < max; i++) 
+        {
+            // Reduce check frequency
+            if ((i & 511) == 0 && isTaskCancelled()) return;
+            
+            // Get prefix array from pool
+            int[] newPrefix = getIntArray(prefixLength + 1);
+            System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
+            newPrefix[prefixLength] = i;
+
+            // Calculate adjacency state for child
+            long childAdjacencyState = cachedAdjacencyState;
+            if (trueCells != null && trueCells.length > 0) 
+            {
+                ensureTrueCellMasks(trueCells);
+                if (cachedAdjacencyState == -1) 
+                {
+                    // Root task - compute from scratch
+                    childAdjacencyState = 0L;
+                    for (int j = 0; j <= prefixLength; j++) 
+                    {
+                        childAdjacencyState ^= TRUE_CELL_ADJACENCY_MASKS[newPrefix[j]];
+                    }
+                }
+                else 
+                {
+                    // Incremental update
+                    childAdjacencyState ^= TRUE_CELL_ADJACENCY_MASKS[i];
+                }
+            }
+
+            // Get a recycled task from the pool and initialize it
+            CombinationGeneratorTask subtask = pool.get();
+            subtask.init(numClicks, newPrefix, prefixLength + 1, 
+                         queueArray, numConsumers, trueCells, maxFirstClickIndex, childAdjacencyState);
+            
+            // Fork the subtask - it will clean itself up
+            subtask.fork();
+        }
+    }
+
     private void computeLeafCombinations()
     {
         int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        
-        // Call the ultra-optimized hot loop, passing the prefix directly.
         generateCombinationsHotPath(start, prefix, batchHolder.get());
     }
 
-    // OPTIMIZATION 2: Create an ultra-lightweight version of the hot loop
     private final void generateCombinationsHotPath(int start, int[] prefix, WorkBatch batch)
     {
         final int pLen = prefix.length;
@@ -168,7 +205,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
         for (int i = start; i < Grid.NUM_CELLS; i++)
         {
-            if ((i & 255) == 0 && queueArray.solutionFound) return;
+            if ((i & 255) == 0 && isTaskCancelled()) return;
 
             // single bit‐test now
             if (hasTrue)
@@ -193,7 +230,6 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
-    // OPTIMIZATION 4: Streamlined batch flushing
     private final boolean flushBatchFast(WorkBatch batch) 
     {
         if (batch.isEmpty()) return false;
@@ -210,7 +246,21 @@ public class CombinationGeneratorTask extends RecursiveAction
         return false;
     }
 
-    // OPTIMIZATION 5: Simplified mask caching with reduced contention
+    private void recycleOwnResources()
+    {
+        // Recycle our prefix array
+        if (prefix != null) 
+        {
+            putIntArray(prefix);
+            prefix = null;
+        }
+        
+        // Recycle ourselves back to the pool
+        TaskPool pool = taskPool.get();
+        pool.put(this);
+    }
+
+    // Constraint checking and mask logic unchanged
     private static final long[][] ADJACENCY_MASK_CACHE_FAST = new long[16][];
     private static final int[] CACHED_TRUE_CELLS_FAST = new int[16];
     
@@ -317,27 +367,19 @@ public class CombinationGeneratorTask extends RecursiveAction
         // Ensure masks are initialized
         ensureTrueCellMasks(trueCells);
         
-        // Use cached adjacency state from parent if available
-        long currentAdjacencies;
-        if (parent != null && parent.cachedAdjacencyState != -1) 
+        // Use cached adjacency state
+        long currentAdjacencies = cachedAdjacencyState;
+        if (currentAdjacencies == -1) 
         {
-            // Incrementally update from parent's state
-            currentAdjacencies = parent.cachedAdjacencyState ^ TRUE_CELL_ADJACENCY_MASKS[prefix[prefixLength - 1]];
-        }
-        else 
-        {
-            // Compute from scratch (only for root tasks)
+            // Compute from scratch (should only happen for root tasks)
             currentAdjacencies = 0L;
             for (int j = 0; j < prefixLength; j++) 
             {
                 currentAdjacencies ^= TRUE_CELL_ADJACENCY_MASKS[prefix[j]];
             }
+            this.cachedAdjacencyState = currentAdjacencies;
         }
         
-        // Cache for child tasks
-        this.cachedAdjacencyState = currentAdjacencies;
-        
-        // Check what we need to achieve: all bits should be 1 (odd adjacency for all true cells)
         long targetMask = (1L << trueCells.length) - 1;
         long needed = currentAdjacencies ^ targetMask; // XOR with target to find which bits need to be flipped
         
@@ -348,89 +390,9 @@ public class CombinationGeneratorTask extends RecursiveAction
         int startIdx = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
         long availableAdjacencies = SUFFIX_OR_MASKS[startIdx];
         
-        // Check if available clicks can satisfy all needed adjacencies
-        return (availableAdjacencies & needed) == needed; // If at least one click can satisfy each needed adjacency, return true
+        return (availableAdjacencies & needed) == needed;
     }
 
-    // Add field to cache adjacency state
-    private long cachedAdjacencyState = -1;
-
-    // Keep existing subtask creation logic unchanged but make key methods final
-    private void createAndExecuteSubtasks(int start, int max, int numSubtasks)
-    {
-        // Split into two phases to reduce call depth
-        CombinationGeneratorTask[] subtasks = createSubtaskArray(start, max, numSubtasks);
-        executeSubtaskArray(subtasks, numSubtasks);
-    }
-
-    // Separate method to reduce inlining depth
-    private CombinationGeneratorTask[] createSubtaskArray(int start, int max, int numSubtasks)
-    {
-        CombinationGeneratorTask[] subtasks = new CombinationGeneratorTask[numSubtasks];
-        int subtaskCount = 0;
-        TaskPool pool = taskPool.get();
-        
-        for (int i = start; i < max; i++) 
-        {
-            // Reduce check frequency here too
-            if ((i & 511) == 0 && isTaskCancelled()) return Arrays.copyOf(subtasks, subtaskCount);
-            
-            // Get prefix array from pool
-            int[] newPrefix = getIntArray(prefixLength + 1);
-            System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
-            newPrefix[prefixLength] = i;
-
-            // Get a recycled task from the pool and initialize it
-            CombinationGeneratorTask subtask = pool.get();
-            subtask.init(numClicks, newPrefix, prefixLength + 1, 
-                         queueArray, numConsumers, trueCells, maxFirstClickIndex, this);
-            subtasks[subtaskCount++] = subtask;
-        }
-        
-        return subtasks;
-    }
-
-    /**
-     * Executes the created subtasks using invokeAll and handles cleanup.
-     * Final piece of the subtask execution pipeline.
-     */
-    private void executeSubtaskArray(CombinationGeneratorTask[] subtasks, int subtaskCount)
-    {
-        if (subtaskCount > 0) 
-        {
-            try 
-            {
-                invokeAll(subtasks);
-
-                // Recycle prefix arrays and tasks after subtasks complete
-                TaskPool pool = taskPool.get();
-                for (CombinationGeneratorTask subtask : subtasks) 
-                {
-                    if (subtask == null) continue;
-                    putIntArray(subtask.prefix);
-                    pool.put(subtask);
-                }
-            } catch (CancellationException ce) 
-            {
-                // Task was cancelled
-            }
-        }
-    }
-
-    // REMOVED: This method is no longer needed.
-    // private int[] getCombinationArray()
-    // {
-    //     // Get a recycled combination array or create a new one if necessary
-    //     int[] combination = combinationBuilder.get();
-    //     if (combination == null) 
-    //     {
-    //         combination = new int[numClicks];
-    //         combinationBuilder.set(combination); // Store the new array for future use.
-    //     }
-    //     return combination;
-    // }
-
-    // NEW: Gets a recycled or new WorkBatch.
     private WorkBatch getNewBatch()
     {
         WorkBatch batch = queueArray.getWorkBatchPool().poll();
@@ -460,17 +422,24 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
-    // Keep existing static methods unchanged
     public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
     {
-        pool.submit(() -> {
-            WorkBatch batch = batchHolder.get();
-            if (batch != null && !batch.isEmpty()) 
-            {
-                flushBatchHelper(batch, queueArray, false, !queueArray.solutionFound);
-                batchHolder.remove();
-            }
-        }).join();
+        if (queueArray.solutionFound || pool.isShutdown()) return;
+        
+        try 
+        {
+            pool.submit(() -> {
+                WorkBatch batch = batchHolder.get();
+                if (batch != null && !batch.isEmpty()) 
+                {
+                    flushBatchHelper(batch, queueArray, false, !queueArray.solutionFound);
+                    batchHolder.remove();
+                }
+            }).join();
+        } catch (Exception e) 
+        {
+            // Do nothing, just return.
+        }
     }
 
     private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) 

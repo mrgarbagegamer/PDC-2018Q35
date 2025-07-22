@@ -84,31 +84,59 @@ public class StartYourMonkeys
         }
 
         // Now start the generator (ForkJoinPool)
-        ForkJoinPool pool = new ForkJoinPool(numGeneratorThreads);
-        int[] emptyPrefix = new int[0];
-        CombinationGeneratorTask rootTask = new CombinationGeneratorTask(
-            numClicks, emptyPrefix, 0, queueArray, numGeneratorThreads, trueCells, finalFirstTrueAdjacent
-        );
-        pool.invoke(rootTask);
-
-        // Flush all pending batches before marking generation complete
-        CombinationGeneratorTask.flushAllPendingBatches(queueArray, pool);
-
-        queueArray.generatorFinished();
-
-        // wait for our monkeys to finish working
-        for(int i=0; i < numThreads; i++)
+        ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads);
+        // Submit initial root task
+        CombinationGeneratorTask rootTask = (CombinationGeneratorTask) generatorPool.submit(new CombinationGeneratorTask(
+            numClicks, new int[0], 0, queueArray, numThreads, trueCells, finalFirstTrueAdjacent));
+    
+        try 
         {
-            try 
+            // Wait for completion or cancellation
+            while (!rootTask.isDone() && !queueArray.solutionFound) 
             {
-                monkeys[i].join();
-            } catch (InterruptedException e) 
-            {
-                e.printStackTrace();
+                Thread.sleep(100);
             }
+            
+            // Signal cancellation if solution found
+            if (queueArray.solutionFound) 
+            {
+                generatorPool.shutdownNow();
+            }
+            
+            // Wait for pool to finish
+            rootTask.get();
+            
+        } catch (Exception e) 
+        {
+            logger.error("Error during generation", e);
         }
-        pool.close(); // Close the ForkJoinPool
-
+        finally 
+        {
+            // Flush any remaining batches if no solution found
+            if (!queueArray.solutionFound) 
+            {
+                CombinationGeneratorTask.flushAllPendingBatches(queueArray, generatorPool);
+            }
+            
+            // Mark generation complete
+            queueArray.generationComplete = true;
+            
+            // Wait for worker threads to finish
+            for (TestClickCombination worker : monkeys) 
+            {
+                try 
+                {
+                    worker.join();
+                } catch (InterruptedException e) 
+                {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            
+            generatorPool.shutdown();
+        }
+        
         int[] winningCombination = queueArray.getWinningCombination(); // Get the winning combination from the queue (values are in index format)
 
         long elapsedMillis = System.currentTimeMillis() - startTime;

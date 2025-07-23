@@ -34,16 +34,16 @@ public class CombinationGeneratorTask extends RecursiveAction
     // Cached adjacency state for constraint checking
     private long cachedAdjacencyState = -1;
 
-    private static ForkJoinPool pool;
+    private static volatile ForkJoinPool generatorPool;
 
     public static void setForkJoinPool(ForkJoinPool pool) 
     {
-        CombinationGeneratorTask.pool = pool;
+        CombinationGeneratorTask.generatorPool = pool;
     }
 
     public static ForkJoinPool getForkJoinPool() 
     {
-        return pool;
+        return generatorPool;
     }
 
     // Constructors
@@ -71,20 +71,11 @@ public class CombinationGeneratorTask extends RecursiveAction
         reinitialize();
     }
 
-    // Ultra-small cancellation check - made final for guaranteed inlining
-    private final boolean isTaskCancelled() 
-    {
-        return queueArray.solutionFound;
-    }
-
     @Override
     protected void compute()
     {
         try 
         {
-            // Check for cancellation before starting work
-            if (isTaskCancelled()) return;
-            
             if (prefixLength < numClicks - 1) 
             {
                 // Handle recursive subtask creation for intermediate levels
@@ -105,7 +96,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private void computeSubtasks()
     {
-        // Before creating subtasks, check if this prefix path can possibly lead to a solution
+        // Early pruning check (keep this for performance)
         if (prefixLength >= 2 && !canPotentiallySatisfyConstraints()) 
         {
             return; // Early pruning - skip this entire branch
@@ -126,11 +117,11 @@ public class CombinationGeneratorTask extends RecursiveAction
     private void forkSubtasks(int start, int max)
     {
         TaskPool pool = taskPool.get();
-        
+
         for (int i = start; i < max; i++) 
         {
-            // Reduce check frequency
-            if ((i & 511) == 0 && isTaskCancelled()) return;
+            // Remove cancellation check - let pool shutdown handle interruption
+            
             
             // Get prefix array from pool
             int[] newPrefix = getIntArray(prefixLength + 1);
@@ -165,6 +156,11 @@ public class CombinationGeneratorTask extends RecursiveAction
             
             // Fork the subtask - it will clean itself up
             subtask.fork();
+        }
+
+        if (cachedAdjacencyState == -1) // If this is the root task, we need to wait for quiescence so the main thread does not exit prematurely
+        {
+            helpQuiesce();
         }
     }
 
@@ -205,9 +201,8 @@ public class CombinationGeneratorTask extends RecursiveAction
 
         for (int i = start; i < Grid.NUM_CELLS; i++)
         {
-            if ((i & 255) == 0 && isTaskCancelled()) return;
-
-            // single bit‐test now
+            // Remove periodic cancellation check - pool shutdown handles interruption
+            
             if (hasTrue)
             {
                 boolean iAdj = (mask[i >>> 6] & (1L << (i & 63))) != 0;

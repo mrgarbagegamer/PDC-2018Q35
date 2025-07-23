@@ -55,10 +55,12 @@ public class StartYourMonkeys
 
         int[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the first true adjacents in index format
         int finalFirstTrueAdjacent = -1;
-        // This will be the index of the last possible click that can be used to generate a valid combination, so assign prefixes only up to this index
-        if (trueAdjacents != null) {
-            for (int adjacent : trueAdjacents) {
-                if (adjacent > finalFirstTrueAdjacent) {
+        if (trueAdjacents != null) 
+        {
+            for (int adjacent : trueAdjacents) 
+            {
+                if (adjacent > finalFirstTrueAdjacent) 
+                {
                     finalFirstTrueAdjacent = adjacent;
                 }
             }
@@ -68,51 +70,30 @@ public class StartYourMonkeys
 
         // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, 1);
-
-        int[] trueCells = baseGrid.findTrueCells(); // Find all true cells in index format
-
-        // create the numThreads to start playing the game
-        TestClickCombination[] monkeys = new TestClickCombination[numThreads];
+        int[] trueCells = baseGrid.findTrueCells();
 
         // Start consumer threads BEFORE generation
-        for(int i=0; i < numThreads; i++)
+        TestClickCombination[] monkeys = new TestClickCombination[numThreads];
+        for(int i = 0; i < numThreads; i++)
         {
             String threadName = String.format("Monkey-%d", i);
-
             monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray, baseGrid.clone());
             monkeys[i].start();
         }
 
-        // Now start the generator (ForkJoinPool)
+        // Create generator pool and submit root task
         ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads);
-        // Submit initial root task
-        CombinationGeneratorTask rootTask = (CombinationGeneratorTask) generatorPool.submit(new CombinationGeneratorTask(
-            numClicks, new int[0], 0, queueArray, numThreads, trueCells, finalFirstTrueAdjacent));
-    
+        CombinationGeneratorTask.setForkJoinPool(generatorPool);
+        
         try 
         {
-            // Wait for completion or cancellation
-            while (!rootTask.isDone() && !queueArray.solutionFound) 
-            {
-                Thread.sleep(100);
-            }
-            
-            // Signal cancellation if solution found
-            if (queueArray.solutionFound) 
-            {
-                generatorPool.shutdownNow();
-            }
-            
-            // Wait for pool to finish
-            rootTask.get();
-            
-        } catch (Exception e) 
-        {
-            logger.error("Error during generation", e);
-        }
+            // Invoke root task - no need to keep reference since we use awaitQuiescence
+            generatorPool.invoke(new CombinationGeneratorTask(
+                numClicks, new int[0], 0, queueArray, numThreads, trueCells, finalFirstTrueAdjacent));
+        } 
         finally 
         {
-            // Flush any remaining batches if no solution found
+            // Flush any remaining batches only if no solution found
             if (!queueArray.solutionFound) 
             {
                 CombinationGeneratorTask.flushAllPendingBatches(queueArray, generatorPool);
@@ -134,15 +115,16 @@ public class StartYourMonkeys
                 }
             }
             
+            // Shutdown generator pool
             generatorPool.shutdown();
         }
         
-        int[] winningCombination = queueArray.getWinningCombination(); // Get the winning combination from the queue (values are in index format)
-
+        // Process results
+        int[] winningCombination = queueArray.getWinningCombination();
         long elapsedMillis = System.currentTimeMillis() - startTime;
         String elapsedFormatted = formatElapsedTime(elapsedMillis);
 
-        // Sleep for 1 second to ensure the logger is flushed
+        // Sleep for logger flush
         try 
         {
             Thread.sleep(1000);
@@ -162,23 +144,22 @@ public class StartYourMonkeys
             return;
         }
 
-        // Convert the winning combination from index format to packed int format
+        // Convert to packed int format and display results
         for (int i = 0; i < winningCombination.length; i++) 
         {
             winningCombination[i] = Grid.indexToPacked(winningCombination[i]);
         }
 
-        logger.info("{} - Found the solution as the following click combination: [{}]", queueArray.getWinningMonkey(), winningCombination);
-
+        logger.info("{} - Found the solution as the following click combination: [{}]", 
+                   queueArray.getWinningMonkey(), winningCombination);
         logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
-        // create a new grid and test out the winning combination
+        // Verify solution
         Grid puzzleGrid = baseGrid.clone();
-
         boolean solved = false;
         for (int i = 0; (i < winningCombination.length) && (!solved); i++)
         {
-            puzzleGrid.click(winningCombination[i], Grid.ValueFormat.PackedInt); // Click the cell in packed int format
+            puzzleGrid.click(winningCombination[i], Grid.ValueFormat.PackedInt);
             solved = puzzleGrid.isSolved();
         }
         puzzleGrid.printGrid();

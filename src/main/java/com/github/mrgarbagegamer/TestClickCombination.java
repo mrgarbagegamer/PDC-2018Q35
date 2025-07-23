@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import java.util.concurrent.ForkJoinPool;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -12,7 +14,7 @@ public class TestClickCombination extends Thread
     private final CombinationQueueArray queueArray;
     private final Grid puzzleGrid;
 
-    // Make these static and initialize once
+    // Static lookup table initialization remains the same
     private static volatile long[][] CLICK_TO_TRUE_CELL_MASK = null;
     private static volatile long EXPECTED_MASK = 0L;
     
@@ -72,7 +74,6 @@ public class TestClickCombination extends Thread
         int failedCount = 0; // Count of failed attempts for logging
         boolean iSolvedIt = false;
         CombinationQueue[] queues = queueArray.getAllQueues();
-
         int[] trueCells = puzzleGrid.findTrueCells();
 
         while (!iSolvedIt && !queueArray.solutionFound)
@@ -91,9 +92,9 @@ public class TestClickCombination extends Thread
                 }
                 catch (InterruptedException e) 
                 {
-                    Thread.currentThread().interrupt(); // Restore interrupted status
-                    logger.error("Thread interrupted while waiting for new combinations", e);
-                    break;
+                    Thread.currentThread().interrupt();
+                    logger.debug("Thread {} interrupted while waiting for work", getName());
+                    break; // Exit on interruption (from pool shutdown)
                 }
                 continue; // Retry getting a combination
             }
@@ -120,50 +121,13 @@ public class TestClickCombination extends Thread
                         logger.info("Found the solution as the following click combination: {}", 
                                    new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
                         queueArray.solutionFound(this.getName(), combinationClicks.clone());
-                        // Do NOT recycle the batch containing the winning combination to avoid UAF on the winning array.
-                        // Let it be garbage collected.
+                        
+                        // Trigger immediate shutdown of generator pool
+                        triggerGeneratorShutdown();
+                        
+                        // Don't recycle the winning batch
                         return;
                     }
-
-                    // // Update firstTrueCell and adjacents cache if changed
-                    // int newFirstTrueCell = puzzleGrid.findFirstTrueCell();
-                    // if (newFirstTrueCell != firstTrueCell) 
-                    // {
-                    //     firstTrueCell = newFirstTrueCell;
-                    //     firstTrueAdjacents = (firstTrueCell != -1) ? Grid.findAdjacents(firstTrueCell) : null; // Uncomment this line if you want to use more aggressive but less efficient pruning
-                    // }
-
-                    // // Prune if no remaining click can affect the first true cell
-                    // boolean canAffect = false;
-                    // for (int j = i + 1; j < combinationClicks.length; j++) 
-                    // {
-                    //     int nextClick = combinationClicks[j];
-                    //     if (Grid.canAffectFirstTrueCell(firstTrueCell, nextClick)) 
-                    //     {
-                    //         canAffect = true;
-                    //         break;
-                    //     }
-                    // }
-                    // if (!canAffect) 
-                    // {
-                    //     break;
-                    // }
-
-                    // // Uncomment these lines to prune if no remaining click is in firstTrueAdjacents (if you want even more aggressive but less efficient pruning)
-                    // if (firstTrueAdjacents != null) {
-                    //     boolean hasTrueAdjacent = false;
-                    //     for (int j = i + 1; j < combinationClicks.length; j++) {
-                    //         int nextClick = combinationClicks[j];
-                    //         for (int adj : firstTrueAdjacents) {
-                    //             if (nextClick == adj) {
-                    //                 hasTrueAdjacent = true;
-                    //                 break;
-                    //             }
-                    //         }
-                    //         if (hasTrueAdjacent) break; // Found a valid adjacent click                        
-                    //     }
-                    //     if (!hasTrueAdjacent) break;
-                    // }
                 }
                 else continue;
 
@@ -183,6 +147,22 @@ public class TestClickCombination extends Thread
 
             // After processing, recycle the batch
             queueArray.getWorkBatchPool().offer(workBatch);
+        }
+    }
+
+    /**
+     * Triggers immediate shutdown of the generator pool when a solution is found.
+     * This eliminates the need for generators to check cancellation flags.
+     */
+    private void triggerGeneratorShutdown()
+    {
+        // Access the generator pool from CombinationGeneratorTask if stored there,
+        // or use a different mechanism to signal shutdown
+        ForkJoinPool generatorPool = CombinationGeneratorTask.getForkJoinPool();
+        if (generatorPool != null && !generatorPool.isShutdown())
+        {
+            logger.debug("Triggering generator pool shutdown from {}", getName());
+            generatorPool.shutdownNow(); // Immediate shutdown with interruption
         }
     }
 

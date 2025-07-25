@@ -119,7 +119,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         TaskPool pool = taskPool.get();
 
-        for (int i = start; i < max; i++) 
+        for (short i = (short) start; i < max; i++) 
         {
             // Remove cancellation check - let pool shutdown handle interruption
             
@@ -257,7 +257,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     // Constraint checking and mask logic unchanged
     private static final long[][] ADJACENCY_MASK_CACHE_FAST = new long[16][];
-    private static final int[] CACHED_TRUE_CELLS_FAST = new int[16];
+    private static final short[] CACHED_TRUE_CELLS_FAST = new short[16];
     
     private static long[] computeAdjacencyMaskFast(int firstTrueCell) 
     {
@@ -273,16 +273,16 @@ public class CombinationGeneratorTask extends RecursiveAction
         {
             if (CACHED_TRUE_CELLS_FAST[cacheIdx] != firstTrueCell) 
             {
-                short[] adjacents = Grid.findAdjacents(firstTrueCell);
+                short[] adjacents = Grid.findAdjacents((short) firstTrueCell);
                 long[] mask = new long[2];
                 
-                for (int adj : adjacents) 
+                for (short adj : adjacents) 
                 {
                     mask[adj >>> 6] |= (1L << (adj & 63));
                 }
                 
                 ADJACENCY_MASK_CACHE_FAST[cacheIdx] = mask;
-                CACHED_TRUE_CELLS_FAST[cacheIdx] = firstTrueCell;
+                CACHED_TRUE_CELLS_FAST[cacheIdx] = (short) firstTrueCell;
             }
         }
         
@@ -297,12 +297,12 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static boolean[][] initClickAdjacencyMatrix() 
     {
         boolean[][] matrix = new boolean[Grid.NUM_CELLS][Grid.NUM_CELLS];
-        for (int i = 0; i < Grid.NUM_CELLS; i++) 
+        for (short i = 0; i < Grid.NUM_CELLS; i++) 
         {
             short[] adjacents = Grid.findAdjacents(i, Grid.ValueFormat.Index);
             if (adjacents != null) 
             {
-                for (int adj : adjacents) 
+                for (short adj : adjacents) 
                 {
                     if (adj < Grid.NUM_CELLS) matrix[i][adj] = true;
                 }
@@ -325,7 +325,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                     for (int clickCell = 0; clickCell < Grid.NUM_CELLS; clickCell++) // For each cell in the grid
                     {
                         long mask = 0L; // Create a mask with all true cells set to 0
-                        for (int i = 0; i < trueCells.length; i++) // For each true cell
+                        for (short i = 0; i < trueCells.length; i++) // For each true cell
                         {
                             if (CLICK_ADJACENCY_MATRIX[trueCells[i]][clickCell]) // If the true cell is adjacent to the click cell
                             {

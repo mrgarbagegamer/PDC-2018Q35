@@ -89,7 +89,7 @@ public class StartYourMonkeys
         {
             // Invoke root task - no need to keep reference since we use awaitQuiescence
             generatorPool.invoke(new CombinationGeneratorTask(
-                numClicks, new int[0], 0, queueArray, numThreads, trueCells, finalFirstTrueAdjacent));
+                numClicks, queueArray, trueCells, finalFirstTrueAdjacent));
         } 
         finally 
         {

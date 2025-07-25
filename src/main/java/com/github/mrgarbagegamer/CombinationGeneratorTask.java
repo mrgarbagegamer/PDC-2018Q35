@@ -21,16 +21,15 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final ThreadLocal<WorkBatch> batchHolder = 
         ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
 
+    // Static fields
+    private static int numClicks;
+    private static CombinationQueueArray queueArray;
+    private static int[] trueCells;
+    private static int maxFirstClickIndex;
+
     // Instance fields
-    private int numClicks;
     private int[] prefix;
     private int prefixLength;
-    private CombinationQueueArray queueArray;
-    private int numConsumers;
-    private int[] trueCells;
-    private int maxFirstClickIndex;
-    
-    // Cached adjacency state for constraint checking
     private long cachedAdjacencyState = -1;
 
     private static volatile ForkJoinPool generatorPool;
@@ -45,28 +44,30 @@ public class CombinationGeneratorTask extends RecursiveAction
         return generatorPool;
     }
 
-    // Constructors
-    public CombinationGeneratorTask(int numClicks, int[] prefix, int prefixLength,
-                                   CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
-                                   int maxFirstClickIndex) 
+    // Root task constructor
+    public CombinationGeneratorTask(int numClicks, CombinationQueueArray queueArray, 
+                                   int[] trueCells, int maxFirstClickIndex) 
     {
-        this.init(numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, -1);
+        // Initialize the instance fields
+        this.prefix = new int[0];
+        this.prefixLength = 0;
+        this.cachedAdjacencyState = -1; // Root task starts with no cached state
+
+        // Set static fields
+        CombinationGeneratorTask.numClicks = numClicks;
+        CombinationGeneratorTask.queueArray = queueArray;
+        CombinationGeneratorTask.trueCells = trueCells;
+        CombinationGeneratorTask.maxFirstClickIndex = maxFirstClickIndex;
         ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
     }
 
     public CombinationGeneratorTask() {}
     
-    public void init(int numClicks, int[] prefix, int prefixLength,
-                     CombinationQueueArray queueArray, int numConsumers, int[] trueCells,
-                     int maxFirstClickIndex, long parentAdjacencyState) 
+    // Reinitialize method to reset instance fields
+    public void init(int[] prefix, int prefixLength, long parentAdjacencyState) 
     {
-        this.numClicks = numClicks;
         this.prefix = prefix;
         this.prefixLength = prefixLength;
-        this.queueArray = queueArray;
-        this.numConsumers = numConsumers;
-        this.trueCells = trueCells;
-        this.maxFirstClickIndex = maxFirstClickIndex;
         this.cachedAdjacencyState = parentAdjacencyState;
         reinitialize();
     }
@@ -151,8 +152,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
             // Get a recycled task from the pool and initialize it
             CombinationGeneratorTask subtask = pool.get();
-            subtask.init(numClicks, newPrefix, prefixLength + 1, 
-                         queueArray, numConsumers, trueCells, maxFirstClickIndex, childAdjacencyState);
+            subtask.init(newPrefix, prefixLength + 1, childAdjacencyState);
             
             // Fork the subtask - it will clean itself up
             subtask.fork();

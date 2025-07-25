@@ -27,12 +27,12 @@ public class TestClickCombination extends Thread
         this.puzzleGrid = puzzleGrid;
         
         // Initialize lookup table once for all threads
-        int[] trueCells = puzzleGrid.findTrueCells(Grid.ValueFormat.Index); // Find all true cells in index format
+        short[] trueCells = puzzleGrid.findTrueCells(Grid.ValueFormat.Index); // Find all true cells in index format
         initializeLookupTable(trueCells);
     }
 
     // Initialize the static lookup table for fast odd adjacency checks
-    private static void initializeLookupTable(int[] trueCells)
+    private static void initializeLookupTable(short[] trueCells)
     {
         // Double-checked locking for thread-safe lazy initialization
         if (CLICK_TO_TRUE_CELL_MASK == null)
@@ -43,7 +43,7 @@ public class TestClickCombination extends Thread
                 {
                     long[][] lookup = new long[Grid.NUM_CELLS][2]; // 109 possible clicks, 2 long values for 128 bits
                     
-                    for (int clickCell = 0; clickCell < 109; clickCell++) // Generate all possible clicks in index format
+                    for (short clickCell = 0; clickCell < 109; clickCell++) // Generate all possible clicks in index format
                     {
                         for (int i = 0; i < trueCells.length; i++) 
                         {
@@ -74,7 +74,7 @@ public class TestClickCombination extends Thread
         int failedCount = 0; // Count of failed attempts for logging
         boolean iSolvedIt = false;
         CombinationQueue[] queues = queueArray.getAllQueues();
-        int[] trueCells = puzzleGrid.findTrueCells();
+        short[] trueCells = puzzleGrid.findTrueCells();
 
         while (!iSolvedIt && !queueArray.solutionFound)
         {
@@ -101,7 +101,7 @@ public class TestClickCombination extends Thread
             
             while (!workBatch.isEmpty()) 
             {
-                int[] combinationClicks = workBatch.poll(); // Get the next combination of clicks (in index format)
+                short[] combinationClicks = workBatch.poll(); // Get the next combination of clicks (in index format)
                 if (combinationClicks == null || queueArray.solutionFound)
                 {
                     break;
@@ -109,7 +109,7 @@ public class TestClickCombination extends Thread
 
                 if (satisfiesOddAdjacency(combinationClicks, trueCells)) 
                 {
-                    for (int click : combinationClicks)
+                    for (short click : combinationClicks)
                     {
                         puzzleGrid.click(click);
                     }
@@ -208,7 +208,7 @@ public class TestClickCombination extends Thread
     }
 
     // Ultra-fast bitmask-based odd adjacency check using static lookup
-    private boolean satisfiesOddAdjacency(int[] combination, int[] trueCells) 
+    private boolean satisfiesOddAdjacency(short[] combination, short[] trueCells) 
     {
         if (trueCells.length == 0) return true;
         

@@ -7,10 +7,10 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
 @AsynchronouslyFormattable
 public class CombinationMessage implements Message, StringBuilderFormattable 
 {
-    private int[] list;
+    private short[] list;
     private Grid.ValueFormat format;
 
-    public CombinationMessage(int[] list, Grid.ValueFormat format) 
+    public CombinationMessage(short[] list, Grid.ValueFormat format) 
     {
         this.list = list;
         this.format = format;
@@ -47,7 +47,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable
                 {
                     for (int i = 0; i < list.length; i++) 
                     {
-                        list[i] = Grid.indexToPacked(list[i]); // Convert index to packed int format
+                        list[i] = (short) Grid.indexToPacked(list[i]); // Convert index to packed int format
                     }
                     format = Grid.ValueFormat.PackedInt; // Update format to packed int
                 }
@@ -86,7 +86,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable
         return sb.toString();
     }
 
-    public int[] getCombination(Grid.ValueFormat outputFormat)
+    public short[] getCombination(Grid.ValueFormat outputFormat)
     {
         if (outputFormat == Grid.ValueFormat.Bitmask)
         {

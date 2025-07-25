@@ -7,9 +7,9 @@ import org.jctools.queues.MessagePassingQueue;
  * Eliminates ArrayDeque overhead while maintaining the same semantics.
  * This object is now pooled and recycled, with the assumption that only one thread will have access to the object at a time.
  */
-public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, MessagePassingQueue.Supplier<int[]>
+public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, MessagePassingQueue.Supplier<short[]>
 {
-    private final int[][] buffer;
+    private final short[][] buffer;
     private final int capacity;
     private int head = 0;
     private int tail = 0;
@@ -18,7 +18,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
     public WorkBatch(int capacity)
     {
         this.capacity = capacity;
-        this.buffer = new int[capacity][];
+        this.buffer = new short[capacity][];
     }
 
     /**
@@ -27,13 +27,13 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
      * @param source The source combination array.
      * @return true if the element was added, false if the batch is full.
      */
-    public boolean add(int[] source) 
+    public boolean add(short[] source) 
     {
         if (size >= capacity)
         {
             return false;
         }
-        if (buffer[tail] == null) buffer[tail] = new int[source.length];
+        if (buffer[tail] == null) buffer[tail] = new short[source.length];
         System.arraycopy(source, 0, buffer[tail], 0, source.length);
         tail = (tail + 1) % capacity;
         size++;
@@ -47,17 +47,17 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
      * @param lastElement The final element to append.
      * @return true if the element was added, false if the batch is full.
      */
-    public boolean add(int[] prefix, int lastElement)
+    public boolean add(short[] prefix, short lastElement)
     {
         if (size >= capacity)
         {
             return false;
         }
 
-        int[] dest = buffer[tail];
+        short[] dest = buffer[tail];
         if (dest == null)
         {
-            dest = new int[prefix.length + 1];
+            dest = new short[prefix.length + 1];
             buffer[tail] = dest;
         }
 
@@ -73,14 +73,14 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
      * Remove and return next combination.
      * @return result if there is a valid combination in the array, null if the batch is empty.
      */
-    public int[] poll() 
+    public short[] poll() 
     {
         if (size == 0)
         {
             return null;
         }
         
-        int[] result = buffer[head];
+        short[] result = buffer[head];
         head = (head + 1) % capacity;
         size--;
         return result;
@@ -124,7 +124,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
      * MessagePassingQueue.Consumer implementation for JCTools integration.
      */
     @Override
-    public void accept(int[] combination) 
+    public void accept(short[] combination) 
     {
         add(combination);
     }
@@ -133,7 +133,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<int[]>, Mes
      * MessagePassingQueue.Supplier implementation for JCTools integration.
      */
     @Override
-    public int[] get() 
+    public short[] get() 
     {
         return poll();
     }

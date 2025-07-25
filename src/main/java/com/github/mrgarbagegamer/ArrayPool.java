@@ -7,7 +7,7 @@ package com.github.mrgarbagegamer;
 public final class ArrayPool 
 {
     private static int numClicks;
-    private final int[][] arrays;
+    private final short[][] arrays;
     private final int capacity;
 
     private boolean isPreallocated = false;
@@ -19,7 +19,7 @@ public final class ArrayPool
     public ArrayPool(int capacity) 
     {
         this.capacity = capacity;
-        this.arrays = new int[capacity][];
+        this.arrays = new short[capacity][];
     }
 
     public static void setNumClicks(int numClicks) 
@@ -36,7 +36,7 @@ public final class ArrayPool
         if (size > 0) return; // Avoid preallocation if pool is already in use
         for (int i = 0; i < capacity; i++) 
         {
-            arrays[i] = new int[numClicks];
+            arrays[i] = new short[numClicks];
         }
         size = capacity; // Set size to capacity after preallocation
         head = 0; // Reset head to start of pool
@@ -48,13 +48,13 @@ public final class ArrayPool
      * Get array of at least the specified size.
      * Returns null if pool is empty.
      */
-    public int[] get(int minSize) 
+    public short[] get(int minSize) 
     {
         if (!isPreallocated) preallocate(); // Ensure preallocation if not done yet
         
         if (size == 0) return null;
         
-        int[] array = arrays[head];
+        short[] array = arrays[head];
         if (array != null && array.length >= minSize) 
         {
             arrays[head] = null;
@@ -69,7 +69,7 @@ public final class ArrayPool
     /**
      * Return array to pool if there's space.
      */
-    public void put(int[] array) 
+    public void put(short[] array) 
     {
         if (!isPreallocated) preallocate(); // Ensure preallocation if not done yet
         if (array == null || size >= capacity) return;

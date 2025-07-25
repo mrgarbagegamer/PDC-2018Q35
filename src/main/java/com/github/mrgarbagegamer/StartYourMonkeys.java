@@ -53,7 +53,7 @@ public class StartYourMonkeys
             baseGrid = new Grid22();
         }
 
-        int[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the first true adjacents in index format
+        short[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the first true adjacents in index format
         int finalFirstTrueAdjacent = -1;
         if (trueAdjacents != null) 
         {
@@ -70,7 +70,7 @@ public class StartYourMonkeys
 
         // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, 1);
-        int[] trueCells = baseGrid.findTrueCells();
+        short[] trueCells = baseGrid.findTrueCells();
 
         // Start consumer threads BEFORE generation
         TestClickCombination[] monkeys = new TestClickCombination[numThreads];
@@ -120,7 +120,7 @@ public class StartYourMonkeys
         }
         
         // Process results
-        int[] winningCombination = queueArray.getWinningCombination();
+        short[] winningCombination = queueArray.getWinningCombination();
         long elapsedMillis = System.currentTimeMillis() - startTime;
         String elapsedFormatted = formatElapsedTime(elapsedMillis);
 
@@ -147,7 +147,7 @@ public class StartYourMonkeys
         // Convert to packed int format and display results
         for (int i = 0; i < winningCombination.length; i++) 
         {
-            winningCombination[i] = Grid.indexToPacked(winningCombination[i]);
+            winningCombination[i] = (short) Grid.indexToPacked(winningCombination[i]);
         }
 
         logger.info("{} - Found the solution as the following click combination: [{}]", 

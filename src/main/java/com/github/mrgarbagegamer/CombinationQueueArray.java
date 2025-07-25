@@ -12,7 +12,7 @@ public class CombinationQueueArray
     // NEW: Central pool for recycled WorkBatch objects.
     private final MpmcArrayQueue<WorkBatch> workBatchPool;
     private volatile String winningMonkey = null;
-    private volatile int[] winningCombination = null;
+    private volatile short[] winningCombination = null;
 
     public volatile boolean solutionFound = false;
     public volatile boolean generationComplete = false;
@@ -58,7 +58,7 @@ public class CombinationQueueArray
         }
     }
 
-    public void solutionFound(String monkeyName, int[] winningCombination)
+    public void solutionFound(String monkeyName, short[] winningCombination)
     {
         if (solutionFound == false) 
         {
@@ -73,7 +73,7 @@ public class CombinationQueueArray
         return winningMonkey; 
     }
     
-    public int[] getWinningCombination() 
+    public short[] getWinningCombination() 
     { 
         return winningCombination; 
     }

@@ -24,13 +24,13 @@ public class CombinationGeneratorTask extends RecursiveAction
     // Static fields
     private static int numClicks;
     private static CombinationQueueArray queueArray;
-    private static int[] trueCells;
+    private static short[] trueCells;
     private static int maxFirstClickIndex;
 
-    // Instance fields
-    private int[] prefix;
+    // Cached data between tasks
+    private short[] prefix;
     private int prefixLength;
-    private long cachedAdjacencyState = -1;
+    private long cachedAdjacencyState = -1; // -1 means uncomputed
 
     private static volatile ForkJoinPool generatorPool;
 
@@ -46,10 +46,10 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     // Root task constructor
     public CombinationGeneratorTask(int numClicks, CombinationQueueArray queueArray, 
-                                   int[] trueCells, int maxFirstClickIndex) 
+                                   short[] trueCells, int maxFirstClickIndex) 
     {
         // Initialize the instance fields
-        this.prefix = new int[0];
+        this.prefix = new short[0];
         this.prefixLength = 0;
         this.cachedAdjacencyState = -1; // Root task starts with no cached state
 
@@ -64,7 +64,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     public CombinationGeneratorTask() {}
     
     // Reinitialize method to reset instance fields
-    public void init(int[] prefix, int prefixLength, long parentAdjacencyState) 
+    public void init(short[] prefix, int prefixLength, long parentAdjacencyState) 
     {
         this.prefix = prefix;
         this.prefixLength = prefixLength;
@@ -125,9 +125,9 @@ public class CombinationGeneratorTask extends RecursiveAction
             
             
             // Get prefix array from pool
-            int[] newPrefix = getIntArray(prefixLength + 1);
+            short[] newPrefix = getShortArray(prefixLength + 1);
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
-            newPrefix[prefixLength] = i;
+            newPrefix[prefixLength] = (short) i;
 
             // Calculate adjacency state for child
             long childAdjacencyState = cachedAdjacencyState;
@@ -170,7 +170,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         generateCombinationsHotPath(start, prefix, batchHolder.get());
     }
 
-    private final void generateCombinationsHotPath(int start, int[] prefix, WorkBatch batch)
+    private final void generateCombinationsHotPath(int start, short[] prefix, WorkBatch batch)
     {
         final int pLen = prefix.length;
         final boolean hasTrue = trueCells != null && trueCells.length > 0;
@@ -213,13 +213,13 @@ public class CombinationGeneratorTask extends RecursiveAction
                 }
             }
 
-            if (!batch.add(prefix, i))
+            if (!batch.add(prefix, (short) i))
             {
                 if (flushBatchFast(batch))
                 {
                     batch = getNewBatch();
                     batchHolder.set(batch);
-                    batch.add(prefix, i);
+                    batch.add(prefix, (short) i);
                 }
             }
         }
@@ -246,7 +246,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         // Recycle our prefix array
         if (prefix != null) 
         {
-            putIntArray(prefix);
+            putShortArray(prefix);
             prefix = null;
         }
         
@@ -273,7 +273,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         {
             if (CACHED_TRUE_CELLS_FAST[cacheIdx] != firstTrueCell) 
             {
-                int[] adjacents = Grid.findAdjacents(firstTrueCell);
+                short[] adjacents = Grid.findAdjacents(firstTrueCell);
                 long[] mask = new long[2];
                 
                 for (int adj : adjacents) 
@@ -299,7 +299,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         boolean[][] matrix = new boolean[Grid.NUM_CELLS][Grid.NUM_CELLS];
         for (int i = 0; i < Grid.NUM_CELLS; i++) 
         {
-            int[] adjacents = Grid.findAdjacents(i, Grid.ValueFormat.Index);
+            short[] adjacents = Grid.findAdjacents(i, Grid.ValueFormat.Index);
             if (adjacents != null) 
             {
                 for (int adj : adjacents) 
@@ -312,7 +312,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     // Lazy initialization of true cell masks when first needed
-    private static void ensureTrueCellMasks(int[] trueCells) 
+    private static void ensureTrueCellMasks(short[] trueCells) 
     {
         if ((TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null) && trueCells != null) 
         {
@@ -395,18 +395,18 @@ public class CombinationGeneratorTask extends RecursiveAction
         return new WorkBatch(BATCH_SIZE);
     }
 
-    private int[] getIntArray(int size) 
+    private short[] getShortArray(int size) 
     {
         if (size < numClicks)
         {
             ArrayPool pool = prefixArrayPool.get();
-            int[] arr = pool.get(size);
+            short[] arr = pool.get(size);
             if (arr != null) return arr;
         } 
-        return new int[size];
+        return new short[size];
     }
 
-    private void putIntArray(int[] arr) 
+    private void putShortArray(short[] arr) 
     {
         if (arr == null) return;
         

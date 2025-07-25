@@ -150,7 +150,7 @@ public class StartYourMonkeys
             winningCombination[i] = (short) Grid.indexToPacked(winningCombination[i]);
         }
 
-        logger.info("{} - Found the solution as the following click combination: [{}]", 
+        logger.info("{} - Found the solution as the following click combination: {}", 
                    queueArray.getWinningMonkey(), winningCombination);
         logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
 

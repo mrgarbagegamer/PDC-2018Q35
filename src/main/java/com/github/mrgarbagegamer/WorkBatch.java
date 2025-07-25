@@ -11,6 +11,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
 {
     private final short[][] buffer;
     private final int capacity;
+    private static int numClicks;
     private int head = 0;
     private int tail = 0;
     private int size = 0;
@@ -19,6 +20,11 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     {
         this.capacity = capacity;
         this.buffer = new short[capacity][];
+    }
+
+    public static void setNumClicks(int numClicks)
+    {
+        WorkBatch.numClicks = numClicks;
     }
 
     /**
@@ -57,12 +63,12 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
         short[] dest = buffer[tail];
         if (dest == null)
         {
-            dest = new short[prefix.length + 1];
+            dest = new short[numClicks];
             buffer[tail] = dest;
         }
 
-        System.arraycopy(prefix, 0, dest, 0, prefix.length);
-        dest[prefix.length] = lastElement;
+        System.arraycopy(prefix, 0, dest, 0, prefix.length == numClicks ? numClicks - 1 : prefix.length); // Fix NPE
+        dest[numClicks - 1] = lastElement;
 
         tail = (tail + 1) % capacity;
         size++;

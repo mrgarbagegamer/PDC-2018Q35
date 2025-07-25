@@ -59,6 +59,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         CombinationGeneratorTask.trueCells = trueCells;
         CombinationGeneratorTask.maxFirstClickIndex = maxFirstClickIndex;
         ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
+        WorkBatch.setNumClicks(numClicks); // Set the number of clicks for the work batch
     }
 
     public CombinationGeneratorTask() {}

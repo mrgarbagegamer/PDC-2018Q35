@@ -6,18 +6,42 @@ package com.github.mrgarbagegamer;
  */
 public final class ArrayPool 
 {
+    private static int numClicks;
     private final int[][] arrays;
-    private final int maxSize;
     private final int capacity;
+
+    private boolean isPreallocated = false;
+
     private int head = 0;
     private int tail = 0;
     private int size = 0;
 
-    public ArrayPool(int capacity, int maxSize) 
+    public ArrayPool(int capacity) 
     {
         this.capacity = capacity;
-        this.maxSize = maxSize;
         this.arrays = new int[capacity][];
+    }
+
+    public static void setNumClicks(int numClicks) 
+    {
+        ArrayPool.numClicks = numClicks;
+    }
+
+    /**
+     * Preallocate arrays of specified size.
+     * Avoids allocation during runtime.
+     */
+    public void preallocate()
+    {
+        if (size > 0) return; // Avoid preallocation if pool is already in use
+        for (int i = 0; i < capacity; i++) 
+        {
+            arrays[i] = new int[numClicks];
+        }
+        size = capacity; // Set size to capacity after preallocation
+        head = 0; // Reset head to start of pool
+        tail = 0; // Reset tail to start of pool
+        isPreallocated = true; // Mark as preallocated
     }
 
     /**
@@ -26,6 +50,8 @@ public final class ArrayPool
      */
     public int[] get(int minSize) 
     {
+        if (!isPreallocated) preallocate(); // Ensure preallocation if not done yet
+        
         if (size == 0) return null;
         
         int[] array = arrays[head];
@@ -45,7 +71,8 @@ public final class ArrayPool
      */
     public void put(int[] array) 
     {
-        if (array == null || size >= capacity || array.length > maxSize) return;
+        if (!isPreallocated) preallocate(); // Ensure preallocation if not done yet
+        if (array == null || size >= capacity) return;
         
         arrays[tail] = array;
         tail = (tail + 1) % capacity;

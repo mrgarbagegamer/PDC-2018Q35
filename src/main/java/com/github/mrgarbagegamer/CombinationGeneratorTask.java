@@ -12,8 +12,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
     
     // Keep existing thread-local pools
-    private static final ThreadLocal<ArrayPool> prefixArrayPool = 
-        ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4, 32));
+    private static final ThreadLocal<ArrayPool> prefixArrayPool = ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4));
     
     private static final ThreadLocal<TaskPool> taskPool =
         ThreadLocal.withInitial(() -> new TaskPool(128));
@@ -52,6 +51,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                                    int maxFirstClickIndex) 
     {
         this.init(numClicks, prefix, prefixLength, queueArray, numConsumers, trueCells, maxFirstClickIndex, -1);
+        ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
     }
 
     public CombinationGeneratorTask() {}

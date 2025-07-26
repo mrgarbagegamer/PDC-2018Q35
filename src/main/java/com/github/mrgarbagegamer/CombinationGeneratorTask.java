@@ -181,7 +181,9 @@ public class CombinationGeneratorTask extends RecursiveAction
         final long[] mask = (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrue) 
                             ? ADJACENCY_MASK_CACHE_FAST[cacheIdx]
                             : computeAdjacencyMaskFast(firstTrue);
-        
+
+        // TODO: Consider calculating prefix parity either in a more efficient way or by passing down pre-computations
+
         // compute prefix-only parity ONCE
         int prefixParity = 0;
         // O(pLen) parity calculation BEFORE the loop rather than an O(pLen) check in each iteration

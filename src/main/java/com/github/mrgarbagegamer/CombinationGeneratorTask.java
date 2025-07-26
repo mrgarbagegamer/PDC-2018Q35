@@ -111,9 +111,6 @@ public class CombinationGeneratorTask extends RecursiveAction
         int max = Grid.NUM_CELLS - (numClicks - prefixLength) + 1;
         if (prefixLength == 0) max = Math.min(max, maxFirstClickIndex + 1);
         
-        int numSubtasks = max - start;
-        if (numSubtasks <= 0) return; // TODO: Look at removing this check for performance (if possible)
-        
         // Fork subtasks directly without array collection
         forkSubtasks(start, max);
     }
@@ -121,6 +118,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     private void forkSubtasks(int start, int max)
     {
         TaskPool pool = taskPool.get();
+        ensureTrueCellMasks(trueCells); // Ensure masks are initialized before forking subtasks
 
         for (short i = (short) start; i < max; i++) 
         {
@@ -134,7 +132,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
             // Calculate adjacency state for child
             long childAdjacencyState = cachedAdjacencyState;
-            ensureTrueCellMasks(trueCells);
+            
             if (cachedAdjacencyState == -1) 
             {
                 // Root task - compute from scratch
@@ -164,15 +162,9 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
-    private void computeLeafCombinations()
+    private final void computeLeafCombinations() // Absorbed the logic from generateCombinationsHotPath into here
     {
-        // TODO: Look at removing the prefixLength check for performance (since we check it in compute()
-        int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
-        generateCombinationsHotPath(start, prefix, batchHolder.get());
-    }
-
-    private final void generateCombinationsHotPath(int start, short[] prefix, WorkBatch batch)
-    {
+        final int start = prefix[prefixLength - 1] + 1; // Start from the next index after the last prefix element
         final int pLen = prefixLength; // Use the prefixLength field directly to prevent issues from grabbing prefix arrays larger than numClicks - 1
         final int firstTrue = trueCells[0]; // Assume trueCells is not empty and contains at least one true cell
 
@@ -181,6 +173,8 @@ public class CombinationGeneratorTask extends RecursiveAction
         final long[] mask = (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrue) 
                             ? ADJACENCY_MASK_CACHE_FAST[cacheIdx]
                             : computeAdjacencyMaskFast(firstTrue);
+
+        WorkBatch batch = batchHolder.get();
 
         // TODO: Consider calculating prefix parity either in a more efficient way or by passing down pre-computations
 
@@ -236,15 +230,11 @@ public class CombinationGeneratorTask extends RecursiveAction
     private void recycleOwnResources()
     {
         // Recycle our prefix array
-        if (prefix != null) // TODO: Remove this check if we can guarantee prefix is never null (which it shouldn't be)
-        {
-            putShortArray(prefix);
-            prefix = null;
-        }
+        putShortArray(prefix);
+        prefix = null;
         
         // Recycle ourselves back to the pool
-        TaskPool pool = taskPool.get();
-        pool.put(this);
+        taskPool.get().put(this);
     }
 
     // Constraint checking and mask logic unchanged
@@ -388,24 +378,16 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private short[] getShortArray(int size) 
     {
-        if (size < numClicks) // TODO: Remove this check if we can guarantee that size is never larger than numClicks
-        {
-            ArrayPool pool = prefixArrayPool.get();
-            short[] arr = pool.get(size);
-            if (arr != null) return arr;
-        } 
+        ArrayPool pool = prefixArrayPool.get();
+        short[] arr = pool.get(size);
+        if (arr != null) return arr; 
         return new short[size];
     }
 
     private void putShortArray(short[] arr) 
-    {
-        if (arr == null) return; // TODO: Remove this check if we can guarantee that arr is never null
-        
-        if (arr.length < numClicks) // TODO: Remove this check to allow for more efficient recycling
-        {
-            ArrayPool pool = prefixArrayPool.get();
-            pool.put(arr);
-        }
+    {   
+        ArrayPool pool = prefixArrayPool.get();
+        pool.put(arr);
     }
 
     public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
@@ -430,8 +412,6 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) 
     {
-        if (batch == null || batch.isEmpty()) return false; // TODO: Remove this check if we can guarantee batch is never null or empty
-        
         CombinationQueue[] queues = queueArray.getAllQueues();
         int numQueues = queues.length;
         int startQueue = ThreadLocalRandom.current().nextInt(numQueues);

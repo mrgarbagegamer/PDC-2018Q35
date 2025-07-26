@@ -132,7 +132,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
             // Calculate adjacency state for child
             long childAdjacencyState = cachedAdjacencyState;
-            
+
             if (cachedAdjacencyState == -1) 
             {
                 // Root task - compute from scratch
@@ -166,6 +166,8 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         final int start = prefix[prefixLength - 1] + 1; // Start from the next index after the last prefix element
         final int pLen = prefixLength; // Use the prefixLength field directly to prevent issues from grabbing prefix arrays larger than numClicks - 1
+
+        // TODO: Target this calculation and consider staticizing it (since it does not change per task)
         final int firstTrue = trueCells[0]; // Assume trueCells is not empty and contains at least one true cell
 
         // Simplified mask retrieval - eliminate complex conditional

@@ -60,6 +60,8 @@ public class CombinationGeneratorTask extends RecursiveAction
         CombinationGeneratorTask.maxFirstClickIndex = maxFirstClickIndex;
         ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
         WorkBatch.setNumClicks(numClicks); // Set the number of clicks for the work batch
+
+        if (trueCells == null || trueCells.length == 0) throw new IllegalArgumentException("True cells must be initialized before generating combinations.");
     }
 
     public CombinationGeneratorTask() {}
@@ -132,23 +134,20 @@ public class CombinationGeneratorTask extends RecursiveAction
 
             // Calculate adjacency state for child
             long childAdjacencyState = cachedAdjacencyState;
-            if (trueCells != null && trueCells.length > 0) 
+            ensureTrueCellMasks(trueCells);
+            if (cachedAdjacencyState == -1) 
             {
-                ensureTrueCellMasks(trueCells);
-                if (cachedAdjacencyState == -1) 
+                // Root task - compute from scratch
+                childAdjacencyState = 0L;
+                for (int j = 0; j <= prefixLength; j++) 
                 {
-                    // Root task - compute from scratch
-                    childAdjacencyState = 0L;
-                    for (int j = 0; j <= prefixLength; j++) 
-                    {
-                        childAdjacencyState ^= TRUE_CELL_ADJACENCY_MASKS[newPrefix[j]];
-                    }
+                    childAdjacencyState ^= TRUE_CELL_ADJACENCY_MASKS[newPrefix[j]];
                 }
-                else 
-                {
-                    // Incremental update
-                    childAdjacencyState ^= TRUE_CELL_ADJACENCY_MASKS[i];
-                }
+            }
+            else 
+            {
+                // Incremental update
+                childAdjacencyState ^= TRUE_CELL_ADJACENCY_MASKS[i];
             }
 
             // Get a recycled task from the pool and initialize it
@@ -174,44 +173,35 @@ public class CombinationGeneratorTask extends RecursiveAction
     private final void generateCombinationsHotPath(int start, short[] prefix, WorkBatch batch)
     {
         final int pLen = prefix.length;
-        final boolean hasTrue = trueCells != null && trueCells.length > 0;
-        final int firstTrue = hasTrue ? trueCells[0] : -1;
+        final int firstTrue = trueCells[0]; // Assume trueCells is not empty and contains at least one true cell
 
-        // build mask once
-        final long[] mask = hasTrue
-            ? (ADJACENCY_MASK_CACHE_FAST[firstTrue & 15] != null
-                && CACHED_TRUE_CELLS_FAST[firstTrue & 15] == firstTrue
-                  ? ADJACENCY_MASK_CACHE_FAST[firstTrue & 15]
-                  : computeAdjacencyMaskFast(firstTrue))
-            : null;
-
+        // Simplified mask retrieval - eliminate complex conditional
+        final int cacheIdx = firstTrue & 15;
+        final long[] mask = (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrue) 
+                            ? ADJACENCY_MASK_CACHE_FAST[cacheIdx]
+                            : computeAdjacencyMaskFast(firstTrue);
+        
         // compute prefix-only parity ONCE
         int prefixParity = 0;
-        if (hasTrue)
+        // O(pLen) parity calculation BEFORE the loop rather than an O(pLen) check in each iteration
+        for (int j = 0; j < pLen; j++)
         {
-            // O(pLen) parity calculation BEFORE the loop rather than an O(pLen) check in each iteration
-            for (int j = 0; j < pLen; j++)
+            int c = prefix[j];
+            if ((mask[c >>> 6] & (1L << (c & 63))) != 0)
             {
-                int c = prefix[j];
-                if ((mask[c >>> 6] & (1L << (c & 63))) != 0)
-                {
-                    prefixParity ^= 1;
-                }
+                prefixParity ^= 1;
             }
         }
 
         for (int i = start; i < Grid.NUM_CELLS; i++)
         {
             // Remove periodic cancellation check - pool shutdown handles interruption
-            
-            if (hasTrue)
+
+            boolean iAdj = (mask[i >>> 6] & (1L << (i & 63))) != 0;
+            // we need (prefixParity ^ iAdj) == 1  ⇔  iAdj != (prefixParity==1)
+            if (iAdj == (prefixParity == 1)) // O(1) check
             {
-                boolean iAdj = (mask[i >>> 6] & (1L << (i & 63))) != 0;
-                // we need (prefixParity ^ iAdj) == 1  ⇔  iAdj != (prefixParity==1)
-                if (iAdj == (prefixParity == 1)) // O(1) check
-                {
-                    continue; // Skip this iteration if the parity condition is not met
-                }
+                continue; // Skip this iteration if the parity condition is not met
             }
 
             if (!batch.add(prefix, (short) i))
@@ -315,7 +305,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     // Lazy initialization of true cell masks when first needed
     private static void ensureTrueCellMasks(short[] trueCells) 
     {
-        if ((TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null) && trueCells != null) 
+        if (TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null) // Assume that trueCells is not null and has been initialized
         {
             synchronized (CombinationGeneratorTask.class) 
             {
@@ -355,11 +345,10 @@ public class CombinationGeneratorTask extends RecursiveAction
     /**
      * Ultra-fast constraint checking using pre-computed bitmasks.
      * Uses incremental state tracking to avoid recomputing XORs.
+     * Assumes that trueCells are initialized and non-empty.
      */
     private boolean canPotentiallySatisfyConstraints()
-    {
-        if (trueCells == null || trueCells.length == 0) return true;
-        
+    {   
         // Ensure masks are initialized
         ensureTrueCellMasks(trueCells);
         

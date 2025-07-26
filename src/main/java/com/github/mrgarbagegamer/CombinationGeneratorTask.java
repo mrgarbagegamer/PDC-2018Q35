@@ -217,9 +217,7 @@ public class CombinationGeneratorTask extends RecursiveAction
     }
 
     private final boolean flushBatchFast(WorkBatch batch) 
-    {
-        if (batch.isEmpty()) return false;
-        
+    {   
         CombinationQueue[] queues = queueArray.getAllQueues();
         int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
         

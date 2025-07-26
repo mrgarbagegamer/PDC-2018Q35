@@ -11,15 +11,38 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead.
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
     
-    // Keep existing thread-local pools
-    private static final ThreadLocal<ArrayPool> prefixArrayPool = ThreadLocal.withInitial(() -> new ArrayPool(POOL_SIZE / 4));
-    
-    private static final ThreadLocal<TaskPool> taskPool =
-        ThreadLocal.withInitial(() -> new TaskPool(128));
+    // REPLACE: Multiple ThreadLocals with single context
+    private static final ThreadLocal<GeneratorContext> context = 
+        ThreadLocal.withInitial(GeneratorContext::new);
+    // Generator context consolidates all per-thread resources
+    private static class GeneratorContext 
+    {
+        final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE / 4);
+        final TaskPool taskPool = new TaskPool(128);
+        WorkBatch currentBatch = new WorkBatch(BATCH_SIZE);
+        
+        WorkBatch getOrCreateBatch() 
+        {
+            if (currentBatch == null) 
+            {
+                currentBatch = getNewBatch();
+            }
+            return currentBatch;
+        }
+        
+        private WorkBatch getNewBatch() 
+        {
+            WorkBatch batch = queueArray.getWorkBatchPool().poll();
+            if (batch != null) return batch;
+            return new WorkBatch(BATCH_SIZE);
+        }
 
-    // Thread-local variable to hold the current batch being processed. This batch should be released whenever we flush it to the queue and replaced by a new batch.
-    private static final ThreadLocal<WorkBatch> batchHolder = 
-        ThreadLocal.withInitial(() -> new WorkBatch(BATCH_SIZE));
+        // Handle the flushing of the current batch
+        WorkBatch resetBatch()
+        {
+            return currentBatch = getNewBatch();
+        }
+    }
 
     // Static fields
     private static int numClicks;
@@ -78,27 +101,30 @@ public class CombinationGeneratorTask extends RecursiveAction
     @Override
     protected void compute()
     {
+        // Single ThreadLocal access per task - pass context down to all methods
+        final GeneratorContext ctx = context.get();
+        
         try 
         {
             if (prefixLength < numClicks - 1) 
             {
                 // Handle recursive subtask creation for intermediate levels
-                computeSubtasks();
+                computeSubtasks(ctx);
             } 
             else 
             {
                 // Handle direct combination generation for leaf level
-                computeLeafCombinations();
+                computeLeafCombinations(ctx);
             }
         }
         finally
         {
             // Self-cleanup: recycle our own resources
-            recycleOwnResources();
+            recycleOwnResources(ctx);
         }
     }
 
-    private void computeSubtasks()
+    private void computeSubtasks(GeneratorContext ctx)
     {
         // Early pruning check (keep this for performance)
         if (prefixLength >= 2 && !canPotentiallySatisfyConstraints()) 
@@ -112,21 +138,20 @@ public class CombinationGeneratorTask extends RecursiveAction
         if (prefixLength == 0) max = Math.min(max, maxFirstClickIndex + 1);
         
         // Fork subtasks directly without array collection
-        forkSubtasks(start, max);
+        forkSubtasks(ctx, start, max);
     }
 
-    private void forkSubtasks(int start, int max)
+    private void forkSubtasks(GeneratorContext ctx, int start, int max)
     {
-        TaskPool pool = taskPool.get();
+        // No ThreadLocal access needed - use passed context
         ensureTrueCellMasks(trueCells); // Ensure masks are initialized before forking subtasks
 
         for (short i = (short) start; i < max; i++) 
         {
-            // Remove cancellation check - let pool shutdown handle interruption
+            // Use context pools directly - no more ThreadLocal calls
+            short[] newPrefix = ctx.prefixArrayPool.get(prefixLength + 1);
+            if (newPrefix == null) newPrefix = new short[prefixLength + 1];
             
-            
-            // Get prefix array from pool
-            short[] newPrefix = getShortArray(prefixLength + 1);
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = (short) i;
 
@@ -148,8 +173,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                 childAdjacencyState ^= TRUE_CELL_ADJACENCY_MASKS[i];
             }
 
-            // Get a recycled task from the pool and initialize it
-            CombinationGeneratorTask subtask = pool.get();
+            // Get recycled task from context pool
+            CombinationGeneratorTask subtask = ctx.taskPool.get();
             subtask.init(newPrefix, prefixLength + 1, childAdjacencyState);
             
             // Fork the subtask - it will clean itself up
@@ -162,8 +187,9 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
-    private final void computeLeafCombinations() // Absorbed the logic from generateCombinationsHotPath into here
+    private final void computeLeafCombinations(GeneratorContext ctx) // Absorbed the logic from generateCombinationsHotPath into here
     {
+        // No ThreadLocal access needed - use passed context
         final int start = prefix[prefixLength - 1] + 1; // Start from the next index after the last prefix element
         final int pLen = prefixLength; // Use the prefixLength field directly to prevent issues from grabbing prefix arrays larger than numClicks - 1
 
@@ -176,7 +202,8 @@ public class CombinationGeneratorTask extends RecursiveAction
                             ? ADJACENCY_MASK_CACHE_FAST[cacheIdx]
                             : computeAdjacencyMaskFast(firstTrue);
 
-        WorkBatch batch = batchHolder.get();
+        // Use context batch directly
+        WorkBatch batch = ctx.getOrCreateBatch();
 
         // TODO: Consider calculating prefix parity either in a more efficient way or by passing down pre-computations
 
@@ -207,8 +234,9 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 if (flushBatchFast(batch))
                 {
-                    batch = getNewBatch();
-                    batchHolder.set(batch);
+                    // Reset batch in context rather than creating new ThreadLocal entry
+                    ctx.resetBatch();
+                    batch = ctx.currentBatch;
                     batch.add(prefix, (short) i);
                 }
             }
@@ -229,14 +257,16 @@ public class CombinationGeneratorTask extends RecursiveAction
         return false;
     }
 
-    private void recycleOwnResources()
+    private void recycleOwnResources(GeneratorContext ctx)
     {
-        // Recycle our prefix array
-        putShortArray(prefix);
+        // No ThreadLocal access needed - use passed context
+        
+        // Recycle prefix array to context pool
+        ctx.prefixArrayPool.put(prefix);
         prefix = null;
         
-        // Recycle ourselves back to the pool
-        taskPool.get().put(this);
+        // Recycle task to context pool
+        ctx.taskPool.put(this);
     }
 
     // Constraint checking and mask logic unchanged
@@ -371,27 +401,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         return (availableAdjacencies & needed) == needed;
     }
 
-    private WorkBatch getNewBatch()
-    {
-        WorkBatch batch = queueArray.getWorkBatchPool().poll();
-        if (batch != null) return batch;
-        return new WorkBatch(BATCH_SIZE);
-    }
-
-    private short[] getShortArray(int size) 
-    {
-        ArrayPool pool = prefixArrayPool.get();
-        short[] arr = pool.get(size);
-        if (arr != null) return arr; 
-        return new short[size];
-    }
-
-    private void putShortArray(short[] arr) 
-    {   
-        ArrayPool pool = prefixArrayPool.get();
-        pool.put(arr);
-    }
-
+    // TODO: Rework this method so it actually flushes all pending batches, since we currently just handle the batch for one context
     public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) 
     {
         if (queueArray.solutionFound || pool.isShutdown()) return;
@@ -399,11 +409,13 @@ public class CombinationGeneratorTask extends RecursiveAction
         try 
         {
             pool.submit(() -> {
-                WorkBatch batch = batchHolder.get();
+                // Single ThreadLocal access per flush operation
+                final GeneratorContext ctx = context.get();
+                WorkBatch batch = ctx.currentBatch;
                 if (batch != null && !batch.isEmpty()) 
                 {
                     flushBatchHelper(batch, queueArray, false, !queueArray.solutionFound);
-                    batchHolder.remove();
+                    ctx.resetBatch(); // Reset rather than remove ThreadLocal
                 }
             }).join();
         } catch (Exception e) 

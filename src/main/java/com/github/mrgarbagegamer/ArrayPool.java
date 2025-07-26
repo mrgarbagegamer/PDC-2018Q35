@@ -55,6 +55,7 @@ public final class ArrayPool
         if (size == 0) return null;
         
         short[] array = arrays[head];
+        // TODO: Remove the null check if we can guarantee arrays[head] is never null (which it shouldn't be if size > 0)
         if (array != null && array.length >= minSize) 
         {
             arrays[head] = null;
@@ -72,7 +73,7 @@ public final class ArrayPool
     public void put(short[] array) 
     {
         if (!isPreallocated) preallocate(); // Ensure preallocation if not done yet
-        if (array == null || size >= capacity) return;
+        if (array == null || size >= capacity) return; // TODO: Consider removing the null check and assuming arrays are never null
         
         arrays[tail] = array;
         tail = (tail + 1) % capacity;

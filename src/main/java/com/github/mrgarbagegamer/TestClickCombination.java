@@ -76,6 +76,7 @@ public class TestClickCombination extends Thread
         CombinationQueue[] queues = queueArray.getAllQueues();
         short[] trueCells = puzzleGrid.findTrueCells();
 
+        // Consider removing the iSolvedIt check here, since the main loop will exit if a solution is found
         while (!iSolvedIt && !queueArray.solutionFound)
         {
             WorkBatch workBatch = getWork();
@@ -101,6 +102,8 @@ public class TestClickCombination extends Thread
             
             while (!workBatch.isEmpty()) 
             {
+                // TODO: Consider removing the null check if we can guarantee workBatch.poll() never returns null (which it shouldn't if !isEmpty())
+                // Also consider removing the solutionFound check here and relying on the main loop condition
                 short[] combinationClicks = workBatch.poll(); // Get the next combination of clicks (in index format)
                 if (combinationClicks == null || queueArray.solutionFound)
                 {
@@ -134,6 +137,7 @@ public class TestClickCombination extends Thread
                 if (!iSolvedIt)
                 {
                     failedCount++;
+                    // TODO: Consider removing the isDebugEnabled check, since the program is likely to be run in debug mode
                     if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.solutionFound) 
                     {
                         logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));

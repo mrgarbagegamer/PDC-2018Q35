@@ -173,7 +173,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private final void generateCombinationsHotPath(int start, short[] prefix, WorkBatch batch)
     {
-        final int pLen = prefix.length;
+        final int pLen = prefixLength; // Use the prefixLength field directly to prevent issues from grabbing prefix arrays larger than numClicks - 1
         final int firstTrue = trueCells[0]; // Assume trueCells is not empty and contains at least one true cell
 
         // Simplified mask retrieval - eliminate complex conditional

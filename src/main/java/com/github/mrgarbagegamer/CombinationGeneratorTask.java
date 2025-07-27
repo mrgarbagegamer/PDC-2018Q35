@@ -149,8 +149,10 @@ public class CombinationGeneratorTask extends RecursiveAction
         for (short i = (short) start; i < max; i++) 
         {
             // Use context pools directly - no more ThreadLocal calls
-            short[] newPrefix = ctx.prefixArrayPool.get(prefixLength + 1);
-            if (newPrefix == null) newPrefix = new short[prefixLength + 1];
+            // Always get a standard, full-sized array to maximize pool hit rate.
+            // This directly addresses the allocation hotspot identified in profiling.
+            short[] newPrefix = ctx.prefixArrayPool.get(numClicks);
+            if (newPrefix == null) newPrefix = new short[numClicks];
             
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = (short) i;
@@ -230,14 +232,14 @@ public class CombinationGeneratorTask extends RecursiveAction
                 continue; // Skip this iteration if the parity condition is not met
             }
 
-            if (!batch.add(prefix, (short) i))
+            if (!batch.add(prefix, pLen, (short) i))
             {
                 if (flushBatchFast(batch))
                 {
                     // Reset batch in context rather than creating new ThreadLocal entry
                     ctx.resetBatch();
                     batch = ctx.currentBatch;
-                    batch.add(prefix, (short) i);
+                    batch.add(prefix, pLen, (short) i);
                 }
             }
         }

@@ -53,7 +53,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * @param lastElement The final element to append.
      * @return true if the element was added, false if the batch is full.
      */
-    public boolean add(short[] prefix, short lastElement)
+    public boolean add(short[] prefix, int prefixLength, short lastElement)
     {
         if (size >= capacity)
         {
@@ -67,8 +67,9 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
             buffer[tail] = dest;
         }
 
-        System.arraycopy(prefix, 0, dest, 0, prefix.length == numClicks ? numClicks - 1 : prefix.length); // Fix NPE
-        dest[numClicks - 1] = lastElement;
+        // Use explicit prefixLength for clarity and robustness, which is always numClicks - 1 at this leaf stage
+        System.arraycopy(prefix, 0, dest, 0, prefixLength);
+        dest[prefixLength] = lastElement;
 
         tail = (tail + 1) % capacity;
         size++;

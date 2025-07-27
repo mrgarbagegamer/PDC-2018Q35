@@ -19,7 +19,7 @@ public final class ArrayPool
     public ArrayPool(int capacity) 
     {
         this.capacity = capacity;
-        this.arrays = new short[capacity][];
+        this.arrays = new short[capacity][numClicks]; // Assume that we initialize numClicks before using this constructor.
     }
 
     public static void setNumClicks(int numClicks) 
@@ -28,30 +28,11 @@ public final class ArrayPool
     }
 
     /**
-     * Preallocate arrays of specified size.
-     * Avoids allocation during runtime.
-     */
-    public void preallocate()
-    {
-        if (size > 0) return; // Avoid preallocation if pool is already in use
-        for (int i = 0; i < capacity; i++) 
-        {
-            arrays[i] = new short[numClicks];
-        }
-        size = capacity; // Set size to capacity after preallocation
-        head = 0; // Reset head to start of pool
-        tail = 0; // Reset tail to start of pool
-        isPreallocated = true; // Mark as preallocated
-    }
-
-    /**
      * Get array of at least the specified size.
      * Returns null if pool is empty.
      */
     public short[] get(int minSize) 
     {
-        if (!isPreallocated) preallocate(); // Ensure preallocation if not done yet
-        
         if (size == 0) return null;
         
         short[] array = arrays[head];
@@ -72,7 +53,6 @@ public final class ArrayPool
      */
     public void put(short[] array) 
     {
-        if (!isPreallocated) preallocate(); // Ensure preallocation if not done yet
         if (array == null || size >= capacity) return; // TODO: Consider removing the null check and assuming arrays are never null
         
         arrays[tail] = array;

@@ -19,7 +19,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     public WorkBatch(int capacity)
     {
         this.capacity = capacity;
-        this.buffer = new short[capacity][];
+        this.buffer = new short[capacity][numClicks];
     }
 
     public static void setNumClicks(int numClicks)
@@ -39,7 +39,6 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
         {
             return false;
         }
-        if (buffer[tail] == null) buffer[tail] = new short[source.length];
         System.arraycopy(source, 0, buffer[tail], 0, source.length);
         tail = (tail + 1) % capacity;
         size++;
@@ -61,6 +60,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
         }
 
         short[] dest = buffer[tail];
+        // This 'if' block is now effectively cold code, as pre-allocation ensures dest is never null.
         if (dest == null)
         {
             dest = new short[numClicks];

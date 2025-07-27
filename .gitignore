@@ -10,3 +10,4 @@ target
 *.jfr
 .github/*
 JFR/*
+.kilocode/*

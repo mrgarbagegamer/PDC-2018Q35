@@ -35,7 +35,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public boolean add(short[] source) 
     {
-        if (size >= capacity)
+        if (size >= capacity) // Note: Our code deoptimizes here a lot. Tracking the remaining capacity rather than checking size may be more efficient.
         {
             return false;
         }
@@ -51,7 +51,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public final boolean add(short[] prefix, int prefixLength, short lastElement)
     {
-        if (size >= capacity)
+        if (size >= capacity) // Note: Our code deoptimizes here a lot. Tracking the remaining capacity rather than checking size may be more efficient.
         {
             return false;
         }

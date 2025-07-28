@@ -46,28 +46,20 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     }
 
     /**
-     * Adds a combination by assembling it from a prefix and a final element.
-     * This avoids the caller needing to create a temporary full combination array.
-     * @param prefix The prefix of the combination.
-     * @param lastElement The final element to append.
-     * @return true if the element was added, false if the batch is full.
+     * OPTIMIZED: Adds a combination by assembling it from a prefix and a final element.
+     * Made final for JIT inlining and removed null check since pre-allocation ensures dest is never null.
      */
-    public boolean add(short[] prefix, int prefixLength, short lastElement)
+    public final boolean add(short[] prefix, int prefixLength, short lastElement)
     {
         if (size >= capacity)
         {
             return false;
         }
 
-        short[] dest = buffer[tail];
-        // This 'if' block is now effectively cold code, as pre-allocation ensures dest is never null.
-        if (dest == null)
-        {
-            dest = new short[numClicks];
-            buffer[tail] = dest;
-        }
-
-        // Use explicit prefixLength for clarity and robustness, which is always numClicks - 1 at this leaf stage
+        final short[] dest = buffer[tail];
+        
+        // OPTIMIZATION: Removed null check - pre-allocation ensures dest is never null
+        // Use native System.arraycopy for optimal performance
         System.arraycopy(prefix, 0, dest, 0, prefixLength);
         dest[prefixLength] = lastElement;
 

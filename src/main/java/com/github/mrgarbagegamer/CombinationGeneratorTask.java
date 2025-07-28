@@ -75,7 +75,7 @@ public class CombinationGeneratorTask extends RecursiveAction
                                    short[] trueCells, int maxFirstClickIndex) 
     {
         // Initialize the instance fields
-        this.prefix = new short[0];
+        this.prefix = new short[0]; // TODO: Consider grabbing an array from the pool instead (since the ArrayPool will allocate a new array if the first element is of the wrong size (and this will always be the case))
         this.prefixLength = 0;
         this.cachedAdjacencyState = -1; // Root task starts with no cached state
 

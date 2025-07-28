@@ -14,9 +14,10 @@ public class TestClickCombination extends Thread
     private final CombinationQueueArray queueArray;
     private final Grid puzzleGrid;
 
-    // Static lookup table initialization remains the same
+    // Static lookup table initialization with pre-computed masks
     private static volatile long[][] CLICK_TO_TRUE_CELL_MASK = null;
     private static volatile long EXPECTED_MASK = 0L;
+    private static volatile long EXPECTED_MASK_1 = 0L; // For trueCells > 64
     
     public TestClickCombination(String threadName, CombinationQueue combinationQueue, 
                                CombinationQueueArray queueArray, Grid puzzleGrid) 
@@ -56,12 +57,17 @@ public class TestClickCombination extends Thread
                         }
                     }
                     
-                    // Compute expected mask once
-                    long expectedMask = trueCells.length >= 64 ? 
+                    // Compute expected masks once
+                    long expectedMask = trueCells.length > 64 ?
                         0xFFFFFFFFFFFFFFFFL : (1L << trueCells.length) - 1;
+                    
+                    long expectedMask1 = trueCells.length <= 64 ? 0L :
+                        (trueCells.length >= 128 ? 0xFFFFFFFFFFFFFFFFL :
+                         ((1L << (trueCells.length - 64)) - 1));
                     
                     // Atomically publish the results
                     EXPECTED_MASK = expectedMask;
+                    EXPECTED_MASK_1 = expectedMask1;
                     CLICK_TO_TRUE_CELL_MASK = lookup; // This must be last
                 }
             }
@@ -211,34 +217,25 @@ public class TestClickCombination extends Thread
         return true;
     }
 
-    // Ultra-fast bitmask-based odd adjacency check using static lookup
-    private boolean satisfiesOddAdjacency(short[] combination, short[] trueCells) 
+    // OPTIMIZED: Ultra-fast bitmask-based odd adjacency check - eliminated branches
+    private boolean satisfiesOddAdjacency(short[] combination, short[] trueCells)
     {
         if (trueCells.length == 0) return true;
         
         long trueCellCounts0 = 0L;
         long trueCellCounts1 = 0L;
         
-        // Use static lookup table
-        for (int click : combination) 
+        // OPTIMIZATION: Eliminate branch misprediction by always processing both masks
+        // This trades a few extra XOR operations for eliminating branch misprediction penalty
+        final long[][] masks = CLICK_TO_TRUE_CELL_MASK;
+        for (int i = 0; i < combination.length; i++)
         {
-            trueCellCounts0 ^= CLICK_TO_TRUE_CELL_MASK[click][0];
-            if (trueCells.length > 64)
-            {
-                trueCellCounts1 ^= CLICK_TO_TRUE_CELL_MASK[click][1];
-            }
+            final int click = combination[i];
+            trueCellCounts0 ^= masks[click][0];
+            trueCellCounts1 ^= masks[click][1]; // Always process, mask will be 0 if not needed
         }
         
-        // Use static expected mask
-        if (trueCells.length <= 64)
-        {
-            return trueCellCounts0 == EXPECTED_MASK;
-        }
-        else
-        {
-            long expectedMask1 = trueCells.length >= 128 ? 
-                0xFFFFFFFFFFFFFFFFL : (1L << (trueCells.length - 64)) - 1;
-            return trueCellCounts0 == 0xFFFFFFFFFFFFFFFFL && trueCellCounts1 == expectedMask1;
-        }
+        // OPTIMIZATION: Use pre-computed expected masks to eliminate runtime calculations
+        return trueCellCounts0 == EXPECTED_MASK && trueCellCounts1 == EXPECTED_MASK_1;
     }
 }

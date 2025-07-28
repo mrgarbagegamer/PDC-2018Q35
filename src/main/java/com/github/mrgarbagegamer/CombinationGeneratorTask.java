@@ -54,6 +54,9 @@ public class CombinationGeneratorTask extends RecursiveAction
     private short[] prefix;
     private int prefixLength;
     private long cachedAdjacencyState = -1; // -1 means uncomputed
+    
+    // OPTIMIZATION: Cache the first true cell adjacency mask per task
+    private static long[] cachedFirstTrueMask = null;
 
     private static volatile ForkJoinPool generatorPool;
 
@@ -85,6 +88,13 @@ public class CombinationGeneratorTask extends RecursiveAction
         WorkBatch.setNumClicks(numClicks); // Set the number of clicks for the work batch
 
         if (trueCells == null || trueCells.length == 0) throw new IllegalArgumentException("True cells must be initialized before generating combinations.");
+        
+        // OPTIMIZATION: Pre-compute and cache the first true cell mask once per puzzle
+        final int firstTrue = trueCells[0];
+        final int cacheIdx = firstTrue & 15;
+        cachedFirstTrueMask = (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrue)
+                            ? ADJACENCY_MASK_CACHE_FAST[cacheIdx]
+                            : computeAdjacencyMaskFast(firstTrue);
     }
 
     public CombinationGeneratorTask() {}
@@ -191,43 +201,33 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private final void computeLeafCombinations(GeneratorContext ctx) // Absorbed the logic from generateCombinationsHotPath into here
     {
-        // No ThreadLocal access needed - use passed context
-        final int start = prefix[prefixLength - 1] + 1; // Start from the next index after the last prefix element
-        final int pLen = prefixLength; // Use the prefixLength field directly to prevent issues from grabbing prefix arrays larger than numClicks - 1
+        // OPTIMIZED: Pre-compute all loop-invariant values
+        final int start = prefix[prefixLength - 1] + 1;
+        final int pLen = prefixLength;
 
-        // TODO: Target this calculation and consider staticizing it (since it does not change per task)
-        final int firstTrue = trueCells[0]; // Assume trueCells is not empty and contains at least one true cell
-
-        // Simplified mask retrieval - eliminate complex conditional
-        final int cacheIdx = firstTrue & 15;
-        final long[] mask = (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrue) 
-                            ? ADJACENCY_MASK_CACHE_FAST[cacheIdx]
-                            : computeAdjacencyMaskFast(firstTrue);
+        // OPTIMIZATION: Use pre-cached mask - no lookup or computation needed
+        final long[] mask = cachedFirstTrueMask;
 
         // Use context batch directly
         WorkBatch batch = ctx.getOrCreateBatch();
 
-        // TODO: Consider calculating prefix parity either in a more efficient way or by passing down pre-computations
-
-        // compute prefix-only parity ONCE
+        // FIXED: Compute prefix parity correctly using integer arithmetic (as original)
         int prefixParity = 0;
-        // O(pLen) parity calculation BEFORE the loop rather than an O(pLen) check in each iteration
         for (int j = 0; j < pLen; j++)
         {
-            int c = prefix[j];
+            final int c = prefix[j];
             if ((mask[c >>> 6] & (1L << (c & 63))) != 0)
             {
                 prefixParity ^= 1;
             }
         }
 
+        // FIXED: Restore original parity logic that was working
         for (int i = start; i < Grid.NUM_CELLS; i++)
         {
-            // Remove periodic cancellation check - pool shutdown handles interruption
-
             boolean iAdj = (mask[i >>> 6] & (1L << (i & 63))) != 0;
-            // we need (prefixParity ^ iAdj) == 1  ⇔  iAdj != (prefixParity==1)
-            if (iAdj == (prefixParity == 1)) // O(1) check
+            // CRITICAL: Original logic was: we need (prefixParity ^ iAdj) == 1  ⇔  iAdj != (prefixParity==1)
+            if (iAdj == (prefixParity == 1)) // This is the CORRECT original condition
             {
                 continue; // Skip this iteration if the parity condition is not met
             }
@@ -236,7 +236,6 @@ public class CombinationGeneratorTask extends RecursiveAction
             {
                 if (flushBatchFast(batch))
                 {
-                    // Reset batch in context rather than creating new ThreadLocal entry
                     ctx.resetBatch();
                     batch = ctx.currentBatch;
                     batch.add(prefix, pLen, (short) i);

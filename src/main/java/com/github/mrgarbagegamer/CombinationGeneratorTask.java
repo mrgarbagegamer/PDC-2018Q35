@@ -114,14 +114,14 @@ public class CombinationGeneratorTask extends RecursiveAction
         // Single ThreadLocal access per task - pass context down to all methods
         final GeneratorContext ctx = context.get();
         
-        try 
+        try
         {
-            if (prefixLength < numClicks - 1) 
+            if (prefixLength < numClicks - 1)
             {
                 // Handle recursive subtask creation for intermediate levels
                 computeSubtasks(ctx);
-            } 
-            else 
+            }
+            else
             {
                 // Handle direct combination generation for leaf level
                 computeLeafCombinations(ctx);
@@ -201,35 +201,43 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private final void computeLeafCombinations(GeneratorContext ctx) // Absorbed the logic from generateCombinationsHotPath into here
     {
-        // OPTIMIZED: Pre-compute all loop-invariant values
+        // ULTRA-OPTIMIZED: Pre-compute all loop-invariant values and cache array references
         final int start = prefix[prefixLength - 1] + 1;
         final int pLen = prefixLength;
-
-        // OPTIMIZATION: Use pre-cached mask - no lookup or computation needed
         final long[] mask = cachedFirstTrueMask;
+        final long mask0 = mask[0]; // Cache array elements to avoid repeated dereferences
+        final long mask1 = mask[1];
 
         // Use context batch directly
         WorkBatch batch = ctx.getOrCreateBatch();
 
-        // FIXED: Compute prefix parity correctly using integer arithmetic (as original)
+        // OPTIMIZED: Compute prefix parity with cached mask values
         int prefixParity = 0;
         for (int j = 0; j < pLen; j++)
         {
             final int c = prefix[j];
-            if ((mask[c >>> 6] & (1L << (c & 63))) != 0)
+            final long maskValue = (c < 64) ? mask0 : mask1;
+            final int bitPos = c & 63;
+            if ((maskValue & (1L << bitPos)) != 0)
             {
                 prefixParity ^= 1;
             }
         }
 
-        // FIXED: Restore original parity logic that was working
+        // OPTIMIZED: Pre-compute parity condition to avoid repeated calculation
+        final boolean needsOddParity = (prefixParity == 1);
+
+        // ULTRA-OPTIMIZED: Tight loop with minimal branching and cached values
         for (int i = start; i < Grid.NUM_CELLS; i++)
         {
-            boolean iAdj = (mask[i >>> 6] & (1L << (i & 63))) != 0;
-            // CRITICAL: Original logic was: we need (prefixParity ^ iAdj) == 1  ⇔  iAdj != (prefixParity==1)
-            if (iAdj == (prefixParity == 1)) // This is the CORRECT original condition
+            // Use cached mask values instead of array access
+            final long maskValue = (i < 64) ? mask0 : mask1;
+            final int bitPos = i & 63;
+            final boolean iAdj = (maskValue & (1L << bitPos)) != 0;
+            
+            if (iAdj == needsOddParity)
             {
-                continue; // Skip this iteration if the parity condition is not met
+                continue; // Skip if parity condition not met
             }
 
             if (!batch.add(prefix, pLen, (short) i))

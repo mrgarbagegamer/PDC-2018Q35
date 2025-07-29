@@ -1,0 +1,11 @@
+# Classpath
+-cp "target/classes;target/lib/*"
+
+# Existing JVM arguments
+-XX:+UseG1GC
+-XX:+UnlockExperimentalVMOptions
+
+# phase 1 arguments
+# -Xms2g
+# -Xmx8g
+# -XX:GCTimeRatio=19 # 5% (1/20) of time spent in GC

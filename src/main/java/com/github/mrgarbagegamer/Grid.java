@@ -472,6 +472,23 @@ public abstract class Grid
         recalculationNeeded = true;
     }
 
+    /** 
+     * Performs a bulk click operation on multiple cells in the grid. Saves the overhead of multiple method calls.
+     * @param cells An array of cells to click, in Index format (0-108).
+    */
+    public final void click(short[] cells)
+    {
+        for (short cell : cells) 
+        {
+            // XOR the grid state with the pre-computed adjacency mask
+            gridState[0] ^= ADJACENCY_MASKS[cell][0];
+            gridState[1] ^= ADJACENCY_MASKS[cell][1];
+        }
+        
+        // Mark for recalculation of first true cell and count
+        recalculationNeeded = true;
+    }
+
     /**
      * Returns the adjacents of the first true cell in the requested format.
      * @param format The desired output format (Index or PackedInt).

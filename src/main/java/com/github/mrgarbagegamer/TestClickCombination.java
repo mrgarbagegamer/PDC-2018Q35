@@ -118,10 +118,7 @@ public class TestClickCombination extends Thread
 
                 if (satisfiesOddAdjacency(combinationClicks, trueCells)) 
                 {
-                    for (short click : combinationClicks)
-                    {
-                        puzzleGrid.click(click);
-                    }
+                    puzzleGrid.click(combinationClicks); // Apply the click combination to the grid
 
                     iSolvedIt = puzzleGrid.isSolved();
 

@@ -14,11 +14,12 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     private static int numClicks;
     private int head = 0;
     private int tail = 0;
-    private int size = 0;
+    private int remainingCapacity; // Replacement for size to avoid deoptimizations
 
     public WorkBatch(int capacity)
     {
         this.capacity = capacity;
+        this.remainingCapacity = capacity;
         this.buffer = new short[capacity][numClicks];
     }
 
@@ -35,13 +36,13 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public boolean add(short[] source) 
     {
-        if (size >= capacity) // Note: Our code deoptimizes here a lot. Tracking the remaining capacity rather than checking size may be more efficient.
+        if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
         {
             return false;
         }
         System.arraycopy(source, 0, buffer[tail], 0, source.length);
         tail = (tail + 1) % capacity;
-        size++;
+        remainingCapacity--;
         return true;
     }
 
@@ -51,11 +52,10 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public final boolean add(short[] prefix, int prefixLength, short lastElement)
     {
-        if (size >= capacity) // Note: Our code deoptimizes here a lot. Tracking the remaining capacity rather than checking size may be more efficient.
+        if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
         {
             return false;
         }
-
         final short[] dest = buffer[tail];
         
         // OPTIMIZATION: Removed null check - pre-allocation ensures dest is never null
@@ -64,7 +64,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
         dest[prefixLength] = lastElement;
 
         tail = (tail + 1) % capacity;
-        size++;
+        remainingCapacity--;
         return true;
     }
 
@@ -74,14 +74,14 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public short[] poll() 
     {
-        if (size == 0)
+        if (remainingCapacity == capacity) // Check remaining capacity instead of size to avoid deoptimizations
         {
             return null;
         }
         
         short[] result = buffer[head];
         head = (head + 1) % capacity;
-        size--;
+        remainingCapacity++;
         return result;
     }
 
@@ -90,7 +90,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public boolean isEmpty() 
     {
-        return size == 0;
+        return remainingCapacity == capacity;
     }
 
     /**
@@ -98,15 +98,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public int size() 
     {
-        return size;
-    }
-
-    /**
-     * Get remaining capacity.
-     */
-    public int remainingCapacity() 
-    {
-        return capacity - size;
+        return capacity - remainingCapacity; // Calculate size based on remaining capacity
     }
 
     /**
@@ -116,7 +108,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     {
         head = 0;
         tail = 0;
-        size = 0;
+        remainingCapacity = capacity; // Reset remaining capacity to full
     }
 
     /**
@@ -142,6 +134,6 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     public boolean isFull() 
     {
-        return size >= capacity;
+        return remainingCapacity == 0;
     }
 }

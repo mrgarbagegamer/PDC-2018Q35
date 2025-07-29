@@ -106,25 +106,17 @@ public class TestClickCombination extends Thread
                 continue; // Retry getting a combination
             }
             
-            while (!workBatch.isEmpty()) 
+            // OPTIMIZED: Process entire batch with reduced branching
+            short[] combinationClicks;
+            while ((combinationClicks = workBatch.poll()) != null && !queueArray.solutionFound)
             {
-                // TODO: Consider removing the null check if we can guarantee workBatch.poll() never returns null (which it shouldn't if !isEmpty())
-                // Also consider removing the solutionFound check here and relying on the main loop condition
-                short[] combinationClicks = workBatch.poll(); // Get the next combination of clicks (in index format)
-                if (combinationClicks == null || queueArray.solutionFound)
-                {
-                    break;
-                }
-
-                if (satisfiesOddAdjacency(combinationClicks, trueCells)) 
+                if (satisfiesOddAdjacency(combinationClicks, trueCells))
                 {
                     puzzleGrid.click(combinationClicks); // Apply the click combination to the grid
 
-                    iSolvedIt = puzzleGrid.isSolved();
-
-                    if (iSolvedIt) 
+                    if (puzzleGrid.isSolved())
                     {
-                        logger.info("Found the solution as the following click combination: {}", 
+                        logger.info("Found the solution as the following click combination: {}",
                                    new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
                         queueArray.solutionFound(this.getName(), combinationClicks.clone());
                         
@@ -134,22 +126,19 @@ public class TestClickCombination extends Thread
                         // Don't recycle the winning batch
                         return;
                     }
-                }
-                else continue;
 
-                if (!iSolvedIt)
-                {
+                    // reset the grid for the next combination
+                    puzzleGrid.initialize();
+                    
+                    // Increment failed count and log if needed (removed debug check and solution check per feedback)
                     failedCount++;
-                    // TODO: Consider removing the isDebugEnabled check, since the program is likely to be run in debug mode
-                    if (failedCount == LOG_EVERY_N_FAILURES && logger.isDebugEnabled() && !queueArray.solutionFound) 
+                    if (failedCount == LOG_EVERY_N_FAILURES)
                     {
                         logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
                         failedCount = 0; // Reset the count after logging
                     }
                 }
-
-                // reset the grid for the next combination
-                puzzleGrid.initialize();
+                // Note: Grid initialization not needed for invalid combinations since grid wasn't modified
             }
 
             // After processing, recycle the batch
@@ -214,25 +203,35 @@ public class TestClickCombination extends Thread
         return true;
     }
 
-    // OPTIMIZED: Ultra-fast bitmask-based odd adjacency check - eliminated branches
-    private boolean satisfiesOddAdjacency(short[] combination, short[] trueCells)
+    // OPTIMIZED: JIT-friendly bitmask-based odd adjacency check with inlining hints
+    private final boolean satisfiesOddAdjacency(short[] combination, short[] trueCells)
     {
         if (trueCells.length == 0) return true;
+        
+        // JIT OPTIMIZATION: Cache array references and length to encourage optimization
+        final long[][] masks = CLICK_TO_TRUE_CELL_MASK;
+        final int combinationLength = combination.length;
+        final long expectedMask0 = EXPECTED_MASK;
+        final long expectedMask1 = EXPECTED_MASK_1;
         
         long trueCellCounts0 = 0L;
         long trueCellCounts1 = 0L;
         
-        // OPTIMIZATION: Eliminate branch misprediction by always processing both masks
-        // This trades a few extra XOR operations for eliminating branch misprediction penalty
-        final long[][] masks = CLICK_TO_TRUE_CELL_MASK;
-        for (int i = 0; i < combination.length; i++)
+        // JIT OPTIMIZATION: Use counted loop pattern that JIT prefers for unrolling
+        // The final variables and predictable loop bounds encourage aggressive optimization
+        for (int i = 0; i < combinationLength; i++)
         {
+            // JIT OPTIMIZATION: Use local variable to avoid repeated array access
             final int click = combination[i];
-            trueCellCounts0 ^= masks[click][0];
-            trueCellCounts1 ^= masks[click][1]; // Always process, mask will be 0 if not needed
+            final long[] clickMask = masks[click];
+            
+            // JIT OPTIMIZATION: Cache mask array dereference to reduce memory access
+            trueCellCounts0 ^= clickMask[0];
+            trueCellCounts1 ^= clickMask[1];
         }
         
-        // OPTIMIZATION: Use pre-computed expected masks to eliminate runtime calculations
-        return trueCellCounts0 == EXPECTED_MASK && trueCellCounts1 == EXPECTED_MASK_1;
+        // JIT OPTIMIZATION: Use bitwise operations that JIT can optimize more aggressively
+        // Avoid method calls in comparison by using cached values
+        return (trueCellCounts0 ^ expectedMask0) == 0L & (trueCellCounts1 ^ expectedMask1) == 0L;
     }
 }

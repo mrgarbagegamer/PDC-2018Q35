@@ -257,13 +257,24 @@ public class CombinationGeneratorTask extends RecursiveAction
         CombinationQueue[] queues = queueArray.getAllQueues();
         int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
         
-        // Try each queue once
-        for (int i = 0; i < queues.length; i++) 
+        // Try each queue once and sleep if all are full
+        while (true)
         {
-            if (queues[(startIdx + i) % queues.length].add(batch)) return true;
+            for (int i = 0; i < queues.length; i++) 
+            {
+                if (queues[(startIdx + i) % queues.length].add(batch)) return true;
+            }
+
+            // If we reach here, all queues were full
+            try 
+            {
+                Thread.sleep(0, 500_000); // Sleep briefly (0.5ms) to avoid busy-waiting
+            } catch (InterruptedException e) 
+            {
+                Thread.currentThread().interrupt(); // Restore interrupt status
+                return false; // Exit if interrupted
+            }
         }
-        
-        return false;
     }
 
     private void recycleOwnResources(GeneratorContext ctx)

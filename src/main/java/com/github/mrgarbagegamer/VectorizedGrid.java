@@ -55,7 +55,7 @@ public abstract class VectorizedGrid extends Grid {
      * Vectorized bulk click operation - processes multiple cells with SIMD
      * Expected 10-15% improvement over scalar version for large click arrays
      */
-    public final void vectorizedClick(short[] cells) {
+    public final void vectorizedClick(short[] cells) { // TODO: Look at replacing the Grid state with a vectorized representation
         if (cells.length == 0) return;
         
         // Initialize accumulator vectors
@@ -83,9 +83,9 @@ public abstract class VectorizedGrid extends Grid {
      * Vectorized state comparison for fast puzzle solving validation
      * Uses SIMD to compare current state against target patterns
      */
-    public final boolean vectorizedIsSolved() {
+    public final boolean vectorizedIsSolved() { // Consider just using the trueCellsCount like how isSolved() works ()
         // Create vectors from current grid state
-        LongVector currentState0 = LongVector.fromArray(SPECIES, new long[]{gridState[0], 0, 0, 0}, 0);
+        LongVector currentState0 = LongVector.fromArray(SPECIES, new long[]{gridState[0], 0, 0, 0}, 0); 
         LongVector currentState1 = LongVector.fromArray(SPECIES, new long[]{gridState[1], 0, 0, 0}, 0);
         
         // Create zero vectors for comparison (solved state)
@@ -119,7 +119,7 @@ public abstract class VectorizedGrid extends Grid {
         
         // Use reduction to count bits (where supported by hardware)
         // Note: This is a simplified version - actual implementation would use
-        // vectorized popcount when available in hardware
+        // vectorized popcount when available in hardware // TODO: This.
         long[] array0 = new long[VECTOR_LENGTH];
         long[] array1 = new long[VECTOR_LENGTH];
         state0.intoArray(array0, 0);

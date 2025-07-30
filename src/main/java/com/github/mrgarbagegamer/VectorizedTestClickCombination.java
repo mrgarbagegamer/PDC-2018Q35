@@ -173,16 +173,13 @@ public class VectorizedTestClickCombination extends Thread
      * Expected performance: 15-25% faster than scalar version
      */
     private final boolean vectorizedSatisfiesOddAdjacency(short[] combination, short[] trueCells)
-    {
-        if (trueCells.length == 0) return true;
-        if (VECTORIZED_CLICK_MASKS == null) return false; // Fallback to scalar
-        
+    {        
         // Calculate how many vectors we need
-        int vectorsNeeded = (TRUE_CELLS_LENGTH + VECTOR_LENGTH - 1) / VECTOR_LENGTH;
+        int vectorsNeeded = (TRUE_CELLS_LENGTH + VECTOR_LENGTH - 1) / VECTOR_LENGTH; // TODO: Target this for staticization
         
         // Initialize accumulator vectors
         LongVector accumulator0 = LongVector.zero(SPECIES);
-        LongVector accumulator1 = vectorsNeeded > 1 ? LongVector.zero(SPECIES) : null;
+        LongVector accumulator1 = vectorsNeeded > 1 ? LongVector.zero(SPECIES) : null; // TODO: Consider always using two vectors for consistency
         
         // Vectorized XOR accumulation across all clicks
         final int combinationLength = combination.length;
@@ -192,7 +189,7 @@ public class VectorizedTestClickCombination extends Thread
             final long[][] clickVectorMasks = VECTORIZED_CLICK_MASKS[click];
             
             // Load and XOR first vector
-            LongVector maskVector0 = LongVector.fromArray(SPECIES, clickVectorMasks[0], 0);
+            LongVector maskVector0 = LongVector.fromArray(SPECIES, clickVectorMasks[0], 0); // TODO: Look at creating the needed LongVectors in initializeVectorizedLookupTable()
             accumulator0 = accumulator0.lanewise(VectorOperators.XOR, maskVector0);
             
             // Load and XOR second vector if needed

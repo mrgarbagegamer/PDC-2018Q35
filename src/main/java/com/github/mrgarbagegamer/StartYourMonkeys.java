@@ -38,9 +38,9 @@ public class StartYourMonkeys
         final int questionNumber = parsedQuestionNumber;
 
         // start generating different click combinations
-        VectorizedGrid baseGrid;
+        Grid baseGrid;
         
-        if (questionNumber == 35) 
+        if (questionNumber == 35)
         {
             baseGrid = new Grid35();
         }
@@ -48,7 +48,7 @@ public class StartYourMonkeys
         {
             baseGrid = new Grid13();
         }
-        else 
+        else
         {
             baseGrid = new Grid22();
         }

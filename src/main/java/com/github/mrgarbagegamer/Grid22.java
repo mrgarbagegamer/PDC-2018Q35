@@ -1,14 +1,19 @@
 package com.github.mrgarbagegamer;
 
-public class Grid22 extends VectorizedGrid 
-{   
-    void initialize() 
+import jdk.incubator.vector.LongVector;
+
+public class Grid22 extends Grid
+{
+    // Static final array to avoid allocation on every initialize() call
+    private static final long[] INITIAL_STATE = {3293960916490350006L, 15078939901952L};
+    
+    @Override
+    void initialize()
     {
         // Initialize for Q22/Shrek
 
         // set all cells to their initial state
-        gridState[0] = 3293960916490350006L;
-        gridState[1] = 15078939901952L;
+        gridState = LongVector.fromArray(SPECIES, INITIAL_STATE, 0);
 
         firstTrueCell = 1; // Set the first true cell to bit index 1 (row 0, col 1)
         trueCellsCount = 50;

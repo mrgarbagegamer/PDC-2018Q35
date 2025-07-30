@@ -1,15 +1,19 @@
 package com.github.mrgarbagegamer;
 
-public class Grid13 extends VectorizedGrid 
+import jdk.incubator.vector.LongVector;
+
+public class Grid13 extends Grid
 {
+    // Static final array to avoid allocation on every initialize() call
+    private static final long[] INITIAL_STATE = {-6917317925703516160L, 8191L};
     
-    void initialize() 
+    @Override
+    void initialize()
     {
         // Initialize for Q13/Kermit
         
         // set all cells to their initial state
-        gridState[0] = -6917317925703516160L;
-        gridState[1] = 8191L;
+        gridState = LongVector.fromArray(SPECIES, INITIAL_STATE, 0);
 
         firstTrueCell = 32; // Set the first true cell to bit index 32 (row 2, col 1)
         trueCellsCount = 30;

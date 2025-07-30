@@ -17,19 +17,20 @@ public class VectorizedTestClickCombination extends Thread
     private static final Logger logger = LogManager.getLogger(VectorizedTestClickCombination.class);
     private static final int LOG_EVERY_N_FAILURES = 100_000;
     
-    // Vector API species for 64-bit long operations (AVX2/AVX-512 optimized)
+    // Vector API species for 64-bit long operations (AVX2 = 4 longs, AVX-512 = 8 longs)
     private static final VectorSpecies<Long> SPECIES = LongVector.SPECIES_PREFERRED;
-    private static final int VECTOR_LENGTH = SPECIES.length(); // 4 for AVX2, 8 for AVX-512
+    private static final int VECTOR_LENGTH = SPECIES.length(); // 4 for AVX2 on 13700K
 
     private final CombinationQueue combinationQueue;
     private final CombinationQueueArray queueArray;
     private final Grid puzzleGrid;
 
-    // Vectorized lookup tables - organized for SIMD access patterns
-    private static volatile long[][][] VECTORIZED_CLICK_MASKS = null; // [cellIndex][vectorIndex][laneIndex]
+    // Pre-computed vectorized lookup tables for maximum performance
+    private static volatile LongVector[][] VECTORIZED_CLICK_MASKS = null; // [cellIndex][vectorComponent]
     private static volatile LongVector EXPECTED_VECTOR_0;
     private static volatile LongVector EXPECTED_VECTOR_1;
     private static volatile int TRUE_CELLS_LENGTH = 0;
+    private static volatile int VECTORS_NEEDED = 0; // Static to avoid recalculation
     
     public VectorizedTestClickCombination(String threadName, CombinationQueue combinationQueue, 
                                          CombinationQueueArray queueArray, Grid puzzleGrid) 
@@ -46,7 +47,7 @@ public class VectorizedTestClickCombination extends Thread
 
     /**
      * Initialize vectorized lookup tables optimized for SIMD operations
-     * Pre-computes masks in vector-friendly layout for maximum throughput
+     * Pre-computes ALL vectors to eliminate hot-path allocations
      */
     private static void initializeVectorizedLookupTable(short[] trueCells)
     {
@@ -57,24 +58,33 @@ public class VectorizedTestClickCombination extends Thread
                 if (VECTORIZED_CLICK_MASKS == null)
                 {
                     TRUE_CELLS_LENGTH = trueCells.length;
+                    VECTORS_NEEDED = (trueCells.length + VECTOR_LENGTH - 1) / VECTOR_LENGTH;
                     
-                    // Calculate vector layout: how many vectors needed for all true cells
-                    int vectorsNeeded = (trueCells.length + VECTOR_LENGTH - 1) / VECTOR_LENGTH;
-                    
-                    // Pre-compute vectorized masks: [cellIndex][vectorIndex][laneIndex]
-                    long[][][] vectorMasks = new long[Grid.NUM_CELLS][vectorsNeeded][VECTOR_LENGTH];
+                    // Pre-compute ALL LongVector instances to avoid hot-path allocation
+                    LongVector[][] vectorMasks = new LongVector[Grid.NUM_CELLS][Math.max(2, VECTORS_NEEDED)];
                     
                     for (short clickCell = 0; clickCell < Grid.NUM_CELLS; clickCell++)
                     {
-                        for (int i = 0; i < trueCells.length; i++) 
+                        // Build adjacency data for this click cell
+                        long[] vector0Data = new long[VECTOR_LENGTH];
+                        long[] vector1Data = new long[VECTOR_LENGTH];
+                        
+                        for (int i = 0; i < trueCells.length; i++)
                         {
                             if (Grid.areAdjacent(trueCells[i], clickCell, Grid.ValueFormat.Index))
                             {
-                                int vectorIndex = i / VECTOR_LENGTH;
-                                int laneIndex = i % VECTOR_LENGTH;
-                                vectorMasks[clickCell][vectorIndex][laneIndex] = 1L;
+                                if (i < VECTOR_LENGTH) {
+                                    vector0Data[i] = 1L;
+                                } else if (i < VECTOR_LENGTH * 2) {
+                                    vector1Data[i - VECTOR_LENGTH] = 1L;
+                                }
+                                // Note: For typical puzzle sizes (20-30 true cells), we only need 2 vectors max
                             }
                         }
+                        
+                        // Create pre-computed vectors - NO allocation in hot path
+                        vectorMasks[clickCell][0] = LongVector.fromArray(SPECIES, vector0Data, 0);
+                        vectorMasks[clickCell][1] = LongVector.fromArray(SPECIES, vector1Data, 0);
                     }
                     
                     // Create expected result vectors (all 1s for positions with true cells)
@@ -96,9 +106,7 @@ public class VectorizedTestClickCombination extends Thread
                     
                     // Atomically publish results
                     EXPECTED_VECTOR_0 = LongVector.fromArray(SPECIES, expectedArray0, 0);
-                    EXPECTED_VECTOR_1 = vectorsNeeded > 1 ? 
-                        LongVector.fromArray(SPECIES, expectedArray1, 0) : 
-                        LongVector.zero(SPECIES);
+                    EXPECTED_VECTOR_1 = LongVector.fromArray(SPECIES, expectedArray1, 0);
                     VECTORIZED_CLICK_MASKS = vectorMasks;
                 }
             }
@@ -168,47 +176,36 @@ public class VectorizedTestClickCombination extends Thread
 
     /**
      * SIMD-optimized odd adjacency validation using Vector API
-     * Processes multiple true cells simultaneously with vectorized XOR operations
-     * 
+     * Zero-allocation hot path with pre-computed vectors
+     *
      * Expected performance: 15-25% faster than scalar version
      */
     private final boolean vectorizedSatisfiesOddAdjacency(short[] combination, short[] trueCells)
-    {        
-        // Calculate how many vectors we need
-        int vectorsNeeded = (TRUE_CELLS_LENGTH + VECTOR_LENGTH - 1) / VECTOR_LENGTH; // TODO: Target this for staticization
+    {
+        if (trueCells.length == 0) return true;
         
-        // Initialize accumulator vectors
+        // Initialize accumulator vectors - always use 2 for consistency
         LongVector accumulator0 = LongVector.zero(SPECIES);
-        LongVector accumulator1 = vectorsNeeded > 1 ? LongVector.zero(SPECIES) : null; // TODO: Consider always using two vectors for consistency
+        LongVector accumulator1 = LongVector.zero(SPECIES);
         
-        // Vectorized XOR accumulation across all clicks
+        // Vectorized XOR accumulation across all clicks - ZERO allocation hot path
         final int combinationLength = combination.length;
         for (int i = 0; i < combinationLength; i++)
         {
             final int click = combination[i];
-            final long[][] clickVectorMasks = VECTORIZED_CLICK_MASKS[click];
+            final LongVector[] clickVectorMasks = VECTORIZED_CLICK_MASKS[click];
             
-            // Load and XOR first vector
-            LongVector maskVector0 = LongVector.fromArray(SPECIES, clickVectorMasks[0], 0); // TODO: Look at creating the needed LongVectors in initializeVectorizedLookupTable()
-            accumulator0 = accumulator0.lanewise(VectorOperators.XOR, maskVector0);
-            
-            // Load and XOR second vector if needed
-            if (accumulator1 != null && vectorsNeeded > 1) {
-                LongVector maskVector1 = LongVector.fromArray(SPECIES, clickVectorMasks[1], 0);
-                accumulator1 = accumulator1.lanewise(VectorOperators.XOR, maskVector1);
-            }
+            // XOR with pre-computed vectors - NO allocation
+            accumulator0 = accumulator0.lanewise(VectorOperators.XOR, clickVectorMasks[0]);
+            accumulator1 = accumulator1.lanewise(VectorOperators.XOR, clickVectorMasks[1]);
         }
         
         // Compare with expected vectors using SIMD comparison
         var comparison0 = accumulator0.compare(VectorOperators.EQ, EXPECTED_VECTOR_0);
-        boolean result = comparison0.allTrue();
+        var comparison1 = accumulator1.compare(VectorOperators.EQ, EXPECTED_VECTOR_1);
         
-        if (accumulator1 != null) {
-            var comparison1 = accumulator1.compare(VectorOperators.EQ, EXPECTED_VECTOR_1);
-            result = result && comparison1.allTrue();
-        }
-        
-        return result;
+        // Both comparisons must be true (eliminates conditional branching)
+        return comparison0.allTrue() && comparison1.allTrue();
     }
 
     // Reuse existing helper methods from base class

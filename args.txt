@@ -59,3 +59,12 @@
 # Better parallelism control
 -XX:+UseDynamicNumberOfCompilerThreads      # Explicitly enable dynamic compiler threads
 -XX:CICompilerCount=16                      # Increase from 12 to 16 (matches your thread count)
+
+# Reduce deoptimization sensitivity
+-XX:PerMethodTrapLimit=200                  # Double from 100 to 200
+-XX:PerBytecodeTrapLimit=8                  # Double from 4 to 8
+-XX:PerMethodRecompilationCutoff=800        # Increase from 400 to 800
+
+# Better branch prediction
+-XX:+UseCountLeadingZerosInstruction        # Explicitly enable leading zeros instruction
+-XX:+UseCountTrailingZerosInstruction       # Explicitly enable trailing zeros instruction

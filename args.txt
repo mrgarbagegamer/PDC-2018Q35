@@ -51,3 +51,11 @@
 -XX:G1HeapRegionSize=16m                    # Increase from 8m to 16m for larger heap
 -XX:G1MixedGCCountTarget=4                  # Reduce from 8 for faster old gen cleanup
 -XX:+G1UseAdaptiveIHOP                      # Explicitly enable adaptive IHOP
+
+# Thread prioritization
+-XX:+UseThreadPriorities                    # Explicitly enable thread priorities
+-XX:+UseCriticalCompilerThreadPriority      # Prioritize JIT compilation
+
+# Better parallelism control
+-XX:+UseDynamicNumberOfCompilerThreads      # Explicitly enable dynamic compiler threads
+-XX:CICompilerCount=16                      # Increase from 12 to 16 (matches your thread count)

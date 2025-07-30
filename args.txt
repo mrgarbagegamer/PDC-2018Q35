@@ -7,18 +7,18 @@
 # GC arguments
 -Xms2g
 -Xmx8g
--XX:GCTimeRatio=19              # 5% (1/20) of time spent in GC
+-XX:GCTimeRatio=19                          # 5% (1/20) of time spent in GC
 
 # More aggressive inlining (critical for your bitmask operations)
--XX:MaxInlineSize=70            # Double from 35 to 70
--XX:FreqInlineSize=650          # Double from 325 to 650
--XX:InlineSmallCode=5000        # Double from 2500 to 5000
--XX:MaxInlineLevel=20           # Increase from 15 to 20
+-XX:MaxInlineSize=70                        # Double from 35 to 70
+-XX:FreqInlineSize=650                      # Double from 325 to 650
+-XX:InlineSmallCode=5000                    # Double from 2500 to 5000
+-XX:MaxInlineLevel=20                       # Increase from 15 to 20
 
 # Earlier C2 compilation (get to peak performance faster)
--XX:CompileThreshold=5000       # Reduce from 10000 to 5000
--XX:Tier3CompileThreshold=1000  # Reduce from 2000 to 1000
--XX:Tier4CompileThreshold=7500  # Reduce from 15000 to 7500
+-XX:CompileThreshold=5000                   # Reduce from 10000 to 5000
+-XX:Tier3CompileThreshold=1000              # Reduce from 2000 to 1000
+-XX:Tier4CompileThreshold=7500              # Reduce from 15000 to 7500
 
 # Enable Vector API support (Java 21+)
 -XX:+UnlockExperimentalVMOptions
@@ -27,5 +27,19 @@
 -XX:+EnableVectorAggressiveReboxing
 
 # Optimize vector operations
--XX:MaxVectorSize=32            # Explicitly set max vector size 
+-XX:MaxVectorSize=32                        # Explicitly set max vector size 
 -XX:+AlignVector
+
+# Larger TLABs for reduced allocation contention
+-XX:+UseTLAB                                # Explicitly enable TLABs
+-XX:TLABSize=512k                           # Set an initial TLAB size of 512 KB
+-XX:+ResizeTLAB                             # Explicitly allow for the resizing of TLABs
+-XX:TLABWasteTargetPercent=5                # Increase from 1% to 5% waste target
+
+# Pre-touch memory for consistent performance
+-XX:+AlwaysPreTouch
+
+# Reduce allocation overhead
+-XX:+EliminateAllocations                   # Explicitly enable allocation elimination
+-XX:+EliminateAutoBox                       # Explicitly enable auto-boxing elimination
+-XX:EliminateAllocationArraySizeLimit=128   # Double from 64 to 128

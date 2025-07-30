@@ -29,7 +29,7 @@ public abstract class Grid
     protected boolean recalculationNeeded = false;
 
     // Pre-computed adjacency masks for each possible cell (in bit index format)
-    private static final long[][] ADJACENCY_MASKS = new long[NUM_CELLS][2];
+    protected static final long[][] ADJACENCY_MASKS = new long[NUM_CELLS][2];
     
     // Legacy support for existing code that expects adjacency arrays
     private static final short[][] adjacencyArray = new short[NUM_CELLS][]; // Index format

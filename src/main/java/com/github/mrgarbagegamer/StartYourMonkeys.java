@@ -38,7 +38,7 @@ public class StartYourMonkeys
         final int questionNumber = parsedQuestionNumber;
 
         // start generating different click combinations
-        Grid baseGrid;
+        VectorizedGrid baseGrid;
         
         if (questionNumber == 35) 
         {
@@ -73,11 +73,11 @@ public class StartYourMonkeys
         short[] trueCells = baseGrid.findTrueCells();
 
         // Start consumer threads BEFORE generation
-        TestClickCombination[] monkeys = new TestClickCombination[numThreads];
+        VectorizedTestClickCombination[] monkeys = new VectorizedTestClickCombination[numThreads];
         for(int i = 0; i < numThreads; i++)
         {
             String threadName = String.format("Monkey-%d", i);
-            monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray, baseGrid.clone());
+            monkeys[i] = new VectorizedTestClickCombination(threadName, queueArray.getQueue(i), queueArray, baseGrid.clone());
             monkeys[i].start();
         }
 
@@ -103,7 +103,7 @@ public class StartYourMonkeys
             queueArray.generationComplete = true;
             
             // Wait for worker threads to finish
-            for (TestClickCombination worker : monkeys) 
+            for (VectorizedTestClickCombination worker : monkeys) 
             {
                 try 
                 {

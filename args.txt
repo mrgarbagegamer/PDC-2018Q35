@@ -68,3 +68,7 @@
 # Better branch prediction
 -XX:+UseCountLeadingZerosInstruction        # Explicitly enable leading zeros instruction
 -XX:+UseCountTrailingZerosInstruction       # Explicitly enable trailing zeros instruction
+
+# Enable Vector API
+--enable-preview
+--add-modules jdk.incubator.vector

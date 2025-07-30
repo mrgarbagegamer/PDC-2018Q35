@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer;
 
-public class Grid13 extends Grid 
+public class Grid13 extends VectorizedGrid 
 {
     
     void initialize() 

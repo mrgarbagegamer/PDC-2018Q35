@@ -43,3 +43,11 @@
 -XX:+EliminateAllocations                   # Explicitly enable allocation elimination
 -XX:+EliminateAutoBox                       # Explicitly enable auto-boxing elimination
 -XX:EliminateAllocationArraySizeLimit=128   # Double from 64 to 128
+
+# Throughput-focused G1 tuning
+-XX:MaxGCPauseMillis=100                    # Reduce from 200 to 100 ms
+-XX:G1NewSizePercent=40                     # Increase from 5% to 40% (more young-gen for an allocation-heavy workload)
+-XX:G1MaxNewSizePercent=80                  # Increase from 60% to 80% (allow larger young-gen)
+-XX:G1HeapRegionSize=16m                    # Increase from 8m to 16m for larger heap
+-XX:G1MixedGCCountTarget=4                  # Reduce from 8 for faster old gen cleanup
+-XX:+G1UseAdaptiveIHOP                      # Explicitly enable adaptive IHOP

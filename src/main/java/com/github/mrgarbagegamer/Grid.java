@@ -48,8 +48,13 @@ public abstract class Grid
     protected short firstTrueCell = -1;
     protected boolean recalculationNeeded = false;
 
-    // Pre-computed SIMD adjacency vectors for each cell - ZERO allocation hot path
+    // ZERO-ALLOCATION VECTOR OPERATIONS: Pre-computed constants to eliminate all allocations
     private static final LongVector[] ADJACENCY_VECTORS = new LongVector[NUM_CELLS];
+    private static final LongVector ZERO_VECTOR = LongVector.zero(SPECIES);
+    
+    // Pre-computed single-bit vectors to eliminate setBit/clearBit allocations
+    private static final LongVector[] BIT_VECTORS = new LongVector[128];
+    private static final LongVector[] INVERTED_BIT_VECTORS = new LongVector[128];
     
     // Legacy support arrays for backward compatibility and initialization
     private static final short[][] adjacencyArray = new short[NUM_CELLS][];
@@ -60,11 +65,25 @@ public abstract class Grid
     private static final long[][] LEGACY_ADJACENCY_MASKS = new long[NUM_CELLS][2];
 
     /**
-     * Static initialization - compute all adjacency vectors for SIMD operations
-     * This runs once at startup and pre-computes everything needed for hot paths
+     * ZERO-ALLOCATION STATIC INITIALIZATION
+     * Pre-computes ALL vectors needed for hot paths to eliminate runtime allocations
      */
-    static 
+    static
     {
+        // Pre-compute all single-bit vectors for setBit/clearBit operations
+        for (int i = 0; i < 128; i++) {
+            long[] bitData = new long[VECTOR_LENGTH];
+            if (i < 64) {
+                bitData[0] = 1L << i;
+            } else if (i < 128) {
+                bitData[1] = 1L << (i - 64);
+            }
+            BIT_VECTORS[i] = LongVector.fromArray(SPECIES, bitData, 0);
+            
+            // Pre-compute inverted bit vectors for clearBit operations
+            INVERTED_BIT_VECTORS[i] = BIT_VECTORS[i].lanewise(VectorOperators.NOT);
+        }
+        
         // Compute adjacencies using existing logic
         for (short cell = 0; cell < NUM_CELLS; cell++)
         {
@@ -76,7 +95,7 @@ public abstract class Grid
             long[] vectorData = new long[VECTOR_LENGTH];
             long[] legacyMask = new long[2]; // For backward compatibility
             
-            for (ShortIterator it = adjSet.iterator(); it.hasNext();) 
+            for (ShortIterator it = adjSet.iterator(); it.hasNext();)
             {
                 short adjacent = it.nextShort();
                 adjArr[idx++] = adjacent;
@@ -214,63 +233,49 @@ public abstract class Grid
     abstract void initialize();
 
     /**
-     * VECTORIZED: Set bit using pure SIMD operations
-     * Creates a vector with single bit set, then ORs with grid state
+     * ZERO-ALLOCATION setBit using pre-computed bit vectors
      */
-    protected void setBit(int index) 
+    protected void setBit(int index)
     {
-        if (getBit(index)) return; // Already set
+        if (getBitFast(index)) return; // Already set
         
-        // Create vector with single bit set
-        long[] bitData = new long[VECTOR_LENGTH];
-        if (index < 64) {
-            bitData[0] = 1L << index;
-        } else if (index < 128) {
-            bitData[1] = 1L << (index - 64);
-        }
-        
-        LongVector bitVector = LongVector.fromArray(SPECIES, bitData, 0);
-        gridState = gridState.lanewise(VectorOperators.OR, bitVector);
+        // Use pre-computed bit vector - ZERO allocations!
+        gridState = gridState.lanewise(VectorOperators.OR, BIT_VECTORS[index]);
         trueCellsCount++;
     }
 
     /**
-     * VECTORIZED: Clear bit using pure SIMD operations  
-     * Creates a vector with single bit set, then ANDs with inverted mask
+     * ZERO-ALLOCATION clearBit using pre-computed inverted bit vectors
      */
-    protected void clearBit(int index) 
+    protected void clearBit(int index)
     {
-        if (!getBit(index)) return; // Already clear
+        if (!getBitFast(index)) return; // Already clear
         
-        // Create vector with single bit set, then invert
-        long[] bitData = new long[VECTOR_LENGTH];
-        if (index < 64) {
-            bitData[0] = 1L << index;
-        } else if (index < 128) {
-            bitData[1] = 1L << (index - 64);
-        }
-        
-        LongVector bitVector = LongVector.fromArray(SPECIES, bitData, 0);
-        LongVector invertedMask = bitVector.lanewise(VectorOperators.NOT);
-        gridState = gridState.lanewise(VectorOperators.AND, invertedMask);
+        // Use pre-computed inverted bit vector - ZERO allocations!
+        gridState = gridState.lanewise(VectorOperators.AND, INVERTED_BIT_VECTORS[index]);
         trueCellsCount--;
     }
 
     /**
-     * VECTORIZED: Test bit using SIMD operations
-     * Extracts the relevant long from vector and tests bit
+     * ZERO-ALLOCATION getBit using direct lane access
+     * This eliminates the array allocation that was killing performance!
      */
-    protected boolean getBit(int index) 
+    protected boolean getBitFast(int index)
     {
-        long[] stateArray = new long[VECTOR_LENGTH];
-        gridState.intoArray(stateArray, 0);
-        
         if (index < 64) {
-            return (stateArray[0] & (1L << index)) != 0;
+            return (gridState.lane(0) & (1L << index)) != 0;
         } else if (index < 128) {
-            return (stateArray[1] & (1L << (index - 64))) != 0;
+            return (gridState.lane(1) & (1L << (index - 64))) != 0;
         }
         return false;
+    }
+    
+    /**
+     * Legacy getBit method - calls fast version
+     */
+    protected boolean getBit(int index)
+    {
+        return getBitFast(index);
     }
 
     /**
@@ -337,39 +342,33 @@ public abstract class Grid
     }
 
     /**
-     * ULTRA-FAST SOLVED CHECK using SIMD reduction
-     * Tests if entire vector is zero using vector comparison + reduction
+     * ZERO-ALLOCATION SOLVED CHECK using pre-computed zero vector
      */
-    public boolean isSolved() 
+    public boolean isSolved()
     {
-        // Compare entire vector with zero vector using SIMD
-        LongVector zeroVector = LongVector.zero(SPECIES);
-        var comparison = gridState.compare(VectorOperators.EQ, zeroVector);
+        // Use pre-computed zero vector - ZERO allocations!
+        var comparison = gridState.compare(VectorOperators.EQ, ZERO_VECTOR);
         
         // All lanes must be zero (true) for solved state
         return comparison.allTrue();
     }
 
     /**
-     * VECTORIZED: True count using hardware popcount on vector lanes
+     * ZERO-ALLOCATION getTrueCount using direct lane access
      */
-    public int getTrueCount() 
+    public int getTrueCount()
     {
         if (!recalculationNeeded) {
             return trueCellsCount;
         }
         
-        // Extract vector data and count bits using hardware popcount
-        long[] stateArray = new long[VECTOR_LENGTH];
-        gridState.intoArray(stateArray, 0);
-        
-        // Only count bits in positions 0-108 (109 total cells)
+        // Direct lane access - ZERO allocations!
         int count = 0;
-        count += Long.bitCount(stateArray[0]); // Bits 0-63
+        count += Long.bitCount(gridState.lane(0)); // Bits 0-63
         
         // For second long, only count bits 0-44 (representing cells 64-108)
         if (VECTOR_LENGTH > 1) {
-            long secondLong = stateArray[1];
+            long secondLong = gridState.lane(1);
             // Mask to only include bits 0-44 (cells 64-108, total 45 bits)
             long mask = (1L << 45) - 1; // 45 bits set
             count += Long.bitCount(secondLong & mask);
@@ -381,24 +380,25 @@ public abstract class Grid
     }
 
     /**
-     * VECTORIZED: Find first true cell using vector bit scanning
+     * ZERO-ALLOCATION findFirstTrueCell using direct lane access
      */
-    public final short findFirstTrueCell() 
+    public final short findFirstTrueCell()
     {
         if (!recalculationNeeded && trueCellsCount == 0) {
             return -1;
         }
 
         if (recalculationNeeded) {
-            long[] stateArray = new long[VECTOR_LENGTH];
-            gridState.intoArray(stateArray, 0);
+            // Direct lane access - ZERO allocations!
+            long firstLong = gridState.lane(0);
+            long secondLong = VECTOR_LENGTH > 1 ? gridState.lane(1) : 0L;
             
             // Find first set bit using hardware bit scanning
-            if (stateArray[0] != 0L) {
-                firstTrueCell = (short) Long.numberOfTrailingZeros(stateArray[0]);
-            } else if (VECTOR_LENGTH > 1 && stateArray[1] != 0L) {
+            if (firstLong != 0L) {
+                firstTrueCell = (short) Long.numberOfTrailingZeros(firstLong);
+            } else if (VECTOR_LENGTH > 1 && secondLong != 0L) {
                 // Only check bits 0-44 in second long (cells 64-108)
-                long secondMasked = stateArray[1] & ((1L << 45) - 1);
+                long secondMasked = secondLong & ((1L << 45) - 1);
                 if (secondMasked != 0L) {
                     firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(secondMasked));
                 } else {
@@ -437,22 +437,23 @@ public abstract class Grid
     }
 
     /**
-     * Find true cells - extracts from vector representation
+     * ZERO-ALLOCATION findTrueCells using direct lane access
      */
-    public short[] findTrueCells(ValueFormat format) 
+    public short[] findTrueCells(ValueFormat format)
     {
         int count = getTrueCount();
         if (count == 0) return new short[0];
         
-        long[] stateArray = new long[VECTOR_LENGTH];
-        gridState.intoArray(stateArray, 0);
+        // Direct lane access - ZERO allocations!
+        long firstLong = gridState.lane(0);
+        long secondLong = VECTOR_LENGTH > 1 ? gridState.lane(1) : 0L;
         
         short[] trueCells = new short[count];
         int idx = 0;
         
         // Scan first long (bits 0-63)
         for (int i = 0; i < 64 && idx < count; i++) {
-            if ((stateArray[0] & (1L << i)) != 0) {
+            if ((firstLong & (1L << i)) != 0) {
                 trueCells[idx++] = (short) i;
             }
         }
@@ -460,7 +461,7 @@ public abstract class Grid
         // Scan second long (bits 64-108, only 45 bits used)
         if (VECTOR_LENGTH > 1) {
             for (int i = 0; i < 45 && idx < count; i++) {
-                if ((stateArray[1] & (1L << i)) != 0) {
+                if ((secondLong & (1L << i)) != 0) {
                     trueCells[idx++] = (short) (64 + i);
                 }
             }
@@ -482,15 +483,15 @@ public abstract class Grid
     }
 
     /**
-     * LEGACY COMPATIBILITY: Return vector state as long[2] for existing code
+     * ZERO-ALLOCATION getGridState using direct lane access
      */
-    public long[] getGridState() 
+    public long[] getGridState()
     {
-        long[] stateArray = new long[VECTOR_LENGTH];
-        gridState.intoArray(stateArray, 0);
-        
-        // Return first 2 longs for backward compatibility
-        return new long[] { stateArray[0], VECTOR_LENGTH > 1 ? stateArray[1] : 0L };
+        // Direct lane access - ZERO allocations!
+        return new long[] {
+            gridState.lane(0),
+            VECTOR_LENGTH > 1 ? gridState.lane(1) : 0L
+        };
     }
 
     /**

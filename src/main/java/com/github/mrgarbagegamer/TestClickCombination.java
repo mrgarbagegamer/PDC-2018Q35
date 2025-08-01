@@ -15,9 +15,8 @@ public class TestClickCombination extends Thread
     private final Grid puzzleGrid;
 
     // Static lookup table initialization with pre-computed masks
-    private static volatile long[][] CLICK_TO_TRUE_CELL_MASK = null;
+    private static volatile long[] CLICK_TO_TRUE_CELL_MASK = null;
     private static volatile long EXPECTED_MASK = 0L;
-    private static volatile long EXPECTED_MASK_1 = 0L; // For trueCells > 64
     
     public TestClickCombination(String threadName, CombinationQueue combinationQueue, 
                                CombinationQueueArray queueArray, Grid puzzleGrid) 
@@ -42,32 +41,24 @@ public class TestClickCombination extends Thread
             {
                 if (CLICK_TO_TRUE_CELL_MASK == null)
                 {
-                    long[][] lookup = new long[Grid.NUM_CELLS][2]; // 109 possible clicks, 2 long values for 128 bits
+                    long[] lookup = new long[Grid.NUM_CELLS]; // 109 possible clicks, single long for ≤64 bits
                     
                     for (short clickCell = 0; clickCell < 109; clickCell++) // Generate all possible clicks in index format
                     {
-                        for (int i = 0; i < trueCells.length; i++) 
+                        for (int i = 0; i < trueCells.length; i++)
                         {
                             if (Grid.areAdjacent(trueCells[i], clickCell, Grid.ValueFormat.Index))
                             {
-                                int longIndex = i / 64;
-                                int bitPosition = i % 64;
-                                lookup[clickCell][longIndex] |= (1L << bitPosition);
+                                lookup[clickCell] |= (1L << i);
                             }
                         }
                     }
                     
-                    // Compute expected masks once
-                    long expectedMask = trueCells.length > 64 ?
-                        0xFFFFFFFFFFFFFFFFL : (1L << trueCells.length) - 1;
-                    
-                    long expectedMask1 = trueCells.length <= 64 ? 0L :
-                        (trueCells.length >= 128 ? 0xFFFFFFFFFFFFFFFFL :
-                         ((1L << (trueCells.length - 64)) - 1));
+                    // Compute expected mask once - simplified since trueCells.length ≤ 64
+                    long expectedMask = (1L << trueCells.length) - 1;
                     
                     // Atomically publish the results
                     EXPECTED_MASK = expectedMask;
-                    EXPECTED_MASK_1 = expectedMask1;
                     CLICK_TO_TRUE_CELL_MASK = lookup; // This must be last
                 }
             }
@@ -206,16 +197,12 @@ public class TestClickCombination extends Thread
     // OPTIMIZED: JIT-friendly bitmask-based odd adjacency check with inlining hints
     private final boolean satisfiesOddAdjacency(short[] combination, short[] trueCells)
     {
-        if (trueCells.length == 0) return true;
-        
         // JIT OPTIMIZATION: Cache array references and length to encourage optimization
-        final long[][] masks = CLICK_TO_TRUE_CELL_MASK;
+        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
         final int combinationLength = combination.length;
-        final long expectedMask0 = EXPECTED_MASK;
-        final long expectedMask1 = EXPECTED_MASK_1;
+        final long expectedMask = EXPECTED_MASK;
         
-        long trueCellCounts0 = 0L;
-        long trueCellCounts1 = 0L;
+        long trueCellCounts = 0L;
         
         // JIT OPTIMIZATION: Use counted loop pattern that JIT prefers for unrolling
         // The final variables and predictable loop bounds encourage aggressive optimization
@@ -223,15 +210,12 @@ public class TestClickCombination extends Thread
         {
             // JIT OPTIMIZATION: Use local variable to avoid repeated array access
             final int click = combination[i];
-            final long[] clickMask = masks[click];
             
-            // JIT OPTIMIZATION: Cache mask array dereference to reduce memory access
-            trueCellCounts0 ^= clickMask[0];
-            trueCellCounts1 ^= clickMask[1];
+            // JIT OPTIMIZATION: Single XOR operation instead of two
+            trueCellCounts ^= masks[click];
         }
         
-        // JIT OPTIMIZATION: Use bitwise operations that JIT can optimize more aggressively
-        // Avoid method calls in comparison by using cached values
-        return (trueCellCounts0 ^ expectedMask0) == 0L & (trueCellCounts1 ^ expectedMask1) == 0L;
+        // JIT OPTIMIZATION: Single comparison instead of two
+        return trueCellCounts == expectedMask;
     }
 }

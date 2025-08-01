@@ -242,7 +242,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
             if (!batch.add(prefix, pLen, (short) i))
             {
-                if (flushBatchFast(batch)) // TODO: Make sure to handle the case where the batch is not flushed (idk how, but we have to do so to avoid dropped combinations)
+                if (flushBatchFast(batch))
                 {
                     ctx.resetBatch();
                     batch = ctx.currentBatch;

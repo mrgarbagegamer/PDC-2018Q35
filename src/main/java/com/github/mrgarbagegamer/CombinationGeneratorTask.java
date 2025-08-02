@@ -4,43 +4,49 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 
-// TODO: Reformat all lines to place curly brackets on different lines than the method signature (for consistency with the rest of the codebase)
-public class CombinationGeneratorTask extends RecursiveAction 
+public class CombinationGeneratorTask extends RecursiveAction
 {
-    private static final int BATCH_SIZE = 8000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach the FLUSH_THRESHOLD, but will always be flushed when they reach this size.
+    public static final int BATCH_SIZE = 8000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach the FLUSH_THRESHOLD, but will always be flushed when they reach this size.
     private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead.
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
-    
+
     // REPLACE: Multiple ThreadLocals with single context
-    private static final ThreadLocal<GeneratorContext> context = 
+    private static final ThreadLocal<GeneratorContext> context =
         ThreadLocal.withInitial(GeneratorContext::new);
+
     // Generator context consolidates all per-thread resources
-    private static class GeneratorContext 
+    private static class GeneratorContext
     {
         final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE / 4);
         final TaskPool taskPool = new TaskPool(128);
-        WorkBatch currentBatch = new WorkBatch(BATCH_SIZE);
-        
-        WorkBatch getOrCreateBatch() 
+        WorkBatch currentBatch = null;
+
+        WorkBatch getOrCreateBatch()
         {
-            if (currentBatch == null) 
+            if (currentBatch == null)
             {
-                currentBatch = getNewBatch();
+                currentBatch = getNewBatchBlocking();
             }
             return currentBatch;
         }
-        
-        private WorkBatch getNewBatch() 
+
+        // OPTIMIZATION: This is now a blocking call. It will wait until a batch is
+        // available, creating backpressure on the producers instead of allocating.
+        private WorkBatch getNewBatchBlocking()
         {
-            WorkBatch batch = queueArray.getWorkBatchPool().poll();
-            if (batch != null) return batch;
-            return new WorkBatch(BATCH_SIZE);
+            WorkBatch batch;
+            while ((batch = queueArray.getWorkBatchPool().relaxedPoll()) == null)
+            {
+                // NOTE: Thread.onSpinWait() can not be used here since it doesn't respond to cancellation.
+            }
+            batch.clear(); // Ensure the recycled batch is clean before use
+            return batch;
         }
 
         // Handle the flushing of the current batch
         WorkBatch resetBatch()
         {
-            return currentBatch = getNewBatch();
+            return currentBatch = getNewBatchBlocking();
         }
     }
 
@@ -60,34 +66,39 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private static volatile ForkJoinPool generatorPool;
 
-    public static void setForkJoinPool(ForkJoinPool pool) 
+    public static void setForkJoinPool(ForkJoinPool pool)
     {
         CombinationGeneratorTask.generatorPool = pool;
     }
 
-    public static ForkJoinPool getForkJoinPool() 
+    public static ForkJoinPool getForkJoinPool()
     {
         return generatorPool;
     }
 
     // Root task constructor
-    public CombinationGeneratorTask(int numClicks, CombinationQueueArray queueArray, 
-                                   short[] trueCells, int maxFirstClickIndex) 
+    public CombinationGeneratorTask(int numClicks, CombinationQueueArray queueArray,
+                                   short[] trueCells, int maxFirstClickIndex)
     {
-        // Initialize the instance fields
-        this.prefix = new short[0]; // TODO: Consider grabbing an array from the pool instead (since the ArrayPool will allocate a new array if the first element is of the wrong size (and this will always be the case))
-        this.prefixLength = 0;
-        this.cachedAdjacencyState = -1; // Root task starts with no cached state
-
         // Set static fields
         CombinationGeneratorTask.numClicks = numClicks;
         CombinationGeneratorTask.queueArray = queueArray;
         CombinationGeneratorTask.trueCells = trueCells;
         CombinationGeneratorTask.maxFirstClickIndex = maxFirstClickIndex;
         ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
-        WorkBatch.setNumClicks(numClicks); // Set the number of clicks for the work batch
 
         if (trueCells == null || trueCells.length == 0) throw new IllegalArgumentException("True cells must be initialized before generating combinations.");
+        
+        // Initialize the instance fields
+        // FIX: Get the initial empty prefix from the thread-local context to avoid allocation.
+        this.prefix = context.get().prefixArrayPool.get();
+        if (this.prefix == null)
+        {
+            this.prefix = new short[numClicks]; // Safeguard if pool is empty
+        }
+        this.prefixLength = 0;
+        this.cachedAdjacencyState = -1; // Root task starts with no cached state
+
         
         // OPTIMIZATION: Pre-compute and cache the first true cell mask once per puzzle
         final int firstTrue = trueCells[0];
@@ -161,8 +172,10 @@ public class CombinationGeneratorTask extends RecursiveAction
             // Use context pools directly - no more ThreadLocal calls
             // Always get a standard, full-sized array to maximize pool hit rate.
             // This directly addresses the allocation hotspot identified in profiling.
-            short[] newPrefix = ctx.prefixArrayPool.get(numClicks);
-            if (newPrefix == null) newPrefix = new short[numClicks];
+            // OPTIMIZATION: Get a guaranteed correctly-sized array from the fortified pool.
+            // The `get()` call now has no parameters.
+            short[] newPrefix = ctx.prefixArrayPool.get();
+            if (newPrefix == null) newPrefix = new short[numClicks]; // Safeguard if pool is empty
             
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = (short) i;

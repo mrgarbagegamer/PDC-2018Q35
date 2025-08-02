@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer;
 
-public class TaskPool 
+public class TaskPool
 {
     private final CombinationGeneratorTask[] arrays;
     private final int capacity;
@@ -8,7 +8,7 @@ public class TaskPool
     private int tail = 0;
     private int size = 0;
 
-    public TaskPool(int capacity) 
+    public TaskPool(int capacity)
     {
         this.capacity = capacity;
         this.arrays = new CombinationGeneratorTask[capacity];
@@ -19,18 +19,16 @@ public class TaskPool
      */
     public CombinationGeneratorTask get()
     {
-        if (size == 0) return new CombinationGeneratorTask(); // Return a new task if the pool is empty
-        
-        CombinationGeneratorTask task = arrays[head];
-        if (task != null) 
+        if (size == 0)
         {
-            arrays[head] = null;
-            head = (head + 1) % capacity;
-            size--;
-            return task;
+            return new CombinationGeneratorTask(); // Return a new task if the pool is empty
         }
 
-        return new CombinationGeneratorTask(); // Return a new task if the pool is empty
+        CombinationGeneratorTask task = arrays[head];
+        arrays[head] = null; // Help GC
+        head = (head + 1) % capacity;
+        size--;
+        return task;
     }
 
     /**
@@ -38,8 +36,11 @@ public class TaskPool
      */
     public void put(CombinationGeneratorTask task)
     {
-        if (task == null || size >= capacity) return;
-        
+        if (task == null || size >= capacity)
+        {
+            return;
+        }
+
         arrays[tail] = task;
         tail = (tail + 1) % capacity;
         size++;

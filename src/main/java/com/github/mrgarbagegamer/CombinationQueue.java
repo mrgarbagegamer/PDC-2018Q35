@@ -6,7 +6,8 @@ public class CombinationQueue
 {
     // This queue now holds entire batches of work, not individual combinations.
     // A smaller capacity is fine as it represents larger work units.
-    private final int QUEUE_SIZE = 256; 
+    // OPTIMIZATION: Drastically reduce queue size to lower memory footprint for pre-allocation.
+    private final int QUEUE_SIZE = 16;
     private final MpmcArrayQueue<WorkBatch> queue;
 
     public CombinationQueue() 
@@ -36,5 +37,10 @@ public class CombinationQueue
     public WorkBatch getWorkBatch() 
     {
         return queue.relaxedPoll();
+    }
+
+    public boolean isEmpty() 
+    {
+        return queue.isEmpty();
     }
 }

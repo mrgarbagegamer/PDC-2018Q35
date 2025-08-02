@@ -5,7 +5,7 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class TestClickCombination extends Thread 
+public class TestClickCombination extends Thread
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
     private static final int LOG_EVERY_N_FAILURES = 100_000; // Log every N failures to avoid flooding the logs
@@ -17,15 +17,15 @@ public class TestClickCombination extends Thread
     // Static lookup table initialization with pre-computed masks
     private static volatile long[] CLICK_TO_TRUE_CELL_MASK = null;
     private static volatile long EXPECTED_MASK = 0L;
-    
-    public TestClickCombination(String threadName, CombinationQueue combinationQueue, 
-                               CombinationQueueArray queueArray, Grid puzzleGrid) 
+
+    public TestClickCombination(String threadName, CombinationQueue combinationQueue,
+                               CombinationQueueArray queueArray, Grid puzzleGrid)
     {
         super(threadName);
         this.combinationQueue = combinationQueue;
         this.queueArray = queueArray;
         this.puzzleGrid = puzzleGrid;
-        
+
         // Initialize lookup table once for all threads
         short[] trueCells = puzzleGrid.findTrueCells(Grid.ValueFormat.Index); // Find all true cells in index format
         initializeLookupTable(trueCells);
@@ -42,7 +42,7 @@ public class TestClickCombination extends Thread
                 if (CLICK_TO_TRUE_CELL_MASK == null)
                 {
                     long[] lookup = new long[Grid.NUM_CELLS]; // 109 possible clicks, single long for ≤64 bits
-                    
+
                     for (short clickCell = 0; clickCell < 109; clickCell++) // Generate all possible clicks in index format
                     {
                         for (int i = 0; i < trueCells.length; i++)
@@ -53,10 +53,10 @@ public class TestClickCombination extends Thread
                             }
                         }
                     }
-                    
+
                     // Compute expected mask once - simplified since trueCells.length ≤ 64
                     long expectedMask = (1L << trueCells.length) - 1;
-                    
+
                     // Atomically publish the results
                     EXPECTED_MASK = expectedMask;
                     CLICK_TO_TRUE_CELL_MASK = lookup; // This must be last
@@ -69,26 +69,23 @@ public class TestClickCombination extends Thread
     public void run()
     {
         int failedCount = 0; // Count of failed attempts for logging
-        boolean iSolvedIt = false;
-        CombinationQueue[] queues = queueArray.getAllQueues();
         short[] trueCells = puzzleGrid.findTrueCells();
 
-        // Consider removing the iSolvedIt check here, since the main loop will exit if a solution is found
-        while (!iSolvedIt && !queueArray.solutionFound)
+        while (!queueArray.solutionFound)
         {
             WorkBatch workBatch = getWork();
 
             if (workBatch == null)
             {
-                if (queueArray.solutionFound || (queueArray.generationComplete && allQueuesEmpty(queues)))
+                if (queueArray.solutionFound || (queueArray.generationComplete && allQueuesEmpty()))
                 {
                     break; // Exit if solution found or generation is done and all queues are empty
                 }
-                try 
-                { 
-                    Thread.sleep(1); 
+                try
+                {
+                    Thread.sleep(1);
                 }
-                catch (InterruptedException e) 
+                catch (InterruptedException e)
                 {
                     Thread.currentThread().interrupt();
                     logger.debug("Thread {} interrupted while waiting for work", getName());
@@ -96,7 +93,7 @@ public class TestClickCombination extends Thread
                 }
                 continue; // Retry getting a combination
             }
-            
+
             // OPTIMIZED: Process entire batch with reduced branching
             short[] combinationClicks;
             while ((combinationClicks = workBatch.poll()) != null && !queueArray.solutionFound)
@@ -110,17 +107,17 @@ public class TestClickCombination extends Thread
                         logger.info("Found the solution as the following click combination: {}",
                                    new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
                         queueArray.solutionFound(this.getName(), combinationClicks.clone());
-                        
+
                         // Trigger immediate shutdown of generator pool
                         triggerGeneratorShutdown();
-                        
+
                         // Don't recycle the winning batch
                         return;
                     }
 
                     // reset the grid for the next combination
                     puzzleGrid.initialize();
-                    
+
                     // Increment failed count and log if needed (removed debug check and solution check per feedback)
                     failedCount++;
                     if (failedCount == LOG_EVERY_N_FAILURES)
@@ -179,15 +176,13 @@ public class TestClickCombination extends Thread
         return null; // No work found anywhere
     }
 
-    // TODO: Look at replacing the boolean return type with a workbatch and returning the batch if it finds one
-    private boolean allQueuesEmpty(CombinationQueue[] queues)
+    // FIX: Check queue size without consuming an item.
+    private boolean allQueuesEmpty()
     {
-        for (CombinationQueue q : queues)
+        for (CombinationQueue q : queueArray.getAllQueues())
         {
-            if (q.getWorkBatch() != null)
+            if (!q.isEmpty())
             {
-                // This is not ideal as it consumes an item, but for end-of-work check it's a simple approach.
-                // A better way would be a size() method, but MpmcArrayQueue size is not linearizable.
                 return false;
             }
         }

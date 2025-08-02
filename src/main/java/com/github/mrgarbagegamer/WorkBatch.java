@@ -34,7 +34,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * @param source The source combination array.
      * @return true if the element was added, false if the batch is full.
      */
-    public boolean add(short[] source) 
+    public boolean add(short[] source)
     {
         if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
         {
@@ -57,7 +57,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
             return false;
         }
         final short[] dest = buffer[tail];
-        
+
         // OPTIMIZATION: Removed null check - pre-allocation ensures dest is never null
         // Use native System.arraycopy for optimal performance
         System.arraycopy(prefix, 0, dest, 0, prefixLength);
@@ -72,13 +72,13 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * Remove and return next combination.
      * @return result if there is a valid combination in the array, null if the batch is empty.
      */
-    public short[] poll() 
+    public short[] poll()
     {
         if (remainingCapacity == capacity) // Check remaining capacity instead of size to avoid deoptimizations
         {
             return null;
         }
-        
+
         short[] result = buffer[head];
         head = (head + 1) % capacity;
         remainingCapacity++;
@@ -88,7 +88,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     /**
      * Check if batch is empty.
      */
-    public boolean isEmpty() 
+    public boolean isEmpty()
     {
         return remainingCapacity == capacity;
     }
@@ -96,7 +96,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     /**
      * Get current batch size.
      */
-    public int size() 
+    public int size()
     {
         return capacity - remainingCapacity; // Calculate size based on remaining capacity
     }
@@ -104,7 +104,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     /**
      * "Clears" the batch for reuse, making sure not to null the previous arrays (as this would force add() to create a new array).
      */
-    public void clear() 
+    public void clear()
     {
         head = 0;
         tail = 0;
@@ -115,7 +115,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * MessagePassingQueue.Consumer implementation for JCTools integration.
      */
     @Override
-    public void accept(short[] combination) 
+    public void accept(short[] combination)
     {
         add(combination);
     }
@@ -124,7 +124,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * MessagePassingQueue.Supplier implementation for JCTools integration.
      */
     @Override
-    public short[] get() 
+    public short[] get()
     {
         return poll();
     }
@@ -132,7 +132,7 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     /**
      * Check if batch is full.
      */
-    public boolean isFull() 
+    public boolean isFull()
     {
         return remainingCapacity == 0;
     }

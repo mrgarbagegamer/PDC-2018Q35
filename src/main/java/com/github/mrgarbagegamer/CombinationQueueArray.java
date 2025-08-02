@@ -17,21 +17,29 @@ public class CombinationQueueArray
     public volatile boolean solutionFound = false;
     public volatile boolean generationComplete = false;
 
-    public CombinationQueueArray(int numConsumers, int numGenerators) 
+    public CombinationQueueArray(int numConsumers, int numGenerators)
     {
         this.queues = new CombinationQueue[numConsumers];
         this.generatorsRemaining = new AtomicInteger(numGenerators);
-        
+
         // The total number of batches that can be in-flight is the sum of all queue capacities
         // The pool must be at least this large to guarantee a recycled batch is never discarded
         int totalWorkQueueCapacity = 0;
-        for (int i = 0; i < numConsumers; i++) 
+        for (int i = 0; i < numConsumers; i++)
         {
             queues[i] = new CombinationQueue();
             totalWorkQueueCapacity += queues[i].getCapacity();
         }
         // Set the recycle pool size to match the total work queue capacity
         this.workBatchPool = new MpmcArrayQueue<>(totalWorkQueueCapacity);
+
+        // OPTIMIZATION: Pre-allocate the entire WorkBatch pool to prevent allocation in the hot path.
+        // The BATCH_SIZE must match the one defined in CombinationGeneratorTask.
+        final int BATCH_SIZE = CombinationGeneratorTask.BATCH_SIZE;
+        for (int i = 0; i < totalWorkQueueCapacity; i++)
+        {
+            workBatchPool.relaxedOffer(new WorkBatch(BATCH_SIZE));
+        }
     }
 
     // NEW: Accessors for the WorkBatch pool

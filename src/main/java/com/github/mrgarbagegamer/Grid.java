@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
-public abstract class Grid 
+public abstract class Grid
 {
     public enum ValueFormat
     {
@@ -224,7 +224,7 @@ public abstract class Grid
         throw new IllegalArgumentException("Invalid index: " + index);
     }
 
-    public Grid() 
+    public Grid()
     {
         initialize();
     }
@@ -232,29 +232,29 @@ public abstract class Grid
     abstract void initialize();
 
     // Core bitmask operations
-    protected void setBit(int index) 
+    protected void setBit(int index)
     {
         int longIndex = index / 64;
         int bitPosition = index % 64;
-        if ((gridState[longIndex] & (1L << bitPosition)) == 0) 
+        if ((gridState[longIndex] & (1L << bitPosition)) == 0)
         {
             gridState[longIndex] |= (1L << bitPosition);
             trueCellsCount++;
         }
     }
 
-    protected void clearBit(int index) 
+    protected void clearBit(int index)
     {
         int longIndex = index / 64;
         int bitPosition = index % 64;
-        if ((gridState[longIndex] & (1L << bitPosition)) != 0) 
+        if ((gridState[longIndex] & (1L << bitPosition)) != 0)
         {
             gridState[longIndex] &= ~(1L << bitPosition);
             trueCellsCount--;
         }
     }
 
-    protected boolean getBit(int index) 
+    protected boolean getBit(int index)
     {
         int longIndex = index / 64;
         int bitPosition = index % 64;

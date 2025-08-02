@@ -69,6 +69,7 @@ public class StartYourMonkeys
         int numGeneratorThreads = numThreads;
 
         // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
+        WorkBatch.setNumClicks(numClicks);
         CombinationQueueArray queueArray = new CombinationQueueArray(numThreads, 1);
         short[] trueCells = baseGrid.findTrueCells();
 

@@ -6,55 +6,65 @@ package com.github.mrgarbagegamer;
  */
 public final class ArrayPool 
 {
-    private static int numClicks;
+    private static int numClicks = -1;
     private final short[][] arrays;
     private final int capacity;
 
-    private boolean isPreallocated = false;
+    // OPTIMIZATION: Pre-allocate the entire pool to guarantee non-null returns.
+    // This simplifies the get/put logic and improves performance by avoiding conditional checks.
 
     private int head = 0;
     private int tail = 0;
     private int size = 0;
 
-    public ArrayPool(int capacity) 
+    public ArrayPool(int capacity)
     {
+        if (numClicks <= 0) 
+        {
+            throw new IllegalArgumentException("numClicks must be set before using ArrayPool.");
+        }
+        
         this.capacity = capacity;
-        this.arrays = new short[capacity][numClicks]; // Assume that we initialize numClicks before using this constructor.
+        this.arrays = new short[capacity][numClicks];
     }
 
-    public static void setNumClicks(int numClicks) 
+    public static void setNumClicks(int numClicks)
     {
         ArrayPool.numClicks = numClicks;
     }
 
     /**
-     * Get array of at least the specified size.
-     * Returns null if pool is empty.
+     * Get a recycled array from the pool.
+     * This method now returns a guaranteed non-null, correctly-sized array,
+     * or null if the pool is empty. This is simpler and faster.
      */
-    public short[] get(int minSize) 
+    public short[] get()
     {
-        if (size == 0) return null;
-        
-        short[] array = arrays[head];
-        // TODO: Remove the null check if we can guarantee arrays[head] is never null (which it shouldn't be if size > 0)
-        if (array != null && array.length >= minSize) 
+        if (size == 0)
         {
-            arrays[head] = null;
-            head = (head + 1) % capacity;
-            size--;
-            return array;
+            return null;
         }
-        
-        return null; // No suitable array found
+
+        short[] array = arrays[head];
+        arrays[head] = null; // Help GC
+        head = (head + 1) % capacity;
+        size--;
+        return array;
     }
 
     /**
-     * Return array to pool if there's space.
+     * Return array to the pool.
+     * The null check is removed as we assume valid arrays are returned.
      */
-    public void put(short[] array) 
+    public void put(short[] array)
     {
-        if (array == null || size >= capacity) return; // TODO: Consider removing the null check and assuming arrays are never null
-        
+        if (size >= capacity)
+        {
+            // This should not happen if the pool is sized correctly, but as a safeguard:
+            // Log a warning or handle the error appropriately.
+            return;
+        }
+
         arrays[tail] = array;
         tail = (tail + 1) % capacity;
         size++;

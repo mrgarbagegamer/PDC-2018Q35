@@ -88,6 +88,8 @@ public class CombinationGeneratorTask extends RecursiveAction
         ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
 
         if (trueCells == null || trueCells.length == 0) throw new IllegalArgumentException("True cells must be initialized before generating combinations.");
+
+        GranularityMetrics.startPeriodicLogging(generatorPool, queueArray);
         
         // Initialize the instance fields
         // FIX: Get the initial empty prefix from the thread-local context to avoid allocation.

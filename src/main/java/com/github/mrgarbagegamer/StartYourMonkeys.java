@@ -86,9 +86,6 @@ public class StartYourMonkeys
         ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads);
         CombinationGeneratorTask.setForkJoinPool(generatorPool);
         
-        // Start adaptive granularity metrics logging
-        GranularityMetrics.startPeriodicLogging(generatorPool, queueArray);
-        
         try
         {
             // Invoke root task - no need to keep reference since we use awaitQuiescence

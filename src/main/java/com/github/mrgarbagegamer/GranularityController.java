@@ -2,7 +2,6 @@ package com.github.mrgarbagegamer;
 
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,55 +10,54 @@ public class GranularityController
 {
     private static final Logger logger = LogManager.getLogger(GranularityController.class);
 
-    // Tuned pressure thresholds for observed 300-500 task workload
-    private static final double LOW_PRESSURE_THRESHOLD = 
-        Double.parseDouble(System.getProperty("granularity.pressure.low", "50.0"));
-    private static final double HIGH_PRESSURE_THRESHOLD = 
-        Double.parseDouble(System.getProperty("granularity.pressure.high", "200.0"));
+    public enum PressureLevel { STARVED, NORMAL, SATURATED }
+    
+    // Work queue pressure thresholds based on total capacity percentages
+    // With 8 threads × 16 capacity = 128 total capacity
+    private static int totalCapacity = -1;
+    private static int starvationThreshold = -1;   // 25% of capacity (work starvation)
+    private static int saturationThreshold = -1;  // 75% of capacity (work saturation)
     
     // Bounded constraint checking rates [0.2, 0.6]
-    private static final double HIGH_PRESSURE_CONSTRAINT_RATE = 0.6;  // More strict
-    private static final double LOW_PRESSURE_CONSTRAINT_RATE = 0.2;   // More lenient
+    private static final double SATURATED_PRESSURE_CONSTRAINT_RATE = 0.6;  // More strict (worker saturation)
+    private static final double STARVED_PRESSURE_CONSTRAINT_RATE = 0.2;   // More lenient (workers starvation)
     private static final double NORMAL_CONSTRAINT_RATE = 0.4;         // Balanced
     
-    public enum PressureLevel { LOW, NORMAL, HIGH }
-    
-    // Static pressure monitoring since we assess the same pool
+    // Cached work queue size updated by metrics logger thread
+    private static volatile int cachedWorkQueueSize = 0;
     private static volatile PressureLevel cachedPressure = PressureLevel.NORMAL;
-    private static final AtomicLong lastPressureCheck = new AtomicLong(0);
-    private static final long PRESSURE_CHECK_INTERVAL = 5_000_000; // 5ms in nanoseconds
     
-    public static PressureLevel getCurrentPressure(ForkJoinPool pool) 
+    public static void initializeWithCapacity(int totalCapacity)
     {
-        long now = System.nanoTime();
-        if (now - lastPressureCheck.get() > PRESSURE_CHECK_INTERVAL) 
-        {
-            if (lastPressureCheck.compareAndSet(lastPressureCheck.get(), now)) 
-            {
-                // Only one thread updates the cached pressure
-                cachedPressure = assessQueuePressure(pool);
-            }
-        }
+        GranularityController.totalCapacity = totalCapacity;
+        GranularityController.cachedWorkQueueSize = totalCapacity; // Initialize to full capacity (since queues are pre-filled)
+        GranularityController.starvationThreshold = (int) (totalCapacity * 0.25);   // 25%
+        GranularityController.saturationThreshold = (int) (totalCapacity * 0.75);  // 75%
+        
+        logger.info("Initialized work queue pressure thresholds: STARVED={}% ({}), SATURATED={}% ({}), Total Capacity={}",
+                   25, starvationThreshold, 75, saturationThreshold, totalCapacity);
+    }
+    
+    public static void updateCachedWorkQueueSize(int currentSize)
+    {
+        cachedWorkQueueSize = currentSize;
+        cachedPressure = assessWorkQueuePressure();
+    }
+    
+    public static PressureLevel getCurrentPressure(ForkJoinPool pool)
+    {
         return cachedPressure;
     }
 
-    public static PressureLevel assessQueuePressure(ForkJoinPool pool) 
+    private static PressureLevel assessWorkQueuePressure()
     {
-        if (pool == null) return PressureLevel.NORMAL;
+        if (totalCapacity == -1) return PressureLevel.NORMAL; // Not initialized
         
-        try 
-        {
-            long queuedTasks = pool.getQueuedTaskCount();
-            
-            if (queuedTasks < LOW_PRESSURE_THRESHOLD) return PressureLevel.LOW;
-            if (queuedTasks > HIGH_PRESSURE_THRESHOLD) return PressureLevel.HIGH;
-            return PressureLevel.NORMAL;
-        }
-        catch (Exception e) 
-        {
-            logger.warn("Pressure assessment failed, using NORMAL", e);
-            return PressureLevel.NORMAL;
-        }
+        // STARVED work queue = STARVED pressure (workers starving, give them work)
+        // SATURATED work queue = SATURATED pressure (workers have plenty of work, increase granularity)
+        if (cachedWorkQueueSize < starvationThreshold) return PressureLevel.STARVED;   // <25% = workers starving!
+        if (cachedWorkQueueSize > saturationThreshold) return PressureLevel.SATURATED;   // >75% = workers saturated!
+        return PressureLevel.NORMAL;
     }
     
     // Mathematically verified constraint checking logic
@@ -67,8 +65,8 @@ public class GranularityController
     {
         double baseProbability = switch (pressure) 
         {
-            case HIGH -> HIGH_PRESSURE_CONSTRAINT_RATE;     // 0.6
-            case LOW -> LOW_PRESSURE_CONSTRAINT_RATE;       // 0.2
+            case SATURATED -> SATURATED_PRESSURE_CONSTRAINT_RATE;     // 0.6 (worker saturation, give them valid combinations)
+            case STARVED -> STARVED_PRESSURE_CONSTRAINT_RATE;       // 0.2 (worker starvation, can handle coarse granularity)
             case NORMAL -> NORMAL_CONSTRAINT_RATE;          // 0.4
         };
         
@@ -84,12 +82,13 @@ public class GranularityController
         return shouldCheck;
     }
     
-    public static int getAdaptiveLeafLevel(PressureLevel pressure, int numClicks) 
+    public static int getAdaptiveLeafLevel(PressureLevel pressure, int numClicks)
     {
-        return switch (pressure) 
+        return switch (pressure)
         {
-            case HIGH -> numClicks - 2;  // Expand leaf generation under high pressure
-            case LOW, NORMAL -> numClicks - 1;  // Standard behavior
+            case SATURATED -> numClicks - 1;  // SATURATED pressure = worker saturation, use fine granularity
+            case STARVED -> numClicks - 2;   // STARVED pressure = worker starvation, can handle coarse granularity
+            case NORMAL -> numClicks - 1; // Standard behavior
         };
     }
 }

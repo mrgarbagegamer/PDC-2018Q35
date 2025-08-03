@@ -39,23 +39,33 @@ public class GranularityMetrics
     public static void startPeriodicLogging(ForkJoinPool pool, CombinationQueueArray queueArray)
     {
         monitoredPool = pool;
+        
+        // Initialize GranularityController with queue capacity
+        GranularityController.initializeWithCapacity(queueArray.getTotalCapacity());
+        
+        // More frequent updates (50ms) to keep pressure assessment current
         scheduler.scheduleAtFixedRate(() -> {
             try
             {
                 if (monitoredPool != null && !monitoredPool.isShutdown())
                 {
+                    int currentWorkQueueSize = queueArray.getTotalSize();
+                    
+                    // Update cached work queue size in GranularityController
+                    GranularityController.updateCachedWorkQueueSize(currentWorkQueueSize);
+                    
                     GranularityController.PressureLevel pressure =
                         GranularityController.getCurrentPressure(monitoredPool);
                     
-                    logger.debug("Pressure: {} | Task Queue: {} | Work Queues: {} | Constraint Rate: {}%",
-                                pressure, monitoredPool.getQueuedTaskCount(), queueArray.getTotalSize(), getConstraintCheckRate());
+                    logger.debug("Pressure: {} | Generator Queue: {} combos | Work Queues: {} batches | Constraint Rate: {}%",
+                                pressure, monitoredPool.getQueuedTaskCount(), currentWorkQueueSize, getConstraintCheckRate());
                 }
             }
             catch (Exception e)
             {
                 // Silently ignore to avoid disrupting the main computation
             }
-        }, 100, 100, TimeUnit.MILLISECONDS);
+        }, 50, 50, TimeUnit.MILLISECONDS);
     }
     
     public static void stopPeriodicLogging()

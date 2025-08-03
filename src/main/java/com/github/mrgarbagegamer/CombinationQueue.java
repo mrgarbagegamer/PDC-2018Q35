@@ -16,7 +16,7 @@ public class CombinationQueue
     }
 
     /**
-     * Returns the number of items in the queue.
+     * Returns (an estimate of) the number of items in the queue.
      * 
      * Warning: This method is O(n) and should not be used in the hot path.
      * Use with caution.

@@ -43,7 +43,7 @@ public class CombinationQueueArray
     }
 
     /**
-     * Returns the total number of items across all queues.
+     * Returns (an estimate of) the total number of items across all queues.
      * This is O(n * numQueues) and should be used cautiously.
      * @return
      */
@@ -56,6 +56,17 @@ public class CombinationQueueArray
         }
 
         return total;
+    }
+
+    /**
+     * Returns the total capacity of all producer -> consumer queues,
+     * which is the same as the consumer -> producer queue capacity.
+     * This is O(1) since we track it.
+     * @return
+     */
+    public int getTotalCapacity()
+    {
+        return workBatchPool.capacity();
     }
 
     // NEW: Accessors for the WorkBatch pool

@@ -15,6 +15,17 @@ public class CombinationQueue
         queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     }
 
+    /**
+     * Returns the number of items in the queue.
+     * 
+     * Warning: This method is O(n) and should not be used in the hot path.
+     * Use with caution.
+     */
+    public int getSize()
+    {
+        return queue.size();
+    }
+
     public int getCapacity()
     {
         return QUEUE_SIZE;

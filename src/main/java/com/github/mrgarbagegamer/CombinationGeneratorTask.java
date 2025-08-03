@@ -127,14 +127,23 @@ public class CombinationGeneratorTask extends RecursiveAction
         
         try
         {
-            if (prefixLength < numClicks - 1)
+            // ADAPTIVE: Use queue pressure-based leaf level determination
+            GranularityController.PressureLevel pressure = GranularityController.getCurrentPressure(generatorPool);
+            int adaptiveLeafLevel = GranularityController.getAdaptiveLeafLevel(pressure, numClicks);
+            
+            if (prefixLength < adaptiveLeafLevel)
             {
                 // Handle recursive subtask creation for intermediate levels
                 computeSubtasks(ctx);
             }
+            else if (adaptiveLeafLevel == numClicks - 2)
+            {
+                // ADAPTIVE: JIT-optimized expanded leaf generation for high pressure
+                computeExpandedLeafCombinations(ctx);
+            }
             else
             {
-                // Handle direct combination generation for leaf level
+                // Handle standard leaf combination generation
                 computeLeafCombinations(ctx);
             }
         }
@@ -147,11 +156,15 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private void computeSubtasks(GeneratorContext ctx)
     {
-        // Early pruning check (keep this for performance)
-        if (prefixLength >= 2 && !canPotentiallySatisfyConstraints()) 
+        // ADAPTIVE: Queue pressure-aware constraint checking
+        GranularityController.PressureLevel pressure = GranularityController.getCurrentPressure(generatorPool);
+        if (GranularityController.shouldPerformConstraintCheck(pressure, prefixLength, numClicks)
+            && !canPotentiallySatisfyConstraints())
         {
             return; // Early pruning - skip this entire branch
         }
+
+        // Periodic metrics logging is now handled by scheduled task (no hot path overhead)
 
         // Calculate subtask range
         int start = (prefixLength == 0) ? 0 : (prefix[prefixLength - 1] + 1);
@@ -265,7 +278,39 @@ public class CombinationGeneratorTask extends RecursiveAction
         }
     }
 
-    private final boolean flushBatchFast(WorkBatch batch) 
+    /**
+     * ADAPTIVE: JIT-optimized expanded leaf generation for high pressure scenarios.
+     * Handles numClicks-2 level to reduce task creation when queues are saturated.
+     * Separate method ensures optimal JIT inlining.
+     */
+    private final void computeExpandedLeafCombinations(GeneratorContext ctx)
+    {
+        final int secondLastStart = prefix[prefixLength - 1] + 1;
+        final int secondLastMax = Grid.NUM_CELLS - 1; // Leave room for final click
+        final int pLen = prefixLength;
+        
+        WorkBatch batch = ctx.getOrCreateBatch();
+        
+        // Nested loop for last two clicks without parity optimization
+        // (parity optimization is less effective at this expanded level)
+        for (int secondLast = secondLastStart; secondLast < secondLastMax; secondLast++)
+        {
+            for (int last = secondLast + 1; last < Grid.NUM_CELLS; last++)
+            {
+                if (!batch.add(prefix, pLen, (short) secondLast, (short) last))
+                {
+                    if (flushBatchFast(batch))
+                    {
+                        ctx.resetBatch();
+                        batch = ctx.currentBatch;
+                        batch.add(prefix, pLen, (short) secondLast, (short) last);
+                    }
+                }
+            }
+        }
+    }
+
+    private final boolean flushBatchFast(WorkBatch batch)
     {   
         CombinationQueue[] queues = queueArray.getAllQueues();
         int startIdx = ThreadLocalRandom.current().nextInt(queues.length);

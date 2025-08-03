@@ -118,13 +118,13 @@ public class TestClickCombination extends Thread
                     // reset the grid for the next combination
                     puzzleGrid.initialize();
 
-                    // Increment failed count and log if needed (removed debug check and solution check per feedback)
-                    failedCount++;
-                    if (failedCount == LOG_EVERY_N_FAILURES)
-                    {
-                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
-                        failedCount = 0; // Reset the count after logging
-                    }
+                    // // Increment failed count and log if needed (removed debug check and solution check per feedback)
+                    // failedCount++;
+                    // if (failedCount == LOG_EVERY_N_FAILURES)
+                    // {
+                    //     logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
+                    //     failedCount = 0; // Reset the count after logging
+                    // }
                 }
                 // Note: Grid initialization not needed for invalid combinations since grid wasn't modified
             }

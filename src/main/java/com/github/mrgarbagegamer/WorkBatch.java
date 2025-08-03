@@ -69,6 +69,28 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     }
 
     /**
+     * OPTIMIZED: Adds a combination by assembling it from a prefix and two final elements.
+     * Used for expanded leaf generation in high pressure scenarios.
+     */
+    public final boolean add(short[] prefix, int prefixLength, short secondLastElement, short lastElement)
+    {
+        if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
+        {
+            return false;
+        }
+        final short[] dest = buffer[tail];
+
+        // Use native System.arraycopy for optimal performance
+        System.arraycopy(prefix, 0, dest, 0, prefixLength);
+        dest[prefixLength] = secondLastElement;
+        dest[prefixLength + 1] = lastElement;
+
+        tail = (tail + 1) % capacity;
+        remainingCapacity--;
+        return true;
+    }
+
+    /**
      * Remove and return next combination.
      * @return result if there is a valid combination in the array, null if the batch is empty.
      */

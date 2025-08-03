@@ -86,16 +86,22 @@ public class StartYourMonkeys
         ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads);
         CombinationGeneratorTask.setForkJoinPool(generatorPool);
         
-        try 
+        // Start adaptive granularity metrics logging
+        GranularityMetrics.startPeriodicLogging(generatorPool, queueArray);
+        
+        try
         {
             // Invoke root task - no need to keep reference since we use awaitQuiescence
             generatorPool.invoke(new CombinationGeneratorTask(
                 numClicks, queueArray, trueCells, finalFirstTrueAdjacent));
-        } 
-        finally 
+        }
+        finally
         {
+            // Stop metrics logging
+            GranularityMetrics.stopPeriodicLogging();
+            
             // Flush any remaining batches only if no solution found
-            if (!queueArray.solutionFound) 
+            if (!queueArray.solutionFound)
             {
                 CombinationGeneratorTask.flushAllPendingBatches(queueArray, generatorPool);
             }
@@ -104,12 +110,12 @@ public class StartYourMonkeys
             queueArray.generationComplete = true;
             
             // Wait for worker threads to finish
-            for (TestClickCombination worker : monkeys) 
+            for (TestClickCombination worker : monkeys)
             {
-                try 
+                try
                 {
                     worker.join();
-                } catch (InterruptedException e) 
+                } catch (InterruptedException e)
                 {
                     Thread.currentThread().interrupt();
                     break;

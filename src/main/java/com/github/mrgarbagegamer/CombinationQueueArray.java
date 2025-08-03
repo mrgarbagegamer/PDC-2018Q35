@@ -42,6 +42,22 @@ public class CombinationQueueArray
         }
     }
 
+    /**
+     * Returns the total number of items across all queues.
+     * This is O(n * numQueues) and should be used cautiously.
+     * @return
+     */
+    public int getTotalSize()
+    {
+        int total = 0;
+        for (CombinationQueue queue : queues)
+        {
+            total += queue.getSize();
+        }
+
+        return total;
+    }
+
     // NEW: Accessors for the WorkBatch pool
     public MpmcArrayQueue<WorkBatch> getWorkBatchPool()
     {

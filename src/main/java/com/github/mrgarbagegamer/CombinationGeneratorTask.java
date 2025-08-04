@@ -63,9 +63,6 @@ public class CombinationGeneratorTask extends RecursiveAction
 
     private static long targetMask; // We can cache the target mask for the current task to avoid recomputing it in constraint checks
     
-    // OPTIMIZATION: Cache the first true cell adjacency mask per task
-    private static long[] cachedFirstTrueMask = null;
-
     private static volatile ForkJoinPool generatorPool;
 
     public static void setForkJoinPool(ForkJoinPool pool)
@@ -126,45 +123,24 @@ public class CombinationGeneratorTask extends RecursiveAction
         ensureTrueCellMasks(trueCells);
 
         // OPTIMIZATION: Pre-compute and cache the first true cell mask once per puzzle
-        final int firstTrue = trueCells[0];
-        final int cacheIdx = firstTrue & 15;
-        cachedFirstTrueMask = (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrue)
-                            ? ADJACENCY_MASK_CACHE_FAST[cacheIdx]
-                            : computeAdjacencyMaskFast(firstTrue);
+        firstTrueCell = trueCells[0];
+        computeAdjacencyMaskFast();
     }
 
-    // TODO: Check if you need a cache in the first place, since it seems like we only need the value for the first true cell
-    private static final long[][] ADJACENCY_MASK_CACHE_FAST = new long[16][];
-    private static final short[] CACHED_TRUE_CELLS_FAST = new short[16];
+    private static long[] FIRST_TRUE_ADJACENTS;
+    private static short firstTrueCell;
     
-    private static long[] computeAdjacencyMaskFast(int firstTrueCell) 
+    private static void computeAdjacencyMaskFast() 
     {
-        int cacheIdx = firstTrueCell & 15;
+        short[] adjacents = Grid.findAdjacents(firstTrueCell);
+        long[] mask = new long[2];
         
-        // Simple double-check without heavy synchronization
-        if (CACHED_TRUE_CELLS_FAST[cacheIdx] == firstTrueCell) 
+        for (short adj : adjacents) 
         {
-            return ADJACENCY_MASK_CACHE_FAST[cacheIdx];
+            mask[adj >>> 6] |= (1L << (adj & 63));
         }
         
-        synchronized (CombinationGeneratorTask.class) 
-        {
-            if (CACHED_TRUE_CELLS_FAST[cacheIdx] != firstTrueCell) 
-            {
-                short[] adjacents = Grid.findAdjacents((short) firstTrueCell);
-                long[] mask = new long[2];
-                
-                for (short adj : adjacents) 
-                {
-                    mask[adj >>> 6] |= (1L << (adj & 63));
-                }
-                
-                ADJACENCY_MASK_CACHE_FAST[cacheIdx] = mask;
-                CACHED_TRUE_CELLS_FAST[cacheIdx] = (short) firstTrueCell;
-            }
-        }
-        
-        return ADJACENCY_MASK_CACHE_FAST[cacheIdx];
+        FIRST_TRUE_ADJACENTS = mask;
     }
 
     public CombinationGeneratorTask() {}
@@ -243,7 +219,7 @@ public class CombinationGeneratorTask extends RecursiveAction
         // ULTRA-OPTIMIZED: Pre-compute all loop-invariant values and cache array references
         final int start = prefix[prefixLength - 1] + 1;
         final int pLen = prefixLength;
-        final long[] mask = cachedFirstTrueMask;
+        final long[] mask = FIRST_TRUE_ADJACENTS; // Use the pre-computed mask for the first true cell
         final long mask0 = mask[0]; // Cache array elements to avoid repeated dereferences
         final long mask1 = mask[1];
 

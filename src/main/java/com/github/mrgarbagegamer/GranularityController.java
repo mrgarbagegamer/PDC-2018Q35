@@ -63,6 +63,11 @@ public class GranularityController
     // Mathematically verified constraint checking logic
     public static boolean shouldPerformConstraintCheck(PressureLevel pressure, int prefixLength, int numClicks) 
     {
+        if (prefixLength == 0)
+        {
+            return false; // No prefix, no constraints
+        }
+        
         double baseProbability = switch (pressure) 
         {
             case SATURATED -> SATURATED_PRESSURE_CONSTRAINT_RATE;     // 0.6 (worker saturation, give them valid combinations)

@@ -34,7 +34,7 @@ public abstract class Grid
     // Legacy support for existing code that expects adjacency arrays
     private static final short[][] adjacencyArray = new short[NUM_CELLS][]; // Index format
     private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_CELLS][NUM_CELLS]; // Index format
-    private static final short[] PACKED_TO_INDEX_CACHE = new short[NUM_ROWS * 100 + EVEN_NUM_COLS]; // Cache for packed to index conversion
+    private static final short[] PACKED_TO_INDEX_CACHE = new short[(NUM_ROWS - 1) * 100 + EVEN_NUM_COLS]; // Cache for packed to index conversion
 
     // We don't necessarily need to worry too much about how optimized this block
     // is, since it's only run once at startup.

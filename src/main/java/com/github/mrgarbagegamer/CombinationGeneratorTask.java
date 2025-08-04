@@ -7,7 +7,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class CombinationGeneratorTask extends RecursiveAction
 {
     public static final int BATCH_SIZE = 8000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach the FLUSH_THRESHOLD, but will always be flushed when they reach this size.
-    private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead.
+    // private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead. // TODO: Consider re-adding this if needed.
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
 
     // REPLACE: Multiple ThreadLocals with single context

@@ -138,14 +138,16 @@ public class CombinationGeneratorTask extends RecursiveAction
                 // Handle recursive subtask creation for intermediate levels
                 computeSubtasks(ctx);
             }
-            else if (adaptiveLeafLevel == numClicks - 2)
+            else if (adaptiveLeafLevel == numClicks - 2 && prefixLength == numClicks - 2)
             {
                 // ADAPTIVE: JIT-optimized expanded leaf generation for high pressure
+                // CRITICAL: Only call when prefixLength matches exactly to prevent buffer overflow
                 computeExpandedLeafCombinations(ctx);
             }
             else
             {
                 // Handle standard leaf combination generation
+                // This includes prefixLength == numClicks - 1 when adaptiveLeafLevel == numClicks - 2
                 computeLeafCombinations(ctx);
             }
         }

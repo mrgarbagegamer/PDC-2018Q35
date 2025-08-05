@@ -252,8 +252,7 @@ public class CombinationGeneratorTask extends RecursiveAction
 
         // OPTIMIZED: Compute prefix parity with cached mask values
         // TODO: Consider tracking prefix parity per task and passing down the values to avoid recomputing and to condense this method
-        // TODO: Consider using a boolean to track parity instead of an int
-        int prefixParity = 0;
+        boolean prefixParity = false; // Track parity of the prefix
         for (int j = 0; j < pLen; j++)
         {
             final int c = prefix[j];
@@ -261,12 +260,9 @@ public class CombinationGeneratorTask extends RecursiveAction
             final int bitPos = c & 63;
             if ((maskValue & (1L << bitPos)) != 0)
             {
-                prefixParity ^= 1;
+                prefixParity ^= true; // Toggle parity (XOR with true is the same as toggling)
             }
         }
-
-        // OPTIMIZED: Pre-compute parity condition to avoid repeated calculation
-        final boolean needsOddParity = (prefixParity == 1);
 
         // TODO: Consider replacing the parity check with the constraints check again and/or skipping if the prefix is known to satisfy constraints
 
@@ -278,7 +274,7 @@ public class CombinationGeneratorTask extends RecursiveAction
             final int bitPos = i & 63;
             final boolean iAdj = (maskValue & (1L << bitPos)) != 0;
             
-            if (iAdj == needsOddParity)
+            if (iAdj == prefixParity)
             {
                 continue; // Skip if parity condition not met
             }

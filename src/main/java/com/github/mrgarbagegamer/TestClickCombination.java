@@ -5,6 +5,29 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * TestClickCombination - [Worker Purpose - e.g., "ForkJoin recursive combination generator"]
+ * 
+ * <p>[High-level description of what this worker does in the algorithm.
+ * Explain its role in the concurrent processing pipeline.]</p>
+ * 
+ * <h2>Execution Model</h2>
+ * <p>[How this task executes - recursive subdivision, work-stealing, etc.
+ * Include task granularity and splitting criteria.]</p>
+ * 
+ * <h2>Resource Management</h2>
+ * <p>[How resources are acquired, used, and cleaned up. Pool usage patterns.]</p>
+ * 
+ * <h2>Performance Critical Paths</h2>
+ * <p>[Identify hot paths and optimization focus areas. JIT considerations.]</p>
+ * 
+ * <h3>0/15 - 0% of documentation completed</h3>
+ * 
+ * @algorithm [Detailed algorithm description with complexity analysis]
+ * @threading [Concurrency model and synchronization approach]
+ * @performance [Performance characteristics and bottleneck analysis]
+ * @see [Related worker classes and coordination mechanisms]
+ */
 public class TestClickCombination extends Thread
 {
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);

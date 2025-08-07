@@ -4,6 +4,29 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * [Class Name] - [Worker Purpose - e.g., "ForkJoin recursive combination generator"]
+ * 
+ * <p>[High-level description of what this worker does in the algorithm.
+ * Explain its role in the concurrent processing pipeline.]</p>
+ * 
+ * <h2>Execution Model</h2>
+ * <p>[How this task executes - recursive subdivision, work-stealing, etc.
+ * Include task granularity and splitting criteria.]</p>
+ * 
+ * <h2>Resource Management</h2>
+ * <p>[How resources are acquired, used, and cleaned up. Pool usage patterns.]</p>
+ * 
+ * <h2>Performance Critical Paths</h2>
+ * <p>[Identify hot paths and optimization focus areas. JIT considerations.]</p>
+ * 
+ * <h3>0/37 - 0% of documentation completed (excluding GeneratorContext)</h3>
+ * 
+ * @algorithm [Detailed algorithm description with complexity analysis]
+ * @threading [Concurrency model and synchronization approach]
+ * @performance [Performance characteristics and bottleneck analysis]
+ * @see [Related worker classes and coordination mechanisms]
+ */
 public class CombinationGeneratorTask extends RecursiveAction
 {
     public static final int BATCH_SIZE = 8000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach the FLUSH_THRESHOLD, but will always be flushed when they reach this size.
@@ -11,6 +34,31 @@ public class CombinationGeneratorTask extends RecursiveAction
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
 
     // REPLACE: Multiple ThreadLocals with single context
+    /**
+     * GeneratorContext - [Performance Purpose - e.g., "High-performance memory pool"]
+     * 
+     * <h1>P0 - Core Architecture</h1>
+     * 
+     * <p>[Detailed description of the performance problem this class solves.
+     * Include before/after metrics where applicable.]</p>
+     * 
+     * <h2>Optimization Strategy</h2>
+     * <p>[Specific optimization techniques used - pooling, caching, lock-free, etc.
+     * Explain trade-offs made for performance gains.]</p>
+     * 
+     * <h2>Usage Patterns</h2>
+     * <p>[How and when to use this utility. Common usage patterns and anti-patterns.]</p>
+     * 
+     * <h2>Memory Management</h2>
+     * <p>[Memory allocation patterns, GC implications, sizing considerations.]</p>
+     * 
+     * <h3>0/6 - 0% of documentation completed</h3>
+     * 
+     * @performance [Specific performance characteristics and measurements]
+     * @memory [Memory usage patterns and optimizations]
+     * @threading [Thread safety model]
+     * @since [When introduced and why]
+     */
     private static final ThreadLocal<GeneratorContext> context =
         ThreadLocal.withInitial(GeneratorContext::new);
 

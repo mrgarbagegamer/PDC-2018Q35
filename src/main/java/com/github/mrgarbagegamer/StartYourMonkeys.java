@@ -5,6 +5,32 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+/**
+ * StartYourMonkeys - [Primary Purpose in Algorithm]
+ * 
+ * <p>[Detailed description of role in the overall puzzle-solving architecture.
+ * Explain the "what" and "why" - what problem this class solves and why this 
+ * approach was chosen.]</p>
+ * 
+ * <h2>Architecture Role</h2>
+ * <p>[How this class fits into the overall system. What classes depend on it,
+ * what it depends on, and the data flow.]</p>
+ * 
+ * <h2>Performance Characteristics</h2>
+ * <p>[Key performance properties, bottlenecks, and optimization strategies.
+ * Include complexity analysis for critical methods.]</p>
+ * 
+ * <h2>Thread Safety</h2>
+ * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
+ * 
+ * <h3>0/7 - 0% of documentation completed</h3>
+ * 
+ * @performance [Overall performance characteristics]
+ * @threading [Thread safety guarantees]  
+ * @algorithm [High-level algorithm description]
+ * @since [Version when introduced/major changes]
+ * @see [Related classes in the architecture]
+ */
 public class StartYourMonkeys 
 {
     // Add a logger at the top of the class

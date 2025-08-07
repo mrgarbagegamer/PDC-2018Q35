@@ -4,6 +4,29 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jctools.queues.MpmcArrayQueue;
 
+/**
+ * CombinationQueueArray - [Performance Purpose - e.g., "High-performance memory pool"]
+ * 
+ * <p>[Detailed description of the performance problem this class solves.
+ * Include before/after metrics where applicable.]</p>
+ * 
+ * <h2>Optimization Strategy</h2>
+ * <p>[Specific optimization techniques used - pooling, caching, lock-free, etc.
+ * Explain trade-offs made for performance gains.]</p>
+ * 
+ * <h2>Usage Patterns</h2>
+ * <p>[How and when to use this utility. Common usage patterns and anti-patterns.]</p>
+ * 
+ * <h2>Memory Management</h2>
+ * <p>[Memory allocation patterns, GC implications, sizing considerations.]</p>
+ * 
+ * <h3>0/16 - 0% of documentation completed</h3>
+ * 
+ * @performance [Specific performance characteristics and measurements]
+ * @memory [Memory usage patterns and optimizations]
+ * @threading [Thread safety model]
+ * @since [When introduced and why]
+ */
 public class CombinationQueueArray 
 {
     private final CombinationQueue[] queues;

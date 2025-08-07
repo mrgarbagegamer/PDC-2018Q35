@@ -5,6 +5,23 @@ import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
 
 @AsynchronouslyFormattable
+/**
+ * CombinationMessage - [Configuration Purpose - e.g., "Q35 puzzle initial state"]
+ * 
+ * <p>[What this configuration represents and why it exists as a separate class.]</p>
+ * 
+ * <h2>Configuration Details</h2>
+ * <p>[Specific configuration values and their meaning in the domain context.]</p>
+ * 
+ * <h2>Initialization Strategy</h2>
+ * <p>[How values are computed/determined. Pre-computation rationale.]</p>
+ * 
+ * <h3>0/11 - 0% of documentation completed</h3>
+ * 
+ * @algorithm [If complex initialization logic is involved]
+ * @since [When this configuration was introduced]
+ * @see [Related configuration classes]
+ */
 public class CombinationMessage implements Message, StringBuilderFormattable 
 {
     private short[] list;

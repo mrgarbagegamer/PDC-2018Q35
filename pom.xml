@@ -25,10 +25,9 @@
         <type>pom</type>
       </dependency>
     </dependencies>
-</dependencyManagement>
+  </dependencyManagement>
 
   <dependencies>
-
     <dependency>
       <groupId>it.unimi.dsi</groupId>
       <artifactId>fastutil</artifactId>
@@ -92,6 +91,62 @@
               <includeScope>runtime</includeScope>
             </configuration>
           </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.11.2</version>
+        <configuration>
+            <source>24</source>
+            <target>24</target>
+            <encoding>UTF-8</encoding>
+            <doclint>none</doclint> <!-- Disable strict checking for custom tags -->
+            <additionalOptions>-Xdoclint:none</additionalOptions>
+            
+            <!-- Custom tags for performance documentation -->
+            <tags>
+                <tag>
+                    <name>performance</name>
+                    <placement>a</placement>
+                    <head>Performance Characteristics:</head>
+                </tag>
+                <tag>
+                    <name>threading</name>
+                    <placement>a</placement>
+                    <head>Threading Model:</head>
+                </tag>
+                <tag>
+                    <name>algorithm</name>
+                    <placement>a</placement>
+                    <head>Algorithm Details:</head>
+                </tag>
+                <tag>
+                    <name>optimization</name>
+                    <placement>a</placement>
+                    <head>Optimization Strategy:</head>
+                </tag>
+                <tag>
+                    <name>memory</name>
+                    <placement>a</placement>
+                    <head>Memory Management:</head>
+                </tag>
+            </tags>
+            
+            <!-- Include private methods for internal documentation -->
+            <show>private</show>
+            <nohelp>true</nohelp>
+            <windowTitle>PDC-2018Q35 Lights Out Solver - Internal Documentation</windowTitle>
+            <doctitle>PDC-2018Q35 Lights Out Puzzle Solver</doctitle>
+            <bottom>Performance-optimized brute-force solver for hexagonal grid Lights Out puzzles</bottom>
+        </configuration>
+        <executions>
+            <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                    <goal>jar</goal>
+                </goals>
+            </execution>
         </executions>
       </plugin>
     </plugins>

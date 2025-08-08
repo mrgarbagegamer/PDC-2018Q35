@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * <h2>Thread Safety</h2>
  * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
  * 
- * <h3>5/50 - 10% of documentation completed</h3>
+ * <h3>6/50 - 12% of documentation completed</h3>
  * 
  * @performance [Overall performance characteristics]
  * @threading [Thread safety guarantees]
@@ -96,7 +96,83 @@ public abstract class Grid
         }
     }
 
-    // Computes the adjacent cells for a given cell in the grid, internally requiring the cell to be in packed int format.
+    /**
+     * Determines the hexagonally adjacent cells for a cell in the grid. This overload allows the user
+     * to specify the input and output formats, providing flexibility in how the static block for this
+     * class is built.
+     * 
+     * <p>
+     * Unlike a traditional grid, a cell in a hexagonal grid has up to 6 adjacent cells. The cells
+     * adjacent to a given cell aren't just based on the row and column, but also on the row's parity
+     * (even or odd), making calculations much more complex than a simple rectangular grid. This problem
+     * is exacerbated by the fact that the Grid is represented in a flattened, bitmask format, doing
+     * away with the concept of rows and columns entirely for memory efficiency. Since
+     * <code>click</code> operations affect the adjacent cells, we need some way to determine which
+     * cells are adjacent to a given cell. This method provides that functionality.
+     * </p>
+     * 
+     * <h3>Algorithm Details</h3>
+     * For a given cell n (in packed int format) in an even row, the adjacent cells include:
+     * <ul>
+     * <li>n - 101 (row - 1, col - 1)</li>
+     * <li>n - 100 (row - 1, col)</li>
+     * <li>n - 1 (row, col - 1)</li>
+     * <li>n + 1 (row, col + 1)</li>
+     * <li>n + 99 (row + 1, col - 1)</li>
+     * <li>n + 100 (row + 1, col)</li>
+     * </ul>
+     * 
+     * For a cell in an odd row, the adjacent cells include:
+     * <ul>
+     * <li>n - 100 (row - 1, col)</li>
+     * <li>n - 99 (row - 1, col + 1)</li>
+     * <li>n - 1 (row, col - 1)</li>
+     * <li>n + 1 (row, col + 1)</li>
+     * <li>n + 100 (row + 1, col)</li>
+     * <li>n + 101 (row + 1, col + 1)</li>
+     * </ul>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Internal computations are performed in <code>PackedInt</code> format for efficiency, as it allows
+     * for straightforward arithmetic operations to determine adjacency. The method has to convert
+     * between formats as needed, which adds some overhead, but this is offset by our use of the method
+     * in the static block to pre-compute an {@link #adjacencyArray adjacency table}. Future
+     * calls to find adjacents can then use this pre-computed table for O(1) lookups. 
+     * </p>
+     * <p>
+     * Since cells in different grid positions can have a different number of valid adjacent cells
+     * (due to edges and corners), we use a dynamic list (<code>ShortList</code>) to store the results,
+     * letting the calling method handle conversion to a fixed-size array if needed. Fastutil's
+     * primitive collections are used to avoid boxing overhead and allow for efficient storage
+     * and retrieval of short values.
+     * </p>
+     * 
+     * @param cell         A short representing the cell in the grid, expected to be in the same format
+     *                     as inputFormat.
+     * @param inputFormat  The ValueFormat of the input cell, which can either be Index or PackedInt.
+     * @param outputFormat The ValueFormat of the output cell, which can either be Index or PackedInt.
+     * @return affectedPieces A ShortList of adjacent cells in the specified output format, containing
+     *         up to 6 items.
+     * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
+     *                                  represent a single cell in that format.
+     * @since 2025.05.15 - Static Adjacency Computations
+     * @performance If outputFormat is <code>PackedInt</code>, O(1) input conversion (if necessary) + 6
+     *              * O(1) adjacency computation + O(6) output filtering = O(1) complexity.
+     * @performance If outputFormat is <code>Index</code>, O(1) input conversion (if necessary) + 6 *
+     *              O(1) adjacency computation + O(6) output filtering + O(n) conversion to index format
+     *              (where n is fixed as 6 or less) = O(1) complexity.
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *            or with proper synchronization.
+     * @memory We use a <code>ShortList</code> to store the affected pieces, avoiding the boxing
+     *         required for <code>ArrayList</code>s and allowing for easy conversion to a properly-sized
+     *         short array.
+     * @optimization Using a <code>ShortList</code> avoids the need for counting the number of valid
+     *               adjacent cells before initializing a presized array and avoids the boxing overhead
+     *               associated with <code>ArrayList</code>s.
+     * @see #findAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     * @see ShortList
+     */
     public static ShortList computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
     {
         ShortList affectedPieces = new ShortArrayList(6);
@@ -269,7 +345,7 @@ public abstract class Grid
      * used in any method of the codebase.
      * </p>
      * 
-     * <h2>Performance Considerations</h2>
+     * <h3>Performance Considerations</h3>
      * <p>
      * For performance reasons, this method does not perform bounds checking on the index. It is the
      * caller's responsibility to ensure that the index is within the valid range (0-108).
@@ -288,9 +364,8 @@ public abstract class Grid
      * @performance O(1) lookup time in the gridState array + O(1) bitwise operation to set the bit =
      *              O(1) complexity.
      * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
-     * @see {@link #getBit(int index)} - Method to get a bit from the grid state, the "getter".
-     * @see {@link #clearBit(int index)} - Method to clear a bit in the grid state, the opposite of this
-     *      method.
+     * @see #getBit(int index)
+     * @see #clearBit(int index)
      */
     protected void setBit(int index) {
         int longIndex = index / 64;
@@ -311,7 +386,7 @@ public abstract class Grid
      * used in any method of the codebase.
      * </p>
      * 
-     * <h2>Performance Considerations</h2>
+     * <h3>Performance Considerations</h3>
      * <p>
      * For performance reasons, this method does not perform bounds checking on the index. It is the
      * caller's responsibility to ensure that the index is within the valid range (0-108).
@@ -325,9 +400,8 @@ public abstract class Grid
      * @performance O(1) lookup time in the gridState array + O(1) bitwise operation to clear the bit =
      *              O(1) complexity.
      * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
-     * @see {@link #getBit(int index)} - Method to get a bit from the grid state, the "getter".
-     * @see {@link #setBit(int index)} - Method to set a bit in the grid state, the opposite of this
-     *      method.
+     * @see #getBit(int index)
+     * @see #setBit(int index)
      **/
     protected void clearBit(int index)
     {
@@ -351,7 +425,7 @@ public abstract class Grid
      * grid state.}
      * </p>
      * 
-     * <h2>Performance Considerations</h2>
+     * <h3>Performance Considerations</h3>
      * <p>
      * For performance reasons, this method does not perform bounds checking on the index. It is the
      * caller's responsibility to ensure that the index is within the valid range (0-108).
@@ -365,8 +439,8 @@ public abstract class Grid
      *            or with proper synchronization.
      * @performance O(1) lookup time for the proper <code>long</code> in the gridState array.
      * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
-     * @see {@link #setBit(int index)} - Method to set a bit in the grid state, the "setter".
-     * @see {@link #clearBit(int index)} - Method to clear a bit in the grid state, the "clearer".
+     * @see #setBit(int index)
+     * @see #clearBit(int index)
      */
     protected boolean getBit(int index) {
         int longIndex = index / 64;
@@ -576,12 +650,9 @@ public abstract class Grid
      * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
      *               Declared as final to encourage JIT inlining. Assumes the cell is in
      *               <code>Index</code> format (0-108) to avoid format checks.
-     * @see {@link #click(short cell, ValueFormat format)} - Method overload for different formats.
-     * @see {@link #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)} -
-     *      Computes the adjacent cells for a given cell, overloaded for different input and output
-     *      formats. Used internally to generate the masks used in this method.
-     * @see {@link #areAdjacent(short cellA, short cellB, ValueFormat format)} - Checks if two cells are
-     *      adjacent in the grid.
+     * @see #click(short cell, ValueFormat format)
+     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     * @see #areAdjacent(short cellA, short cellB, ValueFormat format)
      * @deprecated As of 2025.07.28, replaced by {@link #click(short[] cells)} for bulk operations on
      *             combinations in {@link TestClickCombination monkeys}.
      */
@@ -674,11 +745,8 @@ public abstract class Grid
      * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
      *               Declared as final to encourage JIT inlining. Assumes the cells are in Index format
      *               and the array is non-null to avoid format checks.
-     * @see {@link #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)} -
-     *      Computes the adjacent cells for a given cell, overloaded for different input and output
-     *      formats and used internally to generate the masks used in this method.
-     * @see {@link #areAdjacent(short cellA, short cellB, ValueFormat format)} - Checks if two cells are
-     *      adjacent in the grid.
+     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     * @see #areAdjacent(short cellA, short cellB, ValueFormat format)
      */
     public final void click(short[] cells) {
         for (short cell : cells) {

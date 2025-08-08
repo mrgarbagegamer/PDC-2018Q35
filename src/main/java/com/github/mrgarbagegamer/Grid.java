@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * <h2>Thread Safety</h2>
  * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
  * 
- * <h3>6/50 - 12% of documentation completed</h3>
+ * <h3>9/50 - 18% of documentation completed</h3>
  * 
  * @performance [Overall performance characteristics]
  * @threading [Thread safety guarantees]
@@ -111,8 +111,8 @@ public abstract class Grid
      * cells are adjacent to a given cell. This method provides that functionality.
      * </p>
      * 
-     * <h3>Algorithm Details</h3>
-     * For a given cell n (in packed int format) in an even row, the adjacent cells include:
+     * <h3>Algorithm Details</h3> For a given cell n (in packed int format) in an even row, the adjacent
+     * cells include:
      * <ul>
      * <li>n - 101 (row - 1, col - 1)</li>
      * <li>n - 100 (row - 1, col)</li>
@@ -137,26 +137,28 @@ public abstract class Grid
      * Internal computations are performed in <code>PackedInt</code> format for efficiency, as it allows
      * for straightforward arithmetic operations to determine adjacency. The method has to convert
      * between formats as needed, which adds some overhead, but this is offset by our use of the method
-     * in the static block to pre-compute an {@link #adjacencyArray adjacency table}. Future
-     * calls to find adjacents can then use this pre-computed table for O(1) lookups. 
+     * in the static block to pre-compute an {@link #adjacencyArray adjacency table}. Future calls to
+     * find adjacents can then use this pre-computed table for O(1) lookups.
      * </p>
      * <p>
-     * Since cells in different grid positions can have a different number of valid adjacent cells
-     * (due to edges and corners), we use a dynamic list (<code>ShortList</code>) to store the results,
+     * Since cells in different grid positions can have a different number of valid adjacent cells (due
+     * to edges and corners), we use a dynamic list (<code>ShortList</code>) to store the results,
      * letting the calling method handle conversion to a fixed-size array if needed. Fastutil's
-     * primitive collections are used to avoid boxing overhead and allow for efficient storage
-     * and retrieval of short values.
+     * primitive collections are used to avoid boxing overhead and allow for efficient storage and
+     * retrieval of short values.
      * </p>
      * 
      * @param cell         A short representing the cell in the grid, expected to be in the same format
      *                     as inputFormat.
-     * @param inputFormat  The ValueFormat of the input cell, which can either be Index or PackedInt.
-     * @param outputFormat The ValueFormat of the output cell, which can either be Index or PackedInt.
-     * @return affectedPieces A ShortList of adjacent cells in the specified output format, containing
+     * @param inputFormat  The {@link ValueFormat} of the input cell, which can either be
+     *                     {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
+     * @param outputFormat The {@link ValueFormat} of the output cell, which can either be
+     *                     {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
+     * @return affectedPieces A <code>ShortList</code> of adjacent cells in the specified output format, containing
      *         up to 6 items.
      * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
      *                                  represent a single cell in that format.
-     * @since 2025.05.15 - Static Adjacency Computations
+     * @since 2025.07.16 - Format Support
      * @performance If outputFormat is <code>PackedInt</code>, O(1) input conversion (if necessary) + 6
      *              * O(1) adjacency computation + O(6) output filtering = O(1) complexity.
      * @performance If outputFormat is <code>Index</code>, O(1) input conversion (if necessary) + 6 *
@@ -173,8 +175,7 @@ public abstract class Grid
      * @see #findAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
      * @see ShortList
      */
-    public static ShortList computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
-    {
+    public static ShortList computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         ShortList affectedPieces = new ShortArrayList(6);
 
         // We need to handle different formats for adjacency 
@@ -403,8 +404,7 @@ public abstract class Grid
      * @see #getBit(int index)
      * @see #setBit(int index)
      **/
-    protected void clearBit(int index)
-    {
+    protected void clearBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
         if ((gridState[longIndex] & (1L << bitPosition)) != 0)
@@ -449,13 +449,66 @@ public abstract class Grid
     }
 
     /**
-     * Returns the true cells in the requested format.
-     * Internally, true cells are stored as bit indices (0-108).
+     * Scans the {@link #gridState grid bitmask} and returns an array of all true cells. Converts the
+     * result to the requested format ({@link ValueFormat#Index} or {@link ValueFormat#PackedInt}).
+     * 
+     * <p>
+     * For {@link CombinationGeneratorTask generator} and {@link TestClickCombination monkey}
+     * efficiency, we perform several checks to prune combinations early. Many of these checks involve
+     * the initial state of the grid, so we need a way to conveniently extract the true bits from the
+     * bitmask and return them in a format that can be used for processing. This method provides that
+     * functionality, allowing for the efficient scanning of the grid state.
+     * </p>
+     * 
+     * <h3>Algorithm Details</h3>
+     * <p>
+     * We use the {@link #getBit(int index)} method to check each bit in the grid state, iterating
+     * across the values in the range 0-108 (inclusive). For each bit that is set, we add its index to
+     * an array that is pre-sized to the number of true cells in the grid. To avoid scanning the entire
+     * grid after finding the requisite number of true cells, we use a counter to track the index in the
+     * array and exit the for loop early when the array is full.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * This method isn't expected to be called frequently, as it is primarily used for obtaining the
+     * initial grid state. For this reason, we avoid {@link #recalculationNeeded checking for
+     * recalculation} or {@link #getTrueCount() recalculating the true cells count}, assuming the true
+     * count is correctly maintained by the {@link #setBit(int index)} and {@link #clearBit(int index)}
+     * methods. This avoids overhead, though it does allow for the possibility of an incorrectly sized
+     * array or missing true cells. A future update could target this.
+     * </p>
+     * 
+     * <p>
+     * Another area for potential optimization is in the extraction of true cells. We could create two
+     * temporary longs to store the grid state, use the {@link Long#numberOfTrailingZeros(long)} method
+     * to find the first 1 in our bitmask, add the index to the array and turn off the bit (by ANDing
+     * with 0) and repeat until we have found all true cells. This would allow us to avoid the overhead
+     * of iterating over the entire grid state, but it would require additional complexity in the code
+     * that is unneeded at the moment.
+     * </p>
+     * 
      * @param format The desired output format (Index or PackedInt).
-     * @return An array of true cells in the requested format.
+     * @return An array of true cells in the specified format.
+     * @throws IllegalArgumentException if the format is Bitmask, (since that would just be the Grid
+     *                                  itself). Use {@link #getGridState()} instead to fulfill that
+     *                                  purpose.
+     * @since 2025.07.16 - Format Support
+     * @performance If format is {@link ValueFormat#Index}, O(n) loop through the grid state (where n is
+     *              the index of the last true cell, up to 108) + O(1) lookup via {@link #getBit(int)}
+     *              per iteration + O(1) array insertion for every true cell found = O(n) complexity.
+     * @performance If format is {@link ValueFormat#PackedInt}, O(n) loop through the grid state (where
+     *              n is the index of the last true cell, up to 108) + O(1) lookup via
+     *              {@link #getBit(int)} per iteration + O(1) array insertion for every true cell found
+     *              + O(n) conversion to packed int format = O(n) complexity.
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *            or with proper synchronization.
+     * @optimization Uses a pre-sized array to avoid resizing during insertion, and exits the for loop
+     *               when all true cells are found.
+     * @see #findTrueCells()
+     * @see #findFirstTrueCell(ValueFormat format)
      */
-    public short[] findTrueCells(ValueFormat format) 
-    {
+    public short[] findTrueCells(ValueFormat format) {
         short[] trueCellsArray = new short[trueCellsCount];
         int idx = 0;
         
@@ -487,12 +540,29 @@ public abstract class Grid
     }
 
     /**
-     * Returns the true cells in the default (Index) format.
-     * This is a final method to encourage inlining.
-     * @return An array of true cells in Index format.
+     * Scans the {@link #gridState grid bitmask} and returns an array of all true cells in
+     * {@link ValueFormat#Index} format (0-108).
+     * 
+     * <p>
+     * This method is a convenience overload of {@link #findTrueCells(ValueFormat format)} that defaults
+     * to the Index format, allowing for better inlining and performance if this method is on the hot
+     * path.
+     * </p>
+     * 
+     * @param format The desired output format (Index or PackedInt).
+     * @return An array of true cells in the specified format.
+     * @since 2025.04.08 - Adjacency Optimizations
+     * @performance O(n) loop through the grid state (where n is the index of the last true cell, up to
+     *              108) + O(1) lookup via {@link #getBit(int)} per iteration + O(1) array insertion for
+     *              every true cell found = O(n) complexity.
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *            or with proper synchronization.
+     * @optimization Uses a pre-sized array to avoid resizing during insertion, and exits the for loop
+     *               when all true cells are found.
+     * @see #findTrueCells(ValueFormat format)
+     * @see #findFirstTrueCell(ValueFormat format)
      */
-    public final short[] findTrueCells() 
-    {
+    public final short[] findTrueCells() {
         short[] trueCellsArray = new short[trueCellsCount];
         int idx = 0;
         
@@ -506,13 +576,62 @@ public abstract class Grid
     }
 
     /**
-     * Returns the first true cell in the requested format.
-     * Internally, firstTrueCell is stored as a bit index (0-108).
-     * @param format The desired output format (Index or PackedInt).
-     * @return The first true cell, or -1 if none found.
+     * Scans the {@link #gridState grid} and returns the first true cell. Converts the result to the
+     * requested format ({@link ValueFormat#Index} or {@link ValueFormat#PackedInt}). If no true cell is
+     * found, returns -1.
+     * 
+     * <p>
+     * Since <code>click</code>s are limited in scope to the adjacents of one cell, we can derive an
+     * important property of the solution: It must toggle the first true cell in the initial grid state.
+     * We can therefore optimize the search for the solution by pruning combinations that violate this
+     * condition, making it important to have a fast way to find the first true cell in the grid. While
+     * one could use the <code>findTrueCells()</code> method to find the first true cell, this method is
+     * optimized for that purpose.
+     * </p>
+     * 
+     * <h3>Algorithm Details</h3>
+     * <p>
+     * Java contains a built-in method for finding the first set bit in a long, called
+     * {@link Long#numberOfTrailingZeros(long)}. We can use this method to grab the first true cell and
+     * update the {@link #firstTrueCell} field. We also update {@link #trueCellsCount} field with
+     * another method, {@link Long#bitCount(long)}, which counts the number of set bits in a long.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * If no changes have been made to the grid state since the last call to this method, we'd want to
+     * save on recalculating the value of the first true cell and the count of true cells. We can do
+     * this by checking the {@link #recalculationNeeded recalculationNeeded} flag and updating the
+     * values if it is true. In the case where the flag is false and the count of true cells is 0, we
+     * can short-circuit the method to avoid unnecessary calculations, returning -1 immediately.
+     * </p>
+     * 
+     * <p>
+     * The methods used to find the first true cell and count the number of true cells are O(1) due to
+     * some clever programming on the Java developers' part. Reinventing the wheel would be a waste of
+     * time (and likely less efficient), so we avoid that effort.
+     * </p>
+     * 
+     * @param format The desired output format ({@link ValueFormat#Index Index} or
+     *               {@link ValueFormat#PackedInt PackedInt}).
+     * @return The first true cell in the specified format, or -1 if no true cell is found.
+     * @throws IllegalArgumentException if the format is Bitmask (since bitmasks aren't supported for
+     *                                  single values).
+     * @since 2025.07.16 - Format Support
+     * @performance O(1) lookup time for the flag and true cells count + O(1) bitwise check to find the
+     *              first true cell + 2 * O(1) bitcounts on the bitmask + O(1) conversion to the
+     *              requested format = O(1) complexity.
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *            or with proper synchronization.
+     * @algorithm Uses Java's built-in methods for finding the first set bit and counting the number of set bits
+     *            in a long, which are highly optimized.
+     * @optimization Avoids unnecessary recalculations by checking the {@link #recalculationNeeded recalculationNeeded} flag and the {@link #trueCellsCount trueCellsCount} field.
+     * @see #findFirstTrueCell()
+     * @see #click(short, ValueFormat)
+     * @see #click(short[])
+     * @see #findTrueCells(ValueFormat format)
      */
-    public short findFirstTrueCell(ValueFormat format) 
-    {
+    public short findFirstTrueCell(ValueFormat format) {
         if (!recalculationNeeded && trueCellsCount == 0) 
         {
             return -1;
@@ -556,12 +675,30 @@ public abstract class Grid
     }
 
     /**
-     * Returns the first true cell in the default (Index) format.
-     * This is a final method to encourage inlining.
-     * @return The first true cell in Index format, or -1 if none found.
+     * Scans the {@link #gridState grid} and returns the first true cell in {@link ValueFormat#Index}
+     * format (0-108). If no true cell is found, returns -1.
+     * 
+     * <p>
+     * This method is a convenience overload of {@link #findFirstTrueCell(ValueFormat format)} that
+     * defaults to the Index format, allowing for better inlining and performance if this method is on
+     * the hot path.
+     * </p>
+     * 
+     * @return The first true cell in Index format, or -1 if no true cell is found.
+     * @since 2025.04.08 - Adjacency Optimizations
+     * @performance O(1) lookup time for the flag and true cells count + O(1) bitwise check to find the
+     *              first true cell + 2 * O(1) bitcounts on the bitmask = O(1) complexity.
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *           or with proper synchronization.
+     * @algorithm Uses Java's built-in methods for finding the first set bit and counting the number of set bits
+     *           in a long, which are highly optimized.
+     * @optimization Avoids unnecessary recalculations by checking the {@link #recalculationNeeded recalculationNeeded} flag and the {@link #trueCellsCount trueCellsCount} field.
+     * @see #findFirstTrueCell(ValueFormat format)
+     * @see #click(short, ValueFormat)
+     * @see #click(short[])
+     * @see #findTrueCells()
      */
-    public final short findFirstTrueCell() 
-    {
+    public final short findFirstTrueCell() {
         if (!recalculationNeeded && trueCellsCount == 0) 
         {
             return -1;

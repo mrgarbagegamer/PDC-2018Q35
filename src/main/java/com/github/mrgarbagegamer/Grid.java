@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * <h2>Thread Safety</h2>
  * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
  * 
- * <h3>0/50 - 0% of documentation completed</h3>
+ * <h3>2/50 - 4% of documentation completed</h3>
  * 
  * @performance [Overall performance characteristics]
  * @threading [Thread safety guarantees]
@@ -453,12 +453,50 @@ public abstract class Grid
     }
 
     /**
-     * Specialized click method for Index format. Made final to encourage inlining.
-     * This is the hottest path for worker threads.
+     * Simulates a click on the <code>Grid</code> at the specified cell. We assume that the cell is in
+     * {@link #ValueFormat.Index <code>Index</code>} format (0-108) to save time on format checks.
+     * 
+     * <p>
+     * A click toggles the state of its adjacent cells (excluding itself), so we can perform a click
+     * simply by XORing the {@link #gridState grid state} with a pre-computed {@link #ADJACENCY_MASKS
+     * adjacency mask.}
+     * </p>
+     * 
+     * <p>
+     * Setting the {@link #recalculationNeeded recalculationNeeded} flag to <code>true</code> ensures
+     * that the next call to {@link #findFirstTrueCell(ValueFormat) findFirstTrueCell()} will
+     * recalculate the {@link #firstTrueCell first true cell} and the {@link #trueCellsCount count of
+     * true cells}. This avoids unnecessary recalculations on every click, which is crucial for
+     * performance in high-frequency scenarios.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Since the Grid has {@link #NUM_CELLS 109 cells}, we can't use a single 64-bit <code>long</code>
+     * for the grid state, meaning that we have to use two <code>long</code>s, and thus two adjacency
+     * masks per cell. Though we could strategically use a single long as a bitmask if the adjacent
+     * cells are localized to the same long, we choose to use two longs for simplicity and to avoid
+     * branching.
+     * </p>
+     * 
      * @param cell The cell to click, in Index format (0-108).
+     * @throws IllegalArgumentException if the cell is out of bounds (implicitly checked by the array accesses.
+     * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
+     *            instances of Grid or synchronize access to this method.
+     * @performance Two O(1) click operations using pre-computed adjacency bitmasks = O(1) complexity.
+     * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
+     *               Declared as final to encourage JIT inlining. Assumes the cell is in
+     *               <code>Index</code> format (0-108) to avoid format checks.
+     * @see {@link #click(short cell, ValueFormat format)} - Method overload for different formats.
+     * @see {@link #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)} -
+     *      Computes the adjacent cells for a given cell, overloaded for different input and output
+     *      formats. Used internally to generate the masks used in this method.
+     * @see {@link #areAdjacent(short cellA, short cellB, ValueFormat format)} - Checks if two cells are adjacent in the
+     *      grid.
+     * @deprecated As of 2025.07.28, replaced by {@link #click(short[] cells)} for bulk operations on
+     *             combinations in {@link TestClickCombination monkeys}.
      */
-    public final void click(short cell) 
-    {
+    public final void click(short cell) {
         // XOR the grid state with the pre-computed adjacency mask
         gridState[0] ^= ADJACENCY_MASKS[cell][0];
         gridState[1] ^= ADJACENCY_MASKS[cell][1];
@@ -498,14 +536,61 @@ public abstract class Grid
         recalculationNeeded = true;
     }
 
-    /** 
-     * Performs a bulk click operation on multiple cells in the grid. Saves the overhead of multiple method calls.
-     * @param cells An array of cells to click, in Index format (0-108).
-    */
-    public final void click(short[] cells)
-    {
-        for (short cell : cells) 
-        {
+    /**
+     * Simulates a click on multiple cells in the <code>Grid</code>. We assume that the cells are in the
+     * {@link #ValueFormat.Index <code>Index</code>} format (0-108) and the array is non-null to save on
+     * format checks.
+     * 
+     * <p>
+     * A click simply toggles the state of its adjacent cells (excluding itself), so we can perform a
+     * click by XORing the {@link #gridState grid state} with the pre-computed {@link #ADJACENCY_MASKS
+     * adjacency masks}. As opposed to the single cell {@link #click(short cell)} method, this method
+     * allows for bulk operations on combinations of cells, saving on the overhead of multiple method
+     * calls.
+     * </p>
+     * 
+     * <p>
+     * Setting the {@link #recalculationNeeded recalculationNeeded} flag to <code>true</code> ensures
+     * that the next call to {@link #findFirstTrueCell(ValueFormat) findFirstTrueCell()} will
+     * recalculate the {@link #firstTrueCell first true cell} and the {@link #trueCellsCount count of
+     * true cells}. This avoids unnecessary recalculations on every click, which is crucial for
+     * performance in high-frequency scenarios.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Since the Grid has {@link #NUM_CELLS 109 cells}, we can't use a single 64-bit <code>long</code>
+     * for the grid state, meaning that we have to use two <code>long</code>s, and thus two adjacency
+     * masks per cell. Though we could strategically use a single long as a bitmask if the adjacent
+     * cells are localized to the same long, we choose to use two longs for simplicity and to avoid
+     * branching.
+     * </p>
+     * <p>
+     * We avoid unrolling the loop here, since the JVM can handle that for us and it would deliver
+     * mediocre performance gains at best. Vectorization is also not applicable here, since we perform
+     * array accesses in a non-predictable manner.
+     * </p>
+     * 
+     * @param cells The array of cells to click, in Index format (0-108).
+     * @throws IllegalArgumentException if the clicks are out of bounds (implicitly checked by the array
+     *                                  accesses).
+     * @throws NullPointerException     if the cells array is null (implicitly thrown by the for-each
+     *                                  loop).
+     * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
+     *            instances of Grid or synchronize access to this method.
+     * @performance O(n) loop * (2 O(1) bitwise operations per cell) = O(n) complexity, where n is the
+     *              number of cells clicked.
+     * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
+     *               Declared as final to encourage JIT inlining. Assumes the cells are in Index format
+     *               and the array is non-null to avoid format checks.
+     * @see {@link #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)} -
+     *      Computes the adjacent cells for a given cell, overloaded for different input and output
+     *      formats and used internally to generate the masks used in this method.
+     * @see {@link #areAdjacent(short cellA, short cellB, ValueFormat format)} - Checks if two cells are
+     *      adjacent in the grid.
+     */
+    public final void click(short[] cells) {
+        for (short cell : cells) {
             // XOR the grid state with the pre-computed adjacency mask
             gridState[0] ^= ADJACENCY_MASKS[cell][0];
             gridState[1] ^= ADJACENCY_MASKS[cell][1];

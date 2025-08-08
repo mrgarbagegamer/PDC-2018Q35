@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * <h2>Thread Safety</h2>
  * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
  * 
- * <h3>2/50 - 4% of documentation completed</h3>
+ * <h3>5/50 - 10% of documentation completed</h3>
  * 
  * @performance [Overall performance characteristics]
  * @threading [Thread safety guarantees]
@@ -258,17 +258,77 @@ public abstract class Grid
     abstract void initialize();
 
     // Core bitmask operations
-    protected void setBit(int index)
-    {
+
+    /**
+     * Sets the bit at the specified index in the {@link #gridState grid state}. We assume that the
+     * index is in {@link ValueFormat#Index Index} format (0-108) to save time on format checks.
+     * 
+     * <p>
+     * While this method can be used to toggle a cell in the grid, we pre-compute {@link #ADJACENCY_MASKS 
+     * adjacency masks} for each cell to perform clicks more efficiently. As such, this method is not 
+     * used in any method of the codebase.
+     * </p>
+     * 
+     * <h2>Performance Considerations</h2>
+     * <p>
+     * For performance reasons, this method does not perform bounds checking on the index. It is the
+     * caller's responsibility to ensure that the index is within the valid range (0-108).
+     * </p>
+     * <p>
+     * This method checks internally if the bit is already set before setting it, but this move is not
+     * necessary for performance. Removing the check would be more efficient, but we don't utilize this
+     * method for any performance-critical paths.
+     * </p>
+     * 
+     * @param index The index of the bit to set (0-108).
+     * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
+     * @since 2025.07.13 - Bitmasked Grid state
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *            or with proper synchronization.
+     * @performance O(1) lookup time in the gridState array + O(1) bitwise operation to set the bit =
+     *              O(1) complexity.
+     * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
+     * @see {@link #getBit(int index)} - Method to get a bit from the grid state, the "getter".
+     * @see {@link #clearBit(int index)} - Method to clear a bit in the grid state, the opposite of this
+     *      method.
+     */
+    protected void setBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
-        if ((gridState[longIndex] & (1L << bitPosition)) == 0)
-        {
+        if ((gridState[longIndex] & (1L << bitPosition)) == 0) {
             gridState[longIndex] |= (1L << bitPosition);
             trueCellsCount++;
         }
     }
 
+    /**
+     * Clears the bit at the specified index in the {@link #gridState grid state}. We assume that the
+     * index is in {@link ValueFormat#Index Index} format (0-108) to save time on format checks.
+     * 
+     * <p>
+     * While this method can be used to clear a cell in the grid, we pre-compute {@link #ADJACENCY_MASKS
+     * adjacency masks} for each cell to perform clicks more efficiently. As such, this method is not
+     * used in any method of the codebase.
+     * </p>
+     * 
+     * <h2>Performance Considerations</h2>
+     * <p>
+     * For performance reasons, this method does not perform bounds checking on the index. It is the
+     * caller's responsibility to ensure that the index is within the valid range (0-108).
+     * </p>
+     * 
+     * @param index The index of the bit to clear (0-108).
+     * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
+     * @since 2025.07.13 - Bitmasked Grid state
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *            or with proper synchronization.
+     * @performance O(1) lookup time in the gridState array + O(1) bitwise operation to clear the bit =
+     *              O(1) complexity.
+     * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
+     * @see {@link #getBit(int index)} - Method to get a bit from the grid state, the "getter".
+     * @see {@link #setBit(int index)} - Method to set a bit in the grid state, the opposite of this
+     *      method.
+     **/
     protected void clearBit(int index)
     {
         int longIndex = index / 64;
@@ -280,8 +340,35 @@ public abstract class Grid
         }
     }
 
-    protected boolean getBit(int index)
-    {
+    /**
+     * Extracts the bit at the specified index from the {@link #gridState grid state}. We assume that
+     * the index is in {@link ValueFormat#Index Index} format (0-108) to save time on format checks.
+     * 
+     * <p>
+     * This method is used to check if a specific cell in the grid is "true" (active) or "false"
+     * (inactive). We internally use this method for finding true cells in the grid, which is crucial
+     * for {@link #findTrueCells() outputting a list of true cells} or {@link #printGrid() printing the
+     * grid state.}
+     * </p>
+     * 
+     * <h2>Performance Considerations</h2>
+     * <p>
+     * For performance reasons, this method does not perform bounds checking on the index. It is the
+     * caller's responsibility to ensure that the index is within the valid range (0-108).
+     * </p>
+     * 
+     * @param index The index of the bit to check (0-108).
+     * @return true if the bit is set, false otherwise.
+     * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
+     * @since 2025.07.13 - Bitmasked Grid state
+     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
+     *            or with proper synchronization.
+     * @performance O(1) lookup time for the proper <code>long</code> in the gridState array.
+     * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
+     * @see {@link #setBit(int index)} - Method to set a bit in the grid state, the "setter".
+     * @see {@link #clearBit(int index)} - Method to clear a bit in the grid state, the "clearer".
+     */
+    protected boolean getBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
         return (gridState[longIndex] & (1L << bitPosition)) != 0;
@@ -480,7 +567,9 @@ public abstract class Grid
      * </p>
      * 
      * @param cell The cell to click, in Index format (0-108).
-     * @throws IllegalArgumentException if the cell is out of bounds (implicitly checked by the array accesses.
+     * @throws IllegalArgumentException if the cell is out of bounds (implicitly checked by the array
+     *                                  accesses).
+     * @since 2025.07.19 - Inlining Improvements
      * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
      *            instances of Grid or synchronize access to this method.
      * @performance Two O(1) click operations using pre-computed adjacency bitmasks = O(1) complexity.
@@ -491,8 +580,8 @@ public abstract class Grid
      * @see {@link #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)} -
      *      Computes the adjacent cells for a given cell, overloaded for different input and output
      *      formats. Used internally to generate the masks used in this method.
-     * @see {@link #areAdjacent(short cellA, short cellB, ValueFormat format)} - Checks if two cells are adjacent in the
-     *      grid.
+     * @see {@link #areAdjacent(short cellA, short cellB, ValueFormat format)} - Checks if two cells are
+     *      adjacent in the grid.
      * @deprecated As of 2025.07.28, replaced by {@link #click(short[] cells)} for bulk operations on
      *             combinations in {@link TestClickCombination monkeys}.
      */
@@ -576,6 +665,8 @@ public abstract class Grid
      *                                  accesses).
      * @throws NullPointerException     if the cells array is null (implicitly thrown by the for-each
      *                                  loop).
+     * @since 2025.07.28 - Bulk Clicks
+     * 
      * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
      *            instances of Grid or synchronize access to this method.
      * @performance O(n) loop * (2 O(1) bitwise operations per cell) = O(n) complexity, where n is the

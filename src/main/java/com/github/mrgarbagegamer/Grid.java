@@ -454,7 +454,7 @@ public abstract class Grid
 
     /**
      * Simulates a click on the <code>Grid</code> at the specified cell. We assume that the cell is in
-     * {@link #ValueFormat.Index <code>Index</code>} format (0-108) to save time on format checks.
+     * {@link ValueFormat#Index <code>Index</code>} format (0-108) to save time on format checks.
      * 
      * <p>
      * A click toggles the state of its adjacent cells (excluding itself), so we can perform a click
@@ -538,7 +538,7 @@ public abstract class Grid
 
     /**
      * Simulates a click on multiple cells in the <code>Grid</code>. We assume that the cells are in the
-     * {@link #ValueFormat.Index <code>Index</code>} format (0-108) and the array is non-null to save on
+     * {@link ValueFormat#Index <code>Index</code>} format (0-108) and the array is non-null to save on
      * format checks.
      * 
      * <p>

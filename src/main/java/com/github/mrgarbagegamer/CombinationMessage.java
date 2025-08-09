@@ -4,7 +4,6 @@ import org.apache.logging.log4j.message.AsynchronouslyFormattable;
 import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
 
-@AsynchronouslyFormattable
 /**
  * CombinationMessage - [Configuration Purpose - e.g., "Q35 puzzle initial state"]
  * 
@@ -22,6 +21,7 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
  * @since [When this configuration was introduced]
  * @see [Related configuration classes]
  */
+@AsynchronouslyFormattable
 public class CombinationMessage implements Message, StringBuilderFormattable 
 {
     private short[] list;

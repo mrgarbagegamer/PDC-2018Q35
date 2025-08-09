@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * <h2>Thread Safety</h2>
  * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
  * 
- * <h3>9/50 - 18% of documentation completed</h3>
+ * <h3>16/50 - 32% of documentation completed</h3>
  * 
  * @performance [Overall performance characteristics]
  * @threading [Thread safety guarantees]
@@ -41,20 +41,220 @@ public abstract class Grid
         Bitmask // Unused for the moment, but we could directly store combinations as an array of two bitmasks
     }
     
-    // Constants
+    /**
+     * The number of rows in the grid. This is a constant value of 7, as the grid is defined to have 7 rows.
+     * 
+     * <h2>Performance Characteristics</h2>
+     * <p>
+     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
+     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
+     * of grid operations and ensuring that all methods operate within the valid range of rows.
+     * </p>
+     * 
+     * @since 2025.03.20 - Grid Definition
+     * @threading This constant is immutable and safe to use across threads.
+     * @performance O(1) access time, as it is a constant value.
+     * @optimization Using a constant to avoid recalculating the number of rows and to prevent magic
+     *              numbers in the code.
+     * @see #ROW_OFFSETS
+     * @see #NUM_CELLS
+     * @see #EVEN_NUM_COLS
+     * @see #ODD_NUM_COLS
+     */
     public static final int NUM_ROWS = 7;
+    /**
+     * The number of columns in odd-indexed rows of the grid. This is a constant value of 15, as defined
+     * by the grid's structure.
+     * 
+     * <h2>Performance Characteristics</h2>
+     * <p>
+     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
+     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
+     * of grid operations and ensuring that all methods operate within the valid range of columns.
+     * </p>
+     * 
+     * @since 2025.03.20 - Grid Definition
+     * @threading This constant is immutable and safe to use across threads.
+     * @performance O(1) access time, as it is a constant value.
+     * @optimization Using a constant to avoid recalculating the number of columns and to prevent magic
+     *               numbers in the code.
+     * @see #ROW_OFFSETS
+     * @see #NUM_CELLS
+     * @see #NUM_ROWS
+     * @see #EVEN_NUM_COLS
+     */
     public static final int ODD_NUM_COLS = 15;
+    /**
+     * The number of columns in even-indexed rows of the grid. This is a constant value of 16, as
+     * defined by the grid's structure.
+     * 
+     * <h2>Performance Characteristics</h2>
+     * <p>
+     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
+     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
+     * of grid operations and ensuring that all methods operate within the valid range of columns.
+     * </p>
+     * 
+     * @since 2025.03.20 - Grid Definition
+     * @threading This constant is immutable and safe to use across threads.
+     * @performance O(1) access time, as it is a constant value.
+     * @optimization Using a constant to avoid recalculating the number of columns and to prevent magic
+     *               numbers in the code.
+     * @see #ROW_OFFSETS
+     * @see #NUM_CELLS
+     * @see #NUM_ROWS
+     * @see #ODD_NUM_COLS
+     */
     public static final int EVEN_NUM_COLS = 16;
+    /**
+     * Offsets for each row in the grid, used to convert between {@link ValueFormat#PackedInt PackedInt}
+     * and {@link ValueFormat#Index Index} formats.
+     * 
+     * <p>
+     * PackedInt format is human-readable and easy to work with for adjacency calculations, but it isn't
+     * the most efficient for storage. Index format is more memory-efficient and is easier for
+     * generators to work with, but it isn't as easily understood by humans. The offsets bridge the gap
+     * between these two formats, allowing us to convert between them without losing information.
+     * </p>
+     * 
+     * <h2>Performance Characteristics</h2>
+     * <p>
+     * Lookup time for the offsets is O(1) since they are stored in a static array. Testing has shown
+     * that using a static array is more efficient than calculating the offsets at runtime, at least for
+     * Packed -> Index conversions.
+     * </p>
+     * 
+     * @since 2025.06.04 - BitSet Grid state
+     * @threading This array is immutable after initialization and is safe to use across threads.
+     * @performance O(1) lookup time for offsets, as they are stored in a static array.
+     * @optimization Using a static array to avoid the overhead of runtime calculations.
+     * @see #NUM_ROWS
+     * @see #EVEN_NUM_COLS
+     * @see #ODD_NUM_COLS
+     * @see #computePackedToIndex(short)
+     * @see ValueFormat
+     */
     public static final short[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93};
+    /**
+     * The total number of cells in the grid. This is a constant value of 109, derived from the grid's
+     * structure of 7 rows with alternating counts of 16 and 15 columns.
+     * 
+     * <p>
+     * The grid consists of 7 rows, where even-indexed rows (0, 2, 4, 6) contain 16 columns each, and
+     * odd-indexed rows (1, 3, 5) contain 15 columns each. This results in a total of 4 * 16 + 3 * 15 =
+     * 109 cells.
+     * </p>
+     * 
+     * <h2>Performance Characteristics</h2>
+     * <p>
+     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
+     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
+     * of grid operations and ensuring that all methods operate within the valid range of cells.
+     * </p>
+     * 
+     * @since 2025.04.15 - Static Block Initialization
+     * @threading This constant is immutable and safe to use across threads.
+     * @performance O(1) access time, as it is a constant value.
+     * @optimization Using a constant to avoid recalculating the number of cells and to prevent magic
+     *               numbers in the code.
+     * @see #ROW_OFFSETS
+     * @see #NUM_ROWS
+     * @see #EVEN_NUM_COLS
+     * @see #ODD_NUM_COLS
+     * @see #gridState
+     * @see #trueCellsCount
+     */
     public static final int NUM_CELLS = 109;
 
-    // Bitmask grid state - 109 cells fit in 2 longs (128 bits)
+    /**
+     * The current state of the grid as an array of two longs. Each long contains a bitmask,
+     * with the first representing the first 64 cells and the second representing the last 45 cells.
+     * 
+     * <p>
+     * The core part of the grid state is, well, the grid state. We need something that can efficiently
+     * represent the state of the grid, allowing for fast access and manipulation of each cell while
+     * also keeping memory usage low. The bitmask approach fits both of these requirements, making
+     * operations very efficient.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The fundamental rule of JVM optimization: <b>Don't allocate</b>. To achieve a throughput of tens
+     * of billions of <code>click</code>s per second, we need to avoid unnecessary allocations and use
+     * primitive types wherever possible. This takes most collections off the table.
+     * </p>
+     * 
+     * <p>
+     * An array of booleans seems like a good fit, but a boolean takes up 1 byte at minimum in Java
+     * (with arrays using extra padding), which would require 109 bytes for the grid. In addition,
+     * clicks act on adjacent cells, meaning that each operation would require 6 lookups and 6 updates,
+     * which is suboptimal.
+     * </p>
+     * 
+     * <p>
+     * BitSets are a good fit, but they incur some overhead in terms of object headers and the need to
+     * perform up to 6 XOR operations per click. Their internals give way to the best implementation: a
+     * bitmask. We can make custom masks to represent click operations, turning clicks into a single
+     * operation (technically two because of size limitations) and storing our grid in an array that
+     * takes up just 128 bits (or 16 bytes).
+     * </p>
+     * 
+     * <p>
+     * There could be some further optimizations in the future, but we're running against the limits of
+     * Java as a whole. There is no 128-bit primitive type, so we can't use that. LongVectors seemed
+     * promising, but the Vector API allocates TERRIBLY (we're talking 4 allocations per lanewise
+     * operation, all from the internal non-overridable logic of the API). Until we can find something that
+     * can represent a 128-bit value without allocations, we will stick with this approach.
+     * </p>
+     * 
+     * @since 2025.07.13 - Bitmasked Grid state
+     * @threading This field is <b>not</b> thread-safe. It should only be accessed from a single thread
+     *            or with proper synchronization.
+     * @performance O(1) lookup time for each 64-bit long in the gridState array and O(1) bitwise operations
+     * @optimization Uses a primitive bitmask of longs to represent the grid state, allowing for fast access and
+     *              manipulation of each cell while keeping memory usage low. 
+     * @see #getGridState()
+     * @see #printGrid()
+     * @see #getBit(int index)
+     * @see #setBit(int index)
+     * @see #clearBit(int index)
+     */
     protected final long[] gridState = new long[2];
     protected int trueCellsCount = 0;
     protected short firstTrueCell = -1; // The first true cell is in index format (0-108)
     protected boolean recalculationNeeded = false;
 
-    // Pre-computed adjacency masks for each possible cell (in bit index format)
+    /**
+     * Adjacency masks for each cell in the grid. These are filled in during the static block of
+     * {@link Grid this class} and are used to quickly determine the adjacent cells for a given cell in
+     * the grid.
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Pre-computing these masks allows for O(1) lookups when determining the adjacent cells for a given
+     * cell, avoiding the need to compute adjacencies on-the-fly. This is crucial, as
+     * {@link TestClickCombination monkeys} perform tens of billions of <code>click</code>s per second
+     * (as of writing this), and we need to ensure that adjacency checks are as fast as possible.
+     * </p>
+     * 
+     * <p>
+     * We standardize the masks to use 2 longs for each cell since we have 109 cells, which fits
+     * comfortably within 128 bits. Though a click could only affect cells in the range of one of these
+     * longs, we use two for simplicity and to avoid additional complexity in the hot path. The indices
+     * are standardized to follow the {@link ValueFormat#Index Index} format, consistent with other
+     * fields in this class.
+     * </p>
+     * 
+     * @since 2025.04.15 - Static Block Initialization
+     * @threading This array is initialized in a static block and is immutable after that point.
+     * @performance O(1) lookup time for adjacency masks, as they are pre-computed and stored in a
+     *              static array.
+     * @optimization Uses a static array to avoid the overhead of runtime calculations. Standardized to
+     *               use the {@link ValueFormat#Index Index} format and to use 2 longs per cell for
+     *               consistency and simplicity.
+     * @see #NUM_CELLS
+     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     */
     private static final long[][] ADJACENCY_MASKS = new long[NUM_CELLS][2];
     
     // Legacy support for existing code that expects adjacency arrays

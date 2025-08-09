@@ -23,7 +23,7 @@ import org.apache.logging.log4j.Logger;
  * <h2>Thread Safety</h2>
  * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
  * 
- * <h3>0/7 - 0% of documentation completed</h3>
+ * <h3>1/7 - 14% of documentation completed</h3>
  * 
  * @performance [Overall performance characteristics]
  * @threading [Thread safety guarantees]  
@@ -33,20 +33,49 @@ import org.apache.logging.log4j.Logger;
  */
 public class StartYourMonkeys 
 {
-    // Add a logger at the top of the class
-    private static final Logger logger = LogManager.getLogger(StartYourMonkeys.class);
+    
+    /**
+     * Logger for StartYourMonkeys class.
+     * 
+     * <p>
+     * Logging is used throughout the program to provide insights into the solver's progress,
+     * performance metrics, and any issues encountered during execution. By nature, though, logging
+     * is not thread-safe, and using System.out.println() in a multi-threaded environment can lead to
+     * interleaved output and/or blocked threads. We need an asynchronous logging framework
+     * that can handle concurrent writes without blocking, which is why we use Log4j2.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Log4j2 is designed for high performance and low latency, making it suitable for
+     * multi-threaded applications like this one. It supports asynchronous logging,
+     * which allows log messages to be processed in a separate thread, reducing the
+     * impact on the main application threads.
+     * </p>
+     * 
+     * @since 2025.05.04 - Log4j2 Integration
+     * @threading This is thread-safe due to Log4j2's asynchronous logging capabilities. None-the-less, there is only one thread that runs this main method, so the logger for this class is effectively single-threaded.
+     * @performance O(1) for logging operations, as they are buffered and processed asynchronously.
+     * @optimization Asynchronous logging is enabled to minimize the impact on application performance.
+     * @see CombinationMessage
+     * @see Logger
+     * @see LogManager
+     * @see LogManager#getLogger()
+     * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous Logging</a>
+     */
+    private static final Logger logger = LogManager.getLogger();
+
+    private static final int DEFAULT_NUM_CLICKS = 17;
+    private static final int DEFAULT_NUM_THREADS = 8;
+    private static final int DEFAULT_QUESTION_NUMBER = 35;
 
     public static void main(String[] args) 
     {
         long startTime = System.currentTimeMillis(); // Start timer
 
-        int defaultNumClicks  = 10;
-        int defaultNumThreads = 8;
-        int defaultQuestionNumber = 35;
-
-        int parsedNumClicks  = defaultNumClicks;
-        int parsedNumThreads = defaultNumThreads;
-        int parsedQuestionNumber = defaultQuestionNumber;
+        int parsedNumClicks  = DEFAULT_NUM_CLICKS;
+        int parsedNumThreads = DEFAULT_NUM_THREADS;
+        int parsedQuestionNumber = DEFAULT_QUESTION_NUMBER;
 
         // retrieve the arguments if any or set a default value
         try 

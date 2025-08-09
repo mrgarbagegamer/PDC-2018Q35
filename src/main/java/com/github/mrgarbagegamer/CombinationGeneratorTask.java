@@ -20,7 +20,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <h2>Performance Critical Paths</h2>
  * <p>[Identify hot paths and optimization focus areas. JIT considerations.]</p>
  * 
- * <h3>0/37 - 0% of documentation completed (excluding GeneratorContext)</h3>
+ * <h3>2/37 - ~5% of documentation completed (excluding GeneratorContext)</h3>
  * 
  * @algorithm [Detailed algorithm description with complexity analysis]
  * @threading [Concurrency model and synchronization approach]
@@ -33,24 +33,75 @@ public class CombinationGeneratorTask extends RecursiveAction
     // private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead. // TODO: Consider re-adding the FLUSH_THRESHOLD if needed
     private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
 
-    // REPLACE: Multiple ThreadLocals with single context
     /**
-     * GeneratorContext - [Performance Purpose - e.g., "High-performance memory pool"]
+     * A ThreadLocal context containing references to resource pools.
+     * 
+     * <p>
+     * Recycling resources is crucial for performance in the JVM, but maintaining multiple ThreadLocals
+     * is expensive, especially with the frequent access patterns in this class. To optimize this, we
+     * consolidate all ThreadLocal data into a single context object that can be passed down to all
+     * methods.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The context is stored in a ThreadLocal variable to ensure that each thread has its own instance,
+     * allowing for efficient resource management without contention. This context holds references to
+     * various resource pools, such as the prefix array pool and task pool, which are used to recycle
+     * arrays and tasks respectively.
+     * </p>
+     * 
+     * @since 2025.07.26 - GeneratorContext Introduction
+     * @threading ThreadLocal - Each thread has its own instance of GeneratorContext, ensuring thread
+     *            safety and isolation of resources
+     * @performance O(1) access time for ThreadLocal.get()
+     * @optimization Consolidation of multiple ThreadLocals into a single context object to reduce overhead
+     * @memory ThreadLocal memory usage is minimized by pooling resources and recycling them
+     * @see GeneratorContext
+     * @see ArrayPool
+     * @see TaskPool
+     * @see WorkBatch
+     */
+    private static final ThreadLocal<GeneratorContext> context =
+        ThreadLocal.withInitial(GeneratorContext::new);
+
+    /**
+     * GeneratorContext - A thread-local context for managing resource pools and state.
      * 
      * <h1>P0 - Core Architecture</h1>
      * 
-     * <p>[Detailed description of the performance problem this class solves.
-     * Include before/after metrics where applicable.]</p>
+     * <p>
+     * A core part of the fork-join architecture is work-stealing, where each worker has a double-ended
+     * queue of tasks to process, allowing them to steal work from others when their deque is empty. We
+     * create a task for every step of the combination generation process, which is great for
+     * work-stealing, but violates the golden rule of JVM optimizations: <b>Don't allocate.</b>
+     * </p>
+     * 
+     * <p>
+     * Recycling is necessary to avoid excessive allocations and deallocations, and we give each thread
+     * its own pool of resources to work with. However, we can't pass down these references directly
+     * since the task may be executed by a different thread than the one that created it. This problem
+     * is solvable via ThreadLocals, which allow us to store thread-specific data, but the
+     * {@link ThreadLocal#get()} method is expensive to call. We need to minimize the number of calls to
+     * this method by consolidating all ThreadLocal data into a single context object that can be passed
+     * down to all methods. GeneratorContext provides us with a way to do that.
+     * </p>
      * 
      * <h2>Optimization Strategy</h2>
-     * <p>[Specific optimization techniques used - pooling, caching, lock-free, etc.
-     * Explain trade-offs made for performance gains.]</p>
+     * <p>
+     * [Specific optimization techniques used - pooling, caching, lock-free, etc. Explain trade-offs
+     * made for performance gains.]
+     * </p>
      * 
      * <h2>Usage Patterns</h2>
-     * <p>[How and when to use this utility. Common usage patterns and anti-patterns.]</p>
+     * <p>
+     * [How and when to use this utility. Common usage patterns and anti-patterns.]
+     * </p>
      * 
      * <h2>Memory Management</h2>
-     * <p>[Memory allocation patterns, GC implications, sizing considerations.]</p>
+     * <p>
+     * [Memory allocation patterns, GC implications, sizing considerations.]
+     * </p>
      * 
      * <h3>0/6 - 0% of documentation completed</h3>
      * 
@@ -59,10 +110,6 @@ public class CombinationGeneratorTask extends RecursiveAction
      * @threading [Thread safety model]
      * @since [When introduced and why]
      */
-    private static final ThreadLocal<GeneratorContext> context =
-        ThreadLocal.withInitial(GeneratorContext::new);
-
-    // Generator context consolidates all per-thread resources
     private static class GeneratorContext
     {
         final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE / 4);
@@ -106,6 +153,46 @@ public class CombinationGeneratorTask extends RecursiveAction
     // Cached data between tasks
     private short[] prefix;
     private int prefixLength;
+    /**
+     * A bitmask representing the adjacency state of the current prefix. Each bit corresponds to an
+     * initially true cell in the grid, and a bit is set if the cell is toggled by the current prefix.
+     * The use of a long limits us to 64 initially true cells, but all puzzles in this game have initial
+     * true counts that are below this limit.
+     * 
+     * <p>
+     * A click on a cell only toggles the cells adjacent to it. This provides us with an important
+     * property of the puzzle's solution: The solution must toggle all initially true cells. This
+     * property allows us to prune combinations early by seeing what true cells are toggled by the
+     * current prefix and checking if the remaining clicks could toggle the remaining true cells.
+     * </p>
+     * 
+     * <p>
+     * We want to prune combinations as early as possible to increase the time spent on potentially
+     * valid combinations, but recomputing the adjacency state for every prefix would be too expensive.
+     * Therefore, we cache the adjacency state of the current prefix and incrementally update it as we
+     * add new clicks to the prefix.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Incremental updates amortize the cost of recomputation, allowing us to maintain a low overhead.
+     * Bitwise operations are fast and efficient, making this approach suitable for high-performance
+     * combinatorial tasks.
+     * </p>
+     * 
+     * @since 2025.07.15 - Cached adjacency state introduction
+     * @threading Thread-safe due to ForkJoinTask isolation
+     * @performance O(1) for updates, O(n) for initial computation where n is the prefixLength at that
+     *              point.
+     * @optimization Caches the state between tasks to avoid recomputing for every prefix.
+     * @memory Uses a long to represent the adjacency state, which is efficient for up to 64 initially
+     *         true cells.
+     * @see #skipConstraintsCheck
+     * @see #canPotentiallySatisfyConstraints(int)
+     * @see #ensureTrueCellMasks(short[])
+     * @see Grid#areAdjacent(short cellA, short cellB)
+     * @see Grid#findTrueCells()
+     */
     private long cachedAdjacencyState = -1; // -1 means root task, -2 means constraints are skipped
     private boolean skipConstraintsCheck = false; // If a prefix is known to satisfy constraints, we can skip checks for its children
 

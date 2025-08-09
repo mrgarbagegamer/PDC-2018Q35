@@ -749,7 +749,6 @@ public abstract class Grid
      * path.
      * </p>
      * 
-     * @param format The desired output format (Index or PackedInt).
      * @return An array of true cells in the specified format.
      * @since 2025.04.08 - Adjacency Optimizations
      * @performance O(n) loop through the grid state (where n is the index of the last true cell, up to

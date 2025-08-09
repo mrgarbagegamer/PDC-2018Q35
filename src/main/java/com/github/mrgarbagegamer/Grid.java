@@ -44,7 +44,7 @@ public abstract class Grid
     /**
      * The number of rows in the grid. This is a constant value of 7, as the grid is defined to have 7 rows.
      * 
-     * <h2>Performance Characteristics</h2>
+     * <h3>Performance Characteristics</h3>
      * <p>
      * This constant is used throughout the class to define array sizes and loop bounds, ensuring
      * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
@@ -66,7 +66,7 @@ public abstract class Grid
      * The number of columns in odd-indexed rows of the grid. This is a constant value of 15, as defined
      * by the grid's structure.
      * 
-     * <h2>Performance Characteristics</h2>
+     * <h3>Performance Characteristics</h3>
      * <p>
      * This constant is used throughout the class to define array sizes and loop bounds, ensuring
      * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
@@ -88,7 +88,7 @@ public abstract class Grid
      * The number of columns in even-indexed rows of the grid. This is a constant value of 16, as
      * defined by the grid's structure.
      * 
-     * <h2>Performance Characteristics</h2>
+     * <h3>Performance Characteristics</h3>
      * <p>
      * This constant is used throughout the class to define array sizes and loop bounds, ensuring
      * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
@@ -117,7 +117,7 @@ public abstract class Grid
      * between these two formats, allowing us to convert between them without losing information.
      * </p>
      * 
-     * <h2>Performance Characteristics</h2>
+     * <h3>Performance Characteristics</h3>
      * <p>
      * Lookup time for the offsets is O(1) since they are stored in a static array. Testing has shown
      * that using a static array is more efficient than calculating the offsets at runtime, at least for
@@ -145,7 +145,7 @@ public abstract class Grid
      * 109 cells.
      * </p>
      * 
-     * <h2>Performance Characteristics</h2>
+     * <h3>Performance Characteristics</h3>
      * <p>
      * This constant is used throughout the class to define array sizes and loop bounds, ensuring
      * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity

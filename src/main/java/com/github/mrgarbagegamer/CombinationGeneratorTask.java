@@ -20,7 +20,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * <h2>Performance Critical Paths</h2>
  * <p>[Identify hot paths and optimization focus areas. JIT considerations.]</p>
  * 
- * <h3>2/37 - ~5% of documentation completed (excluding GeneratorContext)</h3>
+ * <h3>8/36 - ~22% of documentation completed (excluding GeneratorContext)</h3>
  * 
  * @algorithm [Detailed algorithm description with complexity analysis]
  * @threading [Concurrency model and synchronization approach]
@@ -29,9 +29,85 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class CombinationGeneratorTask extends RecursiveAction
 {
-    public static final int BATCH_SIZE = 8000; // The maximum size of a batch before it is flushed to the queue. Batches will try to be flushed when they reach the FLUSH_THRESHOLD, but will always be flushed when they reach this size.
-    // private static final int FLUSH_THRESHOLD = (int) (BATCH_SIZE * 0.5); // The threshold at which we flush the batch to the queue. Rather than setting this to a fixed value, we set it to a proportion of the batch size to allow for more efficient flushing without excessive overhead. // TODO: Consider re-adding the FLUSH_THRESHOLD if needed
-    private static final int POOL_SIZE = 2048; // Reduced since we're using more efficient pools
+    /**
+     * The maximum size of a batch before it is flushed to the queue.
+     * 
+     * <p>
+     * To amortize the cost of queue operations, we bundle combinations into {@link WorkBatch} objects
+     * and flush them to the queue as one. Naturally, this means that we have to define a maximum size
+     * for each batch.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The batch size is a compromise between multiple factors. Larger batches reduce the overhead of
+     * queue operations and allow for generators and {@link TestClickCombination monkeys} to work for
+     * longer periods of time without interruption, but they increase the memory footprint and can cause
+     * longer monkey pauses as they wait for new batches to process. Smaller batches are more responsive
+     * and can give monkeys more frequent tasks, but they increase the overhead and time spent on queue
+     * operations, which can cause contention and reduce overall throughput.
+     * </p>
+     * 
+     * <p>
+     * For my system (Intel Core i7-13700K with 16 cores and 48GB of RAM), a batch size of 8000 seems to
+     * be a good compromise between these factors. I originally included a flush threshold to encourage
+     * more frequent flushing of batches to the queue, but the overhead of size checks made it less
+     * helpful. Batch size is not a silver bullet, but increasing the size can sometimes help with monkey
+     * bottlenecks, while decreasing it can help with generator bottlenecks.
+     * </p>
+     * 
+     * @since 2025.06.08 - Work-stealing introduction
+     * @see #flushBatchFast(WorkBatch)
+     * @see GeneratorContext
+     * @see GeneratorContext#getOrCreateBatch()
+     * @see CombinationQueue
+     * @see CombinationQueue#add(WorkBatch)
+     */
+    public static final int BATCH_SIZE = 8000;
+    /**
+     * The size of resource pools used in the generator context per thread.
+     * 
+     * <p>
+     * The golden rule of JVM optimizations: <b>Don't allocate.</b> This is especially true for
+     * high-performance applications like this one, where we need to minimize the number of allocations
+     * and deallocations to avoid garbage collection pauses and improve throughput. The fork-join
+     * architecture, which is used in this application, relies heavily on the creation of several tasks
+     * that are executed in parallel, but creating a new task with new resources for every step of the
+     * combination generation process would lead to trillions of allocations and deallocations, which
+     * would be catastrophic for performance.
+     * </p>
+     * 
+     * <p>
+     * Resource pooling and pre-allocation are key strategies to mitigate tihs issue. We use the custom
+     * {@link ArrayPool} and {@link TaskPool} classes to manage pools of arrays and tasks, and share
+     * access to these pools via the {@link GeneratorContext} class. To prevent contention and ensure
+     * that we have enough resources available for each thread, we need to define a size for these
+     * pools.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Since pools pre-allocate resources, the size of the pool directly affects the memory footprint of
+     * the application. A smaller pool size reduces memory usage, but increases the likelihood of
+     * contention and accidental allocations, which can lead to performance degradation. A larger pool
+     * size is the opposite: it reduces contention and makes accidental allocations less likely, but at
+     * the cost of increased memory usage.
+     * </p>
+     * 
+     * <p>
+     * For my system (Intel Core i7-13700K with 16 cores and 48GB of RAM), a pool size of 512 seems to
+     * be a good compromise between these factors. It allows for enough resources to be available for
+     * each thread without causing excessive memory usage or contention. Tuning the sizes of the pools
+     * can help with memory usage and cache locality, but must be done carefully to avoid accidental
+     * allocations.
+     * </p>
+     * 
+     * @since 2025.06.10 - Array Pooling Introduction
+     * @see ArrayPool
+     * @see TaskPool
+     * @see GeneratorContext
+     */
+    private static final int POOL_SIZE = 512;
 
     /**
      * A ThreadLocal context containing references to resource pools.
@@ -103,7 +179,7 @@ public class CombinationGeneratorTask extends RecursiveAction
      * [Memory allocation patterns, GC implications, sizing considerations.]
      * </p>
      * 
-     * <h3>0/6 - 0% of documentation completed</h3>
+     * <h3>0/7 - 0% of documentation completed</h3>
      * 
      * @performance [Specific performance characteristics and measurements]
      * @memory [Memory usage patterns and optimizations]
@@ -112,8 +188,8 @@ public class CombinationGeneratorTask extends RecursiveAction
      */
     private static class GeneratorContext
     {
-        final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE / 4);
-        final TaskPool taskPool = new TaskPool(128);
+        final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE);
+        final TaskPool taskPool = new TaskPool(POOL_SIZE / 4);
         WorkBatch currentBatch = null;
 
         WorkBatch getOrCreateBatch()
@@ -196,7 +272,45 @@ public class CombinationGeneratorTask extends RecursiveAction
     private long cachedAdjacencyState = -1; // -1 means root task, -2 means constraints are skipped
     private boolean skipConstraintsCheck = false; // If a prefix is known to satisfy constraints, we can skip checks for its children
 
-    private static long targetMask; // We can cache the target mask for the current task to avoid recomputing it in constraint checks
+    /**
+     * A bitmask representing the target true adjacency state for the current task. Initialized in the
+     * root task to avoid recomputation in constraint checks.
+     * 
+     * <p>
+     * Constraint checks are performed to ensure that the current prefix or one of its descendants can
+     * satisfy the constraint of touching each initially true cell at least once. For compact
+     * representation in {@link #canPotentiallySatisfyConstraints(int)}, we make a long bitmask to
+     * represent the prefix's current adjacency state, with the bitmask being sized to the number of
+     * initially true cells, and each 1 corresponding to a true cell.
+     * </p>
+     * 
+     * <p>
+     * The target mask for the constraint check contains all bits set to 1, but we can't define this as
+     * a static final constant since the number of initially true cells can vary between puzzles. To
+     * resolve this, we initialize this mask in the root task constructor, where we have access to the
+     * initially true cells. This lets us avoid recomputing the mask in every single constraint check,
+     * giving a minor performance boost.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Recomputing the mask each time isn't too complicated, but it adds undesirable overhead to our
+     * constraint checks, increasing the size of the checks and reducing the likelihood of JIT
+     * optimizations. It would also require us to pass an array of the true cells to every constraint
+     * check call. Optimizations like this appear small, but add up quickly when performed billions or
+     * trillions of times.
+     * </p>
+     * 
+     * @since 2025.08.04 - Reduced Branching Refactor
+     * @threading Computed once in the root task and reused across all subtasks.
+     * @performance O(1) for checks, O(1) for initial computation in the root task.
+     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
+     * @memory Uses a long to represent the target state, which is efficient for up to 64 initially true cells.
+     * @see #cachedAdjacencyState
+     * @see #SUFFIX_OR_MASKS
+     * @see #ensureTrueCellMasks(short[])
+     */
+    private static long targetMask;
     
     private static volatile ForkJoinPool generatorPool;
 
@@ -258,14 +372,49 @@ public class CombinationGeneratorTask extends RecursiveAction
         ensureTrueCellMasks(trueCells);
 
         // OPTIMIZATION: Pre-compute and cache the first true cell mask once per puzzle
-        firstTrueCell = trueCells[0];
-        computeAdjacencyMaskFast();
+        short firstTrueCell = trueCells[0];
+        computeAdjacencyMaskFast(firstTrueCell);
     }
 
+    /**
+     * A mask representing the adjacency of the first true cell to other cells.
+     * 
+     * <p>
+     * While the {@link TestClickCombination monkeys} handle the more in-depth odd adjacency checks and
+     * the generators perform constraint checks at each branch, we still want some kind of fast check to
+     * be performed at the "leaf" of the generation tree (when a full-length combination has been
+     * built). We therefore create a slimmed-down version of the
+     * {@link TestClickCombination#satisfiesOddAdjacency(short[], short[])} check that operates only on
+     * the first true cell. To do this, we need to be able to quickly determine which cells are adjacent
+     * to the first true cell, which we can do by pre-computing a bitmask for it.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * We use bitmasks for their efficiency in representing sets of toggled cells; other formats like
+     * arrays or lists would be too slow and memory-intensive, and {@link java.util.BitSet}s incur
+     * abstraction penalties. Since longs are 64-bit and our {@link Grid} is {@link Grid#NUM_CELLS 109
+     * cells}, we need two longs to represent first true adjacency for the whole grid. This isn't
+     * particularly awful, but it's a limitation that forces us to perform two checks per final cell
+     * instead of one.
+     * </p>
+     * 
+     * @since 2025.06.11 - Revamped Odd Adjacency Check
+     * @threading Statically initialized once in {@link #computeAdjacencyMaskFast(short)} by the root
+     *            task.
+     * @performance O(1) for checks, O(n) for initial computation where n is the number of adjacent
+     *              cells.
+     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation. A
+     *               bitmask is used for compact representation.
+     * @memory Uses an array of two longs to represent the adjacency of the first true cell.
+     * @see #computeAdjacencyMaskFast(short)
+     * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     * @see Grid#findAdjacents(short)
+     * @see Grid#findFirstTrueCell(Grid.ValueFormat)
+     */
     private static long[] FIRST_TRUE_ADJACENTS;
-    private static short firstTrueCell;
     
-    private static void computeAdjacencyMaskFast() 
+    private static void computeAdjacencyMaskFast(short firstTrueCell) 
     {
         short[] adjacents = Grid.findAdjacents(firstTrueCell);
         long[] mask = new long[2];
@@ -511,8 +660,82 @@ public class CombinationGeneratorTask extends RecursiveAction
         return (availableAdjacencies & needed) == needed;
     }
 
-    // Keep existing constraint checking logic unchanged
+    /**
+     * Bitmasks representing the adjacency of each cell to initially true cells.
+     * 
+     * <p>
+     * Efficiently generating combinations requires the ability to prune invalid paths early, preventing
+     * wasted computation. A key property of the puzzle is that a solution must toggle all initially
+     * true cells. This gives us a way to prune combinations early, but we still need a way to quickly
+     * determine which true cells are toggled by a given prefix of clicks. This field gives us that
+     * ability.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Bitmasks are used for their efficiency in representing sets of toggled cells; other formats like
+     * arrays or lists would be too slow and memory-intensive. The use of longs does limit us to
+     * pre-computing up to 64 initially true cells, but all puzzles in this game have initial true
+     * counts that are below this limit.
+     * </p>
+     * 
+     * @since 2025.07.06 - Bitmasked Adjacency Checks
+     * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])}
+     * @performance O(1) for adjacency checks, O(n) for initial computation where n is the number of
+     *              initially true cells
+     * @memory One long per cell, guaranteeing a fixed memory footprint regardless of the number of true
+     *         cells and avoiding object overhead.
+     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
+     * @see #SUFFIX_OR_MASKS
+     * @see #ensureTrueCellMasks(short[])
+     * @see Grid#findAdjacents(short cell)
+     * @see Grid#findTrueCells(Grid.ValueFormat format)
+     */
     private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
+    /**
+     * Pre-computed suffix OR masks for fast constraint checks.
+     * 
+     * <p>
+     * There are three cases that can occur when performing a constraint check:
+     * </p>
+     * <ol>
+     * <li>The current prefix already satisfies the constraints, meaning the test is passed.</li>
+     * <li>The current prefix doesn't fully satisfy the constraints, but one or more of its descendants
+     * may be able to.</li>
+     * <li>The current prefix and all of its descendants cannot satisfy the constraints.</li>
+     * </ol>
+     * 
+     * <p>
+     * The first case is trivial, but the second and third are more complex. Since combinations have
+     * clicks in an increasing order (and no duplicates), we know that the range of additional clicks
+     * holding this prefix is constrained to the range of cells that are greater than the last click in
+     * the prefix. By summing together the true adjacency masks of all clicks after the last click in
+     * the prefix, we can quickly determine if any of the child combinations can toggle the remaining
+     * true cells.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The mask at index i contains the OR of all masks from i to the end of the array. This allows
+     * us to avoid an O(109 - i) check for each prefix, reducing the complexity to O(1). Bitmasks
+     * are used for their efficiency in representing sets of toggled cells; other formats like arrays
+     * or lists would be too slow and memory-intensive. The use of longs does limit us to
+     * pre-computing up to 64 initially true cells, but all puzzles in this game have initial
+     * true counts that are below this limit.
+     * </p>
+     * 
+     * @since 2025.07.14 - Suffix OR Masks Introduction
+     * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])}
+     * @performance O(1) for suffix OR checks, O(n) for initial computation where n is the number of cells
+     *              in the grid.
+     * @memory One long per cell, guaranteeing a fixed memory footprint regardless of the number of true
+     *         cells and avoiding object overhead.
+     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
+     * @see TRUE_CELL_ADJACENCY_MASKS
+     * @see #ensureTrueCellMasks(short[])
+     * @see #canPotentiallySatisfyConstraints(int)
+     * @see Grid#findAdjacents(short cell)
+     */
     private static long[] SUFFIX_OR_MASKS = null;
     private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix(); // Stored in index format
 

@@ -179,7 +179,7 @@ public class CombinationGeneratorTask extends RecursiveAction
      * [Memory allocation patterns, GC implications, sizing considerations.]
      * </p>
      * 
-     * <h3>0/7 - 0% of documentation completed</h3>
+     * <h3>1/7 - ~15% of documentation completed</h3>
      * 
      * @performance [Specific performance characteristics and measurements]
      * @memory [Memory usage patterns and optimizations]
@@ -190,6 +190,36 @@ public class CombinationGeneratorTask extends RecursiveAction
     {
         final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE);
         final TaskPool taskPool = new TaskPool(POOL_SIZE / 4);
+        /**
+         * The current WorkBatch being processed by this thread.
+         * 
+         * <p>
+         * Generators produce combinations in batches to amortize the cost of queue operations, making the
+         * generation process more efficient. Since work batches are sized greater than the maximum number
+         * of combinations that can be generated in a single task, we need a way to preserve the current
+         * batch between tasks. We could make work batches thread-safe, but that would come at the cost of
+         * performance. Instead, we bundle the current batch into the {@link ThreadLocal thread-local}
+         * context, giving each thread its own batch to work with.
+         * </p>
+         * 
+         * <h3>Performance Considerations</h3>
+         * <p>
+         * By keeping the current batch in the thread-local context, we avoid contention and locking
+         * overhead, allowing each thread to work independently. This design also simplifies the logic for
+         * managing batches, as each thread can handle its own batch without needing to coordinate with
+         * others. Bundling the batch into the context gives us the benefit of <code>ThreadLocal</code>
+         * storage without the cost of multiple ThreadLocal accesses.
+         * </p>
+         * 
+         * @since 2025.07.01 - WorkBatch Introduction
+         * @threading Thread-local - Each thread has its own instance of WorkBatch, ensuring thread safety.
+         * @performance O(1) access time.
+         * @optimization Bundled into GeneratorContext to reduce ThreadLocal access overhead.
+         * @memory Memory usage is minimized by reusing WorkBatch instances from the pool.
+         * @see WorkBatch
+         * @see CombinationGeneratorTask#context
+         * @see CombinationGeneratorTask#BATCH_SIZE
+         */
         WorkBatch currentBatch = null;
 
         WorkBatch getOrCreateBatch()

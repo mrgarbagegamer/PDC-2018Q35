@@ -181,7 +181,7 @@ public class CombinationQueueArray
      * @performance O(1) for reads and writes.
      * @memory The flag is a single boolean value, which has a negligible memory footprint.
      * @see #generatorFinished()
-     * @see CombinationGeneratorTask#computeRootSubtasks()
+     * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask#GeneratorContext)
      * @see TestClickCombination#allQueuesEmpty()
      */
     public volatile boolean generationComplete = false;

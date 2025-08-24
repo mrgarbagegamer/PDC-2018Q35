@@ -193,7 +193,9 @@ public class CombinationGeneratorTask extends RecursiveAction
 
             // Get recycled task from context pool
             CombinationGeneratorTask subtask = ctx.taskPool.get();
-            subtask.init(newPrefix, prefixLength + 1, 0L, false);
+            
+            // Fix: Pass TRUE_CELL_ADJACENCY_MASKS[i] instead of 0L for correct initial state
+            subtask.init(newPrefix, prefixLength + 1, TRUE_CELL_ADJACENCY_MASKS[i], false);
             
             // Fork the subtask - it will clean itself up
             subtask.fork();

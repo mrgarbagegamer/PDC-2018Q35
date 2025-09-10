@@ -15,7 +15,7 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
  * <h2>Initialization Strategy</h2>
  * <p>[How values are computed/determined. Pre-computation rationale.]</p>
  * 
- * <h3>0/11 - 0% of documentation completed</h3>
+ * <h3>1/11 - ~9.09% of documentation completed</h3>
  * 
  * @algorithm [If complex initialization logic is involved]
  * @since [When this configuration was introduced]
@@ -74,18 +74,29 @@ public class CombinationMessage implements Message, StringBuilderFormattable
         }
     }
 
+    /**
+     * Formats the combination into a human-readable string representation onto the provided
+     * {@link java.lang.StringBuilder StringBuilder}. Through the use of a provided buffer,
+     * this method avoids unnecessary memory allocations, making it suitable for high-performance
+     * logging scenarios.
+     * 
+     * @param buffer the {@link java.lang.StringBuilder StringBuilder} to append the formatted message to.
+     * @throws NullPointerException (implicitly) if the provided buffer is null.
+     * @since 2025.05.31 - CombinationMessage Class Introduction
+     * @performance O(n) where n is the number of elements in {@link #list}.
+     * @threading Thread-safe, as the method does not modify shared state.
+     * @memory Does not allocate.
+     * @see org.apache.logging.log4j.util.StringBuilderFormattable
+     * @see org.apache.logging.log4j.util.StringBuilderFormattable#formatTo(StringBuilder)
+     */
     @Override
-    public void formatTo(StringBuilder buffer)
-    {
-        if (format != Grid.ValueFormat.PackedInt)
-        {
+    public void formatTo(StringBuilder buffer) {
+        if (format != Grid.ValueFormat.PackedInt) {
             convertTo(Grid.ValueFormat.PackedInt); // Ensure the format is PackedInt for human-readable output 
         }
         buffer.append('[');
-        for (int i = 0, size = list.length; i < size; i++) 
-        {
-            if (i > 0) 
-            {
+        for (int i = 0, size = list.length; i < size; i++) {
+            if (i > 0) {
                 buffer.append(',');
                 buffer.append(' ');
             }

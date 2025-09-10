@@ -11,7 +11,7 @@ package com.github.mrgarbagegamer;
  * <h2>Initialization Strategy</h2>
  * <p>[How values are computed/determined. Pre-computation rationale.]</p>
  * 
- * <h3>0/2 - 0% of documentation completed</h3>
+ * <h3>1/2 - 50% of documentation completed</h3>
  * 
  * @algorithm [If complex initialization logic is involved]
  * @since [When this configuration was introduced]
@@ -19,9 +19,27 @@ package com.github.mrgarbagegamer;
  */
 public class Grid13 extends Grid 
 {
-    
-    void initialize() 
-    {
+    /**
+     * Initializes the grid to the specific configuration for Q13/Kermit.
+     * 
+     * <p>
+     * This method sets the initial state of the grid, directly assigning pre-computed
+     * values to the {@link #gridState} array. The proper values for {@link #firstTrueCell}
+     * and {@link #trueCellsCount} are also set to reflect the initial configuration, and
+     * the {@link #recalculationNeeded} flag is set to false, indicating that no further
+     * recalculation is necessary at this point.
+     * </p>
+     * 
+     * <p>
+     * Commented out are the clicks that make up the solution to the Q13 puzzle, which
+     * can be uncommented to test lower click counts. These clicks are pre-computed to
+     * avoid unnecessary recalculations during initialization.
+     * </p>
+     * 
+     * @since 2025.04.15 - Adjacent Skipping Optimization
+     * @see #getGridState()
+     */
+    void initialize() {
         // Initialize for Q13/Kermit
         
         // set all cells to their initial state

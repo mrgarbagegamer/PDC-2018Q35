@@ -6,30 +6,66 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * StartYourMonkeys - [Primary Purpose in Algorithm]
+ * StartYourMonkeys - Main class to orchestrate the Lights Out puzzle solver.
  * 
- * <p>[Detailed description of role in the overall puzzle-solving architecture.
- * Explain the "what" and "why" - what problem this class solves and why this 
- * approach was chosen.]</p>
+ * <p>
+ * Our architecture for solving this problem involves a producer-consumer model where we have
+ * {@link TestClickCombination "monkeys"} (workers) that test combinations of clicks on a Lights Out
+ * grid and {@link CombinationGeneratorTask generators} that produce these combinations. The main
+ * class is responsible for initializing the {@link Grid grids}, starting the generators and
+ * monkeys, and coordinating their activities.
+ * </p>
  * 
  * <h2>Architecture Role</h2>
- * <p>[How this class fits into the overall system. What classes depend on it,
- * what it depends on, and the data flow.]</p>
+ * <p>
+ * All of the main orchestration logic is contained within this class. It sets up the environment,
+ * manages the lifecycle of threads, and handles the overall flow of the program. The
+ * {@link #main(String[]) main method} serves as the entry point to the application and spawns the
+ * {@link java.util.concurrent.ForkJoinPool ForkJoinPool} for the generators, starts the
+ * {@link CombinationQueueArray queues} for inter-thread communication, and launches the monkeys,
+ * blocking until all tasks are complete or the solution is found.
+ * </p>
  * 
  * <h2>Performance Characteristics</h2>
- * <p>[Key performance properties, bottlenecks, and optimization strategies.
- * Include complexity analysis for critical methods.]</p>
+ * <p>
+ * Since this class primarily handles orchestration and thread management, its performance impact is
+ * minimal compared to the computational work done by the generators and monkeys. The main method
+ * itself runs in approximately constant time complexity, as it involves a fixed number of
+ * operations regardless of input size. The overall performance of the application is more
+ * significantly influenced by the efficiency of the combination generation and testing algorithms
+ * implemented in the other classes.
+ * </p>
  * 
  * <h2>Thread Safety</h2>
- * <p>[Concurrency model, synchronization approach, and usage patterns.]</p>
+ * <p>
+ * Since this class is primarily responsible for initialization and managing the lifecycle of other
+ * threads, it is designed to be mostly single-threaded in its operations. After spawning the
+ * monkeys and generators, it waits for their completion by
+ * {@link java.util.concurrent.ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask) invoking} a
+ * {@link CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask.GeneratorContext)
+ * blocking root task}, and then {@link Thread#join() joining} each monkey thread, ensuring that the
+ * main thread does not proceed until computation is complete (and ensuring that the runtime thread
+ * count is at most the number of threads specified at startup).
+ * </p>
  * 
- * <h3>2/7 - ~28.5% of documentation completed</h3>
+ * <p>
+ * Static methods meant for pre-computed values are best called in this class, as it is
+ * single-threaded for most of its operations. Methods that set static values for other classes are
+ * also safe to call here.
+ * </p>
  * 
- * @performance [Overall performance characteristics]
- * @threading [Thread safety guarantees]  
- * @algorithm [High-level algorithm description]
- * @since [Version when introduced/major changes]
- * @see [Related classes in the architecture]
+ * <h3>6/7 - ~85.7% of documentation completed</h3>
+ * 
+ * @threading Thread-safe due to single-threaded orchestration.
+ * @performance ~O(1) for orchestration tasks
+ * @algorithm Parses the command-line arguments, initializes the grid, starts the generator and
+ *            monkey threads, and coordinates their activities until a solution is found or all
+ *            combinations are exhausted.
+ * @since 2025.04.01 - Multi-threaded Refactor
+ * @see CombinationGeneratorTask
+ * @see CombinationQueueArray
+ * @see Grid
+ * @see TestClickCombination
  */
 public class StartYourMonkeys 
 {
@@ -65,8 +101,54 @@ public class StartYourMonkeys
      */
     private static final Logger logger = LogManager.getLogger();
 
+    /**
+     * Default number of clicks if not specified via command-line arguments.
+     * 
+     * <p>
+     * The goal of this solver is to find a solution to the Lights Out puzzle (Q35) using a brute-force
+     * approach. After extensive testing and analysis, we've been able to rule out the possibility of a
+     * &le; 16-click solution for Q35. Therefore, the default number of clicks is set to 17, which is the
+     * minimum number of clicks that could potentially yield a solution. This default value can be
+     * overridden by providing a different number of clicks as a command-line argument when starting the
+     * program.
+     * </p>
+     * 
+     * @since 2025.08.16 - Enhanced Documentation of Codebase
+     * @threading This is a constant value and is inherently thread-safe.
+     * @performance O(1) - This is a constant value used for configuration.
+     * @see #main(String[])
+     */
     private static final int DEFAULT_NUM_CLICKS = 17;
-    private static final int DEFAULT_NUM_THREADS = 8;
+    /**
+     * Default number of threads if not specified via command-line arguments.
+     * 
+     * <p>
+     * For my system (an Intel Core i7-13700K with 16 cores), the optimal number of threads is
+     * 16. This allows for efficient CPU utilization without context switching overhead. Larger
+     * numbers of threads tend to lead to diminishing returns due to increased context switching
+     * overhead and resource contention. This default value can be overridden by providing a different
+     * value at startup.
+     * </p>
+     * 
+     * @since 2025.08.16 - Enhanced Documentation of Codebase
+     * @threading This is a constant value and is inherently thread-safe.
+     * @performance O(1) - This is a constant value used for configuration.
+     * @see #main(String[])
+     */
+    private static final int DEFAULT_NUM_THREADS = 16;
+    /**
+     * The default question number to solve if not specified via command-line arguments.
+     * 
+     * <p>
+     * Since our program is mainly concerned with solving Q35, we set this as the default question
+     * number for convenience.
+     * </p>
+     * 
+     * @since 2025.08.16 - Enhanced Documentation of Codebase
+     * @threading This is a constant value and is inherently thread-safe.
+     * @performance O(1) - This is a constant value used for configuration.
+     * @see #main(String[])
+     */
     private static final int DEFAULT_QUESTION_NUMBER = 35;
 
     /**
@@ -174,7 +256,7 @@ public class StartYourMonkeys
      * @throws IllegalArgumentException if the number of clicks is not between 1 and 109, the number of
      *                                  threads is less than 1, or the question number is not one of the
      *                                  valid options (13, 22, or 35).
-     * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask#GeneratorContext)
+     * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask.GeneratorContext)
      */
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis(); // Start timer

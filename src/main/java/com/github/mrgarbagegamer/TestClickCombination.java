@@ -85,8 +85,6 @@ import org.apache.logging.log4j.Logger;
  * monkeys, and therefore the entire solver.
  * </p>
  * 
- * <h3>11/15 - ~73.3% of documentation completed</h3>
- * 
  * @since 2025.04.01 - Multi-threaded Solver Introduction
  * @algorithm {@link #getWork() Pulls} a {@link WorkBatch batch of work} (either its own or by
  *            stealing), then processes each combination in the batch by
@@ -115,6 +113,32 @@ import org.apache.logging.log4j.Logger;
  * @see WorkBatch
  */
 public class TestClickCombination extends Thread {
+    /**
+     * The {@link Logger logger} for this class, used for logging significant events and errors.
+     * 
+     * <p>
+     * Logging is an important aspect of monitoring the behavior of the monkeys, especially in a
+     * multi-threaded environment where issues can be hard to trace. This logger is used to log
+     * significant events such as finding a solution, failed attempts, and interruptions.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * While logging is essential for diagnostics, it can introduce latency and contention if not
+     * handled carefully. To mitigate this, we restrict logging to significant events and use log4j2's
+     * asynchronous logger to offload the logging work to a separate thread. This helps ensure that the
+     * monkeys can continue processing without being blocked by logging operations.
+     * </p>
+     * 
+     * @since 2025.05.04 - Async Logging Introduction
+     * @threading The logger is thread-safe and can be used concurrently by multiple threads.
+     * @performance Logging operations are offloaded to a separate thread, minimizing impact on the main
+     *              processing loop.
+     * @memory The logger itself has a minimal memory footprint and tries to reuse objects to reduce GC
+     *         pressure.
+     * @see #run()
+     * @see CombinationMessage
+     */
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
     /**
      * A constant defining how often to log failed attempts. After this many failed combinations per
@@ -136,8 +160,59 @@ public class TestClickCombination extends Thread {
      */
     private static final int LOG_EVERY_N_FAILURES = 100_000; // Log every N failures to avoid flooding the logs
 
+    /**
+     * The monkey's {@link CombinationQueue queue}. The monkey will first attempt to pull work from this
+     * queue before trying to steal from other monkeys' queues.
+     * 
+     * <p>
+     * Each monkey has its own queue to minimize contention and allow for efficient work retrieval. If
+     * this queue is empty, the monkey will attempt to steal work from other monkeys' queues in the
+     * {@link CombinationQueueArray queue array}, and failing that, will sleep briefly before retrying.
+     * </p>
+     * 
+     * @since 2025.05.23 - Dedicated Queue per Monkey
+     * @threading This field is final and immutable, ensuring thread safety.
+     * @performance O(1) work retrieval from this queue and O(1) accesses of this reference.
+     * @see #queueArray
+     * @see #allQueuesEmpty()
+     * @see #getWork()
+     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     */
     private final CombinationQueue combinationQueue;
+    /**
+     * A reference to the shared {@link CombinationQueueArray queue array}.
+     * 
+     * <p>
+     * To minimize contention and allow for efficient work distribution, each monkey has its own
+     * {@link #combinationQueue queue} to pull work from. However, monkeys also need a way to steal work
+     * from others if their own queue is empty, and they need to be able to check if a
+     * {@link CombinationQueueArray#solutionFound solution has been found} or if
+     * {@link CombinationQueueArray#generationComplete generation is marked as complete}. This reference
+     * to the shared queue array gives the monkeys access to this information.
+     * </p>
+     * 
+     * @since 2025.05.23 - Dedicated Queue per Monkey
+     * @threading This field is final and immutable, ensuring thread safety.
+     * @performance O(1) accesses of this reference.
+     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     */
     private final CombinationQueueArray queueArray;
+    /**
+     * The monkey's dedicated {@link Grid puzzle grid} for applying click combinations to.
+     * 
+     * <p>
+     * Since monkeys are designed to test the validity of click combinations, they need a way to apply
+     * the clicks to a grid and check if the puzzle is solved. To avoid contention and ensure thread
+     * safety, each monkey has its own dedicated grid that it uses for this purpose. This grid is
+     * initialized with the puzzle's initial state and is reset after each combination is tested.
+     * </p>
+     * 
+     * @since 2025.04.01 - Multi-threaded Solver Introduction
+     * @threading This field is final and immutable, ensuring thread safety.
+     * @performance O(1) accesses of this reference.
+     * @see #run()
+     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     */
     private final Grid puzzleGrid;
 
     /**

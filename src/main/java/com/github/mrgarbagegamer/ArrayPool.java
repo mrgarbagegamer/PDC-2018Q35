@@ -1,8 +1,8 @@
 package com.github.mrgarbagegamer;
 
 /**
- * A high performance array pool for pre-allocated combination arrays. Each array is of fixed size
- * {@link #numClicks}
+ * ArrayPool - A high performance array pool for pre-allocated combination arrays. Each array is of
+ * fixed size {@link #numClicks}
  * 
  * <p>
  * The golden rule of JVM optimizations is the following: <b>Don't allocate.</b> Allocations and
@@ -43,7 +43,7 @@ package com.github.mrgarbagegamer;
  * using the pool (else an exception will be thrown).
  * </p>
  * 
- * <h3>7/13 - ~53.8% of documentation completed</h3>
+ * <h3>11/13 - ~84.6% of documentation completed</h3>
  * 
  * @since 2025.07.02 - Custom Generator Pools
  * @threading This class is <b>not</b> thread-safe. Each thread should have its own instance of
@@ -109,13 +109,128 @@ public final class ArrayPool {
      * @see #ArrayPool(int)
      */
     private final short[][] arrays;
+    /**
+     * The maximum number of arrays the pool can hold.
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The capacity of the pool is a crucial parameter that determines how many arrays can be
+     * {@link #ArrayPool(int) pre-allocated} and managed by the pool. A larger capacity reduces the
+     * likelihood of contention and improves performance, but it also increases the memory footprint of
+     * the pool. A smaller capacity saves memory but may lead to more frequent allocations and
+     * deallocations, which can degrade performance. The optimal capacity depends on the specific use
+     * case and workload. Try to size the pool appropriately based on the expected number of concurrent
+     * threads and frequency of array usage, and lean towards a larger pool to minimize the risk of
+     * contention.
+     * </p>
+     * 
+     * @since 2025.07.02 - Custom Generator Pools
+     * @performance O(1) access time, as it's a final field.
+     * @memory The field itself is a primitive int, so it has a negligible memory footprint.
+     * @see #arrays
+     * @see #ArrayPool(int)
+     */
     private final int capacity;
 
-    // OPTIMIZATION: Pre-allocate the entire pool to guarantee non-null returns.
-    // This simplifies the get/put logic and improves performance by avoiding conditional checks.
-
+    /**
+     * The head index for {@link #get()} operations.
+     * 
+     * <p>
+     * The head index tracks where the next available array is located in the circular {@link #arrays
+     * buffer}. It is incremented each time an array is obtained from the pool, wrapping around to the
+     * start of the buffer when it reaches the end, implementing a circular buffer mechanism.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Using a circular buffer allows for efficient use of the pre-allocated array, minimizing memory
+     * usage while still allowing for fast {@link #put(short[]) put} and get operations. The head index
+     * is updated in constant time, ensuring that get operations remain efficient even as the pool
+     * fills up and empties out.
+     * </p>
+     * 
+     * <p>
+     * We could use a short for the indices to save a few bytes of memory, but the performance
+     * difference is negligible and using an int avoids potential overflow issues in long-running
+     * applications (plus, Java treats arithmetic with short values weirdly). We could also use a single
+     * pointer for both head and {@link #tail}, but that would complicate the logic and force an extra
+     * arithmetic operation on each operation, which could impact performance.
+     * </p>
+     * 
+     * @since 2025.07.02 - Custom Generator Pools
+     * @threading The index is not thread-safe, as it is intended to be used within a single thread
+     *            context.
+     * @performance O(1) for get operations.
+     * @memory Minimal additional memory overhead (single int).
+     */
     private int head = 0;
+    /**
+     * The tail index for {@link #put(short[])} operations.
+     * 
+     * <p>
+     * The tail index tracks where the next returned array should be placed in the circular
+     * {@link #arrays buffer}. It is incremented each time an array is returned to the pool, wrapping
+     * around to the start of the buffer when it reaches the end, implementing a circular buffer
+     * mechanism.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Using a circular buffer allows for efficient use of the pre-allocated array, minimizing memory
+     * usage while still allowing for fast put and {@link #get() get} operations. The tail index is
+     * updated in constant time, ensuring that put operations remain efficient even as the pool fills
+     * up and empties out.
+     * </p>
+     * 
+     * <p>
+     * We could use a short for the indices to save a few bytes of memory, but the performance
+     * difference is negligible and using an int avoids potential overflow issues in long-running
+     * applications (plus, Java treats arithmetic with short values weirdly). We could also use a single
+     * pointer for both {@link #head} and tail, but that would complicate the logic and force an extra
+     * arithmetic operation on each operation, which could impact performance.
+     * </p>
+     * 
+     * @since 2025.07.02 - Custom Generator Pools
+     * @threading The index is not thread-safe, as it is intended to be used within a single thread
+     *            context.
+     * @performance O(1) for put operations.
+     * @memory Minimal additional memory overhead (single int).
+     */
     private int tail = 0;
+    /**
+     * The current number of arrays in the pool.
+     * 
+     * <p>
+     * The size field tracks how many arrays are currently stored in the pool. It is incremented each
+     * time an array is returned to the pool via {@link #put(short[]) put} and decremented each time an
+     * array is obtained from the pool via {@link #get() get}. This field is crucial for ensuring that
+     * we do not exceed the pool's {@link #capacity} and for determining if the pool is empty.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The size field is updated in constant time during both put and get operations, ensuring that
+     * these operations remain efficient. It is also used to quickly check if the pool is empty (via
+     * {@link #isEmpty()}).
+     * </p>
+     * 
+     * <p>
+     * We could use a short for the size to save a few bytes of memory, but the performance difference
+     * is negligible and using an int avoids potential overflow issues in long-running applications
+     * (plus, Java treats arithmetic with short values weirdly). We could avoid the size field entirely
+     * by using the {@link #head} and {@link #tail} indices to calculate the size on-the-fly (or by
+     * taking a {@link WorkBatch#remainingCapacity} approach and storing the remaining capacity), but
+     * that would complicate the logic and add extra arithmetic operations to the hot path of both put
+     * and get operations, which could impact performance. We also don't anticipate the size coming down
+     * to 0, so the deoptimization risk is minimal.
+     * </p>
+     * 
+     * @since 2025.07.02 - Custom Generator Pools
+     * @threading The field is not thread-safe, as it is intended to be used within a single thread
+     *            context.
+     * @performance O(1) for both put and get operations.
+     * @memory Minimal additional memory overhead (single int).
+     */
     private int size = 0;
 
     /**

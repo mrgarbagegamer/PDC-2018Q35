@@ -55,7 +55,7 @@ import org.jctools.queues.MpmcArrayQueue;
  * between threads in a safe manner, preventing a thread from modifying a WorkBatch after it enqueues it.
  * </p>
  * 
- * <h3>5/8 - 62.5% of documentation completed</h3>
+ * <h3>7/8 - 87.5% of documentation completed</h3>
  * 
  * @threading Thread-safe via JCTools magic.
  * @performance O(1) amortized for enqueue/dequeue operations and field accesses.
@@ -66,10 +66,38 @@ import org.jctools.queues.MpmcArrayQueue;
  * @see WorkBatch
  */
 public class CombinationQueue {
-    // This queue now holds entire batches of work, not individual combinations.
-    // A smaller capacity is fine as it represents larger work units.
-    // OPTIMIZATION: Drastically reduce queue size to lower memory footprint for pre-allocation.
+    /**
+     * The fixed capacity of the queue.
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * A smaller queue size is chosen to minimize memory overhead while still allowing
+     * effective batching of work. This size is a balance between memory usage and the need to
+     * keep the {@link TestClickCombination monkeys} fed with work. Higher queue sizes increase
+     * the likelihood of empty spots in the queue for {@link CombinationGeneratorTask generators} to
+     * fill, but also increase memory usage. Lower sizes reduce memory usage, but may lead to starved
+     * monkeys if the generators cannot keep up.
+     * </p>
+     * 
+     * @since 2025.07.07 - Enqueuing WorkBatch Objects
+     * @performance O(1) time complexity for capacity access.
+     * @optimization Small, fixed-size queue to minimize memory overhead while batching work.
+     * @see org.jctools.queues.MpmcArrayQueue#capacity()
+     */
     private final int QUEUE_SIZE = 16;
+    /**
+     * The underlying MPMC queue from the JCTools library, used for its high performance and thread-safe
+     * characteristics. This queue holds {@link WorkBatch} objects, each containing multiple click
+     * combinations to be processed by {@link TestClickCombination worker threads (monkeys)}.
+     * 
+     * @since 2025.07.07 - Enqueuing WorkBatch Objects
+     * @threading Thread-safe via JCTools magic.
+     * @performance O(1) amortized time complexity for enqueue/dequeue operations, O(1) capacity access,
+     *              and O(n) size access.
+     * @optimization Uses a bounded, lock-free queue to minimize memory overhead and contention.
+     * @see org.jctools.queues.MpmcArrayQueue
+     * @see WorkBatch
+     */
     private final MpmcArrayQueue<WorkBatch> queue;
 
     /**

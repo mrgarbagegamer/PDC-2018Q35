@@ -56,7 +56,7 @@ import org.jctools.queues.MpmcArrayQueue;
  * impact performance.
  * </p>
  * 
- * <h3>11/16 - ~68.8% of documentation completed</h3>
+ * <h3>14/16 - 87.5% of documentation completed</h3>
  * 
  * @since 2025.05.23 - Multiple CombinationQueues
  * @performance O(1) for most operations, O(n) for iterating through all queues.
@@ -95,9 +95,34 @@ public class CombinationQueueArray {
      * @see CombinationQueue
      */
     private final CombinationQueue[] queues;
+    /**
+     * A counter for the number of active {@link CombinationGeneratorTask generators}.
+     * 
+     * <p>
+     * In order to determine when all generators have finished their work, we need a way to track how many
+     * are still active. This counter serves that purpose, allowing each generator to decrement the
+     * count when it finishes its work. When the count reaches zero, we know that all generators have
+     * finished, and we can set the {@link #generationComplete} flag to true, signaling to the
+     * {@link TestClickCombination monkeys} that no more combinations will be generated.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The use of an {@link java.util.concurrent.atomic.AtomicInteger} allows for lock-free updates to the
+     * counter, ensuring that we can accurately track the number of active generators without
+     * introducing contention or performance overhead. However, in our current architecture, we typically
+     * only have one effective generator thread, meaning that the counter will only ever be decremented
+     * once. In the future, we may remove this parameter entirely and assume it is always 1, letting us get rid of the
+     * <code>AtomicInteger</code> and simply set the <code>generationComplete</code> flag to <code>true</code>.
+     * </p>
+     * 
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @threading Thread-safe due to the use of an AtomicInteger, allowing for lock-free updates.
+     * @performance O(1) for increment and decrement operations.
+     * @memory Negligible memory footprint, as it only involves a single integer value.
+     * @see #generatorFinished()
+     */
     private final AtomicInteger generatorsRemaining;
-    // REPLACED: The int[] pool is gone.
-    // NEW: Central pool for recycled WorkBatch objects.
     /**
      * The central pool for recycled WorkBatch objects. This pool is used to avoid frequent allocations
      * and deallocations of WorkBatch instances by providing a backflow for WorkBatch objects that have
@@ -141,7 +166,57 @@ public class CombinationQueueArray {
      * @see MpmcArrayQueue
      */
     private final MpmcArrayQueue<WorkBatch> workBatchPool;
+    /**
+     * The name of the {@link TestClickCombination monkey} that found the solution.
+     * 
+     * <p>
+     * Since our program concerns itself only with finding a single solution to the puzzle, we can
+     * immediately stop all processing once a solution has been found. While the monkey that finds the
+     * solution may not be important, it is still useful information to have for logging and debugging
+     * purposes. This field stores the name of the monkey that found the solution.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * This field is marked as volatile to ensure visibility across threads. While the winning monkey's
+     * name could piggyback on the volatile status of the {@link #solutionFound} flag to avoid
+     * volatility overhead, for simplicity, we keep it as a separate volatile field. The overhead of
+     * volatility is negligible in this case, as the field is only
+     * {@link #solutionFound(String, short[]) written} once and {@link #getWinningMonkey() read} a few
+     * times at the end of the program's lifecycle.
+     * </p>
+     * 
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @threading Marked as volatile to ensure visibility across threads.
+     * @performance O(1) for reads and writes.
+     * @memory Negligible memory footprint, as it only involves a reference to a String object.
+     */
     private volatile String winningMonkey = null;
+    /**
+     * The combination that solves the puzzle.
+     * 
+     * <p>
+     * Since our program concerns itself only with finding a single solution to the puzzle, we can
+     * immediately stop all processing once a solution has been found. Unlike the {@link #winningMonkey
+     * winning monkey's name}, the actual combination that solves the puzzle is extremely important
+     * information to have. This field stores the winning combination.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * This field is marked as volatile to ensure visibility across threads. While the winning combination
+     * could piggyback on the volatile status of the {@link #solutionFound} flag to avoid
+     * volatility overhead, for simplicity, we keep it as a separate volatile field. The overhead of
+     * volatility is negligible in this case, as the field is only
+     * {@link #solutionFound(String, short[]) written} once and {@link #getWinningCombination() read} a few
+     * times at the end of the program's lifecycle.
+     * </p>
+     * 
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @threading Marked as volatile to ensure visibility across threads.
+     * @performance O(1) for reads and writes.
+     * @memory Negligible memory footprint, as it only involves a reference to a short array.
+     */
     private volatile short[] winningCombination = null;
 
     /**

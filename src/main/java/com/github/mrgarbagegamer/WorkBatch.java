@@ -3,30 +3,77 @@ package com.github.mrgarbagegamer;
 import org.jctools.queues.MessagePassingQueue;
 
 /**
- * WorkBatch - [Performance Purpose - e.g., "High-performance memory pool"]
+ * WorkBatch - A high-performance, batch container for managing combinations of clicks.
  * 
- * <p>[Detailed description of the performance problem this class solves.
- * Include before/after metrics where applicable.]</p>
+ * <p>
+ * Queue operations, even with the efficiency of JCTools, can introduce significant overhead when
+ * performed at a high frequency. Adding multiple combinations at once into a queue using the
+ * {@link org.jctools.queues.MessagePassingQueue.Consumer MessagePassingQueue.Consumer&lt;short[]&gt;}
+ * interface and creating a queue for each {@link TestClickCombination monkey} helps, but the
+ * overhead of queue operations can still be a bottleneck. The WorkBatch class addresses this by
+ * batching multiple combinations into a single structure, allowing for amortized queue operations
+ * and reducing the frequency of expensive queue interactions.
+ * </p>
  * 
  * <h2>Optimization Strategy</h2>
- * <p>[Specific optimization techniques used - pooling, caching, lock-free, etc.
- * Explain trade-offs made for performance gains.]</p>
+ * <p>
+ * WorkBatch instances were originally designed just for holding combinations before
+ * draining/filling them from/to queues, but we quickly realized that WorkBatch could also be used
+ * as a container for pooling. By {@link #WorkBatch(int) pre-allocating} a {@link #capacity
+ * fixed-size} {@link #buffer buffer} of combinations, and copying incoming combinations into that
+ * buffer, we can avoid the need for new array allocations during runtime. Combined with the reuse
+ * of WorkBatch instances themselves by {@link CombinationGeneratorTask generators}, this
+ * drastically reduces the number of runtime allocations to ~0, minimizing GC pressure and improving
+ * performance.
+ * </p>
  * 
  * <h2>Usage Patterns</h2>
- * <p>[How and when to use this utility. Common usage patterns and anti-patterns.]</p>
+ * <p>
+ * WorkBatch is designed to be used in high-frequency scenarios where combinations need to be
+ * generated, processed, and queued rapidly. It is particularly well-suited for use with
+ * {@link CombinationGeneratorTask combination generators} and {@link TestClickCombination monkeys}.
+ * Combinations can be copied into an array on the {@link #tail} of the batch using
+ * {@link #add(short[]) add(short[])} or {@link #add(short[], int, short) add(short[], int, short)},
+ * and polled from the {@link #head} of the batch using {@link #poll() poll()}. To avoid
+ * thread-safety issues, each WorkBatch instance should be used by one thread at a time, with queues
+ * serving as the only point of inter-thread communication. Never retain a reference to a WorkBatch
+ * instance after flushing it to a queue, as the receiving thread may modify it at any time.
+ * </p>
  * 
  * <h2>Memory Management</h2>
- * <p>[Memory allocation patterns, GC implications, sizing considerations.]</p>
+ * <p>
+ * WorkBatch instances manage their own memory through pre-allocation and reuse. The {@link #buffer
+ * buffer} is allocated once at construction time based on the specified {@link #capacity capacity}
+ * and {@link #numClicks number of clicks}, and is reused for the lifetime of the WorkBatch
+ * instance. This approach minimizes dynamic memory allocations and reduces GC pressure, leading to
+ * more consistent performance in high-frequency scenarios.
+ * </p>
  * 
- * <h3>6/18 - ~33.3% of documentation completed</h3>
+ * <p>
+ * Since WorkBatch objects are meant to hold many combinations, the size of the {@link #buffer
+ * buffer} can be significant. Larger batch sizes reduce the frequency of queue operations,
+ * potentially benefiting the generators, but come at the cost of increased memory usage and
+ * potentially increased latency for monkeys. Smaller batch sizes reduce memory usage and latency,
+ * but increase the frequency of queue operations. Care must be taken to balance these trade-offs
+ * for the specific use case and performance requirements.
+ * </p>
  * 
- * @performance [Specific performance characteristics and measurements]
- * @memory [Memory usage patterns and optimizations]
- * @threading [Thread safety model]
- * @since [When introduced and why]
+ * <h3>11/18 - ~61.1% of documentation completed</h3>
+ * 
+ * @since 2025.07.01 - WorkBatch Introduction
+ * @performance O(1) for poll operations and simple state checks, O(numClicks) for add operations
+ *              due to array copying.
+ * @memory Fixed memory usage based on the {@link #capacity capacity} and {@link #numClicks number
+ *         of clicks}, minimizing dynamic allocations.
+ * @threading This class is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+ *            used by one thread at a time. Queues should be the only point of inter-thread
+ *            communication.
+ * @see ArrayPool
+ * @see CombinationGeneratorTask
+ * @see CombinationQueue
+ * @see TestClickCombination
  */
-public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, MessagePassingQueue.Supplier<short[]>
-{
+public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, MessagePassingQueue.Supplier<short[]> {
     /**
      * Pre-allocated buffer to hold combinations.
      * 
@@ -57,9 +104,128 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * @see #WorkBatch(int)
      */
     private final short[][] buffer;
+    /**
+     * The maximum number of combinations the batch can hold.
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The capacity of the batch directly impacts its performance characteristics. A larger capacity
+     * reduces the frequency of queue operations, which can be expensive, but increases memory usage. A
+     * smaller capacity reduces memory usage but increases the frequency of queue operations. The
+     * optimal capacity balances these trade-offs based on the specific use case and performance
+     * requirements.
+     * </p>
+     * 
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @threading The capacity is immutable and does not impact thread safety.
+     * @performance O(1) for capacity checks.
+     * @memory Fixed memory usage based on capacity and {@link #numClicks the number of clicks}.
+     * @see #buffer
+     * @see #add(short[])
+     * @see #isFull()
+     * @see #WorkBatch(int)
+     * @see CombinationGeneratorTask#BATCH_SIZE
+     */
     private final int capacity;
+    /**
+     * The number of clicks (elements) in each combination. This is static as it is consistent across
+     * all batches for a given puzzle, and is effectively a constant for the lifetime of the application
+     * (we can't set it as final though, because it is configured at runtime).
+     * 
+     * <p>
+     * The number of clicks determines the size of each combination array, impacting the footprint of
+     * the {@link #WorkBatch(int) pre-allocated} {@link #buffer buffer} and the performance of
+     * {@link System#arraycopy(Object, int, Object, int, int) array copy} operations in
+     * {@link #add(short[])}.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Since we pre-allocate the buffer based on the number of clicks, it is crucial to
+     * {@link #setNumClicks(int) set this value} correctly before creating any WorkBatch instances. A
+     * value that is too large could lead to corrupted combinations (where the extra elements are just
+     * 0's), while a value that is too small could lead to
+     * {@link java.lang.ArrayIndexOutOfBoundsException ArrayIndexOutOfBoundsExceptions} during array
+     * copy operations. Ensuring that this value is accurate and consistent across the application is
+     * key to maintaining the integrity of the combinations and the performance of the batch operations.
+     * </p>
+     * 
+     * @since 2025.07.25 - NPE in WorkBatch Operations Fix
+     * @threading The variable is static and does not impact thread safety.
+     * @performance O(1) for access.
+     * @memory Fixed memory usage based on the number of clicks and {@link #capacity}.
+     * @see #buffer
+     * @see #add(short[], int, short)
+     * @see #setNumClicks(int)
+     */
     private static int numClicks;
+    /**
+     * The head index for {@link #poll() polling} combinations from the batch.
+     * 
+     * <p>
+     * The head index tracks where the next combination will be polled from the batch. It is incremented
+     * on each poll operation and wraps around to the beginning of the {@link #buffer} when it reaches
+     * the end, implementing a circular buffer.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Using a circular buffer allows for efficient use of the pre-allocated array, minimizing memory
+     * usage while still allowing for fast add and poll operations. The head index is updated in
+     * constant time, ensuring that poll operations remain efficient even as the batch fills up and
+     * empties out.
+     * </p>
+     * 
+     * <p>
+     * We could use a short for the indices to save a few bytes of memory, but the performance
+     * difference is negligible and using an int avoids potential overflow issues in long-running
+     * applications (plus, Java treats arithmetic with short values weirdly). We could also use a single
+     * pointer for both head and {@link #tail}, but that would complicate the logic and force an extra arithmetic
+     * operation on each {@link #add(short[], int, short) add} and poll operation, which could impact
+     * performance.
+     * </p>
+     * 
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @threading The index is not thread-safe, as it is intended to be used within a single
+     *            thread context. Queues should be the only point of inter-thread communication.
+     * @performance O(1) for poll operations.
+     * @optimization Efficient circular buffer implementation for fast access.
+     * @memory Minimal additional memory overhead (single int).
+     */
     private int head = 0;
+    /**
+     * The tail index for {@link #add(short[], int, short) adding} combinations to the batch.
+     * 
+     * <p>
+     * The tail index tracks where the next combination will be added to the batch. It is incremented on
+     * each add operation and wraps around to the beginning of the {@link #buffer} when it reaches the
+     * end, implementing a circular buffer.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Using a circular buffer allows for efficient use of the pre-allocated array, minimizing memory
+     * usage while still allowing for fast add and poll operations. The tail index is updated in
+     * constant time, ensuring that add operations remain efficient even as the batch fills up and
+     * empties out.
+     * </p>
+     * 
+     * <p>
+     * We could use a short for the indices to save a few bytes of memory, but the performance
+     * difference is negligible and using an int avoids potential overflow issues in long-running
+     * applications (plus, Java treats arithmetic with short values weirdly). We could also use a single
+     * pointer for both {@link #head} and tail, but that would complicate the logic and force an extra
+     * arithmetic operation on each add and {@link #poll() poll} operation, which could impact
+     * performance.
+     * </p>
+     * 
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @threading The index is not thread-safe, as it is intended to be used within a single
+     *       thread context. Queues should be the only point of inter-thread communication.
+     * @performance O(1) for add operations.
+     * @optimization Efficient circular buffer implementation for fast access.
+     * @memory Minimal additional memory overhead (single int).
+     */
     private int tail = 0;
     /**
      * An int to track the remaining capacity of the batch.

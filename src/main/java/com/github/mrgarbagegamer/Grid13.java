@@ -1,24 +1,49 @@
 package com.github.mrgarbagegamer;
 
 /**
- * Grid13 - [Configuration Purpose - e.g., "Q35 puzzle initial state"]
+ * Grid13 - Concrete Grid Implementation for Q13/Kermit
  * 
- * <p>[What this configuration represents and why it exists as a separate class.]</p>
+ * <p>
+ * This class represents the initial configuration of the hexagonal Lights Out puzzle in PDC's Q13
+ * of 2018 (also known as "Kermit"). It extends the abstract {@link Grid} class, providing a
+ * specific implementation for the puzzle's starting state.
+ * </p>
  * 
  * <h2>Configuration Details</h2>
- * <p>[Specific configuration values and their meaning in the domain context.]</p>
+ * <p>
+ * In this configuration, the grid is initialized with a total of 30 true cells, with the first true
+ * cell located at bit index 32 (row 2, column 1). The grid's state is represented using two long
+ * values in the {@link #gridState} array, where each bit corresponds to a cell in the hexagonal
+ * grid. The specific bit pattern for this configuration is pre-computed and directly assigned in
+ * the {@link #initialize()} method.
+ * </p>
  * 
  * <h2>Initialization Strategy</h2>
- * <p>[How values are computed/determined. Pre-computation rationale.]</p>
+ * <p>
+ * The {@link #initialize()} method sets up the grid's initial state by directly assigning
+ * pre-computed values to the {@link #gridState} array. This approach avoids the need for
+ * recalculating the grid state during initialization, which can be computationally expensive. The
+ * method also sets the {@link #firstTrueCell} and {@link #trueCellsCount} fields to reflect the
+ * initial configuration, and marks the {@link #recalculationNeeded} flag as false, indicating that
+ * no further recalculation is necessary at this point.
+ * </p>
  * 
- * <h3>1/2 - 50% of documentation completed</h3>
+ * <p>
+ * Since this puzzle has a known solution in 7 clicks, the method includes the solution in commented
+ * out form. These clicks can be uncommented to test lower click counts, and they are pre-computed
+ * to avoid unnecessary recalculations during initialization.
+ * </p>
  * 
- * @algorithm [If complex initialization logic is involved]
- * @since [When this configuration was introduced]
- * @see [Related configuration classes]
+ * @since 2025.04.15 - Adjacent Skipping Optimization
+ * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
+ *            Grid13 to avoid concurrency issues.
+ * @performance O(1) for initialization, as it involves direct assignments without loops or complex
+ *              calculations.
+ * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
+ * @see Grid22
+ * @see Grid35
  */
-public class Grid13 extends Grid 
-{
+public class Grid13 extends Grid {
     /**
      * Initializes the grid to the specific configuration for Q13/Kermit.
      * 

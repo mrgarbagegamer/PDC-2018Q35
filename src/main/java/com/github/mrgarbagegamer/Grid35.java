@@ -1,24 +1,46 @@
 package com.github.mrgarbagegamer;
 
 /**
- * Grid35 - [Configuration Purpose - e.g., "Q35 puzzle initial state"]
+ * Grid35 - Concrete Grid Implementation for Q35/Buttercup
  * 
- * <p>[What this configuration represents and why it exists as a separate class.]</p>
+ * <p>
+ * This class represents the initial configuration of the hexagonal Lights Out puzzle in PDC's Q35
+ * of 2018 (also known as "Buttercup"). It extends the abstract {@link Grid} class, providing a
+ * specific implementation for the puzzle's starting state.
+ * </p>
  * 
  * <h2>Configuration Details</h2>
- * <p>[Specific configuration values and their meaning in the domain context.]</p>
+ * <p>
+ * In this configuration, the grid is initialized with a total of 4 true cells, with the first true
+ * cell located at bit index 39 (row 2, column 8). The grid's state is represented using two long
+ * values in the {@link #gridState} array, where each bit corresponds to a cell in the hexagonal
+ * grid. The specific bit pattern for this configuration is pre-computed and directly assigned in the {@link #initialize()} method.
+ * </p>
  * 
  * <h2>Initialization Strategy</h2>
- * <p>[How values are computed/determined. Pre-computation rationale.]</p>
+ * <p>
+ * The {@link #initialize()} method sets up the grid's initial state by directly assigning
+ * pre-computed values to the {@link #gridState} array. This approach avoids the need for
+ * recalculating the grid state during initialization, which can be computationally expensive. The
+ * method also sets the {@link #firstTrueCell} and {@link #trueCellsCount} fields to reflect the
+ * initial configuration, and marks the {@link #recalculationNeeded} flag as false, indicating that
+ * no further recalculation is necessary at this point.
+ * </p>
  * 
- * <h3>1/2 - 50% of documentation completed</h3>
+ * <p>
+ * Since the solution for Q35 is not known, there are no pre-computed solution clicks included.
+ * </p>
  * 
- * @algorithm [If complex initialization logic is involved]
- * @since [When this configuration was introduced]
- * @see [Related configuration classes]
+ * @since 2025.03.29 - Concrete Class Introduction
+ * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
+ *            Grid35 to avoid concurrency issues.
+ * @performance O(1) for initialization, as it involves direct assignments without loops or complex
+ *              calculations.
+ * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
+ * @see Grid13
+ * @see Grid22
  */
-public class Grid35 extends Grid 
-{   
+public class Grid35 extends Grid {   
     /**
      * Initializes the grid to the specific configuration for Q35/Buttercup.
      * 

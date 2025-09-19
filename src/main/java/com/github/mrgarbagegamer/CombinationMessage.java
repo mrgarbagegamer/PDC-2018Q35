@@ -83,8 +83,6 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
  * considering.
  * </p>
  * 
- * <h3>7/11 - ~63.6% of documentation completed</h3>
- * 
  * @since 2025.05.31 - CombinationMessage Introduction
  * @threading Apart from the {@link #convertTo(Grid.ValueFormat)} method, which modifies internal
  *            state and is not thread-safe, the class is designed to be thread-safe for concurrent
@@ -230,9 +228,20 @@ public class CombinationMessage implements Message, StringBuilderFormattable
         buffer.append(']');
     }
 
+    /**
+     * Returns the formatted message as a {@link java.lang.String String}. This method is a fallback for legacy APIs that
+     * require a string representation of the message. Internally, it constructs the string using a {@link java.lang.StringBuilder StringBuilder}
+     * and the {@link #formatTo(StringBuilder)} method to avoid intermediate string allocations, but it must still create a new string for the return value.
+     * 
+     * @return the formatted message as a <code>String</code>.
+     * @since 2025.05.31 - CombinationMessage Introduction
+     * @performance O(1) call to {@link #formatTo(StringBuilder)}
+     * @threading Thread-safe, as it delegates to the thread-safe {@link #formatTo(StringBuilder)} method.
+     * @memory Allocates a new string for the return value, but avoids intermediate string allocations.
+     * @see java.lang.StringBuilder#toString()
+     */
     @Override
-    public String getFormattedMessage() 
-    {
+    public String getFormattedMessage() {
         // Fallback for legacy APIs; not GC-free, but rarely used by Log4j2 internals
         StringBuilder sb = new StringBuilder();
         formatTo(sb);
@@ -279,21 +288,48 @@ public class CombinationMessage implements Message, StringBuilderFormattable
         return list; // Return the combination in the requested format
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * This method is not used in this implementation and always returns <code>null</code>.
+     * 
+     * @since 2025.05.31 - CombinationMessage Introduction
+     * @performance O(1) return of <code>null</code>.
+     * @threading Thread-safe, as it does not modify shared state.
+     * @memory Does not allocate.
+     */
     @Override
-    public String getFormat() 
-    {
+    public String getFormat() {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * This method is not used in this implementation and always returns <code>null</code>.
+     * 
+     * @since 2025.05.31 - CombinationMessage Introduction
+     * @performance O(1) return of <code>null</code>.
+     * @threading Thread-safe, as it does not modify shared state.
+     * @memory Does not allocate.
+     */
     @Override
-    public Object[] getParameters() 
-    {
+    public Object[] getParameters() {
         return null;
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * This method is not used in this implementation and always returns <code>null</code>.
+     * 
+     * @since 2025.05.31 - CombinationMessage Introduction
+     * @performance O(1) return of <code>null</code>.
+     * @threading Thread-safe, as it does not modify shared state.
+     * @memory Does not allocate.
+     */
     @Override
-    public Throwable getThrowable() 
-    {
+    public Throwable getThrowable() {
         return null;
     }
 }

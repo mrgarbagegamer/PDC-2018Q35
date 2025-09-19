@@ -58,8 +58,6 @@ import org.jctools.queues.MessagePassingQueue;
  * for the specific use case and performance requirements.
  * </p>
  * 
- * <h3>16/18 - ~88.9% of documentation completed</h3>
- * 
  * @since 2025.07.01 - WorkBatch Introduction
  * @performance O(1) for poll operations and simple state checks, O(numClicks) for add operations
  *              due to array copying.
@@ -518,20 +516,62 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     }
 
     /**
-     * MessagePassingQueue.Consumer implementation for JCTools integration.
+     * {@link org.jctools.queues.MessagePassingQueue.Consumer MessagePassingQueue.Consumer}
+     * implementation for JCTools integration.
+     * 
+     * <p>
+     * This method simply delegates to {@link #add(short[])} to add the combination to the batch. When
+     * {@link TestClickCombination monkeys} drained combinations from queues into
+     * <code>WorkBatch</code>es, they used this method as the consumer function.
+     * </p>
+     * 
+     * <p>
+     * Now that we directly enqueue <code>WorkBatch</code>es instead of individual combinations, this
+     * method is no longer used by the monkeys. We could remove the <code>Consumer</code> interface from
+     * this class, though we've left it here, mainly from forgetting to remove it.
+     * </p>
+     * 
+     * @param combination the <code>short[]</code> to add to the batch.
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @performance O(1) call to {@link #add(short[])}.
+     * @see org.jctools.queues.MessagePassingQueue
+     * @see org.jctools.queues.MessagePassingQueue.Consumer#accept(Object)
      */
     @Override
-    public void accept(short[] combination)
-    {
+    public void accept(short[] combination) {
+        // TODO: Remove Consumer interface and this method from the class, since it is no longer used.
         add(combination);
     }
 
     /**
-     * MessagePassingQueue.Supplier implementation for JCTools integration.
+     * {@link org.jctools.queues.MessagePassingQueue.Supplier MessagePassingQueue.Supplier}
+     * implementation for JCTools integration.
+     * 
+     * <p>
+     * This method simply delegates to {@link #poll()} to retrieve the next combination from the batch.
+     * When {@link CombinationGeneratorTask generators} filled queues from <code>WorkBatch</code>es, they
+     * used this method as the supplier function.
+     * </p>
+     * 
+     * <p>
+     * Now that we directly enqueue <code>WorkBatch</code>es instead of individual combinations, this
+     * method is no longer used by the generators. We could remove the <code>Supplier</code> interface from
+     * this class, though we've left it here, mainly from forgetting to remove it.
+     * </p>
+     * 
+     * @return the next <code>short[]</code> (combination) from the batch, or <code>null</code> if the batch is empty.
+     * @since 2025.07.01 - WorkBatch Integration in Generators
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @performance O(1) call to {@link #poll()}.
+     * @see org.jctools.queues.MessagePassingQueue
+     * @see org.jctools.queues.MessagePassingQueue.Supplier#get()
      */
     @Override
-    public short[] get()
-    {
+    public short[] get() {
+        // TODO: Remove Supplier interface and this method from the class, since it is no longer used.
         return poll();
     }
 

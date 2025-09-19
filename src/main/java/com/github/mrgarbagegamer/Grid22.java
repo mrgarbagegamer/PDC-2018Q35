@@ -28,7 +28,7 @@ package com.github.mrgarbagegamer;
  * </p>
  * 
  * <p>
- * Since this puzzle has a known solution in 10 clicks, the method includes the solution in commented
+ * Since this puzzle has a known solution in 15 clicks, the method includes the solution in commented
  * out form. These clicks can be uncommented to test lower click counts, and they are pre-computed
  * to avoid unnecessary recalculations during initialization.
  * </p>

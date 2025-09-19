@@ -83,8 +83,6 @@ import java.util.concurrent.ThreadLocalRandom;
  * </ul>
  * </p>
  * 
- * <h3>35/36 - ~97.2% of documentation completed (excluding GeneratorContext)</h3>
- * 
  * @since 2025.06.08 - Fork Join Refactor
  * @algorithm Creates a tree of tasks, where each task represents a prefix of clicks. The root task
  *            generates subtasks for each possible first click, and each subtask recursively
@@ -2073,35 +2071,80 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
     }
 
-    private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) 
-    {
+    /**
+     * Helper method to flush a single {@link WorkBatch batch} to any available {@link CombinationQueue
+     * queue}, with options to check for cancellation and force flushing.
+     * 
+     * <h3>Algorithm Details</h3>
+     * <p>
+     * The method first retrieves all available queues from the {@link CombinationQueueArray} and
+     * selects a random starting index to avoid contention. It then iterates over the queues, attempting
+     * to {@link CombinationQueue#add(WorkBatch) add} the batch to any available queue. If a queue
+     * accepts the batch, the method immediately returns <code>true</code>. If all queues are full, the
+     * method either {@link Thread#sleep(long, int) sleeps} briefly (0.5ms) to avoid busy-waiting before
+     * looping once more, or returns <code>false</code> if not forcing a flush.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * This method was used to consolidate the flushing logic for both regular batch flushing and
+     * {@link #flushAllPendingBatches(CombinationQueueArray, ForkJoinPool) flushing at the end of all
+     * tasks.} However, the {@link #flushBatchFast(WorkBatch) fast flush} method is preferred for
+     * regular batch flushing due to its smaller code size and better performance characteristics,
+     * leaving this method primarily for the final flush operation.
+     * </p>
+     * 
+     * <p>
+     * Since we now only use this method for the final flush operation, we could remove the two boolean
+     * parameters and simplify the logic. In a similar vein, we could remove the
+     * <code>CombinationQueueArray</code> parameter and use the static {@link #queueArray} field
+     * instead. To fully optimize this method, we could remove all parameters and give it access to an
+     * array of all {@link GeneratorContext contexts} to flush all batches from all threads, though it
+     * would make more sense to remove this method altogether and integrate the logic directly into
+     * <code>flushAllPendingBatches()</code>.
+     * </p>
+     * 
+     * @param batch             the {@link WorkBatch} to flush.
+     * @param queueArray        the {@link CombinationQueueArray} containing the {@link CombinationQueue
+     *                          queues} to flush to.
+     * @param checkCancellation On a failed attempt to flush, whether to check if a solution has been
+     *                          found and abort if so. This should be <code>true</code> when called from
+     *                          a generator task and <code>false</code> when called from the final flush
+     *                          operation.
+     * @param forceFlush On a failed attempt to flush, whether to sleep and retry or return <code>false</code>.
+     * @return <code>true</code> if the batch was successfully flushed, <code>false</code> if the thread
+     *         was interrupted or if not forcing a flush and all queues were full.
+     * @since 2025.06.12 - Flush Batches when Full (or on Completion)
+     * @threading Thread-safe due to local queue access and atomic operations in {@link CombinationQueue#add(WorkBatch)}.
+     * @performance O(m) where m is the number of queues in the array, with a brief sleep if all queues are full and forcing a flush.
+     * @optimization Uses random starting index to minimize contention, brief sleep to avoid busy-waiting when forcing a flush.
+     * @see CombinationQueueArray#getAllQueues()
+     * @see java.util.concurrent.ThreadLocalRandom
+     * @see java.util.concurrent.ThreadLocalRandom#current()
+     * @see java.util.concurrent.ThreadLocalRandom#nextInt(int)
+     */
+    private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) {
         CombinationQueue[] queues = queueArray.getAllQueues();
         int numQueues = queues.length;
         int startQueue = ThreadLocalRandom.current().nextInt(numQueues);
 
         // Try to offer the entire batch to a queue.
-        while (true) 
-        {   
-            for (int attempt = 0; attempt < numQueues; attempt++) 
-            {
+        while (true) {   
+            for (int attempt = 0; attempt < numQueues; attempt++) {
                 int idx = (startQueue + attempt) % numQueues;
                 CombinationQueue queue = queues[idx];
                 
                 if (queue.add(batch)) return true;
             }
-            if (forceFlush)
-            {
-                try 
-                { 
+            if (forceFlush) {
+                try { 
                     Thread.sleep(1); 
-                } catch (InterruptedException e) 
-                { 
+                } catch (InterruptedException e) { 
                     Thread.currentThread().interrupt();
                     return false; // Exit if interrupted 
                 }
             }
-            else
-            {
+            else {
                 // If not forcing flush, we can break after one attempt
                 return false; // No queue accepted the batch
             }

@@ -83,7 +83,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * </ul>
  * </p>
  * 
- * <h3>30/36 - ~83.3% of documentation completed (excluding GeneratorContext)</h3>
+ * <h3>35/36 - ~97.2% of documentation completed (excluding GeneratorContext)</h3>
  * 
  * @since 2025.06.08 - Fork Join Refactor
  * @algorithm Creates a tree of tasks, where each task represents a prefix of clicks. The root task
@@ -270,8 +270,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * with larger pools reducing contention but increasing memory usage.
      * </p>
      * 
-     * <h3>6/7 - ~85.7% of documentation completed</h3>
-     * 
      * @since 2025.07.26 - GeneratorContext Introduction
      * @performance O(1) access time for pool operations.
      * @memory Minimal memory footprint as a wrapper class, with pooled resources to minimize
@@ -372,10 +370,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * @see WorkBatch
          * @see CombinationGeneratorTask#context
          */
-        WorkBatch getOrCreateBatch()
-        {
-            if (currentBatch == null)
-            {
+        WorkBatch getOrCreateBatch() {
+            if (currentBatch == null) {
                 currentBatch = getNewBatchBlocking();
             }
             return currentBatch;
@@ -423,20 +419,34 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * @see CombinationQueueArray
          * @see WorkBatch
          */
-        private WorkBatch getNewBatchBlocking()
-        {
+        private WorkBatch getNewBatchBlocking() {
             WorkBatch batch;
-            while ((batch = queueArray.getWorkBatchPool().relaxedPoll()) == null)
-            {
+            while ((batch = queueArray.getWorkBatchPool().relaxedPoll()) == null) {
                 // NOTE: Thread.onSpinWait() can not be used here since it doesn't respond to cancellation.
             }
             batch.clear(); // Ensure the recycled batch is clean before use
             return batch;
         }
 
-        // Handle the flushing of the current batch
-        WorkBatch resetBatch()
-        {
+        /**
+         * Resets the {@link #currentBatch current <code>WorkBatch</code>} by obtaining a new one from the pool.
+         * 
+         * <p>
+         * After a batch has been filled and flushed to the queue, we need to obtain a new batch to continue
+         * the generation process. This method performs that operation, obtaining a new batch from the pool
+         * and setting it as the current batch. The old batch should not be referenced after this call, as
+         * it may be recycled and used by another thread.
+         * </p>
+         * 
+         * @return The new current <code>WorkBatch</code>, guaranteed to be non-null.
+         * @since 2025.07.26 - GeneratorContext Introduction
+         * @threading Thread-local - Each thread has its own instance of this context, ensuring thread safety.
+         * @performance O(1) amortized access time, blocking if necessary.
+         * @optimization Combines batch reset and retrieval into a single operation to reduce overhead.
+         * @memory Memory usage is minimized by reusing WorkBatch instances from the pool.
+         * @see #getNewBatchBlocking()
+         */
+        WorkBatch resetBatch() {
             return currentBatch = getNewBatchBlocking();
         }
     }
@@ -560,17 +570,20 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * The current length of the {@link #prefix} array, representing the number of clicks made so far.
      * 
      * <p>
-     * Since we use pre-allocated, {@link ArrayPool pooled} arrays to store the prefix of clicks, we need a way to track the
-     * current length of the <code>prefix</code> array, as it may not be fully filled. This field serves that purpose, allowing us to
-     * keep track of how many clicks have been made so far and where to add the next click.
+     * Since we use pre-allocated, {@link ArrayPool pooled} arrays to store the prefix of clicks, we
+     * need a way to track the current length of the <code>prefix</code> array, as it may not be fully
+     * filled. This field serves that purpose, allowing us to keep track of how many clicks have been
+     * made so far and where to add the next click.
      * </p>
      * 
      * <h3>Performance Considerations</h3>
      * <p>
-     * Using a separate field to track the length of the prefix allows for efficient addition of new clicks, as we can simply
-     * add the new click at the current length index and increment the length. This avoids the need to resize or copy the array,
-     * which would be expensive and could lead to excessive allocations and deallocations. It also simplifies the logic for determining
-     * whether a task is a leaf, root, or intermediate task, as we can simply compare the length to the {@link #numClicks} field.
+     * Using a separate field to track the length of the prefix allows for efficient addition of new
+     * clicks, as we can simply add the new click at the current length index and increment the length.
+     * This avoids the need to resize or copy the array, which would be expensive and could lead to
+     * excessive allocations and deallocations. It also simplifies the logic for determining whether a
+     * task is a leaf, root, or intermediate task, as we can simply compare the length to the
+     * {@link #numClicks} field.
      * </p>
      * 
      * @since 2025.06.08 - Fork Join Refactor
@@ -689,7 +702,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Computed once in the root task and reused across all subtasks.
      * @performance O(1) for checks, O(1) for initial computation in the root task.
      * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
-     * @memory Uses a long to represent the target state, which is efficient for up to 64 initially true cells.
+     * @memory Uses a long to represent the target state, which is efficient for up to 64 initially true
+     *         cells.
      * @see #cachedAdjacencyState
      * @see #SUFFIX_OR_MASKS
      * @see #ensureTrueCellMasks(short[])
@@ -700,20 +714,20 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * The {@link java.util.concurrent.ForkJoinPool ForkJoinPool} used to execute generator tasks.
      * 
      * <p>
-     * Since our code already leverages the fork-join framework for parallelism, we can skip
-     * explicit cancellation checks in the hot path by placing the responsibility of task
-     * cancellation on the pool itself, signaled by a {@link TestClickCombination monkey} when it
-     * finds a solution. For monkeys to be able to signal cancellation, however, they need
-     * access to the pool, which we provide via this static field.
+     * Since our code already leverages the fork-join framework for parallelism, we can skip explicit
+     * cancellation checks in the hot path by placing the responsibility of task cancellation on the
+     * pool itself, signaled by a {@link TestClickCombination monkey} when it finds a solution. For
+     * monkeys to be able to signal cancellation, however, they need access to the pool, which we
+     * provide via this static field.
      * </p>
      * 
      * <h3>Performance Considerations</h3>
      * <p>
-     * Using a static field for the pool allows for quick and easy access from any task or
-     * monkey, without the need to pass references around or use ThreadLocals. This reduces
-     * overhead and simplifies the code, making it easier to maintain and understand. The volatile
-     * keyword ensures that changes to the pool reference are visible across threads, though the pool
-     * is best set once at the start of generation and left constant thereafter.
+     * Using a static field for the pool allows for quick and easy access from any task or monkey,
+     * without the need to pass references around or use ThreadLocals. This reduces overhead and
+     * simplifies the code, making it easier to maintain and understand. The volatile keyword ensures
+     * that changes to the pool reference are visible across threads, though the pool is best set once
+     * at the start of generation and left constant thereafter.
      * </p>
      * 
      * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
@@ -724,38 +738,112 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private static volatile ForkJoinPool generatorPool;
 
-    public static void setForkJoinPool(ForkJoinPool pool)
-    {
+    /**
+     * Sets the {@link java.util.concurrent.ForkJoinPool ForkJoinPool} used to execute generator tasks.
+     * 
+     * <p>
+     * This method is used to set the static {@link #generatorPool pool} field, allowing
+     * {@link TestClickCombination monkeys} to signal cancellation when they find a solution. The pool
+     * is best set once at the start of generation and left constant thereafter, as changing it
+     * mid-generation could lead to inconsistent behavior.
+     * </p>
+     * 
+     * @param pool the {@link java.util.concurrent.ForkJoinPool ForkJoinPool} to use for executing
+     *             generator tasks.
+     * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
+     * @threading Thread-safe due to the use of a volatile static field, though this method should be
+     *            called by one thread only.
+     * @performance O(1) assignment.
+     * @optimization Static field for quick access without passing references.
+     * @memory Minimal memory usage as a single reference.
+     * @see TestClickCombination#triggerGeneratorShutdown()
+     */
+    public static void setForkJoinPool(ForkJoinPool pool) {
         CombinationGeneratorTask.generatorPool = pool;
     }
 
-    public static ForkJoinPool getForkJoinPool()
-    {
+    /**
+     * Gets the {@link java.util.concurrent.ForkJoinPool ForkJoinPool} used to execute generator tasks.
+     * 
+     * <p>
+     * This method provides access to the static {@link #generatorPool pool} field, allowing
+     * {@link TestClickCombination monkeys} to signal cancellation when they find a solution.
+     * </p>
+     * 
+     * @return the {@link java.util.concurrent.ForkJoinPool ForkJoinPool} used for executing
+     *         generator tasks.
+     * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
+     * @threading Thread-safe due to the use of a volatile static field.
+     * @performance O(1) access time.
+     * @optimization Static field for quick access without passing references.
+     * @memory Only gets a reference, so minimal memory usage.
+     * @see TestClickCombination#triggerGeneratorShutdown()
+     */
+    public static ForkJoinPool getForkJoinPool() {
         return generatorPool;
     }
 
     // Root task constructor
-    public CombinationGeneratorTask(int numClicks, CombinationQueueArray queueArray,
-                                   short[] trueCells, int maxFirstClickIndex)
-    {
+    /**
+     * Constructs a new root task with the specified parameters. The root task is expected to be a
+     * singleton, as it initializes static fields used by all subtasks, but we do not enforce this
+     * restriction in code.
+     * 
+     * <p>
+     * The root task initializes static fields that are shared across all tasks, such as the
+     * {@link #numClicks number of clicks}, the {@link #queueArray queue array}, and the
+     * {@link #maxFirstClickIndex maximum first click index}. It also initializes instance fields like
+     * the {@link #prefix prefix array} and {@link #prefixLength prefix length} for the root task (with
+     * the prefix length taking a value of 0). The root task also pre-computes the {@link #targetMask
+     * target mask} for {@link #canPotentiallySatisfyConstraints(int) constraint checks} and the
+     * {@link #FIRST_TRUE_ADJACENTS first true adjacency mask} for the
+     * {@link #computeLeafCombinations(GeneratorContext) odd adjacency check}.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * Since the root task is only created once per puzzle, we can afford to perform some expensive
+     * initialization operations here without impacting overall performance. Pre-computing masks and
+     * initializing static fields helps reduce overhead during the generation process, allowing subtasks
+     * to focus on generating combinations efficiently. The use of pooled arrays for the prefix helps
+     * minimize allocations and deallocations, reducing garbage collection pressure and improving
+     * throughput.
+     * </p>
+     * 
+     * @param numClicks          the number of clicks in each combination.
+     * @param queueArray         the {@link CombinationQueueArray} to which generated combinations will
+     *                           be flushed.
+     * @param trueCells          an array of initially true cells in {@link Grid.ValueFormat#Index
+     *                           Index} format.
+     * @param maxFirstClickIndex the maximum index for the first click in a combination.
+     * @throws IllegalArgumentException if any of the parameters are invalid (<code>null</code> or out
+     *                                  of range).
+     * @since 2025.06.08 - Fork Join Refactor
+     * @threading Thread-safe due to ForkJoinTask isolation. Static fields are initialized in the root
+     *            task before any subtasks are created.
+     * @performance O(n) for initialization where n is the number of initially true cells, amortized
+     *              over the entire generation process.
+     * @optimization Pre-computes masks and initializes static fields to reduce overhead during
+     *               generation. Uses pooled arrays for the prefix to minimize allocations.
+     * @memory Uses pooled arrays for the prefix to reduce memory usage. Static fields are minimal in
+     *         size.
+     */
+    public CombinationGeneratorTask(int numClicks, CombinationQueueArray queueArray, short[] trueCells,
+            int maxFirstClickIndex) {
         // Check for valid inputs
-        if (numClicks <= 0 || numClicks > Grid.NUM_CELLS)
-        {
+        if (numClicks <= 0 || numClicks > Grid.NUM_CELLS) {
             throw new IllegalArgumentException("Invalid number of clicks: " + numClicks);
         }
 
-        if (queueArray == null)
-        {
+        if (queueArray == null) {
             throw new IllegalArgumentException("Queue array must not be null.");
         }
 
-        if (trueCells == null || trueCells.length == 0)
-        {
+        if (trueCells == null || trueCells.length == 0) {
             throw new IllegalArgumentException("True cells must be initialized before generating combinations.");
         }
 
-        if (maxFirstClickIndex < 0 || maxFirstClickIndex >= Grid.NUM_CELLS)
-        {
+        if (maxFirstClickIndex < 0 || maxFirstClickIndex >= Grid.NUM_CELLS) {
             throw new IllegalArgumentException("Invalid max first click index: " + maxFirstClickIndex);
         }
 
@@ -768,8 +856,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         
         // Initialize the instance fields
         this.prefix = context.get().prefixArrayPool.get(); // FIX: Get the initial empty prefix from the thread-local context to avoid allocation.
-        if (this.prefix == null)
-        {
+        if (this.prefix == null) {
             this.prefix = new short[numClicks]; // Safeguard if pool is empty (though it shouldn't be)
         }
         this.prefixLength = 0;
@@ -871,7 +958,25 @@ public class CombinationGeneratorTask extends RecursiveAction {
         FIRST_TRUE_ADJACENTS = mask;
     }
 
-    public CombinationGeneratorTask() {}
+    /**
+     * Constructs a new non-root task with the specified parameters.
+     * 
+     * <p>
+     * The golden rule of JVM optimizations is <b>don't allocate.</b> Since tasks are pre-allocated by
+     * {@link TaskPool} and reused, we designate this constructor as <code>protected</code> to prevent
+     * external code from calling it and potentially causing allocations. Instead, external code must
+     * obtain tasks from the pool via {@link TaskPool#get()} and assign their instance fields through
+     * the {@link #init(short[], int, long, boolean) init()} method.
+     * </p>
+     * 
+     * @since 2025.07.11 - Task Pool Introduction
+     * @threading Isolated by the ForkJoinTask framework, each task runs in its own thread.
+     * @performance O(1) access time, since no allocations or operations are performed.
+     * @optimization Protected to prevent external allocations, enforcing the use of the task pool.
+     * @memory No memory usage, as no allocations are performed.
+     * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     */
+    protected CombinationGeneratorTask() {}
 
     /**
      * The main task dispatcher method, as required by the {@link java.util.concurrent.ForkJoinTask}
@@ -1154,8 +1259,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @see GeneratorContext#getOrCreateBatch()
      * 
      */
-    private final void computeLeafCombinations(GeneratorContext ctx)
-    {
+    private final void computeLeafCombinations(GeneratorContext ctx){
         // ULTRA-OPTIMIZED: Pre-compute all loop-invariant values and cache array references
         final int start = prefix[prefixLength - 1] + 1;
         final int pLen = prefixLength;
@@ -1208,7 +1312,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
     }
     
-    // PURE HOT PATH SEPARATION: Dispatch once per task, not per loop iteration
     /**
      * Dispatches to the appropriate subtask computation method based on the
      * {@link #skipConstraintsCheck constraint check flag}. This method is called by {@link #compute()}
@@ -1264,7 +1367,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
     }
     
-    // PURE HOT PATH 1: Zero branches, zero conditionals - for descendants of constraint-satisfied tasks
+    // PURE HOT PATH 1:
     /**
      * Computes and forks subtasks for the next clicks, skipping constraint checks.
      * 
@@ -1336,7 +1439,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
     }
     
-    // PURE HOT PATH 2: Zero branches in loop, pure constraint logic
+    // PURE HOT PATH 2:
     /**
      * Computes and forks subtasks for the next clicks, performing checks to prune invalid paths early.
      * 
@@ -1603,7 +1706,31 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @see Grid#findAdjacents(short cell)
      */
     private static long[] SUFFIX_OR_MASKS = null;
-    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix(); // Stored in index format
+    /**
+     * Adjacency matrix representing which cells are adjacent to each other. Used for initializing
+     * {@link #TRUE_CELL_ADJACENCY_MASKS}.
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * This matrix is technically only used for the initialization of
+     * {@link #TRUE_CELL_ADJACENCY_MASKS}, meaning that it could be replaced by direct calls to
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat)} (or the creation of a method to expose the
+     * cache behind {@link Grid#areAdjacent(short, short, Grid.ValueFormat)}), though we've kept it
+     * since this field pre-dates the creation of the bitmasked Grid state.
+     * </p>
+     * 
+     * @since 2025.07.06 - Bitmasked Adjacency Checks
+     * @threading Statically initialized once at class load time.
+     * @performance O(1) for adjacency checks, O(n^2) for initial computation where n is the number of
+     *              cells in the grid.
+     * @memory Fixed-size boolean matrix of size n x n, where n is the number of cells in the grid. This
+     *         guarantees a fixed memory footprint and avoids object overhead.
+     * @optimization Pre-computed once at class load time to avoid recomputation, uses boolean matrix
+     *               for efficient adjacency representation.
+     * @see #initClickAdjacencyMatrix()
+     * @see Grid#findAdjacents(short, Grid.ValueFormat)
+     */
+    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
 
     // This method is used to initialize the click adjacency matrix, and is static
     /**

@@ -43,8 +43,6 @@ package com.github.mrgarbagegamer;
  * using the pool (else an exception will be thrown).
  * </p>
  * 
- * <h3>11/13 - ~84.6% of documentation completed</h3>
- * 
  * @since 2025.07.02 - Custom Generator Pools
  * @threading This class is <b>not</b> thread-safe. Each thread should have its own instance of
  *            {@link ArrayPool} to avoid contention. The pool is designed to be used in a
@@ -375,18 +373,33 @@ public final class ArrayPool {
     }
 
     /**
-     * Check if pool is empty.
+     * Checks if the pool is empty.
+     * 
+     * @return <code>true</code> if the pool is empty, <code>false</code> otherwise.
+     * @since 2025.07.02 - Custom Generator Pools
+     * @threading Not thread-safe. Should be used within a single thread context.
+     * @performance O(1) time complexity, as it involves a simple comparison.
+     * @memory No additional memory allocation occurs during this operation.
+     * @see #get()
+     * @see #size()
      */
-    public boolean isEmpty() 
-    {
+    public boolean isEmpty() {
         return size == 0;
     }
 
     /**
-     * Get current pool size.
+     * Gets the current number of arrays in the pool.
+     * 
+     * @return The current number of arrays in the pool.
+     * @since 2025.07.02 - Custom Generator Pools
+     * @threading Not thread-safe. Should be used within a single thread context.
+     * @performance O(1) time complexity, as it involves a simple field access.
+     * @memory No additional memory allocation occurs during this operation.
+     * @see #get()
+     * @see #put(short[])
+     * @see #isEmpty()
      */
-    public int size() 
-    {
+    public int size() {
         return size;
     }
 }

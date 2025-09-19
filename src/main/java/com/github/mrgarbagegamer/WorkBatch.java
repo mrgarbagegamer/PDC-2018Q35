@@ -58,7 +58,7 @@ import org.jctools.queues.MessagePassingQueue;
  * for the specific use case and performance requirements.
  * </p>
  * 
- * <h3>11/18 - ~61.1% of documentation completed</h3>
+ * <h3>16/18 - ~88.9% of documentation completed</h3>
  * 
  * @since 2025.07.01 - WorkBatch Introduction
  * @performance O(1) for poll operations and simple state checks, O(numClicks) for add operations
@@ -259,15 +259,46 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      */
     private int remainingCapacity; // Replacement for size to avoid deoptimizations
 
-    public WorkBatch(int capacity)
-    {
+    /**
+     * Creates a new WorkBatch with the specified capacity. The buffer is pre-allocated based on the
+     * {@link #numClicks number of clicks}, which must be {@link #setNumClicks(int) set} before creating
+     * any WorkBatch instances.
+     * 
+     * @param capacity the maximum number of combinations the batch can hold.
+     * @throws IllegalArgumentException if the capacity is not a positive integer.
+     * @throws IllegalStateException    if {@link #numClicks} has not been set to a positive value.
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @threading Thread-safe by nature of construction, but the created instance is not.
+     */
+    public WorkBatch(int capacity) {
+        if (numClicks <= 0) {
+            throw new IllegalStateException("numClicks must be set to a positive value before creating WorkBatch instances.");
+        }
+
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("Capacity must be a positive integer.");
+        }
+
         this.capacity = capacity;
         this.remainingCapacity = capacity;
         this.buffer = new short[capacity][numClicks];
     }
 
-    public static void setNumClicks(int numClicks)
-    {
+    /**
+     * Sets the {@link #numClicks number of clicks} (elements) in each combination. This must be set
+     * before creating any WorkBatch instances, as it determines the size of the {@link #buffer buffer}
+     * {@link #WorkBatch(int) pre-allocated} in the constructor.
+     * 
+     * @param numClicks the number of clicks (elements) in each combination.
+     * @since 2025.07.27 - Pre-allocation of WorkBatch Buffers
+     * @threading This method is thread-safe since it modifies a static volatile variable. However, it
+     *            should be called during application initialization before any WorkBatch instances are
+     *            created to ensure consistency.
+     * @performance O(1) for setting the value.
+     * @memory Minimal additional memory overhead (single int).
+     * @optimization Direct assignment to a static variable for efficient access.
+     */
+    public static void setNumClicks(int numClicks) {
         WorkBatch.numClicks = numClicks;
     }
 
@@ -421,18 +452,40 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     }
 
     /**
-     * Check if batch is empty.
+     * Checks if the batch is empty.
+     * 
+     * @return <code>true</code> if the batch is empty, <code>false</code> otherwise.
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @performance O(1) retrievals and comparison.
+     * @memory Minimal additional memory overhead (single int comparison).
+     * @optimization Efficient state check to quickly determine if the batch is empty, using
+     *               {@link #remainingCapacity} for improved branch prediction.
+     * @see #capacity
+     * @see #remainingCapacity
+     * @see #isFull()
+     * @see #size()
      */
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return remainingCapacity == capacity;
     }
 
     /**
-     * Get current batch size.
+     * Returns the current number of combinations in the batch. This is calculated based on the
+     * {@link #capacity} and {@link #remainingCapacity}, avoiding the need for a separate size
+     * variable that could lead to deoptimizations.
+     * @return the current number of combinations in the batch.
+     * @since 2025.07.28 - Remaining Capacity Tracking
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @performance O(1) for size calculations.
+     * @memory Minimal additional memory overhead (single int calculation).
+     * @optimization Efficient size calculation using existing state variables to avoid deoptimizations.
+     * @see #isEmpty()
+     * @see #isFull()
      */
-    public int size()
-    {
+    public int size() {
         return capacity - remainingCapacity; // Calculate size based on remaining capacity
     }
 
@@ -483,10 +536,21 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
     }
 
     /**
-     * Check if batch is full.
+     * Checks if the batch is full. This is determined by checking if the {@link #remainingCapacity}
+     * is zero.
+     * @return <code>true</code> if the batch is full, <code>false</code> otherwise.
+     * @since 2025.07.28 - Remaining Capacity Tracking
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *       used by one thread at a time.
+     * @performance O(1) retrievals and comparison.
+     * @memory Minimal additional memory overhead (single int comparison).
+     * @optimization Efficient state check to quickly determine if the batch is full, using
+     *               {@link #remainingCapacity} for improved branch prediction.
+     * @see #capacity
+     * @see #isEmpty()
+     * @see #size()
      */
-    public boolean isFull()
-    {
+    public boolean isFull() {
         return remainingCapacity == 0;
     }
 }

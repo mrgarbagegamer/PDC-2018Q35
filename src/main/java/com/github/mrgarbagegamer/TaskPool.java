@@ -42,8 +42,6 @@ package com.github.mrgarbagegamer;
  * possible.
  * </p>
  * 
- * <h3>9/11 - ~81.8% of documentation completed</h3>
- * 
  * @since 2025.07.11 - TaskPool Introduction
  * @threading This class is <b>not</b> thread-safe. Each thread should have its own instance of
  *            TaskPool to avoid concurrency issues. Queues should be the only point of inter-thread
@@ -57,8 +55,7 @@ package com.github.mrgarbagegamer;
  * @see ArrayPool
  * @see WorkBatch
  */
-public class TaskPool
-{
+public class TaskPool {
     /**
      * The array of pre-allocated tasks forming the pool. Implemented as a circular buffer.
      * 
@@ -290,18 +287,37 @@ public class TaskPool
     }
 
     /**
-     * Check if the pool is empty.
+     * Checks if the pool is empty.
+     * 
+     * @return <code>true</code> if the pool is empty, <code>false</code> otherwise.
+     * @since 2025.07.11 - TaskPool Introduction
+     * @threading This method is <b>not</b> thread-safe, as it is intended to be used within a single
+     *            thread context.
+     * @performance O(1) time complexity, as it involves a simple comparison.
+     * @memory No additional memory usage.
+     * @see #size
+     * @see #get()
+     * @see #put(CombinationGeneratorTask)
      */
-    public boolean isEmpty()
-    {
+    public boolean isEmpty() {
         return size == 0;
     }
 
     /**
-     * Get the current pool size.
+     * Gets the current number of tasks in the pool.
+     * 
+     * @return The current number of tasks in the pool.
+     * @since 2025.07.11 - TaskPool Introduction
+     * @threading This method is <b>not</b> thread-safe, as it is intended to be used within a single
+     *            thread context.
+     * @performance O(1) time complexity, as it involves a simple field access.
+     * @memory No additional memory usage.
+     * @see #size
+     * @see #get()
+     * @see #put(CombinationGeneratorTask)
+     * @see #isEmpty()
      */
-    public int size()
-    {
+    public int size() {
         return size;
     }
 }

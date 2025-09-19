@@ -56,8 +56,6 @@ import org.jctools.queues.MpmcArrayQueue;
  * impact performance.
  * </p>
  * 
- * <h3>14/16 - 87.5% of documentation completed</h3>
- * 
  * @since 2025.05.23 - Multiple CombinationQueues
  * @performance O(1) for most operations, O(n) for iterating through all queues.
  * @threading Uses lock-free structures and volatile flags for safe concurrent access and updates.
@@ -492,21 +490,40 @@ public class CombinationQueueArray {
      * @see #getWinningCombination()
      */
     public void solutionFound(String monkeyName, short[] winningCombination) {
-        if (solutionFound == false) 
-        {
+        if (solutionFound == false) {
             solutionFound = true;
             this.winningMonkey = monkeyName;
             this.winningCombination = winningCombination;
         }
     }
 
-    public String getWinningMonkey() 
-    { 
+    /**
+     * Gets the name of the {@link TestClickCombination monkey} that found the solution.
+     * 
+     * @return the name of the winning monkey, or <code>null</code> if no solution has been found yet.
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @threading Thread-safe due to the use of a volatile field for the {@link #winningMonkey} field,
+     *            ensuring visibility across threads.
+     * @performance O(1) time complexity.
+     * @see #getWinningCombination()
+     * @see #solutionFound(String, short[])
+     */
+    public String getWinningMonkey() { 
         return winningMonkey; 
     }
     
-    public short[] getWinningCombination() 
-    { 
+    /**
+     * Gets the combination that solves the puzzle.
+     * 
+     * @return the winning combination, or <code>null</code> if no solution has been found yet.
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @threading Thread-safe due to the use of a volatile field for the {@link #winningCombination} field,
+     *            ensuring visibility across threads.
+     * @performance O(1) time complexity.
+     * @see #getWinningMonkey()
+     * @see #solutionFound(String, short[])
+     */
+    public short[] getWinningCombination() { 
         return winningCombination; 
     }
 }

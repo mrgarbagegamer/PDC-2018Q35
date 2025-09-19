@@ -55,8 +55,6 @@ import org.jctools.queues.MpmcArrayQueue;
  * between threads in a safe manner, preventing a thread from modifying a WorkBatch after it enqueues it.
  * </p>
  * 
- * <h3>7/8 - 87.5% of documentation completed</h3>
- * 
  * @threading Thread-safe via JCTools magic.
  * @performance O(1) amortized for enqueue/dequeue operations and field accesses.
  * @algorithm Lock-free MPMC queue using JCTools wizardry.
@@ -115,8 +113,19 @@ public class CombinationQueue {
         queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     }
 
-    public int getCapacity()
-    {
+    /**
+     * Gets the capacity of the queue.
+     * 
+     * @return the fixed capacity of the queue.
+     * @since 2025.07.08 - Matching Sized Queues for Generators and Monkeys
+     * @threading Thread-safe, since it only reads a final field.
+     * @performance O(1) time complexity.
+     * @optimization Simple field access with minimal overhead.
+     * @see #QUEUE_SIZE
+     * @see #CombinationQueue()
+     * @see org.jctools.queues.MpmcArrayQueue#capacity()
+     */
+    public int getCapacity() {
         return QUEUE_SIZE;
     }
 

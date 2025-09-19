@@ -54,8 +54,6 @@ import org.apache.logging.log4j.Logger;
  * also safe to call here.
  * </p>
  * 
- * <h3>6/7 - ~85.7% of documentation completed</h3>
- * 
  * @threading Thread-safe due to single-threaded orchestration.
  * @performance ~O(1) for orchestration tasks
  * @algorithm Parses the command-line arguments, initializes the grid, starts the generator and
@@ -67,8 +65,7 @@ import org.apache.logging.log4j.Logger;
  * @see Grid
  * @see TestClickCombination
  */
-public class StartYourMonkeys 
-{
+public class StartYourMonkeys {
     
     /**
      * Logger for StartYourMonkeys class.
@@ -426,8 +423,25 @@ public class StartYourMonkeys
         LogManager.shutdown();
     }
 
-    private static String formatElapsedTime(long millis) 
-    {
+    /**
+     * Formats elapsed time in milliseconds to a human-readable {@link java.lang.String string} in the
+     * form "Xh Ym Zs Wms".
+     * 
+     * <p>
+     * This method takes a duration in milliseconds and converts it into a more human-readable format,
+     * breaking it down into hours, minutes, seconds, and milliseconds. This is useful for displaying
+     * the total time taken for the solver to find a solution or exhaust all possibilities at the end of
+     * the program's execution.
+     * </p>
+     * 
+     * @param millis Elapsed time in milliseconds.
+     * @return A {@link java.lang.String String} representing the formatted elapsed time.
+     * @since 2025.06.29 - Millisecond Precision to Elapsed Time Formatting
+     * @threading This method is thread-safe as it does not modify any shared state.
+     * @performance O(1) operations and string formatting.
+     * @see System#currentTimeMillis()
+     */
+    private static String formatElapsedTime(long millis) {
         long seconds = millis / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;

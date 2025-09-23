@@ -90,16 +90,16 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * the number of allocations and GC pressure.
      * </p>
      * 
+     * @see #WorkBatch(int)
+     * @see #add(short[])
+     * @see #poll()
      * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) for poll operations, O(numClicks) for add operations due to array copying.
      * @threading The buffers are not thread-safe, as they are intended to be used within a single
      *            thread context. Queues should be the only point of inter-thread communication.
-     * @performance O(1) for poll operations, O(numClicks) for add operations due to array copying.
      * @memory The memory footprint is fixed based on the capacity and {@link #numClicks}, minimizing
      *         dynamic allocations.
      * @optimization Pre-allocation and reuse of arrays to minimize GC pressure.
-     * @see #add(short[])
-     * @see #poll()
-     * @see #WorkBatch(int)
      */
     private final short[][] buffer;
     /**
@@ -114,15 +114,15 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * requirements.
      * </p>
      * 
-     * @since 2025.07.01 - WorkBatch Introduction
-     * @threading The capacity is immutable and does not impact thread safety.
-     * @performance O(1) for capacity checks.
-     * @memory Fixed memory usage based on capacity and {@link #numClicks the number of clicks}.
      * @see #buffer
+     * @see #WorkBatch(int)
      * @see #add(short[])
      * @see #isFull()
-     * @see #WorkBatch(int)
      * @see CombinationGeneratorTask#BATCH_SIZE
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) for capacity checks.
+     * @threading The capacity is immutable and does not impact thread safety.
+     * @memory Fixed memory usage based on capacity and {@link #numClicks the number of clicks}.
      */
     private final int capacity;
     /**
@@ -148,13 +148,13 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * key to maintaining the integrity of the combinations and the performance of the batch operations.
      * </p>
      * 
-     * @since 2025.07.25 - NPE in WorkBatch Operations Fix
-     * @threading The variable is static and does not impact thread safety.
-     * @performance O(1) for access.
-     * @memory Fixed memory usage based on the number of clicks and {@link #capacity}.
      * @see #buffer
      * @see #add(short[], int, short)
      * @see #setNumClicks(int)
+     * @since 2025.07.25 - NPE in WorkBatch Operations Fix
+     * @performance O(1) for access.
+     * @threading The variable is static and does not impact thread safety.
+     * @memory Fixed memory usage based on the number of clicks and {@link #capacity}.
      */
     private static int numClicks;
     /**
@@ -184,11 +184,11 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * </p>
      * 
      * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) for poll operations.
      * @threading The index is not thread-safe, as it is intended to be used within a single
      *            thread context. Queues should be the only point of inter-thread communication.
-     * @performance O(1) for poll operations.
-     * @optimization Efficient circular buffer implementation for fast access.
      * @memory Minimal additional memory overhead (single int).
+     * @optimization Efficient circular buffer implementation for fast access.
      */
     private int head = 0;
     /**
@@ -218,11 +218,11 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * </p>
      * 
      * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) for add operations.
      * @threading The index is not thread-safe, as it is intended to be used within a single
      *       thread context. Queues should be the only point of inter-thread communication.
-     * @performance O(1) for add operations.
-     * @optimization Efficient circular buffer implementation for fast access.
      * @memory Minimal additional memory overhead (single int).
+     * @optimization Efficient circular buffer implementation for fast access.
      */
     private int tail = 0;
     /**
@@ -245,15 +245,15 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * scenarios. 
      * </p>
      * 
-     * @since 2025.07.28 - Remaining Capacity Tracking
-     * @threading The counter is not thread-safe, as it is intended to be used within a single
-     *            thread context. Queues should be the only point of inter-thread communication.
-     * @performance O(1) for capacity checks, avoiding deoptimizations associated with size tracking.
-     * @memory Minimal additional memory overhead (single int).
-     * @optimization Stable and predictable capacity tracking to enhance performance.
      * @see #capacity
      * @see #add(short[])
      * @see #poll()
+     * @since 2025.07.28 - Remaining Capacity Tracking
+     * @performance O(1) for capacity checks, avoiding deoptimizations associated with size tracking.
+     * @threading The counter is not thread-safe, as it is intended to be used within a single
+     *            thread context. Queues should be the only point of inter-thread communication.
+     * @memory Minimal additional memory overhead (single int).
+     * @optimization Stable and predictable capacity tracking to enhance performance.
      */
     private int remainingCapacity; // Replacement for size to avoid deoptimizations
 
@@ -289,10 +289,10 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * 
      * @param numClicks the number of clicks (elements) in each combination.
      * @since 2025.07.27 - Pre-allocation of WorkBatch Buffers
+     * @performance O(1) for setting the value.
      * @threading This method is thread-safe since it modifies a static volatile variable. However, it
      *            should be called during application initialization before any WorkBatch instances are
      *            created to ensure consistency.
-     * @performance O(1) for setting the value.
      * @memory Minimal additional memory overhead (single int).
      * @optimization Direct assignment to a static variable for efficient access.
      */
@@ -319,17 +319,17 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * @param source the <b>non-<code>null</code></b> combination array to add to the batch.
      * @return <code>true</code> if the combination was added successfully, <code>false</code> if the
      *         batch is full.
-     * @since 2025.07.01 - WorkBatch Introduction
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
-     * @performance O(1) array access in {@link #buffer}, O({@link #numClicks}) for copying the array to the
-     *              destination.
-     * @memory Does not allocate any new arrays, instead reusing the pre-allocated arrays in <code>buffer</code>.
-     * @optimization Pre-allocated array {@link System#arraycopy(Object, int, Object, int, int) copying}
-     *               to minimize GC pressure and avoid temporary allocations.
      * @see #isFull()
      * @see #setNumClicks(int)
      * @see CombinationGeneratorTask
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) array access in {@link #buffer}, O({@link #numClicks}) for copying the array to the
+     *              destination.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @memory Does not allocate any new arrays, instead reusing the pre-allocated arrays in <code>buffer</code>.
+     * @optimization Pre-allocated array {@link System#arraycopy(Object, int, Object, int, int) copying}
+     *               to minimize GC pressure and avoid temporary allocations.
      */
     public boolean add(short[] source) {
         if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
@@ -375,20 +375,20 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * @param lastElement  the last element to append to the combination.
      * @return <code>true</code> if the combination was added successfully, <code>false</code> if the
      *         batch is full.
+     * @see #isFull()
+     * @see #setNumClicks(int)
+     * @see CombinationGeneratorTask
+     * @see CombinationGeneratorTask#computeLeafCombinations(CombinationGeneratorTask.GeneratorContext)
      * @since 2025.07.19 - Assembling Combinations in the WorkBatch
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
      * @performance O(1) array access in {@link #buffer}, O(<code>prefixLength</code>) for copying the
      *              array to the destination.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
      * @memory The memory footprint is fixed based on the capacity and {@link #numClicks}, minimizing
      *         dynamic allocations. The method does not allocate any new arrays, instead reusing the
      *         pre-allocated arrays in {@link #buffer}.
      * @optimization Pre-allocated array {@link System#arraycopy(Object, int, Object, int, int) copying}
      *               and assembly to minimize GC pressure and avoid temporary allocations.
-     * @see #isFull()
-     * @see #setNumClicks(int)
-     * @see CombinationGeneratorTask
-     * @see CombinationGeneratorTask#computeLeafCombinations(CombinationGeneratorTask.GeneratorContext)
      */
     public final boolean add(short[] prefix, int prefixLength, short lastElement) {
         if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
@@ -424,18 +424,18 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * </p>
      * 
      * @return the next combination from the batch, or <code>null</code> if the batch is empty.
-     * @since 2025.07.01 - WorkBatch Introduction
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
-     * @performance O(1) for polling operations.
-     * @memory The memory footprint is fixed based on the capacity and {@link #numClicks}, minimizing
-     *         dynamic allocations. The method does not allocate any new arrays, instead reusing the
-     *         pre-allocated arrays in {@link #buffer}.
-     * @optimization Pre-allocated array reuse to minimize GC pressure and avoid temporary allocations.
      * @see #buffer
      * @see #add(short[], int, short)
      * @see #clear()
      * @see #isEmpty()
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) for polling operations.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @memory The memory footprint is fixed based on the capacity and {@link #numClicks}, minimizing
+     *         dynamic allocations. The method does not allocate any new arrays, instead reusing the
+     *         pre-allocated arrays in {@link #buffer}.
+     * @optimization Pre-allocated array reuse to minimize GC pressure and avoid temporary allocations.
      */
     public short[] poll() {
         if (remainingCapacity == capacity) // Check remaining capacity instead of size to avoid deoptimizations
@@ -453,17 +453,17 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * Checks if the batch is empty.
      * 
      * @return <code>true</code> if the batch is empty, <code>false</code> otherwise.
-     * @since 2025.07.01 - WorkBatch Introduction
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
-     * @performance O(1) retrievals and comparison.
-     * @memory Minimal additional memory overhead (single int comparison).
-     * @optimization Efficient state check to quickly determine if the batch is empty, using
-     *               {@link #remainingCapacity} for improved branch prediction.
      * @see #capacity
      * @see #remainingCapacity
      * @see #isFull()
      * @see #size()
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) retrievals and comparison.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @memory Minimal additional memory overhead (single int comparison).
+     * @optimization Efficient state check to quickly determine if the batch is empty, using
+     *               {@link #remainingCapacity} for improved branch prediction.
      */
     public boolean isEmpty() {
         return remainingCapacity == capacity;
@@ -474,14 +474,14 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * {@link #capacity} and {@link #remainingCapacity}, avoiding the need for a separate size
      * variable that could lead to deoptimizations.
      * @return the current number of combinations in the batch.
-     * @since 2025.07.28 - Remaining Capacity Tracking
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
-     * @performance O(1) for size calculations.
-     * @memory Minimal additional memory overhead (single int calculation).
-     * @optimization Efficient size calculation using existing state variables to avoid deoptimizations.
      * @see #isEmpty()
      * @see #isFull()
+     * @since 2025.07.28 - Remaining Capacity Tracking
+     * @performance O(1) for size calculations.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
+     * @memory Minimal additional memory overhead (single int calculation).
+     * @optimization Efficient size calculation using existing state variables to avoid deoptimizations.
      */
     public int size() {
         return capacity - remainingCapacity; // Calculate size based on remaining capacity
@@ -501,13 +501,13 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * pressure during runtime.
      * </p>
      * 
+     * @see #WorkBatch(int)
      * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) for clear operations.
      * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
      *            used by one thread at a time.
-     * @performance O(1) for clear operations.
      * @memory Does not deallocate or allocate any arrays, simply resets internal pointers.
      * @optimization Efficient state reset to enable rapid reuse of the batch without additional overhead.
-     * @see #WorkBatch(int)
      */
     public void clear() {
         head = 0;
@@ -532,12 +532,12 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * </p>
      * 
      * @param combination the <code>short[]</code> to add to the batch.
-     * @since 2025.07.01 - WorkBatch Introduction
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
-     * @performance O(1) call to {@link #add(short[])}.
      * @see org.jctools.queues.MessagePassingQueue
      * @see org.jctools.queues.MessagePassingQueue.Consumer#accept(Object)
+     * @since 2025.07.01 - WorkBatch Introduction
+     * @performance O(1) call to {@link #add(short[])}.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
      */
     @Override
     public void accept(short[] combination) {
@@ -562,12 +562,12 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * </p>
      * 
      * @return the next <code>short[]</code> (combination) from the batch, or <code>null</code> if the batch is empty.
-     * @since 2025.07.01 - WorkBatch Integration in Generators
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
-     * @performance O(1) call to {@link #poll()}.
      * @see org.jctools.queues.MessagePassingQueue
      * @see org.jctools.queues.MessagePassingQueue.Supplier#get()
+     * @since 2025.07.01 - WorkBatch Integration in Generators
+     * @performance O(1) call to {@link #poll()}.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *            used by one thread at a time.
      */
     @Override
     public short[] get() {
@@ -579,16 +579,16 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
      * Checks if the batch is full. This is determined by checking if the {@link #remainingCapacity}
      * is zero.
      * @return <code>true</code> if the batch is full, <code>false</code> otherwise.
-     * @since 2025.07.28 - Remaining Capacity Tracking
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *       used by one thread at a time.
-     * @performance O(1) retrievals and comparison.
-     * @memory Minimal additional memory overhead (single int comparison).
-     * @optimization Efficient state check to quickly determine if the batch is full, using
-     *               {@link #remainingCapacity} for improved branch prediction.
      * @see #capacity
      * @see #isEmpty()
      * @see #size()
+     * @since 2025.07.28 - Remaining Capacity Tracking
+     * @performance O(1) retrievals and comparison.
+     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
+     *       used by one thread at a time.
+     * @memory Minimal additional memory overhead (single int comparison).
+     * @optimization Efficient state check to quickly determine if the batch is full, using
+     *               {@link #remainingCapacity} for improved branch prediction.
      */
     public boolean isFull() {
         return remainingCapacity == 0;

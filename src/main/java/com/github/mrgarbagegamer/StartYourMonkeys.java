@@ -54,16 +54,16 @@ import org.apache.logging.log4j.Logger;
  * also safe to call here.
  * </p>
  * 
- * @threading Thread-safe due to single-threaded orchestration.
- * @performance ~O(1) for orchestration tasks
- * @algorithm Parses the command-line arguments, initializes the grid, starts the generator and
- *            monkey threads, and coordinates their activities until a solution is found or all
- *            combinations are exhausted.
- * @since 2025.04.01 - Multi-threaded Refactor
  * @see CombinationGeneratorTask
  * @see CombinationQueueArray
  * @see Grid
  * @see TestClickCombination
+ * @since 2025.04.01 - Multi-threaded Refactor
+ * @performance ~O(1) for orchestration tasks
+ * @threading Thread-safe due to single-threaded orchestration.
+ * @algorithm Parses the command-line arguments, initializes the grid, starts the generator and
+ *            monkey threads, and coordinates their activities until a solution is found or all
+ *            combinations are exhausted.
  */
 public class StartYourMonkeys {
     
@@ -86,15 +86,15 @@ public class StartYourMonkeys {
      * impact on the main application threads.
      * </p>
      * 
-     * @since 2025.05.04 - Log4j2 Integration
-     * @threading This is thread-safe due to Log4j2's asynchronous logging capabilities. None-the-less, there is only one thread that runs this main method, so the logger for this class is effectively single-threaded.
-     * @performance O(1) for logging operations, as they are buffered and processed asynchronously.
-     * @optimization Asynchronous logging is enabled to minimize the impact on application performance.
      * @see CombinationMessage
      * @see Logger
      * @see LogManager
      * @see LogManager#getLogger()
      * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous Logging</a>
+     * @since 2025.05.04 - Log4j2 Integration
+     * @performance O(1) for logging operations, as they are buffered and processed asynchronously.
+     * @threading This is thread-safe due to Log4j2's asynchronous logging capabilities. None-the-less, there is only one thread that runs this main method, so the logger for this class is effectively single-threaded.
+     * @optimization Asynchronous logging is enabled to minimize the impact on application performance.
      */
     private static final Logger logger = LogManager.getLogger();
 
@@ -110,10 +110,10 @@ public class StartYourMonkeys {
      * program.
      * </p>
      * 
-     * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @threading This is a constant value and is inherently thread-safe.
-     * @performance O(1) - This is a constant value used for configuration.
      * @see #main(String[])
+     * @since 2025.08.16 - Enhanced Documentation of Codebase
+     * @performance O(1) - This is a constant value used for configuration.
+     * @threading This is a constant value and is inherently thread-safe.
      */
     private static final int DEFAULT_NUM_CLICKS = 17;
     /**
@@ -127,10 +127,10 @@ public class StartYourMonkeys {
      * value at startup.
      * </p>
      * 
-     * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @threading This is a constant value and is inherently thread-safe.
-     * @performance O(1) - This is a constant value used for configuration.
      * @see #main(String[])
+     * @since 2025.08.16 - Enhanced Documentation of Codebase
+     * @performance O(1) - This is a constant value used for configuration.
+     * @threading This is a constant value and is inherently thread-safe.
      */
     private static final int DEFAULT_NUM_THREADS = 16;
     /**
@@ -141,10 +141,10 @@ public class StartYourMonkeys {
      * number for convenience.
      * </p>
      * 
-     * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @threading This is a constant value and is inherently thread-safe.
-     * @performance O(1) - This is a constant value used for configuration.
      * @see #main(String[])
+     * @since 2025.08.16 - Enhanced Documentation of Codebase
+     * @performance O(1) - This is a constant value used for configuration.
+     * @threading This is a constant value and is inherently thread-safe.
      */
     private static final int DEFAULT_QUESTION_NUMBER = 35;
 
@@ -249,10 +249,10 @@ public class StartYourMonkeys {
      *             <li><code>args[1]</code> - Number of threads (default: 8)</li>
      *             <li><code>args[2]</code> - Question number (default: 35)</li>
      *             </ul>
-     * @throws NumberFormatException    if the arguments cannot be parsed as integers.
      * @throws IllegalArgumentException if the number of clicks is not between 1 and 109, the number of
      *                                  threads is less than 1, or the question number is not one of the
      *                                  valid options (13, 22, or 35).
+     * @throws NumberFormatException    if the arguments cannot be parsed as integers.
      * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask.GeneratorContext)
      */
     public static void main(String[] args) {
@@ -436,10 +436,10 @@ public class StartYourMonkeys {
      * 
      * @param millis Elapsed time in milliseconds.
      * @return A {@link java.lang.String String} representing the formatted elapsed time.
-     * @since 2025.06.29 - Millisecond Precision to Elapsed Time Formatting
-     * @threading This method is thread-safe as it does not modify any shared state.
-     * @performance O(1) operations and string formatting.
      * @see System#currentTimeMillis()
+     * @since 2025.06.29 - Millisecond Precision to Elapsed Time Formatting
+     * @performance O(1) operations and string formatting.
+     * @threading This method is thread-safe as it does not modify any shared state.
      */
     private static String formatElapsedTime(long millis) {
         long seconds = millis / 1000;

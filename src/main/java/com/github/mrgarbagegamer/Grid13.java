@@ -34,14 +34,14 @@ package com.github.mrgarbagegamer;
  * to avoid unnecessary recalculations during initialization.
  * </p>
  * 
- * @since 2025.04.15 - Adjacent Skipping Optimization
- * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
- *            Grid13 to avoid concurrency issues.
- * @performance O(1) for initialization, as it involves direct assignments without loops or complex
- *              calculations.
- * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
  * @see Grid22
  * @see Grid35
+ * @since 2025.04.15 - Adjacent Skipping Optimization
+ * @performance O(1) for initialization, as it involves direct assignments without loops or complex
+ *              calculations.
+ * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
+ *            Grid13 to avoid concurrency issues.
+ * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
  */
 public class Grid13 extends Grid {
     /**
@@ -61,8 +61,8 @@ public class Grid13 extends Grid {
      * avoid unnecessary recalculations during initialization.
      * </p>
      * 
-     * @since 2025.04.15 - Adjacent Skipping Optimization
      * @see #getGridState()
+     * @since 2025.04.15 - Adjacent Skipping Optimization
      */
     void initialize() {
         // Initialize for Q13/Kermit

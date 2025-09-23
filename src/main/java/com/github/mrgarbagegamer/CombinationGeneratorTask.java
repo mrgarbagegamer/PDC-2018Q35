@@ -83,24 +83,24 @@ import java.util.concurrent.ThreadLocalRandom;
  * </ul>
  * </p>
  * 
+ * @see CombinationQueue
+ * @see TestClickCombination
+ * @see java.util.concurrent.ForkJoinTask
  * @since 2025.06.08 - Fork Join Refactor
+ * @performance The overall time complexity is O(n choose k) in the worst case, where n is the
+ *              number of cells and k is the number of clicks, but pruning and parallelism
+ *              significantly reduce the effective workload. Most bottlenecks arise from contention
+ *              on shared resources or the process of enqueuing batches.
+ * @threading Each task is isolated and thread-safe due to ForkJoinTask design. Pooled and shared
+ *            resources are handled by <code>ThreadLocal</code> contexts and static fields
+ *            respectively.
  * @algorithm Creates a tree of tasks, where each task represents a prefix of clicks. The root task
  *            generates subtasks for each possible first click, and each subtask recursively
  *            generates further subtasks for each subsequent click until the full combination length
  *            is reached. Leaf tasks generate the final combinations and add them to a WorkBatch,
  *            which is then flushed to a randomly chosen CombinationQueue for processing.
- * @threading Each task is isolated and thread-safe due to ForkJoinTask design. Pooled and shared
- *            resources are handled by <code>ThreadLocal</code> contexts and static fields
- *            respectively.
- * @performance The overall time complexity is O(n choose k) in the worst case, where n is the
- *              number of cells and k is the number of clicks, but pruning and parallelism
- *              significantly reduce the effective workload. Most bottlenecks arise from contention
- *              on shared resources or the process of enqueuing batches.
  * @memory Memory usage is optimized via resource pooling and pre-allocation, minimizing allocations
  *         in the hot path.
- * @see CombinationQueue
- * @see TestClickCombination
- * @see java.util.concurrent.ForkJoinTask
  */
 public class CombinationGeneratorTask extends RecursiveAction {
     /**
@@ -130,12 +130,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * bottlenecks, while decreasing it can help with generator bottlenecks.
      * </p>
      * 
-     * @since 2025.06.08 - Work-stealing introduction
      * @see #flushBatchFast(WorkBatch)
-     * @see GeneratorContext
-     * @see GeneratorContext#getOrCreateBatch()
      * @see CombinationQueue
      * @see CombinationQueue#add(WorkBatch)
+     * @see GeneratorContext
+     * @see GeneratorContext#getOrCreateBatch()
+     * @since 2025.06.08 - Work-stealing introduction
      */
     public static final int BATCH_SIZE = 8000;
     /**
@@ -176,10 +176,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * allocations.
      * </p>
      * 
-     * @since 2025.06.10 - Array Pooling Introduction
      * @see ArrayPool
-     * @see TaskPool
      * @see GeneratorContext
+     * @see TaskPool
+     * @since 2025.06.10 - Array Pooling Introduction
      */
     private static final int POOL_SIZE = 512;
 
@@ -201,16 +201,16 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * arrays and tasks respectively.
      * </p>
      * 
-     * @since 2025.07.26 - GeneratorContext Introduction
-     * @threading ThreadLocal - Each thread has its own instance of GeneratorContext, ensuring thread
-     *            safety and isolation of resources
-     * @performance O(1) access time for ThreadLocal.get()
-     * @optimization Consolidation of multiple ThreadLocals into a single context object to reduce overhead
-     * @memory ThreadLocal memory usage is minimized by pooling resources and recycling them
-     * @see GeneratorContext
      * @see ArrayPool
+     * @see GeneratorContext
      * @see TaskPool
      * @see WorkBatch
+     * @since 2025.07.26 - GeneratorContext Introduction
+     * @performance O(1) access time for ThreadLocal.get()
+     * @threading ThreadLocal - Each thread has its own instance of GeneratorContext, ensuring thread
+     *            safety and isolation of resources
+     * @memory ThreadLocal memory usage is minimized by pooling resources and recycling them
+     * @optimization Consolidation of multiple ThreadLocals into a single context object to reduce overhead
      */
     private static final ThreadLocal<GeneratorContext> context =
         ThreadLocal.withInitial(GeneratorContext::new);
@@ -268,45 +268,45 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * with larger pools reducing contention but increasing memory usage.
      * </p>
      * 
-     * @since 2025.07.26 - GeneratorContext Introduction
-     * @performance O(1) access time for pool operations.
-     * @memory Minimal memory footprint as a wrapper class, with pooled resources to minimize
-     *         allocations.
-     * @threading This class is not thread-safe, but is intended to be used in a thread-local manner. A
-     *            thread-local, static variable should be created to use this class.
-     * @optimization Consolidation of multiple ThreadLocals into a single context object to reduce
-     *               overhead.
+     * @see #context
      * @see ArrayPool
      * @see CombinationGeneratorTask
-     * @see CombinationGeneratorTask#context
      * @see TaskPool
      * @see WorkBatch
+     * @since 2025.07.26 - GeneratorContext Introduction
+     * @performance O(1) access time for pool operations.
+     * @threading This class is not thread-safe, but is intended to be used in a thread-local manner. A
+     *            thread-local, static variable should be created to use this class.
+     * @memory Minimal memory footprint as a wrapper class, with pooled resources to minimize
+     *         allocations.
+     * @optimization Consolidation of multiple ThreadLocals into a single context object to reduce
+     *               overhead.
      */
     private static class GeneratorContext {
         /**
          * An {@link ArrayPool} for storing click prefixes.
          * 
-         * @since 2025.07.26 - GeneratorContext Introduction
-         * @threading Thread-local - Each thread has its own instance of ArrayPool, ensuring thread safety.
-         * @performance O(1) amortized access time for get() and recycle().
-         * @optimization Pooling and reusing arrays to minimize allocations on the hot path.
-         * @memory Memory usage is optimized by reusing arrays and minimizing allocations.
+         * @see #context
+         * @see #numClicks
          * @see ArrayPool
-         * @see CombinationGeneratorTask#context
-         * @see CombinationGeneratorTask#numClicks
+         * @since 2025.07.26 - GeneratorContext Introduction
+         * @performance O(1) amortized access time for get() and recycle().
+         * @threading Thread-local - Each thread has its own instance of ArrayPool, ensuring thread safety.
+         * @memory Memory usage is optimized by reusing arrays and minimizing allocations.
+         * @optimization Pooling and reusing arrays to minimize allocations on the hot path.
          */
         final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE);
         /**
          * The {@link TaskPool} for recycling subtasks.
          * 
-         * @since 2025.07.26 - GeneratorContext Introduction
-         * @threading Thread-local - Each thread has its own instance of TaskPool, ensuring thread safety.
-         * @performance O(1) amortized access time for get() and recycle().
-         * @optimization Pooling and reusing tasks to minimize allocations on the hot path.
-         * @memory Memory usage is optimized by reusing tasks and minimizing allocations.
+         * @see TaskPool#TaskPool(int)
          * @see TaskPool#get()
          * @see TaskPool#put(CombinationGeneratorTask)
-         * @see TaskPool#TaskPool(int)
+         * @since 2025.07.26 - GeneratorContext Introduction
+         * @performance O(1) amortized access time for get() and recycle().
+         * @threading Thread-local - Each thread has its own instance of TaskPool, ensuring thread safety.
+         * @memory Memory usage is optimized by reusing tasks and minimizing allocations.
+         * @optimization Pooling and reusing tasks to minimize allocations on the hot path.
          */
         final TaskPool taskPool = new TaskPool(POOL_SIZE / 4);
         /**
@@ -330,14 +330,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * storage without the cost of multiple ThreadLocal accesses.
          * </p>
          * 
-         * @since 2025.07.01 - WorkBatch Introduction
-         * @threading Thread-local - Each thread has its own instance of WorkBatch, ensuring thread safety.
-         * @performance O(1) access time.
-         * @optimization Bundled into GeneratorContext to reduce ThreadLocal access overhead.
-         * @memory Memory usage is minimized by reusing WorkBatch instances from the pool.
+         * @see #BATCH_SIZE
+         * @see #context
          * @see WorkBatch
-         * @see CombinationGeneratorTask#context
-         * @see CombinationGeneratorTask#BATCH_SIZE
+         * @since 2025.07.01 - WorkBatch Introduction
+         * @performance O(1) access time.
+         * @threading Thread-local - Each thread has its own instance of WorkBatch, ensuring thread safety.
+         * @memory Memory usage is minimized by reusing WorkBatch instances from the pool.
+         * @optimization Bundled into GeneratorContext to reduce ThreadLocal access overhead.
          */
         WorkBatch currentBatch = null;
 
@@ -359,14 +359,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * </p>
          * 
          * @return The current <code>{@link WorkBatch}</code>, guaranteed to be non-null.
-         * @since 2025.07.26 - GeneratorContext Introduction
-         * @threading Thread-local - Each thread has its own instance of this context, ensuring thread
-         *            safety.
-         * @performance O(1) null check and access time.
-         * @optimization Caches current batch to avoid redundant allocations or pool calls.
+         * @see #context
          * @see #getNewBatchBlocking()
          * @see WorkBatch
-         * @see CombinationGeneratorTask#context
+         * @since 2025.07.26 - GeneratorContext Introduction
+         * @performance O(1) null check and access time.
+         * @threading Thread-local - Each thread has its own instance of this context, ensuring thread
+         *            safety.
+         * @optimization Caches current batch to avoid redundant allocations or pool calls.
          */
         WorkBatch getOrCreateBatch() {
             if (currentBatch == null) {
@@ -407,15 +407,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * </p>
          * 
          * @return A new <code>WorkBatch</code>, guaranteed to be non-null.
+         * @see CombinationQueueArray
+         * @see CombinationQueueArray#getWorkBatchPool()
+         * @see WorkBatch
          * @since 2025.07.26 - GeneratorContext Introduction
+         * @performance O(1) amortized access time, blocking if necessary.
          * @threading Thread-local - Each thread has its own instance of this context, ensuring thread
          *           safety.
-         * @performance O(1) amortized access time, blocking if necessary.
-         * @optimization Uses a busy-wait loop with relaxed polling to avoid deadlocks and allow for cancellation.
          * @memory Memory usage is minimized by reusing WorkBatch instances from the pool.
-         * @see CombinationQueueArray#getWorkBatchPool()
-         * @see CombinationQueueArray
-         * @see WorkBatch
+         * @optimization Uses a busy-wait loop with relaxed polling to avoid deadlocks and allow for cancellation.
          */
         private WorkBatch getNewBatchBlocking() {
             WorkBatch batch;
@@ -437,12 +437,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * </p>
          * 
          * @return The new current <code>WorkBatch</code>, guaranteed to be non-null.
-         * @since 2025.07.26 - GeneratorContext Introduction
-         * @threading Thread-local - Each thread has its own instance of this context, ensuring thread safety.
-         * @performance O(1) amortized access time, blocking if necessary.
-         * @optimization Combines batch reset and retrieval into a single operation to reduce overhead.
-         * @memory Memory usage is minimized by reusing WorkBatch instances from the pool.
          * @see #getNewBatchBlocking()
+         * @since 2025.07.26 - GeneratorContext Introduction
+         * @performance O(1) amortized access time, blocking if necessary.
+         * @threading Thread-local - Each thread has its own instance of this context, ensuring thread safety.
+         * @memory Memory usage is minimized by reusing WorkBatch instances from the pool.
+         * @optimization Combines batch reset and retrieval into a single operation to reduce overhead.
          */
         WorkBatch resetBatch() {
             return currentBatch = getNewBatchBlocking();
@@ -459,15 +459,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * the combinations being generated.
      * </p>
      * 
-     * @since 2025.06.08 - Fork Join Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation. Initialized in the root task before any subtasks are created.
-     * @performance O(1) access time.
-     * @optimization Static field to avoid redundant storage in each task instance.
-     * @memory Minimal memory usage as a primitive int.
+     * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     * @see #compute()
      * @see #prefix
      * @see #prefixLength
-     * @see #compute()
-     * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     * @since 2025.06.08 - Fork Join Refactor
+     * @performance O(1) access time.
+     * @threading Thread-safe due to ForkJoinTask isolation. Initialized in the root task before any subtasks are created.
+     * @memory Minimal memory usage as a primitive int.
+     * @optimization Static field to avoid redundant storage in each task instance.
      */
     private static int numClicks;
     /**
@@ -481,14 +481,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * queue array is constant for a given puzzle.
      * </p>
      * 
-     * @since 2025.06.08 - Fork Join Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation. Initialized in the root task before any subtasks are created.
-     * @performance O(1) access time.
-     * @optimization Static field to avoid redundant storage in each task instance.
-     * @memory Minimal memory usage as a reference.
      * @see #flushBatchFast(WorkBatch)
      * @see CombinationQueue
      * @see java.util.concurrent.ThreadLocalRandom
+     * @since 2025.06.08 - Fork Join Refactor
+     * @performance O(1) access time.
+     * @threading Thread-safe due to ForkJoinTask isolation. Initialized in the root task before any subtasks are created.
+     * @memory Minimal memory usage as a reference.
+     * @optimization Static field to avoid redundant storage in each task instance.
      */
     private static CombinationQueueArray queueArray;
     /**
@@ -503,16 +503,16 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * given puzzle.
      * </p>
      * 
-     * @since 2025.06.11 - First Click Optimization
-     * @threading Thread-safe due to ForkJoinTask isolation. Initialized in the root task before any
-     *            subtasks are created.
-     * @performance O(1) access time.
-     * @optimization Static field to avoid redundant storage in each task instance.
-     * @memory Minimal memory usage as a primitive int.
      * @see #compute()
      * @see Grid
      * @see Grid#findFirstTrueAdjacents(com.github.mrgarbagegamer.Grid.ValueFormat)
      * @see Grid#findFirstTrueCell(com.github.mrgarbagegamer.Grid.ValueFormat)
+     * @since 2025.06.11 - First Click Optimization
+     * @performance O(1) access time.
+     * @threading Thread-safe due to ForkJoinTask isolation. Initialized in the root task before any
+     *            subtasks are created.
+     * @memory Minimal memory usage as a primitive int.
+     * @optimization Static field to avoid redundant storage in each task instance.
      */
     private static int maxFirstClickIndex;
 
@@ -548,20 +548,20 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * this is not currently feasible due to the maximum number of clicks exceeding 64.
      * </p>
      * 
-     * @since 2025.06.08 - Fork Join Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation. Ensure that prefix arrays are not
-     *            referenced after recycling to avoid concurrency issues.
-     * @performance O(1) for adding clicks, O(n) for copying to subtasks where n is the
-     *              {@link #prefixLength} at that point.
-     * @optimization Pooled and pre-allocated to minimize allocations on the hot path. Sized to
-     *               {@link #numClicks} to avoid resizing.
-     * @memory Uses <code>short</code> arrays to reduce memory usage while maintaining sufficient range.
      * @see #recycleOwnResources(GeneratorContext)
      * @see ArrayPool
      * @see ArrayPool#get()
      * @see ArrayPool#put(short[])
      * @see GeneratorContext
      * @see GeneratorContext#prefixArrayPool
+     * @since 2025.06.08 - Fork Join Refactor
+     * @performance O(1) for adding clicks, O(n) for copying to subtasks where n is the
+     *              {@link #prefixLength} at that point.
+     * @threading Thread-safe due to ForkJoinTask isolation. Ensure that prefix arrays are not
+     *            referenced after recycling to avoid concurrency issues.
+     * @memory Uses <code>short</code> arrays to reduce memory usage while maintaining sufficient range.
+     * @optimization Pooled and pre-allocated to minimize allocations on the hot path. Sized to
+     *               {@link #numClicks} to avoid resizing.
      */
     private short[] prefix;
     /**
@@ -584,14 +584,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@link #numClicks} field.
      * </p>
      * 
-     * @since 2025.06.08 - Fork Join Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation.
-     * @performance O(1) for updates and checks.
-     * @optimization Simple integer field to minimize overhead.
-     * @memory Minimal memory usage as a primitive int.
+     * @see #compute()
      * @see #numClicks
      * @see #prefix
-     * @see #compute()
+     * @since 2025.06.08 - Fork Join Refactor
+     * @performance O(1) for updates and checks.
+     * @threading Thread-safe due to ForkJoinTask isolation.
+     * @memory Minimal memory usage as a primitive int.
+     * @optimization Simple integer field to minimize overhead.
      */
     private int prefixLength;
     /**
@@ -621,18 +621,18 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * combinatorial tasks.
      * </p>
      * 
-     * @since 2025.07.15 - Cached adjacency state introduction
-     * @threading Thread-safe due to ForkJoinTask isolation
-     * @performance O(1) for updates, O(n) for initial computation where n is the prefixLength at that
-     *              point.
-     * @optimization Caches the state between tasks to avoid recomputing for every prefix.
-     * @memory Uses a long to represent the adjacency state, which is efficient for up to 64 initially
-     *         true cells.
-     * @see #skipConstraintsCheck
      * @see #canPotentiallySatisfyConstraints(int)
      * @see #ensureTrueCellMasks(short[])
-     * @see Grid#areAdjacent(short cellA, short cellB)
+     * @see #skipConstraintsCheck
+     * @see Grid#areAdjacent(short, short)
      * @see Grid#findTrueCells()
+     * @since 2025.07.15 - Cached adjacency state introduction
+     * @performance O(1) for updates, O(n) for initial computation where n is the prefixLength at that
+     *              point.
+     * @threading Thread-safe due to ForkJoinTask isolation
+     * @memory Uses a long to represent the adjacency state, which is efficient for up to 64 initially
+     *         true cells.
+     * @optimization Caches the state between tasks to avoid recomputing for every prefix.
      */
     private long cachedAdjacencyState = -1; // -1 means root task, -2 means constraints are skipped
     /**
@@ -657,13 +657,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * the paths based on this flag and perform a single check prior to dispatching to a subtask path.
      * </p>
      * 
-     * @since 2025.08.04 - Reduced Branching Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation.
-     * @performance O(1) for checks and updates.
-     * @optimization Reduces redundant constraint checks in deep branches of the generation tree.
-     * @memory Minimal memory usage as a primitive boolean.
      * @see #cachedAdjacencyState
      * @see #computeIntermediateSubtasks(GeneratorContext)
+     * @since 2025.08.04 - Reduced Branching Refactor
+     * @performance O(1) for checks and updates.
+     * @threading Thread-safe due to ForkJoinTask isolation.
+     * @memory Minimal memory usage as a primitive boolean.
+     * @optimization Reduces redundant constraint checks in deep branches of the generation tree.
      */
     private boolean skipConstraintsCheck = false; // If a prefix is known to satisfy constraints, we can skip checks for its children
 
@@ -696,15 +696,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * trillions of times.
      * </p>
      * 
-     * @since 2025.08.04 - Reduced Branching Refactor
-     * @threading Computed once in the root task and reused across all subtasks.
-     * @performance O(1) for checks, O(1) for initial computation in the root task.
-     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
-     * @memory Uses a long to represent the target state, which is efficient for up to 64 initially true
-     *         cells.
      * @see #cachedAdjacencyState
      * @see #SUFFIX_OR_MASKS
      * @see #ensureTrueCellMasks(short[])
+     * @since 2025.08.04 - Reduced Branching Refactor
+     * @performance O(1) for checks, O(1) for initial computation in the root task.
+     * @threading Computed once in the root task and reused across all subtasks.
+     * @memory Uses a long to represent the target state, which is efficient for up to 64 initially true
+     *         cells.
+     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
      */
     private static long targetMask;
     
@@ -729,10 +729,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
-     * @threading Volatile static field - Ensures visibility of changes across threads.
      * @performance O(1) access time.
-     * @optimization Static field for quick access without passing references.
+     * @threading Volatile static field - Ensures visibility of changes across threads.
      * @memory Minimal memory usage as a single reference.
+     * @optimization Static field for quick access without passing references.
      */
     private static volatile ForkJoinPool generatorPool;
 
@@ -748,13 +748,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @param pool the {@link java.util.concurrent.ForkJoinPool ForkJoinPool} to use for executing
      *             generator tasks.
+     * @see TestClickCombination#triggerGeneratorShutdown()
      * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
+     * @performance O(1) assignment.
      * @threading Thread-safe due to the use of a volatile static field, though this method should be
      *            called by one thread only.
-     * @performance O(1) assignment.
-     * @optimization Static field for quick access without passing references.
      * @memory Minimal memory usage as a single reference.
-     * @see TestClickCombination#triggerGeneratorShutdown()
+     * @optimization Static field for quick access without passing references.
      */
     public static void setForkJoinPool(ForkJoinPool pool) {
         CombinationGeneratorTask.generatorPool = pool;
@@ -770,12 +770,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @return the {@link java.util.concurrent.ForkJoinPool ForkJoinPool} used for executing
      *         generator tasks.
-     * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
-     * @threading Thread-safe due to the use of a volatile static field.
-     * @performance O(1) access time.
-     * @optimization Static field for quick access without passing references.
-     * @memory Only gets a reference, so minimal memory usage.
      * @see TestClickCombination#triggerGeneratorShutdown()
+     * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
+     * @performance O(1) access time.
+     * @threading Thread-safe due to the use of a volatile static field.
+     * @memory Only gets a reference, so minimal memory usage.
+     * @optimization Static field for quick access without passing references.
      */
     public static ForkJoinPool getForkJoinPool() {
         return generatorPool;
@@ -817,14 +817,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @throws IllegalArgumentException if any of the parameters are invalid (<code>null</code> or out
      *                                  of range).
      * @since 2025.06.08 - Fork Join Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation. Static fields are initialized in the root
-     *            task before any subtasks are created.
      * @performance O(n) for initialization where n is the number of initially true cells, amortized
      *              over the entire generation process.
-     * @optimization Pre-computes masks and initializes static fields to reduce overhead during
-     *               generation. Uses pooled arrays for the prefix to minimize allocations.
+     * @threading Thread-safe due to ForkJoinTask isolation. Static fields are initialized in the root
+     *            task before any subtasks are created.
      * @memory Uses pooled arrays for the prefix to reduce memory usage. Static fields are minimal in
      *         size.
+     * @optimization Pre-computes masks and initializes static fields to reduce overhead during
+     *               generation. Uses pooled arrays for the prefix to minimize allocations.
      */
     public CombinationGeneratorTask(int numClicks, CombinationQueueArray queueArray, short[] trueCells,
             int maxFirstClickIndex) {
@@ -894,18 +894,18 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * instead of one.
      * </p>
      * 
-     * @since 2025.06.11 - Revamped Odd Adjacency Check
-     * @threading Statically initialized once in {@link #computeAdjacencyMaskFast(short)} by the root
-     *            task.
-     * @performance O(1) for checks, O(n) for initial computation where n is the number of adjacent
-     *              cells.
-     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation. A
-     *               bitmask is used for compact representation.
-     * @memory Uses an array of two longs to represent the adjacency of the first true cell.
-     * @see #computeAdjacencyMaskFast(short)
      * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     * @see #computeAdjacencyMaskFast(short)
      * @see Grid#findAdjacents(short)
      * @see Grid#findFirstTrueCell(Grid.ValueFormat)
+     * @since 2025.06.11 - Revamped Odd Adjacency Check
+     * @performance O(1) for checks, O(n) for initial computation where n is the number of adjacent
+     *              cells.
+     * @threading Statically initialized once in {@link #computeAdjacencyMaskFast(short)} by the root
+     *            task.
+     * @memory Uses an array of two longs to represent the adjacency of the first true cell.
+     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation. A
+     *               bitmask is used for compact representation.
      */
     private static long[] FIRST_TRUE_ADJACENTS;
     
@@ -935,14 +935,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @param firstTrueCell The index of the first true cell in the grid, in
      *                      {@link Grid.ValueFormat#Index Index} format.
-     * @since 2025.06.11 - Bitmasked Leaf Pruning Introduction
-     * @threading Single-threaded during root task initialization, no synchronization needed.
-     * @performance O(n) where n is the number of adjacent cells to the first true cell.
-     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
-     * @memory Uses an array of two <code>long</code>s to represent the adjacency of the first true
-     *         cell. Creates a temporary <code>short[]</code> array for adjacent cells.
      * @see #FIRST_TRUE_ADJACENTS
      * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     * @since 2025.06.11 - Bitmasked Leaf Pruning Introduction
+     * @performance O(n) where n is the number of adjacent cells to the first true cell.
+     * @threading Single-threaded during root task initialization, no synchronization needed.
+     * @memory Uses an array of two <code>long</code>s to represent the adjacency of the first true
+     *         cell. Creates a temporary <code>short[]</code> array for adjacent cells.
+     * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
      */
     private static void computeAdjacencyMaskFast(short firstTrueCell) {
         short[] adjacents = Grid.findAdjacents(firstTrueCell);
@@ -967,12 +967,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * the {@link #init(short[], int, long, boolean) init()} method.
      * </p>
      * 
-     * @since 2025.07.11 - Task Pool Introduction
-     * @threading Isolated by the ForkJoinTask framework, each task runs in its own thread.
-     * @performance O(1) access time, since no allocations or operations are performed.
-     * @optimization Protected to prevent external allocations, enforcing the use of the task pool.
-     * @memory No memory usage, as no allocations are performed.
      * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     * @since 2025.07.11 - Task Pool Introduction
+     * @performance O(1) access time, since no allocations or operations are performed.
+     * @threading Isolated by the ForkJoinTask framework, each task runs in its own thread.
+     * @memory No memory usage, as no allocations are performed.
+     * @optimization Protected to prevent external allocations, enforcing the use of the task pool.
      */
     protected CombinationGeneratorTask() {}
 
@@ -1018,14 +1018,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * per task, something that can be amortized over the entire task's execution.
      * </p>
      * 
-     * @since 2025.06.08 - Work-stealing introduction
-     * @threading Isolated by the ForkJoinTask framework, each task runs in its own thread.
-     * @performance O(1) access time for ThreadLocal context, O(1) for dispatching.
-     * @optimization Multiple paths for different task types to reduce branches and conditionals.
-     * @memory Memory usage is minimized by recycling resources and using pools.
      * @see #recycleOwnResources(GeneratorContext)
      * @see GeneratorContext
-     * @see ThreadLocal#get()
+     * @see java.lang.ThreadLocal#get()
+     * @since 2025.06.08 - Work-stealing introduction
+     * @performance O(1) access time for ThreadLocal context, O(1) for dispatching.
+     * @threading Isolated by the ForkJoinTask framework, each task runs in its own thread.
+     * @memory Memory usage is minimized by recycling resources and using pools.
+     * @optimization Multiple paths for different task types to reduce branches and conditionals.
      */
     @Override
     protected void compute() {
@@ -1097,15 +1097,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @param ctx the thread-local {@link GeneratorContext} containing resource pools.
-     * @since 2025.08.04 - Reduced Branching Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation.
-     * @performance O(n) where n is the number of valid first clicks.
-     * @optimization Limits the range of first clicks to reduce the number of subtasks. Piggybacks on
-     *               the thread-local nature of the context to avoid multiple ThreadLocal accesses.
-     * @memory Memory usage is minimized by recycling resources and using pools. No allocations should
-     *         occur in this method unless the pools are somehow empty.
      * @see #helpQuiesce()
      * @see #recycleOwnResources(GeneratorContext)
+     * @since 2025.08.04 - Reduced Branching Refactor
+     * @performance O(n) where n is the number of valid first clicks.
+     * @threading Thread-safe due to ForkJoinTask isolation.
+     * @memory Memory usage is minimized by recycling resources and using pools. No allocations should
+     *         occur in this method unless the pools are somehow empty.
+     * @optimization Limits the range of first clicks to reduce the number of subtasks. Piggybacks on
+     *               the thread-local nature of the context to avoid multiple ThreadLocal accesses.
      */
     private void computeRootSubtasks(GeneratorContext ctx) {
         final short start = 0;
@@ -1166,13 +1166,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param prefixLength the length of the prefix array.
      * @param parentAdjacencyState the cached adjacency state from the parent task.
      * @param skipConstraints whether to skip constraint checks for this task and its children.
-     * @since 2025.07.11 - Task Pool Introduction
-     * @threading Thread-safe due to ForkJoinTask isolation.
-     * @performance O(1) for assignments and reinitialization.
-     * @optimization Monomorphic method to avoid polymorphic call sites and improve JIT optimizations.
-     * @memory Memory usage is minimized by recycling task objects via a TaskPool. No allocations occur in this method.
      * @see #reinitialize()
      * @see TaskPool
+     * @since 2025.07.11 - Task Pool Introduction
+     * @performance O(1) for assignments and reinitialization.
+     * @threading Thread-safe due to ForkJoinTask isolation.
+     * @memory Memory usage is minimized by recycling task objects via a TaskPool. No allocations occur in this method.
+     * @optimization Monomorphic method to avoid polymorphic call sites and improve JIT optimizations.
      */
     public void init(short[] prefix, int prefixLength, long parentAdjacencyState, boolean skipConstraints) {
         this.prefix = prefix;
@@ -1243,18 +1243,18 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @param ctx the {@link GeneratorContext} containing the current batch and resource pools.
+     * @see #FIRST_TRUE_ADJACENTS
+     * @see #flushBatchFast(WorkBatch)
+     * @see GeneratorContext#getOrCreateBatch()
      * @since 2025.07.03 - Splitting the Compute Method Into Paths
-     * @threading Thread-safe due to ForkJoinTask isolation.
      * @performance O({@link #prefixLength}) for prefix parity computation,
      *              O(<code>{@link Grid#NUM_CELLS} - {@link #prefix}[prefixLength - 1]</code>) for
      *              iterating over possible next clicks.
+     * @threading Thread-safe due to ForkJoinTask isolation.
      * @algorithm Iterates over the prefix to compute parity, then iterates over possible next clicks to
      *            find valid combinations based on the computed parity.
      * @optimization Minimizes branching and conditionals, caches loop-invariant values, and uses a
      *               tight loop with minimal branching to allow for aggressive JIT optimizations.
-     * @see #flushBatchFast(WorkBatch)
-     * @see #FIRST_TRUE_ADJACENTS
-     * @see GeneratorContext#getOrCreateBatch()
      * 
      */
     private final void computeLeafCombinations(GeneratorContext ctx){
@@ -1348,14 +1348,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @param ctx the {@link GeneratorContext} containing the current batch and resource pools.
-     * @since 2025.08.04 - Reduced Branching Refactor
-     * @threading Thread-safe due to ForkJoinTask isolation.
-     * @performance O(1) for dispatching.
-     * @optimization Monomorphic call sites for each path to reduce branching and conditionals in the hot path.
      * @see #skipConstraintsCheck
      * @see #compute()
-     * @see #computeIntermediateSubtasksSkipPath(GeneratorContext)
      * @see #computeIntermediateSubtasksConstraintPath(GeneratorContext)
+     * @see #computeIntermediateSubtasksSkipPath(GeneratorContext)
+     * @since 2025.08.04 - Reduced Branching Refactor
+     * @performance O(1) for dispatching.
+     * @threading Thread-safe due to ForkJoinTask isolation.
+     * @optimization Monomorphic call sites for each path to reduce branching and conditionals in the hot path.
      */
     private void computeIntermediateSubtasks(GeneratorContext ctx) {
         if (skipConstraintsCheck) {
@@ -1403,15 +1403,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @param ctx the {@link GeneratorContext} containing the current batch and resource pools.
-     * @since 2025.08.04 - Specialized Subtask Paths
-     * @threading Thread-safe due to ForkJoinTask isolation.
-     * @performance O(<code>{@link Grid#NUM_CELLS} - {@link #numClicks} + {@link #prefixLength} - 
-     *              {@link #prefix}[prefixLength - 1] + 1</code>) for iterating over possible next
-     *              clicks.
-     * @optimization Removes constraint check branching, caches loop-invariant values, and uses a tight
-     *               loop with minimal branching to allow for aggressive JIT optimizations.
      * @see #skipConstraintsCheck
      * @see #computeIntermediateSubtasksConstraintPath(GeneratorContext)
+     * @since 2025.08.04 - Specialized Subtask Paths
+     * @performance O(<code>{@link Grid#NUM_CELLS} - {@link #numClicks} + {@link #prefixLength} -
+     *              {@link #prefix}[prefixLength - 1] + 1</code>) for iterating over possible next
+     *              clicks.
+     * @threading Thread-safe due to ForkJoinTask isolation.
+     * @optimization Removes constraint check branching, caches loop-invariant values, and uses a tight
+     *               loop with minimal branching to allow for aggressive JIT optimizations.
      */
     private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx) {
         final short start = (short) (prefix[prefixLength - 1] + 1);
@@ -1479,17 +1479,17 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @param ctx the {@link GeneratorContext} containing the current batch and resource pools.
-     * @since 2025.08.04 - Specialized Subtask Paths
-     * @threading Thread-safe due to ForkJoinTask isolation.
-     * @performance O(1) for the early constraint check,
-     *              O(<code>{@link Grid#NUM_CELLS} - {@link #numClicks} + {@link #prefixLength} - 
-     *              {@link #prefix}[prefixLength - 1] + 1</code>) for iterating over possible next
-     *              clicks.
-     * @optimization Minimizes branching and conditionals, caches loop-invariant values, and uses a
-     *               tight loop with minimal branching to allow for aggressive JIT optimizations.
      * @see #canPotentiallySatisfyConstraints(int)
      * @see #computeIntermediateSubtasksSkipPath(GeneratorContext)
      * @see #ensureTrueCellMasks(short[])
+     * @since 2025.08.04 - Specialized Subtask Paths
+     * @performance O(1) for the early constraint check,
+     *              O(<code>{@link Grid#NUM_CELLS} - {@link #numClicks} + {@link #prefixLength} -
+     *              {@link #prefix}[prefixLength - 1] + 1</code>) for iterating over possible next
+     *              clicks.
+     * @threading Thread-safe due to ForkJoinTask isolation.
+     * @optimization Minimizes branching and conditionals, caches loop-invariant values, and uses a
+     *               tight loop with minimal branching to allow for aggressive JIT optimizations.
      */
     private void computeIntermediateSubtasksConstraintPath(GeneratorContext ctx) {
         final short start = (short) (prefix[prefixLength - 1] + 1);
@@ -1585,21 +1585,21 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param startIdx the index of the first possible next click (used for suffix OR checks)
      * @return <code>true</code> if the current prefix or any descendant can satisfy the constraints,
      *         <code>false</code> otherwise.
+     * @see #cachedAdjacencyState
+     * @see #SUFFIX_OR_MASKS
+     * @see #targetMask
+     * @see #TRUE_CELL_ADJACENCY_MASKS
+     * @see #ensureTrueCellMasks(short[])
+     * @see Grid#findAdjacents(short)
+     * @see Grid#findTrueCells(Grid.ValueFormat)
      * @since 2025.07.03 - Splitting the Compute Method Into Paths
-     * @threading Thread-safe due to ForkJoinTask isolation.
      * @performance O(1) for the check due to bitmask operations and pre-computed suffix OR masks.
+     * @threading Thread-safe due to ForkJoinTask isolation.
      * @algorithm Uses bitmask operations to determine if the current prefix or any descendant can
      *            satisfy the constraints and compares against a pre-computed target mask and
      *            pre-computed suffix OR masks.
      * @optimization Caches loop-invariant values, uses bitmask operations, and employs pre-computed
      *               suffix OR masks to reduce complexity.
-     * @see #TRUE_CELL_ADJACENCY_MASKS
-     * @see #SUFFIX_OR_MASKS
-     * @see #cachedAdjacencyState
-     * @see #targetMask
-     * @see #ensureTrueCellMasks(short[])
-     * @see Grid#findTrueCells(Grid.ValueFormat)
-     * @see Grid#findAdjacents(short)
      */
     private boolean canPotentiallySatisfyConstraints(int startIdx) {   
         // OPTIMIZATION: Call ensureTrueCellMasks once in the root task to avoid a call here.
@@ -1646,17 +1646,17 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * counts that are below this limit.
      * </p>
      * 
+     * @see #ensureTrueCellMasks(short[])
+     * @see #SUFFIX_OR_MASKS
+     * @see Grid#findAdjacents(short)
+     * @see Grid#findTrueCells(Grid.ValueFormat)
      * @since 2025.07.06 - Bitmasked Adjacency Checks
-     * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])}
      * @performance O(1) for adjacency checks, O(n) for initial computation where n is the number of
      *              initially true cells
+     * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])}
      * @memory One long per cell, guaranteeing a fixed memory footprint regardless of the number of true
      *         cells and avoiding object overhead.
      * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
-     * @see #SUFFIX_OR_MASKS
-     * @see #ensureTrueCellMasks(short[])
-     * @see Grid#findAdjacents(short cell)
-     * @see Grid#findTrueCells(Grid.ValueFormat format)
      */
     private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
     /**
@@ -1691,17 +1691,17 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * true counts that are below this limit.
      * </p>
      * 
+     * @see #canPotentiallySatisfyConstraints(int)
+     * @see #ensureTrueCellMasks(short[])
+     * @see #TRUE_CELL_ADJACENCY_MASKS
+     * @see Grid#findAdjacents(short)
      * @since 2025.07.14 - Suffix OR Masks Introduction
-     * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])}
      * @performance O(1) for suffix OR checks, O(n) for initial computation where n is the number of cells
      *              in the grid.
+     * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])}
      * @memory One long per cell, guaranteeing a fixed memory footprint regardless of the number of true
      *         cells and avoiding object overhead.
      * @optimization Pre-computed once per puzzle and reused across tasks to avoid recomputation.
-     * @see TRUE_CELL_ADJACENCY_MASKS
-     * @see #ensureTrueCellMasks(short[])
-     * @see #canPotentiallySatisfyConstraints(int)
-     * @see Grid#findAdjacents(short cell)
      */
     private static long[] SUFFIX_OR_MASKS = null;
     /**
@@ -1717,16 +1717,16 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * since this field pre-dates the creation of the bitmasked Grid state.
      * </p>
      * 
+     * @see #initClickAdjacencyMatrix()
+     * @see Grid#findAdjacents(short, Grid.ValueFormat)
      * @since 2025.07.06 - Bitmasked Adjacency Checks
-     * @threading Statically initialized once at class load time.
      * @performance O(1) for adjacency checks, O(n^2) for initial computation where n is the number of
      *              cells in the grid.
+     * @threading Statically initialized once at class load time.
      * @memory Fixed-size boolean matrix of size n x n, where n is the number of cells in the grid. This
      *         guarantees a fixed memory footprint and avoids object overhead.
      * @optimization Pre-computed once at class load time to avoid recomputation, uses boolean matrix
      *               for efficient adjacency representation.
-     * @see #initClickAdjacencyMatrix()
-     * @see Grid#findAdjacents(short, Grid.ValueFormat)
      */
     private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
 
@@ -1755,16 +1755,16 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @return a <code>boolean[][]</code> where <code>matrix[i][j]</code> is true if cell i is adjacent
      *         to cell j.
-     * @since 2025.07.06 - Bitmasked Adjacency Checks
-     * @threading Statically initialized once at class load time.
-     * @performance O(n^2) where n is the number of cells in the grid, due to nested iteration over
-     *              cells and their adjacents.
-     * @optimization Pre-computed once at class load time to avoid recomputation, uses boolean matrix
-     *               for efficient adjacency representation.
-     * @memory Allocates a fixed-size boolean matrix of size n x n, where n is the number of cells in
-     *         the grid.
      * @see #CLICK_ADJACENCY_MATRIX
      * @see Grid#findAdjacents(short, Grid.ValueFormat)
+     * @since 2025.07.06 - Bitmasked Adjacency Checks
+     * @performance O(n^2) where n is the number of cells in the grid, due to nested iteration over
+     *              cells and their adjacents.
+     * @threading Statically initialized once at class load time.
+     * @memory Allocates a fixed-size boolean matrix of size n x n, where n is the number of cells in
+     *         the grid.
+     * @optimization Pre-computed once at class load time to avoid recomputation, uses boolean matrix
+     *               for efficient adjacency representation.
      */
     private static boolean[][] initClickAdjacencyMatrix() {
         boolean[][] matrix = new boolean[Grid.NUM_CELLS][Grid.NUM_CELLS];
@@ -1823,17 +1823,17 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @param trueCells the array of indices of initially true cells in the grid.
+     * @see #CLICK_ADJACENCY_MATRIX
+     * @see #SUFFIX_OR_MASKS
+     * @see #TRUE_CELL_ADJACENCY_MASKS
+     * @see #initClickAdjacencyMatrix()
      * @since 2025.07.06 - Bitmasked Adjacency Checks
-     * @threading Thread-safe due to synchronized block and double-checked locking.
      * @performance O({@link #numClicks} * m) where m is the number of initially true cells.
+     * @threading Thread-safe due to synchronized block and double-checked locking.
      * @memory One long per cell for {@link #TRUE_CELL_ADJACENCY_MASKS} and one long per cell plus one
      *         for {@link #SUFFIX_OR_MASKS}.
      * @optimization Uses double-checked locking to minimize synchronization overhead, pre-computes
      *               masks once per puzzle to avoid recomputation.
-     * @see #TRUE_CELL_ADJACENCY_MASKS
-     * @see #SUFFIX_OR_MASKS
-     * @see #CLICK_ADJACENCY_MATRIX
-     * @see #initClickAdjacencyMatrix()
      */
     private static void ensureTrueCellMasks(short[] trueCells) {
         if (TRUE_CELL_ADJACENCY_MASKS == null | SUFFIX_OR_MASKS == null)
@@ -1933,14 +1933,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param batch the {@link WorkBatch} to flush.
      * @return <code>true</code> if the batch was successfully flushed, <code>false</code> if the thread
      *         was interrupted.
-     * @since 2025.06.08 - Fork Join Refactor
-     * @threading Thread-safe due to local queue access and atomic operations in {@link CombinationQueue#add(WorkBatch)}.
-     * @performance O(m) where m is the number of queues in the array, with a brief sleep if all queues are full.
-     * @optimization Uses random starting index to minimize contention, brief sleep to avoid busy-waiting.
      * @see #queueArray
-     * @see ThreadLocalRandom
-     * @see CombinationQueueArray#getAllQueues()
      * @see CombinationQueue#add(WorkBatch)
+     * @see CombinationQueueArray#getAllQueues()
+     * @see java.util.concurrent.ThreadLocalRandom
+     * @since 2025.06.08 - Fork Join Refactor
+     * @performance O(m) where m is the number of queues in the array, with a brief sleep if all queues are full.
+     * @threading Thread-safe due to local queue access and atomic operations in {@link CombinationQueue#add(WorkBatch)}.
+     * @optimization Uses random starting index to minimize contention, brief sleep to avoid busy-waiting.
      */
     private final boolean flushBatchFast(WorkBatch batch) {   
         CombinationQueue[] queues = queueArray.getAllQueues();
@@ -1988,16 +1988,16 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * @param ctx the {@link GeneratorContext} containing the resource pools.
-     * @since 2025.07.22 - Task Self-Recycling
-     * @threading Thread-safe due to ForkJoinTask isolation and local context access.
-     * @performance O(1) for returning resources to the pools.
-     * @optimization Avoids ThreadLocal access by using passed-in context, reuses existing pools.
      * @see #context
      * @see ArrayPool
      * @see ArrayPool#put(short[])
      * @see GeneratorContext
      * @see TaskPool
      * @see TaskPool#put(CombinationGeneratorTask)
+     * @since 2025.07.22 - Task Self-Recycling
+     * @performance O(1) for returning resources to the pools.
+     * @threading Thread-safe due to ForkJoinTask isolation and local context access.
+     * @optimization Avoids ThreadLocal access by using passed-in context, reuses existing pools.
      */
     private void recycleOwnResources(GeneratorContext ctx) {
         // No ThreadLocal access needed - use passed context
@@ -2039,18 +2039,18 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param queueArray the {@link CombinationQueueArray} containing the {@link CombinationQueue
      *                   queues} to flush to.
      * @param pool       the {@link ForkJoinPool} to submit the flushing task to.
-     * @since 2025.06.12 - Flush Batches when Full (or on Completion)
-     * @threading Thread-safe due to local context access and atomic operations in
-     *            {@link CombinationQueue#add(WorkBatch)}.
-     * @performance O(m) where m is the number of queues in the array, with a brief sleep if all queues
-     *              are full.
-     * @optimization Uses ForkJoinPool to leverage worker threads, checks for solution found or pool
-     *               shutdown to avoid unnecessary work.
      * @see #context
      * @see #flushBatchHelper(WorkBatch, CombinationQueueArray, boolean, boolean)
-     * @see GeneratorContext#resetBatch()
      * @see CombinationQueueArray
+     * @see GeneratorContext#resetBatch()
      * @see WorkBatch
+     * @since 2025.06.12 - Flush Batches when Full (or on Completion)
+     * @performance O(m) where m is the number of queues in the array, with a brief sleep if all queues
+     *              are full.
+     * @threading Thread-safe due to local context access and atomic operations in
+     *            {@link CombinationQueue#add(WorkBatch)}.
+     * @optimization Uses ForkJoinPool to leverage worker threads, checks for solution found or pool
+     *               shutdown to avoid unnecessary work.
      */
     public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) {
         if (queueArray.solutionFound || pool.isShutdown()) return;
@@ -2114,14 +2114,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param forceFlush On a failed attempt to flush, whether to sleep and retry or return <code>false</code>.
      * @return <code>true</code> if the batch was successfully flushed, <code>false</code> if the thread
      *         was interrupted or if not forcing a flush and all queues were full.
-     * @since 2025.06.12 - Flush Batches when Full (or on Completion)
-     * @threading Thread-safe due to local queue access and atomic operations in {@link CombinationQueue#add(WorkBatch)}.
-     * @performance O(m) where m is the number of queues in the array, with a brief sleep if all queues are full and forcing a flush.
-     * @optimization Uses random starting index to minimize contention, brief sleep to avoid busy-waiting when forcing a flush.
      * @see CombinationQueueArray#getAllQueues()
      * @see java.util.concurrent.ThreadLocalRandom
      * @see java.util.concurrent.ThreadLocalRandom#current()
      * @see java.util.concurrent.ThreadLocalRandom#nextInt(int)
+     * @since 2025.06.12 - Flush Batches when Full (or on Completion)
+     * @performance O(m) where m is the number of queues in the array, with a brief sleep if all queues are full and forcing a flush.
+     * @threading Thread-safe due to local queue access and atomic operations in {@link CombinationQueue#add(WorkBatch)}.
+     * @optimization Uses random starting index to minimize contention, brief sleep to avoid busy-waiting when forcing a flush.
      */
     private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) {
         CombinationQueue[] queues = queueArray.getAllQueues();

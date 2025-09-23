@@ -8,102 +8,98 @@ import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
 /**
- * Grid - Abstract class representing our hexagonal Lights Out grid.
- * 
+ * Represents the core hexagonal grid for a "Lights Out" style puzzle.
+ *
  * <p>
- * Our puzzle is a hexagonal grid of lights, where each light can be either on or off. Clicking a
- * cell flips the state of that cell and its adjacent cells, with the goal of the puzzle being to
- * turn off all the lights. Building a high-performance solver for this puzzle requires an efficient
- * representation of the grid and fast operations for clicking cells and checking the grid state.
- * This class aims to provide that functionality.
+ * This abstract class provides a high-performance, bitmask-based representation of a 109-cell
+ * hexagonal grid. It is designed for a specific variant of the puzzle where clicking a cell toggles
+ * the state of its <strong>adjacent cells only</strong>, not the cell itself. The primary goal is to turn
+ * off all the lights on the grid.
  * </p>
- * 
- * <h2>Static Initialization</h2>
- * <p>
- * A key component to the performance of this class and its methods is the static initialization
- * block, which pre-computes adjacency masks and arrays for each cell in the grid, allowing for O(1)
- * lookups during runtime. This block is executed once when the class is loaded, allowing each
- * instance of the Grid to share the benefits without incurring the cost repeatedly.
- * </p>
- * 
- * <p>
- * The static block consists of a for loop that iterates across each cell in the grid (0-108 in
- * {@link ValueFormat#Index Index} format). For each cell, it
- * {@link #computeAdjacents(short, ValueFormat, ValueFormat) computes the adjacent cells} as a
- * {@link ShortList}, which then gets converted to a short array and stored in the
- * {@link #adjacencyArray adjacency array} for use in the
- * {@link #findAdjacents(short, ValueFormat, ValueFormat) findAdjacents()} method.
- * {@link #ADJACENCY_CACHE A 2D table} is created from this data, allowing for easy adjacency checks
- * between two values. We also build a bitmask that provides another form of adjacency
- * representation, storing it in the {@link #ADJACENCY_MASKS adjacency masks} array for use in the
- * {@link #click(short, ValueFormat) click()} method. Finally, we populate
- * {@link #PACKED_TO_INDEX_CACHE a cache} for {@link ValueFormat#PackedInt PackedInt} to
- * {@link ValueFormat#Index Index} conversions. All of these structures are then statically assigned
- * as the block moves to the next cell.
- * </p>
- * 
+ *
  * <h2>Architecture Role</h2>
  * <p>
- * The Grid class serves as the foundational representation of the puzzle's state and operations,
- * providing the infrastructure for efficient manipulation and querying of the grid. It is designed
- * to be extended by concrete implementations that define specific {@link #gridState initial states}
- * and {@link #initialize() initialization procedures} for each puzzle (e.x. Q13, Q22, and Q35).
+ * As the foundational data structure, {@code Grid} defines the puzzle's state and core
+ * operations. It is extended by concrete implementations such as {@link Grid13}, {@link Grid22},
+ * and {@link Grid35}, which provide specific initial puzzle configurations.
  * </p>
- * 
+ *
  * <p>
- * {@link TestClickCombination Monkeys} utilize this class to test various click combinations, with
- * each receiving its own instance of a Grid to operate on. However, re-initializing the grid state
- * can be costly, so it is recommended to prune combinations before testing against the grid.
- * {@link CombinationGeneratorTask Generators} are designed to produce combinations efficiently and
- * thus perform light checks before passing them to the monkeys, limiting the interactions they have
- * with this class. This separation of concerns allows for a more focused codebase and clarifies
- * areas of bottlenecks; optimizing this class will primarily benefit the monkeys rather than the
- * generators.
+ * {@link TestClickCombination Worker threads ("monkeys")} interact with cloned instances of this
+ * class to test solutions. In contrast, {@link CombinationGeneratorTask generators} perform lighter,
+ * more frequent checks and have limited direct interaction with this class. This separation ensures
+ * that optimizations to this class primarily benefit the state-intensive work of the monkeys.
  * </p>
- * 
+ *
  * <h2>Performance Characteristics</h2>
  * <p>
- * We aim for O(1) complexity for core operations like {@link #click(short, ValueFormat) clicking a
- * cell} and {@link #isSolved() checking for the solved state}, with most of the complexity hidden
- * in the static initialization block. Due to the nature of objects in Java (which allocate on the
- * heap rather than the stack), primitive types and arrays are used wherever possible to minimize
- * overhead, with bitmasks allowing for compact storage and fast operations. Sadly, Java lacks a
- * native 128-bit primitive type, making every operation on our 109-cell grid require 2
- * modifications or polls rather than 1. The Vector API seemed promising, but it allocates terribly
- * (4 allocations per lanewise operation), incurring massive overhead. {@link java.util.BitSet
- * BitSets} were considered, but they incur unnecessary overhead in terms of object headers, making
- * them less efficient than our custom bitmask approach.
+ * The grid state is stored in a {@code long[2]} array, treated as a 128-bit bitmask to represent
+ * the 109 cells. This approach minimizes memory footprint and allows for extremely fast state
+ * manipulation using bitwise operations. Adjacency information is pre-computed into
+ * {@link #ADJACENCY_MASKS}, enabling {@code O(1)} complexity for the critical {@code click}
+ * operation.
  * </p>
- * 
+ *
  * <p>
- * Future optimizations could include exploring off-heap storage options or finding ways to densely
- * pack the grid state into a single primitive type, but these would require some heavy ingenuity.
- * Unless Project Valhalla magically gets released soon, we are likely nearing the limits of what
- * Java can do, potentially forcing us to look at other languages to push performance further.
+ * Several alternatives were evaluated:
  * </p>
- * 
+ * <ul>
+ *   <li><b>{@link java.util.BitSet}:</b> Incurs unacceptable overhead from object headers and indirect
+ *       memory access compared to a primitive array.</li>
+ *   <li><b>Panama/Vector API:</b> Showed promise for 128-bit operations but suffered from excessive
+ *       memory allocation (4+ allocations per lanewise operation in tested JDK versions), making it
+ *       unsuitable for the hot path.</li>
+ * </ul>
+ * The primitive {@code long[]} array was ultimately chosen as the most performant solution on the
+ * modern JVM, despite the complexity of managing two separate {@code long}s.
+ *
+ * <h2>Future Optimizations</h2>
+ * <p>
+ * Further performance gains are likely limited by the JVM itself. Potential avenues for
+ * exploration include off-heap memory storage or the availability of true 128-bit primitives
+ * in a future Java version (e.g., via Project Valhalla), which would simplify the bitmask logic to a
+ * single {@code long}.
+ * </p>
+ *
+ * <h2>Static Initialization</h2>
+ * <p>
+ * A key performance feature is the extensive use of a {@code static} initializer block. This block
+ * runs only once when the class is loaded and pre-computes several critical data structures:
+ * </p>
+ * <ul>
+ *   <li>{@link #ADJACENCY_MASKS}: Bitmasks for every cell, allowing a {@code click} to be a simple
+ *       XOR operation.</li>
+ *   <li>{@link #adjacencyArray}: A legacy structure providing adjacent cell indices for algorithms
+ *       that require iteration.</li>
+ *   <li>{@link #ADJACENCY_CACHE}: A boolean matrix for {@code O(1)} adjacency checks between any two
+ *       cells.</li>
+ *   <li>{@link #PACKED_TO_INDEX_CACHE}: A lookup table for fast conversion from human-readable
+ *       {@link ValueFormat#PackedInt} to the internal {@link ValueFormat#Index}.</li>
+ * </ul>
+ * This pre-computation offloads complex calculations from the performance-critical runtime paths.
+ *
  * <h2>Thread Safety</h2>
  * <p>
- * This class is <b>not</b> thread-safe. Each instance of a Grid should only be accessed from a
- * single thread or with proper synchronization. The static members are immutable after
- * initialization and are thus safe to share across threads, but instance members like
- * {@link #click(long[])} and {@link #gridState} could have weird side effects if accessed
- * concurrently. We trade off thread-safety and potentially lower memory usage for performance, as
- * avoiding synchronization and locks allows for faster operations in the hot path.
+ * This class is <strong>not</strong> thread-safe. Each instance is designed to be used by a single
+ * thread. State-modifying methods like {@link #click(short)} are unsynchronized to maximize
+ * performance. Static members are effectively immutable after initialization and are safe to be
+ * shared across threads.
  * </p>
- * 
- * @since 2025.03.20 - Initial creation
- * @performance Core operations like clicking a cell and checking for the solved state are designed
- *              to be O(1), with most of the complexity hidden in the static initialization block.
- *              Some other methods may have O(n) complexity or worse, but these are designed to be
- *              called infrequently.
- * @threading This class is <b>not</b> thread-safe. Each instance should only be accessed from a
- *            single thread or with proper synchronization.
- * @algorithm Iterates across each cell in the grid during static initialization, pre-computing
- *            adjacency masks and arrays for O(1) lookups during runtime. Use bitmasks and bitwise
- *            operations to efficiently represent and manipulate the grid state.
- * @see #gridState
+ *
+ * @see CombinationGeneratorTask
+ * @see Grid13
+ * @see Grid22
+ * @see Grid35
  * @see TestClickCombination
+ * @since 2025.03 - Initial Creation
+ * @performance Critical operations like {@link #click(short)} and state checks are {@code O(1)} due to
+ *              extensive pre-computation. The majority of computational complexity is handled once in
+ *              a static initializer.
+ * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads without
+ *            external synchronization.
+ * @algorithm Uses a bitmask ({@code long[2]}) to represent the grid state. Clicks are performed
+ *            using pre-computed adjacency masks and bitwise XOR operations. Adjacency lookups and
+ *            format conversions are accelerated by statically initialized caches.
  */
 public abstract class Grid {
     /**
@@ -126,10 +122,11 @@ public abstract class Grid {
      * relevant methods accordingly, improving maintainability.
      * </p>
      * 
-     * @since 2025.07.16 - ValueFormat Enum Introduction
-     * @threading This enum is immutable and safe to use across threads.
-     * @performance O(1) access time, as enum values are constants.
-     * @optimization Using an enum to avoid magic numbers and improve code clarity and maintainability.
+     * @since 2025.07 - ValueFormat Enum Introduction
+     * @performance {@code O(1)} access time.
+     * @threading This enum is immutable and therefore thread-safe.
+     * @optimization Using an enum improves code clarity and maintainability by avoiding "magic numbers" for
+     *               format types.
      */
     public enum ValueFormat {
         /**
@@ -165,13 +162,14 @@ public abstract class Grid {
          * However, we avoid using it in performance-critical paths where efficiency is paramount.
          * </p>
          * 
-         * @since 2025.07.16 - ValueFormat Enum Introduction
-         * @threading This enum value is immutable and safe to use across threads.
-         * @performance O(1) access time, as enum values are constants.
-         * @optimization The codebase adopts this format for human-readable outputs and clarity in certain
-         *               operations, while avoiding it in performance-critical paths.
-         * @see #packedToIndex(short)
          * @see #indexToPacked(short)
+         * @see #packedToIndex(short)
+         * @since 2025.07 - ValueFormat Enum Introduction
+         * @performance {@code O(1)} access time.
+         * @threading This enum value is an immutable constant and is thread-safe.
+         * @optimization This format is used for human-readable output and for clarity in adjacency
+         *               calculations. It is avoided in performance-critical paths, which prefer the
+         *               {@link #Index} format.
          */
         PackedInt,
         /**
@@ -195,13 +193,13 @@ public abstract class Grid {
          * Bitmask} format instead, as it can allow for operations in parallel.
          * </p>
          * 
-         * @since 2025.07.16 - ValueFormat Enum Introduction
-         * @threading This enum value is immutable and safe to use across threads.
-         * @performance O(1) access time, as enum values are constants.
-         * @optimization The codebase adopts this format for memory efficiency and ease of use in
-         *               generators, while avoiding it in operations that benefit from parallelism.
-         * @see #packedToIndex(short)
          * @see #indexToPacked(short)
+         * @see #packedToIndex(short)
+         * @since 2025.07 - ValueFormat Enum Introduction
+         * @performance {@code O(1)} access time.
+         * @threading This enum value is an immutable constant and is thread-safe.
+         * @optimization This format provides a compact, efficient representation for iterating through cells,
+         *               making it ideal for generator tasks.
          */
         Index,
         /**
@@ -234,17 +232,17 @@ public abstract class Grid {
          * very long click combinations.
          * </p>
          * 
-         * @since 2025.07.16 - Bitmask Enum Introduction
-         * @threading This enum value is immutable and safe to use across threads.
-         * @performance O(1) access time, as enum values are constants.
-         * @optimization The codebase avoids using this format frequently due to its complexity and the lack
-         *               of a native 128-bit primitive type in Java, which would be ideal for our grid
-         *               representation.
          * @see #gridState
+         * @see #clearBit(int)
          * @see #click(long[])
          * @see #getBit(int)
          * @see #setBit(int)
-         * @see #clearBit(int)
+         * @since 2025.07 - ValueFormat Enum Introduction
+         * @performance {@code O(1)} access time.
+         * @threading This enum value is an immutable constant and is thread-safe.
+         * @optimization This format is primarily for internal grid state representation and is not exposed in
+         *               most public methods due to its complexity and Java's lack of a native 128-bit
+         *               primitive type.
          */
         Bitmask
     }
@@ -259,15 +257,14 @@ public abstract class Grid {
      * of grid operations and ensuring that all methods operate within the valid range of rows.
      * </p>
      * 
-     * @since 2025.03.20 - Grid Definition
-     * @threading This constant is immutable and safe to use across threads.
-     * @performance O(1) access time, as it is a constant value.
-     * @optimization Using a constant to avoid recalculating the number of rows and to prevent magic
-     *              numbers in the code.
-     * @see #ROW_OFFSETS
-     * @see #NUM_CELLS
      * @see #EVEN_NUM_COLS
+     * @see #NUM_CELLS
      * @see #ODD_NUM_COLS
+     * @see #ROW_OFFSETS
+     * @since 2025.03 - Grid Definition
+     * @performance {@code O(1)} access time.
+     * @threading This constant is immutable and thread-safe.
+     * @optimization Using a named constant improves code clarity and maintainability.
      */
     public static final int NUM_ROWS = 7;
     /**
@@ -281,15 +278,14 @@ public abstract class Grid {
      * of grid operations and ensuring that all methods operate within the valid range of columns.
      * </p>
      * 
-     * @since 2025.03.20 - Grid Definition
-     * @threading This constant is immutable and safe to use across threads.
-     * @performance O(1) access time, as it is a constant value.
-     * @optimization Using a constant to avoid recalculating the number of columns and to prevent magic
-     *               numbers in the code.
-     * @see #ROW_OFFSETS
+     * @see #EVEN_NUM_COLS
      * @see #NUM_CELLS
      * @see #NUM_ROWS
-     * @see #EVEN_NUM_COLS
+     * @see #ROW_OFFSETS
+     * @since 2025.03 - Grid Definition
+     * @performance {@code O(1)} access time.
+     * @threading This constant is immutable and thread-safe.
+     * @optimization Using a named constant improves code clarity and maintainability.
      */
     public static final int ODD_NUM_COLS = 15;
     /**
@@ -303,15 +299,14 @@ public abstract class Grid {
      * of grid operations and ensuring that all methods operate within the valid range of columns.
      * </p>
      * 
-     * @since 2025.03.20 - Grid Definition
-     * @threading This constant is immutable and safe to use across threads.
-     * @performance O(1) access time, as it is a constant value.
-     * @optimization Using a constant to avoid recalculating the number of columns and to prevent magic
-     *               numbers in the code.
-     * @see #ROW_OFFSETS
      * @see #NUM_CELLS
      * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
+     * @see #ROW_OFFSETS
+     * @since 2025.03 - Grid Definition
+     * @performance {@code O(1)} access time.
+     * @threading This constant is immutable and thread-safe.
+     * @optimization Using a named constant improves code clarity and maintainability.
      */
     public static final int EVEN_NUM_COLS = 16;
     /**
@@ -332,15 +327,15 @@ public abstract class Grid {
      * Packed -> Index conversions.
      * </p>
      * 
-     * @since 2025.06.04 - BitSet Grid state
-     * @threading This array is immutable after initialization and is safe to use across threads.
-     * @performance O(1) lookup time for offsets, as they are stored in a static array.
-     * @optimization Using a static array to avoid the overhead of runtime calculations.
-     * @see #NUM_ROWS
      * @see #EVEN_NUM_COLS
+     * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
      * @see #computePackedToIndex(short)
      * @see ValueFormat
+     * @since 2025.06 - BitSet Grid State
+     * @performance {@code O(1)} lookup time.
+     * @threading This array is immutable after static initialization and is thread-safe.
+     * @optimization Using a pre-computed static array for conversions avoids runtime calculations.
      */
     public static final short[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93};
     /**
@@ -360,17 +355,16 @@ public abstract class Grid {
      * of grid operations and ensuring that all methods operate within the valid range of cells.
      * </p>
      * 
-     * @since 2025.04.15 - Static Block Initialization
-     * @threading This constant is immutable and safe to use across threads.
-     * @performance O(1) access time, as it is a constant value.
-     * @optimization Using a constant to avoid recalculating the number of cells and to prevent magic
-     *               numbers in the code.
-     * @see #ROW_OFFSETS
-     * @see #NUM_ROWS
      * @see #EVEN_NUM_COLS
-     * @see #ODD_NUM_COLS
      * @see #gridState
+     * @see #NUM_ROWS
+     * @see #ODD_NUM_COLS
+     * @see #ROW_OFFSETS
      * @see #trueCellsCount
+     * @since 2025.04 - Static Block Initialization
+     * @performance {@code O(1)} access time.
+     * @threading This constant is immutable and thread-safe.
+     * @optimization Using a named constant improves code clarity and maintainability.
      */
     public static final int NUM_CELLS = 109;
 
@@ -415,17 +409,16 @@ public abstract class Grid {
      * can represent a 128-bit value without allocations, we will stick with this approach.
      * </p>
      * 
-     * @since 2025.07.13 - Bitmasked Grid state
-     * @threading This field is <b>not</b> thread-safe. It should only be accessed from a single thread
-     *            or with proper synchronization.
-     * @performance O(1) lookup time for each 64-bit long in the gridState array and O(1) bitwise operations
-     * @optimization Uses a primitive bitmask of longs to represent the grid state, allowing for fast access and
-     *              manipulation of each cell while keeping memory usage low. 
+     * @see #clearBit(int)
+     * @see #getBit(int)
      * @see #getGridState()
      * @see #printGrid()
-     * @see #getBit(int index)
-     * @see #setBit(int index)
-     * @see #clearBit(int index)
+     * @see #setBit(int)
+     * @since 2025.07 - Bitmasked Grid State
+     * @performance {@code O(1)} access and update time.
+     * @threading Not thread-safe. Access must be synchronized externally.
+     * @optimization Uses a primitive {@code long[]} bitmask to avoid object allocation overhead, enabling
+     *               extremely fast, cache-friendly state manipulation via bitwise operations.
      */
     protected final long[] gridState = new long[2];
     /**
@@ -433,15 +426,14 @@ public abstract class Grid {
      * {@link #isSolved() solution checks} and to optimize certain operations. Updated whenever
      * {@link #getTrueCount()} is called and {@link #recalculationNeeded} is <code>true</code>.
      * 
-     * @since 2025.07.13 - Bitmasked Grid state
-     * @threading This field is <b>not</b> thread-safe. It should only be accessed from a single thread
-     *            or with proper synchronization.
-     * @performance O(1) access time when up to date (and O(1) updates, since
-     *              {@link java.lang.Long#bitCount(long) Long.bitCount()} is O(1))
-     * @optimization Caches the count of true cells to avoid recalculating it on every check, improving
-     *               performance for operations that frequently check the solved state.
      * @see #getTrueCount()
      * @see #isSolved()
+     * @since 2025.07 - Bitmasked Grid State
+     * @performance {@code O(1)} access. The value is updated lazily.
+     * @threading Not thread-safe. This field is mutated by {@link #click(short)} and read by
+     *            {@link #getTrueCount()}.
+     * @optimization Caches the number of "on" cells to make {@link #isSolved()} checks instantaneous. The
+     *               count is recalculated only when necessary, controlled by {@link #recalculationNeeded}.
      */
     protected int trueCellsCount = 0;
     /**
@@ -450,14 +442,14 @@ public abstract class Grid {
      * certain operations. Updated whenever {@link #findFirstTrueCell(ValueFormat)} is called and
      * {@link #recalculationNeeded} is <code>true</code>.
      * 
-     * @since 2025.07.16 - First True Cell Caching
-     * @threading This field is <b>not</b> thread-safe. It should only be accessed from a single thread
-     *            or with proper synchronization.
-     * @performance O(1) access time when up to date, and O(n) updates in the worst case (where n is the
-     *              {@link #NUM_CELLS number of cells in the grid}).
-     * @optimization Caches the index of the first true cell to avoid scanning the entire grid on every
-     *               check, improving performance for operations that frequently need this information.
      * @see #findFirstTrueCell()
+     * @since 2025.07 - First True Cell Caching
+     * @performance {@code O(1)} access. The value is updated lazily.
+     * @threading Not thread-safe. This field is mutated by {@link #click(short)} and read by
+     *            {@link #findFirstTrueCell()}.
+     * @optimization Caches the index of the first "on" cell, a critical optimization for pruning the
+     *               search space in the generator. Recalculated only when needed via
+     *               {@link #recalculationNeeded}.
      */
     protected short firstTrueCell = -1;
     /**
@@ -466,14 +458,14 @@ public abstract class Grid {
      * (e.g., via a click operation) and reset to <code>false</code> after the next call to
      * {@link #getTrueCount()} or {@link #findFirstTrueCell(ValueFormat) findFirstTrueCell()}.
      * 
-     * @since 2025.07.13 - Bitmasked Grid state
-     * @threading This field is <b>not</b> thread-safe. It should only be accessed from a single thread
-     *            or with proper synchronization.
-     * @performance O(1) access and update time, as it is a simple boolean flag.
-     * @optimization Uses a boolean flag to track whether recalculation is needed, avoiding unnecessary
-     *               recalculations.
      * @see #firstTrueCell
      * @see #trueCellsCount
+     * @since 2025.07 - Bitmasked Grid State
+     * @performance {@code O(1)} access.
+     * @threading Not thread-safe. This flag coordinates lazy recalculations.
+     * @optimization Implements a lazy evaluation strategy for {@link #trueCellsCount} and
+     *               {@link #firstTrueCell}, ensuring that expensive recalculations are only performed
+     *               when the state has been modified.
      */
     protected boolean recalculationNeeded = false;
 
@@ -498,15 +490,14 @@ public abstract class Grid {
      * fields in this class.
      * </p>
      * 
-     * @since 2025.04.15 - Static Block Initialization
-     * @threading This array is initialized in a static block and is immutable after that point.
-     * @performance O(1) lookup time for adjacency masks, as they are pre-computed and stored in a
-     *              static array.
-     * @optimization Uses a static array to avoid the overhead of runtime calculations. Standardized to
-     *               use the {@link ValueFormat#Index Index} format and to use 2 longs per cell for
-     *               consistency and simplicity.
      * @see #NUM_CELLS
-     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
+     * @since 2025.04 - Static Block Initialization
+     * @performance {@code O(1)} lookup time.
+     * @threading This array is immutable after static initialization and is thread-safe.
+     * @optimization Pre-computing adjacency masks is the core optimization that makes {@link #click(short)} an
+     *               {@code O(1)} operation. Each mask represents the bitwise change required to toggle all
+     *               cells adjacent to a given cell.
      */
     private static final long[][] ADJACENCY_MASKS = new long[NUM_CELLS][2];
     
@@ -526,14 +517,13 @@ public abstract class Grid {
      * the {@link #findAdjacents(short, ValueFormat, ValueFormat) findAdjacents()} method.
      * </p>
      * 
-     * @since 2025.05.29 - HashSet -> Array for Adjacency Storage
-     * @threading This array is initialized in a static block and is immutable after that point.
-     * @performance O(1) lookup time for adjacency arrays, as they are pre-computed and stored in a
-     *              static array.
-     * @optimization Uses a static array to avoid the overhead of runtime calculations. Standardized to
-     *               use the {@link ValueFormat#Index Index} format for consistency.
      * @see #NUM_CELLS
-     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
+     * @since 2025.05 - Adjacency Storage Optimization
+     * @performance {@code O(1)} lookup time.
+     * @threading This array is immutable after static initialization and is thread-safe.
+     * @optimization Pre-computing adjacency lists in this array allows the {@link #findAdjacents} methods to
+     *               be fast lookups rather than expensive computations.
      */
     private static final short[][] adjacencyArray = new short[NUM_CELLS][]; // Index format
     /**
@@ -551,13 +541,13 @@ public abstract class Grid {
      * operations.
      * </p>
      * 
-     * @since 2025.06.25 - O(1) areAdjacent() checks
-     * @threading This array is initialized in a static block and is immutable after that point.
-     * @performance O(1) lookup time for adjacency checks, as it is a pre-computed 2D array.
-     * @optimization Uses a static 2D array to avoid the overhead of runtime calculations. Standardized to
-     *               use the {@link ValueFormat#Index Index} format for consistency.
      * @see #NUM_CELLS
-     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
+     * @since 2025.06 - O(1) Adjacency Check
+     * @performance {@code O(1)} lookup time.
+     * @threading This array is immutable after static initialization and is thread-safe.
+     * @optimization A pre-computed boolean matrix that provides a near-instantaneous way to check if two
+     *               cells are adjacent, used by {@link #areAdjacent(short, short)}.
      */
     private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_CELLS][NUM_CELLS]; // Index format
     /**
@@ -574,15 +564,14 @@ public abstract class Grid {
      * calculations.
      * </p>
      * 
-     * @since 2025.06.15 - PackedInt -> Index Precomputation
-     * @threading This array is initialized in a static block and is immutable after that point.
-     * @performance O(1) lookup time for PackedInt to Index conversions, as it is a pre-computed
-     *              array.
-     * @optimization Uses a static array to avoid the overhead of runtime calculations. Standardized to
-     *               use the {@link ValueFormat#Index Index} format for consistency.
      * @see #NUM_CELLS
      * @see #computePackedToIndex(short)
      * @see ValueFormat
+     * @since 2025.06 - PackedInt to Index Precomputation
+     * @performance {@code O(1)} lookup time.
+     * @threading This array is immutable after static initialization and is thread-safe.
+     * @optimization A cache to accelerate the conversion from the human-readable {@link ValueFormat#PackedInt}
+     *               format to the performance-oriented {@link ValueFormat#Index} format.
      */
     private static final short[] PACKED_TO_INDEX_CACHE = new short[(NUM_ROWS - 1) * 100 + EVEN_NUM_COLS];
 
@@ -678,21 +667,16 @@ public abstract class Grid {
      *         up to 6 items.
      * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
      *                                  represent a single cell in that format.
-     * @since 2025.07.16 - Format Support
-     * @performance If outputFormat is <code>PackedInt</code>, O(1) input conversion (if necessary) + 6
-     *              * O(1) adjacency computation + O(6) output filtering = O(1) complexity.
-     * @performance If outputFormat is <code>Index</code>, O(1) input conversion (if necessary) + 6 *
-     *              O(1) adjacency computation + O(6) output filtering + O(n) conversion to index format
-     *              (where n is fixed as 6 or less) = O(1) complexity.
-     * @threading This method is thread-safe, as it does not modify any instance or static state.
-     * @memory We use a <code>ShortList</code> to store the affected pieces, avoiding the boxing
-     *         required for <code>ArrayList</code>s and allowing for easy conversion to a properly-sized
-     *         short array.
-     * @optimization Using a <code>ShortList</code> avoids the need for counting the number of valid
-     *               adjacent cells before initializing a presized array and avoids the boxing overhead
-     *               associated with <code>ArrayList</code>s.
      * @see #findAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
      * @see ShortList
+     * @since 2025.07 - Format Support
+     * @performance Overall {@code O(1)} complexity. The number of adjacent cells is small and constant.
+     * @threading This method is thread-safe as it is a pure function with no side effects.
+     * @memory Uses a {@code ShortList} from FastUtil to avoid boxing primitive {@code short} values,
+     *         reducing garbage collection pressure compared to a standard {@code ArrayList<Short>}.
+     * @optimization Internal calculations are performed in {@link ValueFormat#PackedInt} for simpler
+     *               arithmetic. The use of {@code ShortList} avoids an initial pass to count valid
+     *               neighbors before creating a perfectly sized array.
      */
     public static ShortList computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         ShortList affectedPieces = new ShortArrayList(6);
@@ -765,18 +749,13 @@ public abstract class Grid {
      *         items.
      * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
      *                                  represent a single cell in that format.
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) input conversion (if necessary) + 6 * O(1) adjacency computation + O(6) output
-     *              filtering = O(1) complexity.
-     * @threading This method is thread-safe, as it does not modify any instance or static state.
-     * @memory We use a <code>ShortList</code> to store the affected pieces, avoiding the boxing
-     *         required for <code>ArrayList</code>s and allowing for efficient storage and retrieval of
-     *         short values.
-     * @optimization Using a <code>ShortList</code> avoids the need for counting the number of valid
-     *               adjacent cells before initializing a presized array and avoids the boxing overhead
-     *               associated with <code>ArrayList</code>s.
      * @see #computeAdjacents(short, ValueFormat, ValueFormat)
      * @see ShortList
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity. Delegates to the main implementation.
+     * @threading This method is thread-safe.
+     * @memory Creates a new {@code ShortList} for the result.
+     * @optimization Convenience overload.
      */
     public static ShortList computeAdjacents(short cell, ValueFormat format) {
         return computeAdjacents(cell, format, format);
@@ -793,18 +772,13 @@ public abstract class Grid {
      *         containing up to 6 items.
      * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
      *                                  represent a single cell in that format.
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) input conversion (if necessary) + 6 * O(1) adjacency computation + O(6) output
-     *              filtering = O(1) complexity.
-     * @threading This method is thread-safe, as it does not modify any instance or static state.
-     * @memory We use a <code>ShortList</code> to store the affected pieces, avoiding the boxing
-     *         required for <code>ArrayList</code>s and allowing for efficient storage and retrieval of
-     *         short values.
-     * @optimization Using a <code>ShortList</code> avoids the need for counting the number of valid
-     *               adjacent cells before initializing a presized array and avoids the boxing overhead
-     *               associated with <code>ArrayList</code>s.
      * @see #computeAdjacents(short, ValueFormat, ValueFormat)
      * @see ShortList
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity. Delegates to the main implementation.
+     * @threading This method is thread-safe.
+     * @memory Creates a new {@code ShortList} for the result.
+     * @optimization Convenience overload with default format.
      */
     public static ShortList computeAdjacents(short cell) {
         return computeAdjacents(cell, ValueFormat.Index);
@@ -848,18 +822,16 @@ public abstract class Grid {
      *                                        represent a single cell in that format.
      * @throws ArrayIndexOutOfBoundsException if the input cell is out of bounds for the specified input
      *                                        format (implicitly checked by array accesses).
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) input conversion (if necessary) + O(1) adjacency lookup {+ O(n) output
-     *              conversion (where n is fixed as 6 or less)} = O(1) for simplest case, O(n) worst
-     *              case complexity.
-     * @threading This method is thread-safe, since it only reads from static, immutable data.
-     * @memory Uses a fixed-size array to store the results, avoiding dynamic memory allocation and
-     *         temporary object creation.
-     * @optimization Uses a pre-computed adjacency array for fast lookups and minimizes memory usage by
-     *               using fixed-size arrays.
      * @see #adjacencyArray
      * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
      * @see ValueFormat
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} for {@link ValueFormat#Index} output, {@code O(k)} for other formats due to
+     *              conversion, where {@code k} is the number of adjacent cells (max 6).
+     * @threading This method is thread-safe, as it relies only on immutable, pre-computed static data.
+     * @memory Allocates a new {@code short[]} for the result only if format conversion is necessary.
+     * @optimization The primary lookup from {@link #adjacencyArray} is an {@code O(1)} operation. The main
+     *               performance consideration is the potential overhead of format conversion.
      */
     public static short[] findAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         short[] result;
@@ -912,16 +884,12 @@ public abstract class Grid {
      *         items.
      * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
      *                                  represent a single cell in that format.
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) input conversion (if necessary) + O(1) adjacency lookup {+ O(n) output
-     *              conversion (where n is fixed as 6 or less)} = O(1) for simplest case, O(n) worst
-     *              case complexity.
-     * @threading This method is thread-safe, since it only reads from static, immutable data.
-     * @memory Uses a fixed-size array to store the results, avoiding dynamic memory allocation and
-     *         temporary object creation.
-     * @optimization Uses a pre-computed adjacency array for fast lookups and minimizes memory usage by
-     *               using fixed-size arrays.
      * @see #findAdjacents(short)
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity. Delegates to the main implementation.
+     * @threading This method is thread-safe.
+     * @memory May allocate a new {@code short[]} if format conversion occurs.
+     * @optimization Convenience overload.
      */
     public static short[] findAdjacents(short cell, ValueFormat format) {
         return findAdjacents(cell, format, format);
@@ -938,14 +906,13 @@ public abstract class Grid {
      *         containing up to 6 items.
      * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
      *                                  represent a single cell in that format.
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) adjacency lookup
-     * @threading This method is thread-safe, since it only reads from static, immutable data.
-     * @memory Uses a fixed-size array to store the results, avoiding dynamic memory allocation and
-     *         temporary object creation.
-     * @optimization Uses a pre-computed adjacency array for fast lookups and minimizes memory usage by
-     *               using fixed-size arrays.
      * @see #findAdjacents(short, ValueFormat)
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} adjacency lookup.
+     * @threading This method is thread-safe.
+     * @memory Returns a reference to a statically allocated array, avoiding new allocations.
+     * @optimization The most direct and efficient way to get adjacents, as no format conversion is
+     *               needed.
      */
     public static short[] findAdjacents(short cell) {
         return findAdjacents(cell, ValueFormat.Index);
@@ -986,12 +953,11 @@ public abstract class Grid {
      * @return A <code>short</code> representing the cell in {@link ValueFormat#Index Index} format.
      * @throws ArrayIndexOutOfBoundsException (implicitly) if the input packed value is out of bounds
      *                                   (less than 0 or greater than 615).
-     * @since 2025.06.15 - PackedInt → Index Precomputation
-     * @performance O(1) complexity due to a fixed number of arithmetic operations and array lookups.
-     * @threading This method is thread-safe, as it does not modify any instance or static state.
-     * @memory Uses a small, fixed-size array for row offsets and uses primitive types to avoid allocations.
-     * @optimization Uses a pre-defined array of row offsets to avoid repeated calculations, minimizing
-     *               memory usage by using primitive types and avoiding dynamic allocations.
+     * @since 2025.06 - PackedInt to Index Precomputation
+     * @performance {@code O(1)} complexity due to direct arithmetic and a single array lookup.
+     * @threading This method is thread-safe as it is a pure function.
+     * @memory Does not allocate memory.
+     * @optimization Relies on the pre-computed {@link #ROW_OFFSETS} for fast calculation.
      */
     private static short computePackedToIndex(short packed) {
         short row = (short) (packed / 100);
@@ -1027,17 +993,14 @@ public abstract class Grid {
      * @return A <code>short</code> representing the cell in {@link ValueFormat#Index Index} format.
      * @throws IllegalArgumentException if the input packed value is out of bounds (less than 0 or
      *                                  greater than 615).
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) lookup time in the cache + O(1) computation time for uncached values = O(1)
-     *              complexity.
-     * @threading This method is thread-safe, as it reads from an immutable static cache and writes to
-     *            it in a thread-safe manner.
-     * @memory Pulls from a static cache to minimize memory usage, preventing the need for dynamic
-     *         allocations.
-     * @optimization Uses a cache to speed up conversions for commonly used values, reducing the need
-     *               for repeated calculations.
      * @see #PACKED_TO_INDEX_CACHE
      * @see #computePackedToIndex(short)
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity due to direct cache lookup.
+     * @threading This method is thread-safe. The cache is populated statically.
+     * @memory Does not allocate memory.
+     * @optimization Provides an {@code O(1)} alternative to the arithmetic conversion. Declared
+     *               {@code final} to encourage JIT inlining.
      */
     public final static short packedToIndex(short packed) {
         if (packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length) {
@@ -1076,14 +1039,13 @@ public abstract class Grid {
      *         format.
      * @throws IllegalArgumentException if the input index is out of bounds (less than 0 or greater than
      *                                  108).
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) complexity due to a fixed number of conditional checks.
-     * @threading This method is thread-safe, as it does not modify any shared state and only uses local
-     *            variables.
-     * @memory Uses only local variables, minimizing memory usage and avoiding dynamic allocations.
-     * @optimization Uses a series of conditional checks to quickly determine the correct row and column
-     *               for the given index, avoiding the need for complex calculations or data structures.
      * @see #packedToIndex(short)
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity. The series of comparisons is constant time.
+     * @threading This method is thread-safe as it is a pure function.
+     * @memory Does not allocate memory.
+     * @optimization A branch-based approach that is friendly to modern CPU branch predictors. Declared
+     *               {@code final} to encourage JIT inlining.
      */
     public final static short indexToPacked(short index) {
         if (index < 16) return  (short) (0 * 100 + index);
@@ -1106,9 +1068,9 @@ public abstract class Grid {
      * to define their own initial configurations.
      * </p>
      * 
-     * @since 2025.03.29 - Abstract Grid Introduction
-     * @threading Thread-safe since each call operates on a new instance.
      * @see #initialize()
+     * @since 2025.03 - Abstract Grid Introduction
+     * @threading The constructor is thread-safe as it operates on a new instance.
      */
     public Grid() {
         initialize();
@@ -1124,12 +1086,11 @@ public abstract class Grid {
      * this method will depend on the requirements of the subclass.
      * </p>
      * 
-     * @since 2025.03.29 - Abstract Grid Introduction
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
      * @see Grid13
      * @see Grid22
      * @see Grid35
+     * @since 2025.03 - Abstract Grid Introduction
+     * @threading Not thread-safe. This method modifies the instance's state.
      */
     abstract void initialize();
 
@@ -1158,14 +1119,13 @@ public abstract class Grid {
      * 
      * @param index The index of the bit to set (0-108).
      * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
-     * @since 2025.07.13 - Bitmasked Grid state
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @performance O(1) lookup time in the gridState array + O(1) bitwise operation to set the bit =
-     *              O(1) complexity.
-     * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
-     * @see #getBit(int index)
-     * @see #clearBit(int index)
+     * @see #clearBit(int)
+     * @see #getBit(int)
+     * @since 2025.07 - Bitmasked Grid State
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
+     * @optimization This is a low-level helper. For performance reasons, it does not perform bounds
+     *               checking; the caller is responsible for providing a valid index.
      */
     protected void setBit(int index) {
         int longIndex = index / 64;
@@ -1194,14 +1154,12 @@ public abstract class Grid {
      * 
      * @param index The index of the bit to clear (0-108).
      * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
-     * @since 2025.07.13 - Bitmasked Grid state
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @performance O(1) lookup time in the gridState array + O(1) bitwise operation to clear the bit =
-     *              O(1) complexity.
-     * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
-     * @see #getBit(int index)
-     * @see #setBit(int index)
+     * @see #getBit(int)
+     * @see #setBit(int)
+     * @since 2025.07 - Bitmasked Grid State
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
+     * @optimization Low-level helper. The caller is responsible for providing a valid index.
      **/
     protected void clearBit(int index) {
         int longIndex = index / 64;
@@ -1233,13 +1191,12 @@ public abstract class Grid {
      * @param index The index of the bit to check (0-108).
      * @return true if the bit is set, false otherwise.
      * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
-     * @since 2025.07.13 - Bitmasked Grid state
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @performance O(1) lookup time for the proper <code>long</code> in the gridState array.
-     * @optimization Avoids unnecessary bounds checks and uses bitwise operations for fast access.
-     * @see #setBit(int index)
-     * @see #clearBit(int index)
+     * @see #clearBit(int)
+     * @see #setBit(int)
+     * @since 2025.07 - Bitmasked Grid State
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe, as it reads potentially mutable state.
+     * @optimization Low-level helper. The caller is responsible for providing a valid index.
      */
     protected boolean getBit(int index) {
         int longIndex = index / 64;
@@ -1292,20 +1249,16 @@ public abstract class Grid {
      * @throws IllegalArgumentException if the format is Bitmask, (since that would just be the Grid
      *                                  itself). Use {@link #getGridState()} instead to fulfill that
      *                                  purpose.
-     * @since 2025.07.16 - Format Support
-     * @performance If format is {@link ValueFormat#Index}, O(n) loop through the grid state (where n is
-     *              the index of the last true cell, up to 108) + O(1) lookup via {@link #getBit(int)}
-     *              per iteration + O(1) array insertion for every true cell found = O(n) complexity.
-     * @performance If format is {@link ValueFormat#PackedInt}, O(n) loop through the grid state (where
-     *              n is the index of the last true cell, up to 108) + O(1) lookup via
-     *              {@link #getBit(int)} per iteration + O(1) array insertion for every true cell found
-     *              + O(n) conversion to packed int format = O(n) complexity.
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @optimization Uses a pre-sized array to avoid resizing during insertion, and exits the for loop
-     *               when all true cells are found.
+     * @see #findFirstTrueCell(ValueFormat)
      * @see #findTrueCells()
-     * @see #findFirstTrueCell(ValueFormat format)
+     * @since 2025.07 - Format Support
+     * @performance {@code O(N)} where N is the {@link #NUM_CELLS}. A more optimized version could use
+     *              {@link Long#numberOfTrailingZeros(long)} to find set bits directly, but this method
+     *              is not on a critical performance path.
+     * @threading Not thread-safe, as it reads the mutable {@link #gridState}.
+     * @memory Allocates a new {@code short[]} for the results.
+     * @optimization Creates a perfectly sized array based on the cached {@link #trueCellsCount} to avoid
+     *               resizing. It also stops iterating as soon as all true cells have been found.
      */
     public short[] findTrueCells(ValueFormat format) {
         short[] trueCellsArray = new short[trueCellsCount];
@@ -1349,16 +1302,13 @@ public abstract class Grid {
      * </p>
      * 
      * @return An array of true cells in the specified format.
-     * @since 2025.04.08 - Adjacency Optimizations
-     * @performance O(n) loop through the grid state (where n is the index of the last true cell, up to
-     *              108) + O(1) lookup via {@link #getBit(int)} per iteration + O(1) array insertion for
-     *              every true cell found = O(n) complexity.
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @optimization Uses a pre-sized array to avoid resizing during insertion, and exits the for loop
-     *               when all true cells are found.
-     * @see #findTrueCells(ValueFormat format)
-     * @see #findFirstTrueCell(ValueFormat format)
+     * @see #findFirstTrueCell(ValueFormat)
+     * @see #findTrueCells(ValueFormat)
+     * @since 2025.04 - Adjacency Optimizations
+     * @performance {@code O(N)} where N is the {@link #NUM_CELLS}.
+     * @threading Not thread-safe.
+     * @memory Allocates a new {@code short[]} for the results.
+     * @optimization A {@code final} convenience overload that defaults to the most common format.
      */
     public final short[] findTrueCells() {
         short[] trueCellsArray = new short[trueCellsCount];
@@ -1415,20 +1365,18 @@ public abstract class Grid {
      * @return The first true cell in the specified format, or -1 if no true cell is found.
      * @throws IllegalArgumentException if the format is Bitmask (since bitmasks aren't supported for
      *                                  single values).
-     * @since 2025.07.16 - Format Support
-     * @performance O(1) lookup time for the flag and true cells count + O(1) bitwise check to find the
-     *              first true cell + 2 * O(1) bitcounts on the bitmask + O(1) conversion to the
-     *              requested format = O(1) complexity.
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @algorithm Uses Java's built-in methods for finding the first set bit and counting the number of
-     *            set bits in a long, which are highly optimized.
-     * @optimization Avoids unnecessary recalculations by checking the {@link #recalculationNeeded
-     *               recalculationNeeded} flag and the {@link #trueCellsCount trueCellsCount} field.
-     * @see #findFirstTrueCell()
-     * @see #click(short, ValueFormat)
      * @see #click(short[])
-     * @see #findTrueCells(ValueFormat format)
+     * @see #click(short, ValueFormat)
+     * @see #findFirstTrueCell()
+     * @see #findTrueCells(ValueFormat)
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe due to lazy evaluation of cached fields.
+     * @algorithm Uses the highly optimized {@link Long#numberOfTrailingZeros(long)} and
+     *              {@link Long#bitCount(long)} intrinsics for recalculation.
+     * @optimization Implements lazy recalculation. The cached {@link #firstTrueCell} and
+     *               {@link #trueCellsCount} are only recomputed if the {@link #recalculationNeeded}
+     *               flag is set.
      */
     public short findFirstTrueCell(ValueFormat format) {
         if (!recalculationNeeded && trueCellsCount == 0) 
@@ -1484,18 +1432,15 @@ public abstract class Grid {
      * </p>
      * 
      * @return The first true cell in Index format, or -1 if no true cell is found.
-     * @since 2025.04.08 - Adjacency Optimizations
-     * @performance O(1) lookup time for the flag and true cells count + O(1) bitwise check to find the
-     *              first true cell + 2 * O(1) bitcounts on the bitmask = O(1) complexity.
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *           or with proper synchronization.
-     * @algorithm Uses Java's built-in methods for finding the first set bit and counting the number of set bits
-     *           in a long, which are highly optimized.
-     * @optimization Avoids unnecessary recalculations by checking the {@link #recalculationNeeded recalculationNeeded} flag and the {@link #trueCellsCount trueCellsCount} field.
-     * @see #findFirstTrueCell(ValueFormat format)
-     * @see #click(short, ValueFormat)
      * @see #click(short[])
+     * @see #click(short, ValueFormat)
+     * @see #findFirstTrueCell(ValueFormat)
      * @see #findTrueCells()
+     * @since 2025.04 - Adjacency Optimizations
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe.
+     * @algorithm Delegates to the main implementation, using {@link ValueFormat#Index}.
+     * @optimization A {@code final} convenience overload for the most common use case.
      */
     public final short findFirstTrueCell() {
         if (!recalculationNeeded && trueCellsCount == 0) 
@@ -1560,15 +1505,14 @@ public abstract class Grid {
      *                                        another unsupported format.
      * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by the
      *                                        array accesses).
-     * @since 2025.07.16 - Format Support
-     * @performance If format is {@link ValueFormat#Index Index}, 2 * O(1) click operations using
-     *              pre-computed adjacency bitmasks = O(1) complexity. Otherwise, an additional O(1)
-     *              conversion is necessary (resulting in O(1) complexity overall).
-     * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
-     *            instances of Grid or synchronize access to this method.
-     * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
-     * @see #click(short cell)
-     * @see #click(short[] cells)
+     * @see #click(short)
+     * @see #click(short[])
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
+     * @optimization The core of this operation is two bitwise XORs against the pre-computed
+     *               {@link #ADJACENCY_MASKS}, which is extremely fast. It also lazily marks the state for
+     *               recalculation.
      */
     public void click(short cell, ValueFormat format) {
         switch (format) 
@@ -1622,18 +1566,18 @@ public abstract class Grid {
      * @param cell The cell to click, in Index format (0-108).
      * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by the
      *                                        array accesses).
-     * @since 2025.07.19 - Inlining Improvements
-     * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
-     *            instances of Grid or synchronize access to this method.
-     * @performance Two O(1) click operations using pre-computed adjacency bitmasks = O(1) complexity.
-     * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
-     *               Declared as final to encourage JIT inlining. Assumes the cell is in
-     *               <code>Index</code> format (0-108) to avoid format checks.
-     * @see #click(short cell, ValueFormat format)
-     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
-     * @see #areAdjacent(short cellA, short cellB, ValueFormat format)
-     * @deprecated As of 2025.07.28, replaced by {@link #click(short[] cells)} for bulk operations on
-     *             combinations in {@link TestClickCombination monkeys}.
+     * @see #areAdjacent(short, short, ValueFormat)
+     * @see #click(short, ValueFormat)
+     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
+     * @since 2025.07 - Inlining Improvements
+     * @deprecated As of 2025.07, this has been replaced by {@link #click(short[])} for bulk operations
+     *             in {@link TestClickCombination}. Single-click operations are no longer on the hot
+     *             path.
+     * @performance {@code O(1)} complexity. This is a hot-path method.
+     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
+     * @optimization This minimal implementation is declared {@code final} to encourage JIT inlining. It
+     *               avoids any format-checking overhead by requiring the {@link ValueFormat#Index}
+     *               format.
      */
     public final void click(short cell) {
         // XOR the grid state with the pre-computed adjacency mask
@@ -1652,15 +1596,12 @@ public abstract class Grid {
      * @param col The column of the cell to click.
      * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by the
      *                                        array accesses).
-     * @since 2025.03.20 - Initial Commit
-     * @performance O(1) conversion from packed int to index + 2 * O(1) click operations using
-     *              pre-computed adjacency bitmasks = O(1) complexity.
-     * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
-     *            instances of Grid or synchronize access to this method.
-     * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
-     *               Declared as final to encourage JIT inlining. Assumes the cell is in
-     *               <code>PackedInt</code> format (row and column) to avoid format checks.
-     * @see #click(short cell, ValueFormat format)
+     * @see #click(short, ValueFormat)
+     * @since 2025.03 - Initial Creation
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
+     * @optimization A {@code final} convenience overload that handles {@link ValueFormat#PackedInt} conversion
+     *               before performing the click. Designed to be inlined.
      */
     public final void click(short row, short col) {
         // Convert packed int to index format first
@@ -1695,13 +1636,12 @@ public abstract class Grid {
      * </p>
      * @param bitmask The bitmask representing the adjacents to toggle, as a long array of length 2.
      * @throws IllegalArgumentException if the bitmask is not of length 2.
-     * @since 2025.07.17 - Click Format Support
-     * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
-     *            instances of Grid or synchronize access to this method.
-     * @performance O(1) bitwise operations on the grid state = O(1) complexity.
-     * @optimization Assumes the bitmask is of length 2 to avoid format checks.
-     * @see #click(short cell, ValueFormat format)
-     * @see #click(short cell)
+     * @see #click(short)
+     * @see #click(short, ValueFormat)
+     * @since 2025.07 - Click Format Support
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
+     * @optimization Directly applies a pre-computed bitmask, avoiding any lookup overhead.
      */
     public void click(long[] bitmask) {
         if (bitmask.length != 2) {
@@ -1754,17 +1694,15 @@ public abstract class Grid {
      *                                  accesses).
      * @throws NullPointerException     if the cells array is null (implicitly thrown by the for-each
      *                                  loop).
-     * @since 2025.07.28 - Bulk Clicks
-     * 
-     * @threading This method is <b>not</b> thread-safe. Multiple threads should have their own
-     *            instances of Grid or synchronize access to this method.
-     * @performance O(n) loop * (2 O(1) bitwise operations per cell) = O(n) complexity, where n is the
-     *              number of cells clicked.
-     * @optimization Using precomputed adjacency masks for fast bitwise operations on the grid state.
-     *               Declared as final to encourage JIT inlining. Assumes the cells are in Index format
-     *               and the array is non-null to avoid format checks.
-     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
-     * @see #areAdjacent(short cellA, short cellB, ValueFormat format)
+     * @see #areAdjacent(short, short, ValueFormat)
+     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
+     * @since 2025.07 - Bulk Clicks
+     * @performance {@code O(N)} where N is the number of cells in the input array. This is a hot-path
+     *              method for worker threads.
+     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
+     * @optimization This method is the primary replacement for single-cell clicks. It processes an array
+     *               of clicks in a tight loop. It is {@code final} to encourage JIT inlining and
+     *               assumes valid input to avoid branching and checks inside the loop.
      */
     public final void click(short[] cells) {
         for (short cell : cells) {
@@ -1822,15 +1760,14 @@ public abstract class Grid {
      * @return An array of adjacent cells in the requested format, or <code>null</code> if no true cell
      *         exists.
      * @throws IllegalArgumentException if the format is {@link ValueFormat#Bitmask Bitmask}.
-     * @since 2025.04.08 - First True Adjacents Method Creation
-     * @performance O(1) lookup of the first true cell + O(1) retrieval of its adjacents {+ O(n)
-     *              conversion to the requested format if necessary, where n is up to 6} = O(1) best
-     *              case complexity, O(n) worst case complexity.
-     * @threading This method is <b>not</b> thread-safe. Each thread should have its own instance of
-     *            Grid or synchronize access to this method.
-     * @optimization Avoids unnecessary recalculations by leveraging the existing
-     *               {@link #findFirstTrueCell()} method and reusing its result. Uses a simple lookup for the adjacency list.
      * @see #findAdjacents(short, ValueFormat)
+     * @since 2025.04 - First True Adjacents Method Creation
+     * @performance {@code O(1)} for {@link ValueFormat#Index}, {@code O(k)} for others, where {@code k} is the
+     *              number of adjacent cells (max 6).
+     * @threading Not thread-safe, as it depends on the result of non-thread-safe methods.
+     * @memory Allocates a new {@code short[]} for the result.
+     * @optimization Leverages the lazy evaluation of {@link #findFirstTrueCell()} and the pre-computed
+     *               {@link #adjacencyArray}.
      */
     public short[] findFirstTrueAdjacents(ValueFormat format) {
         if (format == ValueFormat.Bitmask) {
@@ -1853,11 +1790,11 @@ public abstract class Grid {
      * 
      * @return An array of adjacent cells in {@link ValueFormat#Index Index} format, or
      *         <code>null</code> if no true cell exists.
-     * @since 2025.07.17 - Format Support for findFirstTrueAdjacents
-     * @performance O(1) lookup of the first true cell + O(1) retrieval of its adjacents = O(1) complexity.
-     * @threading This method is <b>not</b> thread-safe. Each thread should have its own instance of
-     *            Grid or synchronize access to this method.
-     * @optimization Convenience overload to avoid specifying the format when Index is desired.
+     * @since 2025.07 - Format Support
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe.
+     * @memory Allocates a new {@code short[]}.
+     * @optimization Convenience overload.
      */
     public short[] findFirstTrueAdjacents() {
         return findFirstTrueAdjacents(ValueFormat.Index);
@@ -1908,21 +1845,18 @@ public abstract class Grid {
      *         exist.
      * @throws IllegalArgumentException if either format is {@link ValueFormat#Bitmask Bitmask} (since
      *                                  bitmasks aren't supported for single values) or anything else.
-     * @since 2025.07.16 - Format Support
-     * @performance O(log n) binary search on the adjacency array (where n is up to 6) + O(m) array copy
-     *              (where m is up to 6) + O(m) conversion to packed int format if necessary = O(n)
-     *              complexity overall.
-     * @threading This method is <b>not</b> thread-safe. Each thread should have its own instance of
-     *            Grid or synchronize access to this method.
-     * @algorithm Uses binary search to efficiently find the first adjacent cell greater than the
-     *            specified cell.
-     * @optimization Avoids unnecessary recalculations by leveraging the existing
-     *               {@link #findFirstTrueAdjacents(ValueFormat) findFirstTrueAdjacents()} method and
-     *               reusing its result. Uses binary search for efficient searching in the small
-     *               adjacency array.
      * @see #findAdjacents(short)
      * @see #findFirstTrueAdjacents(ValueFormat)
      * @see #findFirstTrueCell()
+     * @since 2025.07 - Format Support
+     * @performance {@code O(log k + m)} where {@code k} is the number of adjacents (max 6) and {@code m} is
+     *              the number of remaining adjacents to copy. Effectively constant time.
+     * @threading Not thread-safe.
+     * @algorithm Performs a binary search on the sorted adjacency list of the first true cell to find
+     *            the subset of neighbors that appear after the given cell.
+     * @memory Allocates a new {@code short[]} for the result.
+     * @optimization A specialized method for the generator to efficiently prune the search space by only
+     *               considering relevant subsequent clicks.
      */
     public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
@@ -1995,11 +1929,10 @@ public abstract class Grid {
      * avoiding code duplication.
      * 
      * @return <code>true</code> if the grid is solved (no true cells), <code>false</code> otherwise.
-     * @since 2025.03.20 - Initial Commit
-     * @performance O(1) to check the true cells count (with potential recalculation) = O(1) complexity.
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
      * @see #recalculationNeeded
+     * @since 2025.03 - Initial Creation
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe, as it calls the non-thread-safe {@link #getTrueCount()}.
      */
     public boolean isSolved() {
         return getTrueCount() == 0;
@@ -2010,13 +1943,12 @@ public abstract class Grid {
      * calculation, it recalculates the count using {@link Long#bitCount(long) bitwise operations}.
      * 
      * @return the number of true cells in the grid.
-     * @since 2025.03.21 - Dynamic True Cell Count Tracking
-     * @performance O(1) for checking the flag + O(1) for recalculating the count using bitwise operations = O(1) complexity.
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @optimization Avoids unnecessary recalculations by checking the {@link #recalculationNeeded
-     *               recalculationNeeded} flag and the {@link #trueCellsCount trueCellsCount} field.
      * @see #recalculationNeeded
+     * @since 2025.03 - Dynamic True Cell Count Tracking
+     * @performance {@code O(1)} complexity.
+     * @threading Not thread-safe due to lazy evaluation of a mutable field.
+     * @optimization Implements lazy evaluation; the count is only recalculated using fast bitwise
+     *               operations when the {@link #recalculationNeeded} flag is true.
      */
     public int getTrueCount() {
         if (recalculationNeeded) {
@@ -2038,15 +1970,16 @@ public abstract class Grid {
      * 
      * @return A deep copy of this <code>Grid</code> instance.
      * @throws RuntimeException if the cloning process fails due to reflection issues.
-     * @since 2025.03.26 - Cloning Introduction
-     * @performance O(1) for creating a new instance + O(1) for copying the grid state and fields = O(1) complexity.
-     * @threading Thread-safe, as it creates a new instance and does not modify any shared state.
      * @see #firstTrueCell
      * @see #gridState
      * @see #recalculationNeeded
      * @see #trueCellsCount
-     * @see java.lang.Cloneable
      * @see java.lang.Object#clone()
+     * @see java.lang.Cloneable
+     * @since 2025.03 - Cloning Introduction
+     * @performance {@code O(1)} complexity.
+     * @threading Thread-safe, as it returns a new, independent instance.
+     * @memory Allocates a new {@code Grid} object and a new {@code long[2]} for its state.
      */
     public Grid clone() {
         try {
@@ -2093,14 +2026,15 @@ public abstract class Grid {
      * @throws IllegalArgumentException if the format is {@link ValueFormat#Bitmask Bitmask} (since
      *                                  bitmasks aren't supported for single values) or another
      *                                  unsupported format.
-     * @since 2025.07.16 - Format Support and Adjacency Optimizations
-     * @performance O(1) checks for edge cases + O(1) conversion to index format if necessary + O(1)
-     *              binary search on a small, fixed-size array of adjacents = O(1) complexity.
-     * @threading Thread-safe, as it only reads input parameters and does not modify any shared state.
-     * @optimization Short-circuits for edge cases and uses binary search for adjacency checks.
-     * @see #areAdjacent(short cellA, short cellB, ValueFormat format)
-     * @see #findAdjacents(short cell, ValueFormat format)
-     * @see #findFirstTrueCell(ValueFormat format)
+     * @see #areAdjacent(short, short, ValueFormat)
+     * @see #findAdjacents(short, ValueFormat)
+     * @see #findFirstTrueCell(ValueFormat)
+     * @since 2025.07 - Format and Adjacency Optimizations
+     * @performance {@code O(log k)} where k is the number of adjacent cells (max 6). Effectively constant
+     *              time.
+     * @threading This method is thread-safe as it is a pure function.
+     * @optimization A specialized pruning helper for the generator. Uses an efficient binary search on the
+     *               pre-sorted adjacency list.
      */
     public static boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell, ValueFormat format) {
         if (firstTrueCell == -1) return true; // No true cells, any click can create one
@@ -2200,15 +2134,14 @@ public abstract class Grid {
      *                                        another unsupported format.
      * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds (implicitly checked by the
      *                                        array access).
-     * @since 2025.07.18 - Index Format Usage for Internal Grid Methods
-     * @performance O(1) conversion to index format if necessary + O(1) lookup in the adjacency cache =
-     *              O(1) complexity.
-     * @threading Thread-safe, as it only reads input parameters and does not modify any shared state.
-     * @optimization Uses a pre-computed adjacency cache for fast lookups. Short-circuits for
-     *               unsupported formats.
      * @see #ADJACENCY_CACHE
      * @see #areAdjacent(short, short)
      * @see #canAffectFirstTrueCell(short, short, ValueFormat)
+     * @since 2025.07 - Index Format Usage
+     * @performance {@code O(1)} complexity.
+     * @threading Thread-safe, as it only reads from immutable static data.
+     * @optimization Directly uses the {@link #ADJACENCY_CACHE} for an instantaneous lookup after handling
+     *               any necessary format conversion.
      */
     public static boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         // Convert both cells to index format if necessary
@@ -2238,10 +2171,10 @@ public abstract class Grid {
      * @return <code>true</code> if the cells are adjacent, <code>false</code> otherwise.
      * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds (implicitly checked by the
      *                                        array access).
-     * @since 2025.06.06 - Odd Adjacency Pruning for Monkeys
-     * @performance O(1) lookup in the adjacency cache = O(1) complexity.
-     * @threading Thread-safe, as it only reads input parameters and does not modify any shared state.
-     * @optimization Convenience overload to avoid specifying the format when Index is desired.
+     * @since 2025.06 - Odd Adjacency Pruning
+     * @performance {@code O(1)} lookup.
+     * @threading Thread-safe.
+     * @optimization The most direct way to check adjacency, assuming {@link ValueFormat#Index} format.
      */
     public static boolean areAdjacent(short cellA, short cellB) {
         return areAdjacent(cellA, cellB, ValueFormat.Index);
@@ -2258,14 +2191,13 @@ public abstract class Grid {
      * </p>
      * 
      * @return A copy of the current grid state as a bitmask (array of two longs).
-     * @since 2025.07.13 - Bitmasked Grid State
-     * @performance 2 * O(1) to clone the grid state array = O(1) complexity.
-     * @threading Thread-safe, as it returns a copy of the internal state and does not modify any shared
-     *            state.
-     * @memory Allocates a new array of two longs for the copy to ensure immutability of the internal
-     *         state.
-     * @see #click(long[] bitmask)
+     * @see #click(long[])
      * @see ValueFormat#Bitmask
+     * @since 2025.07 - Bitmasked Grid State
+     * @performance {@code O(1)} complexity.
+     * @threading This method is thread-safe because it returns a defensive copy of the state.
+     * @memory Allocates a new {@code long[2]} array to prevent external modification of the instance's
+     *         internal state.
      */
     public long[] getGridState() {
         return gridState.clone();
@@ -2276,33 +2208,23 @@ public abstract class Grid {
      * format, with '1' representing true cells and '0' representing false cells. Rows are indented to
      * reflect the hexagonal layout, matching the format used in the PDC puzzle code.
      * 
-     * @since 2025.03.20 - Grid Printing Method Creation
-     * @performance O(n) to iterate through all cells and build the string representation, where n is
-     *              the number of cells (109) = O(n) complexity.
-     * @optimization Uses a StringBuilder to efficiently build each row's string representation.
-     * @threading This method is <b>not</b> thread-safe. It should only be called from a single thread
-     *            or with proper synchronization.
-     * @memory Allocates a new {@link java.lang.StringBuilder StringBuilder} for each row to build the
-     *         string representation. For better performance, we could modify this method to take a
-     *         single <code>StringBuilder</code> as a parameter and append to it (similar to
-     *         {@link CombinationMessage#formatTo(StringBuilder)}), delegating the responsibility of
-     *         logging to the caller. However, given the infrequent nature of this operation, we've
-     *         chosen to keep it simple.
-     * 
      * @see #EVEN_NUM_COLS
      * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
-     * @see #getBit(int bitIdx)
-     * @see #indexToPacked(short index)
-     * @see #packedToIndex(short packed)
-     * @see ValueFormat#PackedInt
+     * @see #getBit(int)
+     * @see #indexToPacked(short)
+     * @see #packedToIndex(short)
      * @see ValueFormat#Index
+     * @see ValueFormat#PackedInt
      * @see java.lang.StringBuilder
-     * @see java.lang.StringBuilder#append(String)
-     * @see java.lang.StringBuilder#toString()
      * @see org.apache.logging.log4j.Logger
-     * @see org.apache.logging.log4j.Logger#info(String)
      * @see org.apache.logging.log4j.LogManager
+     * @since 2025.03 - Grid Printing Method Creation
+     * @performance {@code O(N)} where N is the number of cells. This is a debugging method and is not
+     *              performance-critical.
+     * @threading Not thread-safe, as it iterates over the mutable grid state.
+     * @memory Allocates a new {@link StringBuilder} for each row.
+     * @optimization Uses a {@link StringBuilder} for efficient string concatenation within each row.
      */
     public void printGrid() {
         Logger logger = LogManager.getLogger();

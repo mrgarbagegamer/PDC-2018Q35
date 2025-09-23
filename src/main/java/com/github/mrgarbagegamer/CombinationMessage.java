@@ -83,19 +83,19 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
  * considering.
  * </p>
  * 
- * @since 2025.05.31 - CombinationMessage Introduction
- * @threading Apart from the {@link #convertTo(Grid.ValueFormat)} method, which modifies internal
- *            state and is not thread-safe, the class is designed to be thread-safe for concurrent
- *            read operations.
- * @performance Designed to minimize allocations by using a provided {@link java.lang.StringBuilder
- *              StringBuilder} for formatting, avoiding intermediate string creation.
- * @memory Avoids allocations past initialization by using in-place conversion and a reusable buffer
- *         for formatting.
  * @see org.apache.logging.log4j.Logger
  * @see org.apache.logging.log4j.LogManager
  * @see org.apache.logging.log4j.LogManager#getLogger()
  * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous
  *      Logging</a>
+ * @since 2025.05.31 - CombinationMessage Introduction
+ * @performance Designed to minimize allocations by using a provided {@link java.lang.StringBuilder
+ *              StringBuilder} for formatting, avoiding intermediate string creation.
+ * @threading Apart from the {@link #convertTo(Grid.ValueFormat)} method, which modifies internal
+ *            state and is not thread-safe, the class is designed to be thread-safe for concurrent
+ *            read operations.
+ * @memory Avoids allocations past initialization by using in-place conversion and a reusable buffer
+ *         for formatting.
  */
 @AsynchronouslyFormattable
 public class CombinationMessage implements Message, StringBuilderFormattable 
@@ -104,18 +104,18 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * The combination represented as a <code>short[]</code>. The format of the combination is indicated
      * by the {@link #format} field.
      * 
-     * @since 2025.05.31 - CombinationMessage Introduction
      * @see #getCombination(com.github.mrgarbagegamer.Grid.ValueFormat)
      * @see Grid.ValueFormat
+     * @since 2025.05.31 - CombinationMessage Introduction
      */
     private short[] list;
     /**
      * The format of the combination stored in {@link #list}. This field indicates how the values in the
      * combination should be interpreted.
      * 
-     * @since 2025.05.31 - CombinationMessage Introduction
      * @see #convertTo(com.github.mrgarbagegamer.Grid.ValueFormat)
      * @see Grid.ValueFormat
+     * @since 2025.05.31 - CombinationMessage Introduction
      */
     private Grid.ValueFormat format;
 
@@ -160,13 +160,13 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * @param outputFormat the desired {@link Grid.ValueFormat} to convert the combination to.
      * @throws IllegalArgumentException if the provided output format is
      *                                  {@link Grid.ValueFormat#Bitmask}.
+     * @see Grid#indexToPacked(short)
+     * @see Grid#packedToIndex(short)
      * @since 2025.07.18 - Cell Format Support
      * @performance O(n) where n is the number of elements in {@link #list}.
      * @threading Not thread-safe; should be called in a single-threaded context or synchronized
      *            externally.
      * @memory In-place conversion; does not allocate additional memory for the list.
-     * @see Grid#packedToIndex(short)
-     * @see Grid#indexToPacked(short)
      */
     public void convertTo(Grid.ValueFormat outputFormat) {
         if (format == outputFormat) {
@@ -205,12 +205,12 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * 
      * @param buffer the {@link java.lang.StringBuilder StringBuilder} to append the formatted message to.
      * @throws NullPointerException (implicitly) if the provided buffer is null.
+     * @see org.apache.logging.log4j.util.StringBuilderFormattable
+     * @see org.apache.logging.log4j.util.StringBuilderFormattable#formatTo(StringBuilder)
      * @since 2025.05.31 - CombinationMessage Introduction
      * @performance O(n) where n is the number of elements in {@link #list}.
      * @threading Thread-safe, as the method does not modify shared state.
      * @memory Does not allocate.
-     * @see org.apache.logging.log4j.util.StringBuilderFormattable
-     * @see org.apache.logging.log4j.util.StringBuilderFormattable#formatTo(StringBuilder)
      */
     @Override
     public void formatTo(StringBuilder buffer) {
@@ -234,11 +234,11 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * and the {@link #formatTo(StringBuilder)} method to avoid intermediate string allocations, but it must still create a new string for the return value.
      * 
      * @return the formatted message as a <code>String</code>.
+     * @see java.lang.StringBuilder#toString()
      * @since 2025.05.31 - CombinationMessage Introduction
      * @performance O(1) call to {@link #formatTo(StringBuilder)}
      * @threading Thread-safe, as it delegates to the thread-safe {@link #formatTo(StringBuilder)} method.
      * @memory Allocates a new string for the return value, but avoids intermediate string allocations.
-     * @see java.lang.StringBuilder#toString()
      */
     @Override
     public String getFormattedMessage() {
@@ -272,11 +272,11 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * @param outputFormat the desired {@link Grid.ValueFormat} for the returned combination.
      * @return the combination as a <code>short[]</code> in the specified format.
      * @throws IllegalArgumentException if the provided output format is {@link Grid.ValueFormat#Bitmask}.
+     * @see #convertTo(Grid.ValueFormat)
      * @since 2025.05.31 - CombinationMessage Introduction
      * @performance O(n) where n is the number of elements in {@link #list} if conversion is needed; O(1) if no conversion is needed.
      * @threading Not thread-safe; should be called in a single-threaded context or synchronized externally.
      * @memory In-place conversion; does not allocate additional memory for the list.
-     * @see #convertTo(Grid.ValueFormat)
      */
     public short[] getCombination(Grid.ValueFormat outputFormat) {
         if (outputFormat == Grid.ValueFormat.Bitmask) {

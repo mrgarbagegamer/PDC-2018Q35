@@ -42,50 +42,50 @@ package com.github.mrgarbagegamer;
  * possible.
  * </p>
  * 
+ * @see ArrayPool
+ * @see WorkBatch
  * @since 2025.07.11 - TaskPool Introduction
- * @threading This class is <b>not</b> thread-safe. Each thread should have its own instance of
- *            TaskPool to avoid concurrency issues. Queues should be the only point of inter-thread
- *            communication.
  * @performance The pool uses a circular buffer to achieve O(1) time complexity for both get and put
  *              operations. Pre-allocating tasks minimizes runtime allocations, reducing GC pressure
  *              and improving performance in high-throughput scenarios.
+ * @threading This class is <b>not</b> thread-safe. Each thread should have its own instance of
+ *            TaskPool to avoid concurrency issues. Queues should be the only point of inter-thread
+ *            communication.
  * @memory Pre-allocates a fixed number of tasks at construction time to minimize runtime
  *         allocations. The size of the pool should be chosen based on the expected workload and
  *         memory usage patterns of the application.
- * @see ArrayPool
- * @see WorkBatch
  */
 public class TaskPool {
     /**
      * The array of pre-allocated tasks forming the pool. Implemented as a circular buffer.
      * 
-     * @since 2025.07.11 - TaskPool Introduction
-     * @threading This field is <b>not</b> thread-safe. Each thread should have its own instance of
-     *            TaskPool to avoid concurrency issues.
-     * @performance O(1) time complexity for get and put operations due to circular buffer
-     *              implementation.
-     * @memory Pre-allocated at {@link #TaskPool(int) construction time} to minimize runtime
-     *         allocations.
      * @see #capacity
      * @see #head
      * @see #size
      * @see #tail
      * @see #get()
      * @see #put(CombinationGeneratorTask)
+     * @since 2025.07.11 - TaskPool Introduction
+     * @performance O(1) time complexity for get and put operations due to circular buffer
+     *              implementation.
+     * @threading This field is <b>not</b> thread-safe. Each thread should have its own instance of
+     *            TaskPool to avoid concurrency issues.
+     * @memory Pre-allocated at {@link #TaskPool(int) construction time} to minimize runtime
+     *         allocations.
      */
     private final CombinationGeneratorTask[] arrays;
     /**
      * The maximum number of tasks the pool can hold.
      * 
-     * @since 2025.07.11 - TaskPool Introduction
-     * @threading This field is immutable after construction, making it inherently thread-safe.
-     * @performance Constant time access.
-     * @memory Allocated once at construction time, minimal memory footprint.
      * @see #arrays
      * @see #head
      * @see #size
      * @see #tail
      * @see #put(CombinationGeneratorTask)
+     * @since 2025.07.11 - TaskPool Introduction
+     * @performance Constant time access.
+     * @threading This field is immutable after construction, making it inherently thread-safe.
+     * @memory Allocated once at construction time, minimal memory footprint.
      */
     private final int capacity;
     /**
@@ -113,12 +113,12 @@ public class TaskPool {
      * arithmetic operation on each operation, which could impact performance.
      * </p>
      * 
+     * @see #capacity
      * @since 2025.07.11 - TaskPool Introduction
+     * @performance O(1) for both put and get operations.
      * @threading This field is not thread-safe, as it is intended to be used within a single thread
      *            context.
-     * @performance O(1) for both put and get operations.
      * @memory Minimal additional memory overhead (single int).
-     * @see #capacity
      */
     private int head = 0;
     /**
@@ -147,12 +147,12 @@ public class TaskPool {
      * arithmetic operation on each operation, which could impact performance.
      * </p>
      * 
+     * @see #capacity
      * @since 2025.07.11 - TaskPool Introduction
+     * @performance O(1) for both put and get operations.
      * @threading This field is not thread-safe, as it is intended to be used within a single thread
      *            context.
-     * @performance O(1) for both put and get operations.
      * @memory Minimal additional memory overhead (single int).
-     * @see #capacity
      */
     private int tail = 0;
     /**
@@ -184,9 +184,9 @@ public class TaskPool {
      * </p>
      * 
      * @since 2025.07.02 - Custom Generator Pools
+     * @performance O(1) for both put and get operations.
      * @threading The field is not thread-safe, as it is intended to be used within a single thread
      *            context.
-     * @performance O(1) for both put and get operations.
      * @memory Minimal additional memory overhead (single int).
      */
     private int size = 0;
@@ -195,13 +195,13 @@ public class TaskPool {
      * Constructs a TaskPool with the specified capacity and pre-allocates all tasks.
      * @param capacity the maximum number of tasks the pool can hold. Must be greater than 0.
      * @throws IllegalArgumentException if capacity is less than or equal to 0.
-     * @since 2025.07.11 - TaskPool Introduction
-     * @performance O(n) time complexity due to pre-allocation of {@link #arrays tasks array.}
-     * @memory Allocates memory for the specified number of tasks upfront to minimize runtime allocations.
      * @see #arrays
      * @see #capacity
      * @see #get()
      * @see #put(CombinationGeneratorTask)
+     * @since 2025.07.11 - TaskPool Introduction
+     * @performance O(n) time complexity due to pre-allocation of {@link #arrays tasks array.}
+     * @memory Allocates memory for the specified number of tasks upfront to minimize runtime allocations.
      */
     public TaskPool(int capacity) {
         if (capacity <= 0) {
@@ -232,11 +232,11 @@ public class TaskPool {
      * </p>
      * 
      * @return A {@link CombinationGeneratorTask} from the pool or a new one if the pool is empty.
+     * @see #isEmpty()
+     * @see #put(CombinationGeneratorTask)
      * @since 2025.07.11 - TaskPool Introduction
      * @performance O(1) time complexity, as it involves simple arithmetic and array access.
      * @memory Only allocates if the pool is empty, otherwise reuses existing objects.
-     * @see #put(CombinationGeneratorTask)
-     * @see #isEmpty()
      */
     public CombinationGeneratorTask get() {
         if (size == 0)
@@ -268,12 +268,12 @@ public class TaskPool {
      * </p>
      * 
      * @param task The {@link CombinationGeneratorTask} to return to the pool.
+     * @see #size
+     * @see #TaskPool(int)
+     * @see #get()
      * @since 2025.07.11 - TaskPool Introduction
      * @performance O(1) time complexity, as it involves simple arithmetic and array access.
      * @memory Reuses existing objects, minimizing allocations.
-     * @see #size
-     * @see #get()
-     * @see #TaskPool(int)
      */
     public void put(CombinationGeneratorTask task) {
         if (task == null || size >= capacity)
@@ -290,14 +290,14 @@ public class TaskPool {
      * Checks if the pool is empty.
      * 
      * @return <code>true</code> if the pool is empty, <code>false</code> otherwise.
-     * @since 2025.07.11 - TaskPool Introduction
-     * @threading This method is <b>not</b> thread-safe, as it is intended to be used within a single
-     *            thread context.
-     * @performance O(1) time complexity, as it involves a simple comparison.
-     * @memory No additional memory usage.
      * @see #size
      * @see #get()
      * @see #put(CombinationGeneratorTask)
+     * @since 2025.07.11 - TaskPool Introduction
+     * @performance O(1) time complexity, as it involves a simple comparison.
+     * @threading This method is <b>not</b> thread-safe, as it is intended to be used within a single
+     *            thread context.
+     * @memory No additional memory usage.
      */
     public boolean isEmpty() {
         return size == 0;
@@ -307,15 +307,15 @@ public class TaskPool {
      * Gets the current number of tasks in the pool.
      * 
      * @return The current number of tasks in the pool.
-     * @since 2025.07.11 - TaskPool Introduction
-     * @threading This method is <b>not</b> thread-safe, as it is intended to be used within a single
-     *            thread context.
-     * @performance O(1) time complexity, as it involves a simple field access.
-     * @memory No additional memory usage.
      * @see #size
      * @see #get()
-     * @see #put(CombinationGeneratorTask)
      * @see #isEmpty()
+     * @see #put(CombinationGeneratorTask)
+     * @since 2025.07.11 - TaskPool Introduction
+     * @performance O(1) time complexity, as it involves a simple field access.
+     * @threading This method is <b>not</b> thread-safe, as it is intended to be used within a single
+     *            thread context.
+     * @memory No additional memory usage.
      */
     public int size() {
         return size;

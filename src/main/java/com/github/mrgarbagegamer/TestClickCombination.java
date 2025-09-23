@@ -85,7 +85,23 @@ import org.apache.logging.log4j.Logger;
  * monkeys, and therefore the entire solver.
  * </p>
  * 
+ * @see CombinationGeneratorTask
+ * @see CombinationQueue
+ * @see CombinationQueueArray
+ * @see Grid
+ * @see WorkBatch
  * @since 2025.04.01 - Multi-threaded Solver Introduction
+ * @performance The main loop's overall time complexity is O(n * m) per batch, where n is the number
+ *              of combinations in the batch and m is the combination length. The
+ *              {@link #satisfiesOddAdjacency(short[]) odd adjacency check} is O(m). However, due to
+ *              pruning and parallelism, the effective workload is significantly reduced. Most
+ *              bottlenecks arise from contention on shared resources or the process of enqueuing
+ *              batches.
+ * @threading Each monkey is its own {@link java.lang.Thread thread}, operating independently with
+ *            its own testing resources. Work is {@link #getWork() obtained} in a thread-safe manner
+ *            from a {@link CombinationQueue queue} ({@link #combinationQueue its own} or another's
+ *            via stealing) and uses pre-initialized thread-specific data structures to operate on
+ *            them.
  * @algorithm {@link #getWork() Pulls} a {@link WorkBatch batch of work} (either its own or by
  *            stealing), then processes each combination in the batch by
  *            {@link #satisfiesOddAdjacency(short[]) checking} for odd adjacency. If the combination
@@ -93,24 +109,8 @@ import org.apache.logging.log4j.Logger;
  *            puzzle. If a solution is found, it is logged and other threads are signaled to
  *            terminate. If no work is available, the monkey checks for its exit condition and (if
  *            not met) sleeps briefly before retrying.
- * @threading Each monkey is its own {@link java.lang.Thread thread}, operating independently with
- *            its own testing resources. Work is {@link #getWork() obtained} in a thread-safe manner
- *            from a {@link CombinationQueue queue} ({@link #combinationQueue its own} or another's
- *            via stealing) and uses pre-initialized thread-specific data structures to operate on
- *            them.
- * @performance The main loop's overall time complexity is O(n * m) per batch, where n is the number
- *              of combinations in the batch and m is the combination length. The
- *              {@link #satisfiesOddAdjacency(short[]) odd adjacency check} is O(m). However, due to
- *              pruning and parallelism, the effective workload is significantly reduced. Most
- *              bottlenecks arise from contention on shared resources or the process of enqueuing
- *              batches.
  * @memory Memory usage is optimized via resource pooling and pre-allocation, minimizing allocations
  *         in the hot path. The only allocations in the hot path are due to logging overhead.
- * @see CombinationGeneratorTask
- * @see CombinationQueue
- * @see CombinationQueueArray
- * @see Grid
- * @see WorkBatch
  */
 public class TestClickCombination extends Thread {
     /**
@@ -130,14 +130,14 @@ public class TestClickCombination extends Thread {
      * monkeys can continue processing without being blocked by logging operations.
      * </p>
      * 
-     * @since 2025.05.04 - Async Logging Introduction
-     * @threading The logger is thread-safe and can be used concurrently by multiple threads.
-     * @performance Logging operations are offloaded to a separate thread, minimizing impact on the main
-     *              processing loop.
-     * @memory The logger itself has a minimal memory footprint and tries to reuse objects to reduce GC
-     *         pressure.
      * @see #run()
      * @see CombinationMessage
+     * @since 2025.05.04 - Async Logging Introduction
+     * @performance Logging operations are offloaded to a separate thread, minimizing impact on the main
+     *              processing loop.
+     * @threading The logger is thread-safe and can be used concurrently by multiple threads.
+     * @memory The logger itself has a minimal memory footprint and tries to reuse objects to reduce GC
+     *         pressure.
      */
     private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
     /**
@@ -151,12 +151,12 @@ public class TestClickCombination extends Thread {
      * only every N failures, where N is defined by this constant.
      * </p>
      * 
-     * @since 2025.05.31 - Logging Threshold Introduction
-     * @threading This constant is immutable and thread-safe.
-     * @performance O(1) check per failed combination.
-     * @memory Minimal memory impact as it's just a single integer.
      * @see #run()
      * @see CombinationMessage
+     * @since 2025.05.31 - Logging Threshold Introduction
+     * @performance O(1) check per failed combination.
+     * @threading This constant is immutable and thread-safe.
+     * @memory Minimal memory impact as it's just a single integer.
      */
     private static final int LOG_EVERY_N_FAILURES = 100_000; // Log every N failures to avoid flooding the logs
 
@@ -170,13 +170,13 @@ public class TestClickCombination extends Thread {
      * {@link CombinationQueueArray queue array}, and failing that, will sleep briefly before retrying.
      * </p>
      * 
-     * @since 2025.05.23 - Dedicated Queue per Monkey
-     * @threading This field is final and immutable, ensuring thread safety.
-     * @performance O(1) work retrieval from this queue and O(1) accesses of this reference.
      * @see #queueArray
+     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
      * @see #allQueuesEmpty()
      * @see #getWork()
-     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     * @since 2025.05.23 - Dedicated Queue per Monkey
+     * @performance O(1) work retrieval from this queue and O(1) accesses of this reference.
+     * @threading This field is final and immutable, ensuring thread safety.
      */
     private final CombinationQueue combinationQueue;
     /**
@@ -191,10 +191,10 @@ public class TestClickCombination extends Thread {
      * to the shared queue array gives the monkeys access to this information.
      * </p>
      * 
-     * @since 2025.05.23 - Dedicated Queue per Monkey
-     * @threading This field is final and immutable, ensuring thread safety.
-     * @performance O(1) accesses of this reference.
      * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     * @since 2025.05.23 - Dedicated Queue per Monkey
+     * @performance O(1) accesses of this reference.
+     * @threading This field is final and immutable, ensuring thread safety.
      */
     private final CombinationQueueArray queueArray;
     /**
@@ -207,11 +207,11 @@ public class TestClickCombination extends Thread {
      * initialized with the puzzle's initial state and is reset after each combination is tested.
      * </p>
      * 
-     * @since 2025.04.01 - Multi-threaded Solver Introduction
-     * @threading This field is final and immutable, ensuring thread safety.
-     * @performance O(1) accesses of this reference.
      * @see #run()
      * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     * @since 2025.04.01 - Multi-threaded Solver Introduction
+     * @performance O(1) accesses of this reference.
+     * @threading This field is final and immutable, ensuring thread safety.
      */
     private final Grid puzzleGrid;
 
@@ -237,13 +237,13 @@ public class TestClickCombination extends Thread {
      * just one long per cell (and perform one bitwise operation per click).
      * </p>
      * 
+     * @see #EXPECTED_MASK
+     * @see #satisfiesOddAdjacency(short[])
      * @since 2025.06.30 - Bitmask Pre-computations
+     * @performance O(1) lookup time for each cell in the combination.
      * @threading The lookup table is initialized once per puzzle in a thread-safe manner using
      *             double-checked locking.
-     * @performance O(1) lookup time for each cell in the combination.
      * @memory The lookup table is an array of 109 long values, taking up 872 bytes (109 * 8 bytes).
-     * @see EXPECTED_MASK
-     * @see #satisfiesOddAdjacency(short[])
      */
     private static volatile long[] CLICK_TO_TRUE_CELL_MASK = null;
     /**
@@ -266,13 +266,13 @@ public class TestClickCombination extends Thread {
      * thread ever has to compute the mask, and all threads can read it without contention.
      * </p>
      * 
+     * @see #CLICK_TO_TRUE_CELL_MASK
+     * @see #satisfiesOddAdjacency(short[])
      * @since 2025.06.30 - Bitmask Pre-computations
+     * @performance O(1) lookup time.
      * @threading The expected mask is computed once per puzzle in a thread-safe manner using
      *             double-checked locking.
-     * @performance O(1) lookup time.
      * @memory The expected mask is a single long value, taking up just 8 bytes.
-     * @see CLICK_TO_TRUE_CELL_MASK
-     * @see #satisfiesOddAdjacency(short[])
      */
     private static volatile long EXPECTED_MASK = 0L;
 
@@ -311,21 +311,21 @@ public class TestClickCombination extends Thread {
      *                         working on the same puzzle.
      * @param puzzleGrid       the <b>UNIQUE</b> {@link Grid grid} that this monkey will apply
      *                         combinations to. Do not share grids between monkeys.
-     * @since 2025.04.01 - Monkey Thread Introduction
-     * @threading Thread-safe since the lookup table is statically initialized and all other fields are
-     *            final.
-     * @performance O(1) assignments and a single call to initialize the lookup table.
-     * @memory Memory usage is minimal, with only a few references and primitive fields. The only
-     *         explicit allocation in this method (other than the thread itself) is the allocation of a
-     *         trueCells <code>short[]</code> for lookup table initialization.
      * @see #combinationQueue
-     * @see #queueArray
      * @see #puzzleGrid
+     * @see #queueArray
      * @see #initializeLookupTable(short[])
      * @see CombinationQueue
      * @see CombinationQueueArray
      * @see Grid
      * @see Grid#findTrueCells(Grid.ValueFormat)
+     * @since 2025.04.01 - Monkey Thread Introduction
+     * @performance O(1) assignments and a single call to initialize the lookup table.
+     * @threading Thread-safe since the lookup table is statically initialized and all other fields are
+     *            final.
+     * @memory Memory usage is minimal, with only a few references and primitive fields. The only
+     *         explicit allocation in this method (other than the thread itself) is the allocation of a
+     *         trueCells <code>short[]</code> for lookup table initialization.
      */
     public TestClickCombination(String threadName, CombinationQueue combinationQueue,
                                CombinationQueueArray queueArray, Grid puzzleGrid) {
@@ -375,15 +375,15 @@ public class TestClickCombination extends Thread {
      * </p>
      * 
      * @param trueCells the array of initially true cells in {@link Grid.ValueFormat#Index index} format
-     * @since 2025.07.13 - Long Array Grid State Representation
-     * @threading Thread-safe due to double-checked locking.
-     * @performance O(n * m) where n is the number of clicks (109) and m is the number of true cells.
-     * @memory The lookup table is an array of 109 long values, taking up 872 bytes (109 * 8 bytes). The
-     *         expected mask is a single long value, taking up 8 bytes.
-     * @algorithm Pre-computation of click masks for fast odd adjacency checks.
-     * @optimization Uses double-checked locking for thread-safe lazy initialization.
      * @see #CLICK_TO_TRUE_CELL_MASK
      * @see #EXPECTED_MASK
+     * @since 2025.07.13 - Long Array Grid State Representation
+     * @performance O(n * m) where n is the number of clicks (109) and m is the number of true cells.
+     * @threading Thread-safe due to double-checked locking.
+     * @algorithm Pre-computation of click masks for fast odd adjacency checks.
+     * @memory The lookup table is an array of 109 long values, taking up 872 bytes (109 * 8 bytes). The
+     *         expected mask is a single long value, taking up 8 bytes.
+     * @optimization Uses double-checked locking for thread-safe lazy initialization.
      */
     private static void initializeLookupTable(short[] trueCells) {
         // Double-checked locking for thread-safe lazy initialization
@@ -493,25 +493,25 @@ public class TestClickCombination extends Thread {
      * more efficient logging.
      * </p>
      * 
+     * @see #allQueuesEmpty()
+     * @see #getWork()
+     * @see #satisfiesOddAdjacency(short[])
+     * @see #triggerGeneratorShutdown()
+     * @see CombinationQueue
+     * @see CombinationQueueArray
+     * @see Grid
+     * @see WorkBatch
      * @since 2025.04.01 - Monkey Thread Introduction
+     * @performance O(n) per batch, where n is the number of combinations in the batch. The odd
+     *              adjacency check is O(m), where m is the combination length.
      * @threading This method is executed by a single thread, which processes work from its own queue
      *            and potentially steals from others. It is designed to be thread-safe with respect to
      *            the shared {@link CombinationQueueArray} and uses its own {@link Grid} for safety.
-     * @performance O(n) per batch, where n is the number of combinations in the batch. The odd
-     *              adjacency check is O(m), where m is the combination length.
-     * @memory Other than logging overhead, this method does not allocate any objects in the hot path.
      * @algorithm Brute force search with pruning based on odd adjacency checks.
+     * @memory Other than logging overhead, this method does not allocate any objects in the hot path.
      * @optimization Avoids unnecessary branching and redundant checks by processing entire batches in a
      *               single loop. Uses bitmasking for fast odd adjacency checks that prune invalid
      *               combinations before they reach the grid.
-     * @see #satisfiesOddAdjacency(short[])
-     * @see #triggerGeneratorShutdown()
-     * @see #getWork()
-     * @see #allQueuesEmpty()
-     * @see CombinationQueue
-     * @see CombinationQueueArray
-     * @see WorkBatch
-     * @see Grid
      */
     @Override
     public void run() {
@@ -611,13 +611,13 @@ public class TestClickCombination extends Thread {
      * and can be handled during the initialization of the pool in {@link StartYourMonkeys#main(String[])}.
      * </p>
      * 
-     * @since 2025.07.23 - Explicit Cancellation Checks Removal
-     * @threading This method is thread-safe as it accesses the ForkJoinPool in a safe manner.
-     * @performance O(1) operation to trigger the shutdown.
-     * @optimization Uses the built-in shutdown mechanism of ForkJoinPool to avoid adding overhead to
-     *               the generators.
      * @see CombinationGeneratorTask
      * @see java.util.concurrent.ForkJoinPool
+     * @since 2025.07.23 - Explicit Cancellation Checks Removal
+     * @performance O(1) operation to trigger the shutdown.
+     * @threading This method is thread-safe as it accesses the ForkJoinPool in a safe manner.
+     * @optimization Uses the built-in shutdown mechanism of ForkJoinPool to avoid adding overhead to
+     *               the generators.
      */
     private void triggerGeneratorShutdown() {
         // Access the generator pool from CombinationGeneratorTask if stored there,
@@ -673,18 +673,18 @@ public class TestClickCombination extends Thread {
      * 
      * @return a {@link WorkBatch} of combinations to process, or <code>null</code> if no work is
      *         available
+     * @see CombinationQueue
+     * @see CombinationQueueArray
+     * @see WorkBatch
      * @since 2025.07.07 - Enqueueing Work Batches
      * @performance O(1) to steal from the first available queue, or O(n) in the worst case where n is
      *              the number of queues
-     * @memory Minimal memory impact as it only returns a reference to an existing WorkBatch object.
      * @threading This method is thread-safe as it accesses shared queues in a non-blocking manner using
      *            thread-safe methods.
      * @algorithm Work-stealing algorithm to obtain work batches from queues.
+     * @memory Minimal memory impact as it only returns a reference to an existing WorkBatch object.
      * @optimization Designed to minimize contention and branching, allowing for aggressive JIT
      *               optimizations.
-     * @see CombinationQueueArray
-     * @see CombinationQueue
-     * @see WorkBatch
      */
     private WorkBatch getWork() {
         // Try my own queue first
@@ -733,15 +733,15 @@ public class TestClickCombination extends Thread {
      * </p>
      * 
      * @return <code>true</code> if all queues are empty, <code>false</code> otherwise.
-     * @since 2025.08.02 - Preallocate WorkBatches for Queues
-     * @threading This method is thread-safe as it accesses shared queues in a non-blocking manner using
-     *            thread-safe methods.
-     * @performance O(n) where n is the number of queues, but not performance-critical as it is only called
-     *              during exit condition checks.
-     * @memory Does not allocate any objects, only uses existing references.
      * @see CombinationQueue
      * @see CombinationQueue#isEmpty()
      * @see CombinationQueueArray
+     * @since 2025.08.02 - Preallocate WorkBatches for Queues
+     * @performance O(n) where n is the number of queues, but not performance-critical as it is only called
+     *              during exit condition checks.
+     * @threading This method is thread-safe as it accesses shared queues in a non-blocking manner using
+     *            thread-safe methods.
+     * @memory Does not allocate any objects, only uses existing references.
      */
     private boolean allQueuesEmpty() {
         for (CombinationQueue q : queueArray.getAllQueues())
@@ -853,19 +853,19 @@ public class TestClickCombination extends Thread {
      *                    format
      * @return <code>true</code> if the combination satisfies the odd adjacency condition,
      *         <code>false</code> otherwise
-     * @since 2025.06.06 - Odd Adjacency Pruning for Monkeys
-     * @performance O(n) where n is the length of the combination.
-     * @memory Minimal memory impact as it only uses existing arrays and a few primitive variables (that
-     *         allocate on the stack).
-     * @threading This method is thread-safe as it only reads from shared static data that is immutable
-     *            after initialization.
-     * @optimization Uses bitmasking and bitwise operations for fast checks. Designed to be JIT-friendly
-     *               with minimal branching and encourages inlining and loop unrolling.
      * @see #CLICK_TO_TRUE_CELL_MASK
      * @see #EXPECTED_MASK
      * @see #initializeLookupTable(short[])
      * @see Grid#areAdjacent(short, short)
      * @see Grid#findTrueCells(com.github.mrgarbagegamer.Grid.ValueFormat)
+     * @since 2025.06.06 - Odd Adjacency Pruning for Monkeys
+     * @performance O(n) where n is the length of the combination.
+     * @threading This method is thread-safe as it only reads from shared static data that is immutable
+     *            after initialization.
+     * @memory Minimal memory impact as it only uses existing arrays and a few primitive variables (that
+     *         allocate on the stack).
+     * @optimization Uses bitmasking and bitwise operations for fast checks. Designed to be JIT-friendly
+     *               with minimal branching and encourages inlining and loop unrolling.
      */
     private final boolean satisfiesOddAdjacency(short[] combination) {
         // JIT OPTIMIZATION: Cache array references and length to encourage optimization

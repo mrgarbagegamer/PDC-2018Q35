@@ -43,15 +43,15 @@ package com.github.mrgarbagegamer;
  * using the pool (else an exception will be thrown).
  * </p>
  * 
+ * @see CombinationGeneratorTask
  * @since 2025.07.02 - Custom Generator Pools
+ * @performance O(1) operations for both {@link #get()} and {@link #put(short[])} methods.
  * @threading This class is <b>not</b> thread-safe. Each thread should have its own instance of
  *            {@link ArrayPool} to avoid contention. The pool is designed to be used in a
  *            {@link java.lang.ThreadLocal thread-local} context, with all arrays being handled by
  *            the same thread.
- * @performance O(1) operations for both {@link #get()} and {@link #put(short[])} methods.
  * @memory Preallocated at construction, with a fixed size determined by the {@link #capacity}
  *         parameter.
- * @see CombinationGeneratorTask
  */
 public final class ArrayPool {
     /**
@@ -82,11 +82,11 @@ public final class ArrayPool {
      * stuff to bytes/shorts during arithmetic operations).
      * </p>
      * 
+     * @see #ArrayPool(int)
+     * @see #setNumClicks(int)
      * @since 2025.07.24 - ArrayPool Pre-allocation
      * @performance O(1) access and modification, since it's a static field.
      * @memory The field itself is a primitive int, so it has a negligible memory footprint.
-     * @see #setNumClicks(int)
-     * @see #ArrayPool(int)
      */
     private static int numClicks = -1;
     /**
@@ -97,14 +97,14 @@ public final class ArrayPool {
      * accesses and minimal overhead. The 2D array structure is chosen for its simplicity and performance.
      * </p>
      * 
+     * @see #capacity
+     * @see #numClicks
+     * @see #ArrayPool(int)
      * @since 2025.07.02 - Custom Generator Pools
      * @performance O(1) access time for both getting and putting arrays.
      * @memory The pool is pre-allocated with a fixed capacity, which is determined by the
      *         {@link #capacity} parameter, and holds arrays of size {@link #numClicks}.
      * @optimization Preallocates arrays to avoid frequent allocations and deallocations.
-     * @see numClicks
-     * @see capacity
-     * @see #ArrayPool(int)
      */
     private final short[][] arrays;
     /**
@@ -122,11 +122,11 @@ public final class ArrayPool {
      * contention.
      * </p>
      * 
+     * @see #arrays
+     * @see #ArrayPool(int)
      * @since 2025.07.02 - Custom Generator Pools
      * @performance O(1) access time, as it's a final field.
      * @memory The field itself is a primitive int, so it has a negligible memory footprint.
-     * @see #arrays
-     * @see #ArrayPool(int)
      */
     private final int capacity;
 
@@ -156,9 +156,9 @@ public final class ArrayPool {
      * </p>
      * 
      * @since 2025.07.02 - Custom Generator Pools
+     * @performance O(1) for get operations.
      * @threading The index is not thread-safe, as it is intended to be used within a single thread
      *            context.
-     * @performance O(1) for get operations.
      * @memory Minimal additional memory overhead (single int).
      */
     private int head = 0;
@@ -189,9 +189,9 @@ public final class ArrayPool {
      * </p>
      * 
      * @since 2025.07.02 - Custom Generator Pools
+     * @performance O(1) for put operations.
      * @threading The index is not thread-safe, as it is intended to be used within a single thread
      *            context.
-     * @performance O(1) for put operations.
      * @memory Minimal additional memory overhead (single int).
      */
     private int tail = 0;
@@ -224,9 +224,9 @@ public final class ArrayPool {
      * </p>
      * 
      * @since 2025.07.02 - Custom Generator Pools
+     * @performance O(1) for both put and get operations.
      * @threading The field is not thread-safe, as it is intended to be used within a single thread
      *            context.
-     * @performance O(1) for both put and get operations.
      * @memory Minimal additional memory overhead (single int).
      */
     private int size = 0;
@@ -251,14 +251,14 @@ public final class ArrayPool {
      * @param capacity the maximum number of arrays the pool can hold. Must be greater than zero.
      * @throws IllegalArgumentException if {@link #numClicks} is not set or if <code>capacity</code> is
      *                                  less than or equal to zero.
+     * @see #arrays
+     * @see #setNumClicks(int)
      * @since 2025.07.02 - Custom Generator Pools
      * @performance O(n) time complexity for the constructor due to pre-allocation of arrays, where n is
      *              the <code>capacity</code>.
-     * @optimization Pre-allocates all arrays to avoid allocations on the hot path.
      * @memory Allocates a fixed amount of memory upfront based on the <code>capacity</code> and
      *         {@link #numClicks}.
-     * @see #arrays
-     * @see #setNumClicks(int)
+     * @optimization Pre-allocates all arrays to avoid allocations on the hot path.
      */
     public ArrayPool(int capacity) {
         if (numClicks <= 0) {
@@ -277,14 +277,14 @@ public final class ArrayPool {
      * 
      * @param numClicks the size of each array in the pool. Must be greater than zero.
      * @throws IllegalArgumentException if <code>numClicks</code> is less than or equal to zero.
-     * @since 2025.07.24 - ArrayPool Pre-allocation
-     * @threading This method is not thread-safe. It should be called once during application
-     *            initialization, before any threads start using the pool.
-     * @performance O(1) time complexity for setting the value.
-     * @memory Does not allocate any additional memory, as it only sets a static field. However, future
-     *         allocations of ArrayPool instances will depend on this value.
      * @see #numClicks
      * @see #ArrayPool(int)
+     * @since 2025.07.24 - ArrayPool Pre-allocation
+     * @performance O(1) time complexity for setting the value.
+     * @threading This method is not thread-safe. It should be called once during application
+     *            initialization, before any threads start using the pool.
+     * @memory Does not allocate any additional memory, as it only sets a static field. However, future
+     *         allocations of ArrayPool instances will depend on this value.
      */
     public static void setNumClicks(int numClicks) {
         if (numClicks <= 0) {
@@ -310,13 +310,13 @@ public final class ArrayPool {
      * 
      * @return A pre-allocated short array of size {@link #numClicks}, or <code>null</code> if the
      *        pool is empty.
+     * @see #size
+     * @see #isEmpty()
+     * @see #put(short[])
      * @since 2025.07.02 - Custom Generator Pools
      * @performance O(1) time complexity, as it involves simple arithmetic and array access.
-     * @optimization Removes null checks by ensuring the pool is pre-allocated and properly managed.
      * @memory No additional memory allocation occurs during this operation, as arrays are pre-allocated.
-     * @see #size
-     * @see #put(short[])
-     * @see #isEmpty()
+     * @optimization Removes null checks by ensuring the pool is pre-allocated and properly managed.
      */
     public short[] get() {
         if (size == 0)
@@ -348,16 +348,16 @@ public final class ArrayPool {
      * 
      * @param array A short array of size {@link #numClicks} to return to the pool. This array should
      *              not be <code>null</code> and should not be used by other threads.
+     * @see #size
+     * @see #ArrayPool(int)
+     * @see #get()
+     * @see #setNumClicks(int)
      * @since 2025.07.02 - Custom Generator Pools
      * @performance O(1) time complexity, as it involves simple arithmetic and array access.
-     * @optimization Removes null checks by assuming well-formed input and ensuring the pool is properly
-     *               managed.
      * @memory No additional memory allocation occurs during this operation, as the input array is added
      *         to the pool.
-     * @see #size
-     * @see #setNumClicks(int)
-     * @see #get()
-     * @see #ArrayPool(int)
+     * @optimization Removes null checks by assuming well-formed input and ensuring the pool is properly
+     *               managed.
      */
     public void put(short[] array) {
         if (size >= capacity)
@@ -376,12 +376,12 @@ public final class ArrayPool {
      * Checks if the pool is empty.
      * 
      * @return <code>true</code> if the pool is empty, <code>false</code> otherwise.
-     * @since 2025.07.02 - Custom Generator Pools
-     * @threading Not thread-safe. Should be used within a single thread context.
-     * @performance O(1) time complexity, as it involves a simple comparison.
-     * @memory No additional memory allocation occurs during this operation.
      * @see #get()
      * @see #size()
+     * @since 2025.07.02 - Custom Generator Pools
+     * @performance O(1) time complexity, as it involves a simple comparison.
+     * @threading Not thread-safe. Should be used within a single thread context.
+     * @memory No additional memory allocation occurs during this operation.
      */
     public boolean isEmpty() {
         return size == 0;
@@ -391,13 +391,13 @@ public final class ArrayPool {
      * Gets the current number of arrays in the pool.
      * 
      * @return The current number of arrays in the pool.
-     * @since 2025.07.02 - Custom Generator Pools
-     * @threading Not thread-safe. Should be used within a single thread context.
-     * @performance O(1) time complexity, as it involves a simple field access.
-     * @memory No additional memory allocation occurs during this operation.
      * @see #get()
-     * @see #put(short[])
      * @see #isEmpty()
+     * @see #put(short[])
+     * @since 2025.07.02 - Custom Generator Pools
+     * @performance O(1) time complexity, as it involves a simple field access.
+     * @threading Not thread-safe. Should be used within a single thread context.
+     * @memory No additional memory allocation occurs during this operation.
      */
     public int size() {
         return size;

@@ -33,14 +33,14 @@ package com.github.mrgarbagegamer;
  * to avoid unnecessary recalculations during initialization.
  * </p>
  * 
- * @since 2025.03.29 - Concrete Class Introduction
- * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
- *            Grid22 to avoid concurrency issues.
- * @performance O(1) for initialization, as it involves direct assignments without loops or complex
- *              calculations.
- * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
  * @see Grid13
  * @see Grid35
+ * @since 2025.03.29 - Concrete Class Introduction
+ * @performance O(1) for initialization, as it involves direct assignments without loops or complex
+ *              calculations.
+ * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
+ *            Grid22 to avoid concurrency issues.
+ * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
  */
 public class Grid22 extends Grid {   
     /**
@@ -60,8 +60,8 @@ public class Grid22 extends Grid {
      * avoid unnecessary recalculations during initialization.
      * </p>
      * 
-     * @since 2025.03.29 - Concrete Class Introduction
      * @see #getGridState()
+     * @since 2025.03.29 - Concrete Class Introduction
      */
     void initialize() {
         // Initialize for Q22/Shrek

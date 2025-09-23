@@ -56,13 +56,13 @@ import org.jctools.queues.MpmcArrayQueue;
  * impact performance.
  * </p>
  * 
+ * @see CombinationQueue
+ * @see WorkBatch
+ * @see org.jctools.queues.MpmcArrayQueue
  * @since 2025.05.23 - Multiple CombinationQueues
  * @performance O(1) for most operations, O(n) for iterating through all queues.
  * @threading Uses lock-free structures and volatile flags for safe concurrent access and updates.
  * @memory Pre-allocates fixed-size structures to minimize fragmentation and GC overhead.
- * @see CombinationQueue
- * @see WorkBatch
- * @see org.jctools.queues.MpmcArrayQueue
  */
 public class CombinationQueueArray {
     /**
@@ -86,11 +86,11 @@ public class CombinationQueueArray {
      * memory fragmentation.
      * </p>
      * 
-     * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading The array is immutable after construction, making it thread-safe for read operations.
-     * @performance O(1) for access to a specific queue, O(n) for iterating through all queues.
-     * @memory The array has a fixed memory footprint based on the number of queues and their capacities.
      * @see CombinationQueue
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @performance O(1) for access to a specific queue, O(n) for iterating through all queues.
+     * @threading The array is immutable after construction, making it thread-safe for read operations.
+     * @memory The array has a fixed memory footprint based on the number of queues and their capacities.
      */
     private final CombinationQueue[] queues;
     /**
@@ -114,11 +114,11 @@ public class CombinationQueueArray {
      * <code>AtomicInteger</code> and simply set the <code>generationComplete</code> flag to <code>true</code>.
      * </p>
      * 
-     * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Thread-safe due to the use of an AtomicInteger, allowing for lock-free updates.
-     * @performance O(1) for increment and decrement operations.
-     * @memory Negligible memory footprint, as it only involves a single integer value.
      * @see #generatorFinished()
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @performance O(1) for increment and decrement operations.
+     * @threading Thread-safe due to the use of an AtomicInteger, allowing for lock-free updates.
+     * @memory Negligible memory footprint, as it only involves a single integer value.
      */
     private final AtomicInteger generatorsRemaining;
     /**
@@ -152,16 +152,16 @@ public class CombinationQueueArray {
      * batches, so it's crucial that we maintain the proper size.
      * </p>
      * 
+     * @see CombinationQueue
+     * @see WorkBatch
+     * @see org.jctools.queues.MpmcArrayQueue
      * @since 2025.07.07 - Enqueuing WorkBatch Objects
-     * @threading The pool is thread-safe and can be accessed by multiple threads concurrently through
-     *            the power of JCTools.
      * @performance O(1) for offer and poll operations (which should be the only ones used), O(n) for
      *              {@link MpmcArrayQueue#size()}.
+     * @threading The pool is thread-safe and can be accessed by multiple threads concurrently through
+     *            the power of JCTools.
      * @memory The queue is bounded and has a fixed memory footprint based on the number of WorkBatch
      *         instances it contains.
-     * @see WorkBatch
-     * @see CombinationQueue
-     * @see MpmcArrayQueue
      */
     private final MpmcArrayQueue<WorkBatch> workBatchPool;
     /**
@@ -185,8 +185,8 @@ public class CombinationQueueArray {
      * </p>
      * 
      * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Marked as volatile to ensure visibility across threads.
      * @performance O(1) for reads and writes.
+     * @threading Marked as volatile to ensure visibility across threads.
      * @memory Negligible memory footprint, as it only involves a reference to a String object.
      */
     private volatile String winningMonkey = null;
@@ -211,8 +211,8 @@ public class CombinationQueueArray {
      * </p>
      * 
      * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Marked as volatile to ensure visibility across threads.
      * @performance O(1) for reads and writes.
+     * @threading Marked as volatile to ensure visibility across threads.
      * @memory Negligible memory footprint, as it only involves a reference to a short array.
      */
     private volatile short[] winningCombination = null;
@@ -245,15 +245,15 @@ public class CombinationQueueArray {
      * flag altogether, but for now, we'll keep this flag for simplicity.
      * </p>
      * 
+     * @see #getWinningCombination()
+     * @see #getWinningMonkey()
+     * @see #solutionFound(String, short[])
      * @since 2025.07.02 - Volatile Flag Implementation
+     * @performance O(1) for reads and writes.
      * @threading This flag is marked as volatile, ensuring that changes made by one thread are
      *            immediately visible to all other threads. This doesn't ensure atomicity of operations,
      *            but that is not necessary for this use case.
-     * @performance O(1) for reads and writes.
      * @memory The flag is a single boolean value, which has a negligible memory footprint.
-     * @see #solutionFound(String, short[])
-     * @see #getWinningMonkey()
-     * @see #getWinningCombination()
      */
     public volatile boolean solutionFound = false;
     /**
@@ -287,15 +287,15 @@ public class CombinationQueueArray {
      * lightweight to avoid introducing unnecessary contention or performance overhead.
      * </p>
      * 
-     * @since 2025.07.02 - Volatile Flag Implementation
-     * @threading This flag is marked as volatile, ensuring that changes made by one thread are
-     *            immediately visible to all other threads. This doesn't ensure atomicity of operations,
-     *            but that is not necessary for this use case.
-     * @performance O(1) for reads and writes.
-     * @memory The flag is a single boolean value, which has a negligible memory footprint.
      * @see #generatorFinished()
      * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask#GeneratorContext)
      * @see TestClickCombination#allQueuesEmpty()
+     * @since 2025.07.02 - Volatile Flag Implementation
+     * @performance O(1) for reads and writes.
+     * @threading This flag is marked as volatile, ensuring that changes made by one thread are
+     *            immediately visible to all other threads. This doesn't ensure atomicity of operations,
+     *            but that is not necessary for this use case.
+     * @memory The flag is a single boolean value, which has a negligible memory footprint.
      */
     public volatile boolean generationComplete = false;
 
@@ -336,11 +336,11 @@ public class CombinationQueueArray {
      *                      will be producing combinations. Affects the {@link #generatorsRemaining}
      *                      counter.
      * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Thread-safe due to instance isolation (a constructor must create a new object).
      * @performance O(<code>numConsumers</code>) queue initialization + O(1) counter setup +
      *              O(<code>numConsumers</code>) counter initialization + O(<code>numConsumers *
      *              {@link CombinationQueue#QUEUE_SIZE}</code>) pool pre-allocation =
      *              O(<code>numConsumers</code>) time complexity.
+     * @threading Thread-safe due to instance isolation (a constructor must create a new object).
      * @memory Fixed memory footprint based on <code>numConsumers</code>,
      *         {@link CombinationQueue#QUEUE_SIZE}, and {@link CombinationGeneratorTask#BATCH_SIZE}.
      * @optimization Pre-allocates the entire WorkBatch pool to prevent allocations in the hot path.
@@ -378,13 +378,13 @@ public class CombinationQueueArray {
      * reference to it. This getter provides that mechanism.
      * 
      * @return a reference to the pool.
-     * @since 2025.07.07 - Enqueuing WorkBatch Objects
-     * @threading Thread-safe due to field immutability after construction. The pool itself is also thread-safe through JCTools magic.
-     * @performance O(1) time complexity.
      * @see #workBatchPool
      * @see #CombinationQueueArray(int, int)
      * @see WorkBatch
-     * @see MpmcArrayQueue
+     * @see org.jctools.queues.MpmcArrayQueue
+     * @since 2025.07.07 - Enqueuing WorkBatch Objects
+     * @performance O(1) time complexity.
+     * @threading Thread-safe due to field immutability after construction. The pool itself is also thread-safe through JCTools magic.
      */
     public MpmcArrayQueue<WorkBatch> getWorkBatchPool() {
         return workBatchPool;
@@ -394,10 +394,10 @@ public class CombinationQueueArray {
      * Gets the {@link CombinationQueue} at the specified index.
      * @param idx the index of the {@link CombinationQueue} to retrieve.
      * @return the {@link CombinationQueue} at the specified index in the {@link #queues} array.
-     * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Thread-safe due to field immutability after construction.
-     * @performance O(1) time complexity.
      * @see #CombinationQueueArray(int, int)
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @performance O(1) time complexity.
+     * @threading Thread-safe due to field immutability after construction.
      */
     public CombinationQueue getQueue(int idx) { 
         return queues[idx]; 
@@ -406,10 +406,10 @@ public class CombinationQueueArray {
     /**
      * Returns all of the {@link CombinationQueue CombinationQueues} in the {@link #queues} array.
      * @return the entire {@link #queues} array.
-     * @since 2025.05.26 - Monkey Work-Stealing Introduction
-     * @threading Thread-safe due to field immutability after construction.
-     * @performance O(1) time complexity.
      * @see #CombinationQueueArray(int, int)
+     * @since 2025.05.26 - Monkey Work-Stealing Introduction
+     * @performance O(1) time complexity.
+     * @threading Thread-safe due to field immutability after construction.
      */
     public CombinationQueue[] getAllQueues() { 
         return queues; 
@@ -442,13 +442,13 @@ public class CombinationQueueArray {
      * <code>generationComplete</code> flag to <code>true</code>.
      * </p>
      * 
+     * @see #generatorsRemaining
      * @since 2025.05.23 - Multiple CombinationQueues
+     * @performance O(1) time complexity.
      * @threading Thread-safe due to the use of an AtomicInteger for the {@link #generatorsRemaining}
      *            counter, allowing for lock-free updates.
-     * @performance O(1) time complexity.
      * @memory Negligible memory footprint, as it only involves updating a single integer and a boolean
      *         flag.
-     * @see #generatorsRemaining
      */
     public void generatorFinished() {
         if (generatorsRemaining.decrementAndGet() == 0) {
@@ -479,15 +479,15 @@ public class CombinationQueueArray {
      * volatile fields.
      * </p>
      * 
+     * @see #solutionFound
+     * @see #getWinningCombination()
+     * @see #getWinningMonkey()
      * @param monkeyName the name of the monkey that found the solution.
      * @param winningCombination the combination that solves the puzzle.
      * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Thread-safe due to the use of a volatile boolean flag for the {@link #solutionFound} field, ensuring visibility across threads.
      * @performance O(1) time complexity.
+     * @threading Thread-safe due to the use of a volatile boolean flag for the {@link #solutionFound} field, ensuring visibility across threads.
      * @memory Negligible memory footprint, as it only involves updating a few fields.
-     * @see #solutionFound
-     * @see #getWinningMonkey()
-     * @see #getWinningCombination()
      */
     public void solutionFound(String monkeyName, short[] winningCombination) {
         if (solutionFound == false) {
@@ -501,12 +501,12 @@ public class CombinationQueueArray {
      * Gets the name of the {@link TestClickCombination monkey} that found the solution.
      * 
      * @return the name of the winning monkey, or <code>null</code> if no solution has been found yet.
-     * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Thread-safe due to the use of a volatile field for the {@link #winningMonkey} field,
-     *            ensuring visibility across threads.
-     * @performance O(1) time complexity.
      * @see #getWinningCombination()
      * @see #solutionFound(String, short[])
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @performance O(1) time complexity.
+     * @threading Thread-safe due to the use of a volatile field for the {@link #winningMonkey} field,
+     *            ensuring visibility across threads.
      */
     public String getWinningMonkey() { 
         return winningMonkey; 
@@ -516,12 +516,12 @@ public class CombinationQueueArray {
      * Gets the combination that solves the puzzle.
      * 
      * @return the winning combination, or <code>null</code> if no solution has been found yet.
-     * @since 2025.05.23 - Multiple CombinationQueues
-     * @threading Thread-safe due to the use of a volatile field for the {@link #winningCombination} field,
-     *            ensuring visibility across threads.
-     * @performance O(1) time complexity.
      * @see #getWinningMonkey()
      * @see #solutionFound(String, short[])
+     * @since 2025.05.23 - Multiple CombinationQueues
+     * @performance O(1) time complexity.
+     * @threading Thread-safe due to the use of a volatile field for the {@link #winningCombination} field,
+     *            ensuring visibility across threads.
      */
     public short[] getWinningCombination() { 
         return winningCombination; 

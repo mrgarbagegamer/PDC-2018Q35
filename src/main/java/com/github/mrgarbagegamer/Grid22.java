@@ -1,20 +1,21 @@
 package com.github.mrgarbagegamer;
 
 /**
- * Grid22 - Concrete Grid Implementation for Q22/Shrek
+ * A concrete {@code Grid} implementation for Q22/Shrek.
  * 
  * <p>
  * This class represents the initial configuration of the hexagonal Lights Out puzzle in PDC's Q22
- * of 2018 (also known as "Shrek"). It extends the abstract {@link Grid} class, providing a
- * specific implementation for the puzzle's starting state.
+ * of 2018 (also known as "Shrek"). It extends the abstract {@link Grid} class, providing a specific
+ * implementation for the puzzle's starting state.
  * </p>
  * 
  * <h2>Configuration Details</h2>
  * <p>
- * In this configuration, the grid is initialized with a total of 50 true cells, with the first true
- * cell located at bit index 1 (row 0, column 1). The grid's state is represented using two long
- * values in the {@link #gridState} array, where each bit corresponds to a cell in the hexagonal
- * grid. The specific bit pattern for this configuration is pre-computed and directly assigned in the {@link #initialize()} method.
+ * In this configuration, the grid is initialized with a total of 50 {@code true} cells, with the
+ * first {@code true} cell located at bit index 1 (row 0, column 1). The grid's state is represented
+ * using two {@code long} values in the {@link #gridState} array, where each bit corresponds to a
+ * cell in the hexagonal grid. The specific bit pattern for this configuration is pre-computed and
+ * directly assigned in the {@link #initialize()} method.
  * </p>
  * 
  * <h2>Initialization Strategy</h2>
@@ -23,21 +24,21 @@ package com.github.mrgarbagegamer;
  * pre-computed values to the {@link #gridState} array. This approach avoids the need for
  * recalculating the grid state during initialization, which can be computationally expensive. The
  * method also sets the {@link #firstTrueCell} and {@link #trueCellsCount} fields to reflect the
- * initial configuration, and marks the {@link #recalculationNeeded} flag as false, indicating that
- * no further recalculation is necessary at this point.
+ * initial configuration, and marks the {@link #recalculationNeeded} flag as {@code false},
+ * indicating that no further recalculation is necessary at this point.
  * </p>
  * 
  * <p>
- * Since this puzzle has a known solution in 15 clicks, the method includes the solution in commented
- * out form. These clicks can be uncommented to test lower click counts, and they are pre-computed
- * to avoid unnecessary recalculations during initialization.
+ * Since this puzzle has a known solution in 15 clicks, the method includes the solution in
+ * commented out form. These clicks can be uncommented to test lower click counts, and they are
+ * pre-computed to avoid unnecessary recalculations during initialization.
  * </p>
  * 
  * @see Grid13
  * @see Grid35
  * @since 2025.03.29 - Concrete Class Introduction
- * @performance O(1) for initialization, as it involves direct assignments without loops or complex
- *              calculations.
+ * @performance {@code O(1)} for initialization, as it involves direct assignments without loops or
+ *              complex calculations.
  * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
  *            Grid22 to avoid concurrency issues.
  * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
@@ -47,17 +48,17 @@ public class Grid22 extends Grid {
      * Initializes the grid to the specific configuration for Q22/Shrek.
      * 
      * <p>
-     * This method sets the initial state of the grid, directly assigning pre-computed
-     * values to the {@link #gridState} array. The proper values for {@link #firstTrueCell}
-     * and {@link #trueCellsCount} are also set to reflect the initial configuration, and
-     * the {@link #recalculationNeeded} flag is set to false, indicating that no further
+     * This method sets the initial state of the grid, directly assigning pre-computed values to the
+     * {@link #gridState} array. The proper values for {@link #firstTrueCell} and
+     * {@link #trueCellsCount} are also set to reflect the initial configuration, and the
+     * {@link #recalculationNeeded} flag is set to {@code false}, indicating that no further
      * recalculation is necessary at this point.
      * </p>
      * 
      * <p>
-     * Commented out are the clicks that make up the solution to the Q22 puzzle, which
-     * can be uncommented to test lower click counts. These clicks are pre-computed to
-     * avoid unnecessary recalculations during initialization.
+     * Commented out are the clicks that make up the solution to the Q22 puzzle, which can be
+     * uncommented to test lower click counts. These clicks are pre-computed to avoid unnecessary
+     * recalculations during initialization.
      * </p>
      * 
      * @see #getGridState()

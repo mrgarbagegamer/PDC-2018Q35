@@ -5,7 +5,7 @@ import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
 
 /**
- * CombinationMessage - A specialized message class for representing and formatting combinations.
+ * A specialized message class for representing and formatting combinations.
  * 
  * <p>
  * Logging is an important part of this application, especially for debugging and monitoring the
@@ -23,7 +23,7 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
  * <h2>Configuration Details</h2>
  * <p>
  * This class fundamentally acts as a wrapper around a combination representation, providing
- * efficient formatting capabilities. We store the combination as a <code>short[]</code> along with
+ * efficient formatting capabilities. We store the combination as a {@code short[]} along with
  * a {@link Grid.ValueFormat format} indicator. This design allows for efficient storage and easy
  * conversion between different formats. For human readability, we always convert to the
  * {@link Grid.ValueFormat#PackedInt PackedInt} format when formatting the message due to its
@@ -34,7 +34,7 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
  * <h2>Initialization Strategy</h2>
  * <p>
  * We don't have complex initialization logic for this class. The constructor simply takes a
- * <code>short[]</code> and a {@link Grid.ValueFormat format} and stores them, performing a basic
+ * {@code short[]} and a {@link Grid.ValueFormat format} and stores them, performing a basic
  * validation to ensure the format is supported by our implementation. We delegate conversion logic
  * to the {@link #convertTo(Grid.ValueFormat)} method to allow for on-demand format conversion.
  * </p>
@@ -101,7 +101,7 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
 public class CombinationMessage implements Message, StringBuilderFormattable 
 {
     /**
-     * The combination represented as a <code>short[]</code>. The format of the combination is indicated
+     * The combination represented as a {@code short[]}. The format of the combination is indicated
      * by the {@link #format} field.
      * 
      * @see #getCombination(com.github.mrgarbagegamer.Grid.ValueFormat)
@@ -120,9 +120,9 @@ public class CombinationMessage implements Message, StringBuilderFormattable
     private Grid.ValueFormat format;
 
     /**
-     * Creates a new CombinationMessage with the specified combination list and format.
+     * Creates a new {@code CombinationMessage} with the specified combination list and format.
      * 
-     * @param list the <code>short[]</code> representing the combination.
+     * @param list   the {@code short[]} representing the combination.
      * @param format the {@link Grid.ValueFormat} indicating the format of the combination.
      * @throws IllegalArgumentException if the provided format is {@link Grid.ValueFormat#Bitmask}.
      * @since 2025.05.31 - CombinationMessage Introduction
@@ -137,33 +137,33 @@ public class CombinationMessage implements Message, StringBuilderFormattable
 
     /**
      * Converts the internal combination list to the specified output {@link Grid.ValueFormat format}.
-     * This method modifies the internal state of the CombinationMessage instance, changing the format
-     * to the desired output format for better readability.
+     * This method modifies the internal state of the {@code CombinationMessage} instance, changing the
+     * format to the desired output format for better readability.
      * 
      * <h3>Performance Considerations</h3>
      * <p>
      * This method performs in-place conversion of the combination list, which is efficient in terms of
      * memory usage, avoiding the need for additional allocations. However, it does iterate through the
-     * entire list, resulting in a time complexity of O(n), where n is the number of elements in the
-     * list. The conversion process involves simple arithmetic operations, which are generally fast,
-     * though the number of <code>switch</code> cases and conversions may introduce some overhead.
+     * entire list, resulting in a time complexity of <code>O({@link #list}.length)</code>. The
+     * conversion process involves simple arithmetic operations, which are generally fast, though the
+     * number of {@code switch} cases and conversions may introduce some overhead.
      * </p>
      * 
      * <p>
      * For greater efficiency, one would ideally create specialized methods for each conversion path
-     * (e.g., {@link Grid.ValueFormat#Index} to {@link Grid.ValueFormat#PackedInt} and vice versa). This
-     * would reduce the number of conditional checks during conversion, leading to faster execution
-     * times, at the cost of increased code complexity and maintenance, but with Java, those sacrifices
-     * are often worth it.
+     * (e.g., {@link Grid.ValueFormat#Index Index} to {@link Grid.ValueFormat#PackedInt PackedInt} and
+     * vice versa). This would reduce the number of conditional checks during conversion, leading to
+     * faster execution times, at the cost of increased code complexity and maintenance, but with Java,
+     * those sacrifices are often worth it.
      * </p>
      * 
      * @param outputFormat the desired {@link Grid.ValueFormat} to convert the combination to.
-     * @throws IllegalArgumentException if the provided output format is
-     *                                  {@link Grid.ValueFormat#Bitmask}.
+     * @throws IllegalArgumentException if the provided output format is {@link Grid.ValueFormat#Bitmask
+     *                                  Bitmask}.
      * @see Grid#indexToPacked(short)
      * @see Grid#packedToIndex(short)
      * @since 2025.07.18 - Cell Format Support
-     * @performance O(n) where n is the number of elements in {@link #list}.
+     * @performance <code>O({@link #list}.length)</code>.
      * @threading Not thread-safe; should be called in a single-threaded context or synchronized
      *            externally.
      * @memory In-place conversion; does not allocate additional memory for the list.
@@ -199,16 +199,16 @@ public class CombinationMessage implements Message, StringBuilderFormattable
 
     /**
      * Formats the combination into a human-readable string representation onto the provided
-     * {@link java.lang.StringBuilder StringBuilder}. Through the use of a provided buffer,
-     * this method avoids unnecessary memory allocations, making it suitable for high-performance
-     * logging scenarios.
+     * {@link java.lang.StringBuilder StringBuilder}. Through the use of a provided buffer, this method
+     * avoids unnecessary memory allocations, making it suitable for high-performance logging scenarios.
      * 
-     * @param buffer the {@link java.lang.StringBuilder StringBuilder} to append the formatted message to.
+     * @param buffer the {@link java.lang.StringBuilder StringBuilder} to append the formatted message
+     *               to.
      * @throws NullPointerException (implicitly) if the provided buffer is null.
      * @see org.apache.logging.log4j.util.StringBuilderFormattable
      * @see org.apache.logging.log4j.util.StringBuilderFormattable#formatTo(StringBuilder)
      * @since 2025.05.31 - CombinationMessage Introduction
-     * @performance O(n) where n is the number of elements in {@link #list}.
+     * @performance <code>O({@link #list}.length)</code> due to iteration through the list.
      * @threading Thread-safe, as the method does not modify shared state.
      * @memory Does not allocate.
      */
@@ -229,16 +229,20 @@ public class CombinationMessage implements Message, StringBuilderFormattable
     }
 
     /**
-     * Returns the formatted message as a {@link java.lang.String String}. This method is a fallback for legacy APIs that
-     * require a string representation of the message. Internally, it constructs the string using a {@link java.lang.StringBuilder StringBuilder}
-     * and the {@link #formatTo(StringBuilder)} method to avoid intermediate string allocations, but it must still create a new string for the return value.
+     * Returns the formatted message as a {@link java.lang.String String}. This method is a fallback for
+     * legacy APIs that require a {@code String} representation of the message. Internally, it
+     * constructs the string using a {@link java.lang.StringBuilder StringBuilder} and the
+     * {@link #formatTo(StringBuilder)} method to avoid intermediate {@code String} allocations, but it
+     * must still create a new {@code String} for the return value.
      * 
-     * @return the formatted message as a <code>String</code>.
+     * @return the formatted message as a {@code String}.
      * @see java.lang.StringBuilder#toString()
      * @since 2025.05.31 - CombinationMessage Introduction
-     * @performance O(1) call to {@link #formatTo(StringBuilder)}
-     * @threading Thread-safe, as it delegates to the thread-safe {@link #formatTo(StringBuilder)} method.
-     * @memory Allocates a new string for the return value, but avoids intermediate string allocations.
+     * @performance {@code O(1)} call to {@link #formatTo(StringBuilder)}
+     * @threading Thread-safe, as it delegates to the thread-safe {@link #formatTo(StringBuilder)}
+     *            method.
+     * @memory Allocates a new {@code String} for the return value, but avoids intermediate
+     *         {@code String} allocations.
      */
     @Override
     public String getFormattedMessage() {
@@ -256,10 +260,10 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * <h3>Performance Considerations</h3>
      * <p>
      * This method may perform an in-place conversion of the combination list if the current format does
-     * not match the requested output format. The conversion process has a time complexity of O(n),
-     * where n is the number of elements in the list, due to the need to iterate through the entire
-     * list. The conversion involves simple arithmetic operations, which are generally fast, but the
-     * number of <code>switch</code> cases and conversions may introduce some overhead.
+     * not match the requested output format. The conversion process has a time complexity of
+     * <code>O({@link #list}.length)</code>, due to the need to iterate through the entire {@code list}.
+     * The conversion involves simple arithmetic operations, which are generally fast, but the number of
+     * {@code switch} cases and conversions may introduce some overhead.
      * </p>
      * 
      * <p>
@@ -270,12 +274,15 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * </p>
      * 
      * @param outputFormat the desired {@link Grid.ValueFormat} for the returned combination.
-     * @return the combination as a <code>short[]</code> in the specified format.
-     * @throws IllegalArgumentException if the provided output format is {@link Grid.ValueFormat#Bitmask}.
+     * @return the combination as a {@code short[]} in the specified format.
+     * @throws IllegalArgumentException if the provided output format is
+     *                                  {@link Grid.ValueFormat#Bitmask}.
      * @see #convertTo(Grid.ValueFormat)
      * @since 2025.05.31 - CombinationMessage Introduction
-     * @performance O(n) where n is the number of elements in {@link #list} if conversion is needed; O(1) if no conversion is needed.
-     * @threading Not thread-safe; should be called in a single-threaded context or synchronized externally.
+     * @performance <code>O({@link #list}.length)</code> if conversion is needed; {@code O(1)} if no
+     *              conversion is needed.
+     * @threading Not thread-safe; should be called in a single-threaded context or synchronized
+     *            externally.
      * @memory In-place conversion; does not allocate additional memory for the list.
      */
     public short[] getCombination(Grid.ValueFormat outputFormat) {
@@ -291,10 +298,10 @@ public class CombinationMessage implements Message, StringBuilderFormattable
     /**
      * {@inheritDoc}
      * 
-     * This method is not used in this implementation and always returns <code>null</code>.
+     * This method is not used in this implementation and always returns {@code null}.
      * 
      * @since 2025.05.31 - CombinationMessage Introduction
-     * @performance O(1) return of <code>null</code>.
+     * @performance {@code O(1)} return of {@code null}.
      * @threading Thread-safe, as it does not modify shared state.
      * @memory Does not allocate.
      */
@@ -306,10 +313,10 @@ public class CombinationMessage implements Message, StringBuilderFormattable
     /**
      * {@inheritDoc}
      * 
-     * This method is not used in this implementation and always returns <code>null</code>.
+     * This method is not used in this implementation and always returns {@code null}.
      * 
      * @since 2025.05.31 - CombinationMessage Introduction
-     * @performance O(1) return of <code>null</code>.
+     * @performance {@code O(1)} return of {@code null}.
      * @threading Thread-safe, as it does not modify shared state.
      * @memory Does not allocate.
      */
@@ -321,10 +328,10 @@ public class CombinationMessage implements Message, StringBuilderFormattable
     /**
      * {@inheritDoc}
      * 
-     * This method is not used in this implementation and always returns <code>null</code>.
+     * This method is not used in this implementation and always returns {@code null}.
      * 
      * @since 2025.05.31 - CombinationMessage Introduction
-     * @performance O(1) return of <code>null</code>.
+     * @performance {@code O(1)} return of {@code null}.
      * @threading Thread-safe, as it does not modify shared state.
      * @memory Does not allocate.
      */

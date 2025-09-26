@@ -6,7 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * StartYourMonkeys - Main class to orchestrate the Lights Out puzzle solver.
+ * The main class to orchestrate the Lights Out puzzle solver.
  * 
  * <p>
  * Our architecture for solving this problem involves a producer-consumer model where we have
@@ -50,8 +50,8 @@ import org.apache.logging.log4j.Logger;
  * 
  * <p>
  * Static methods meant for pre-computed values are best called in this class, as it is
- * single-threaded for most of its operations. Methods that set static values for other classes are
- * also safe to call here.
+ * single-threaded for most of its operations. Methods that set {@code static} values for other
+ * classes are also safe to call here.
  * </p>
  * 
  * @see CombinationGeneratorTask
@@ -59,7 +59,7 @@ import org.apache.logging.log4j.Logger;
  * @see Grid
  * @see TestClickCombination
  * @since 2025.04.01 - Multi-threaded Refactor
- * @performance ~O(1) for orchestration tasks
+ * @performance ~{@code O(1)} for orchestration tasks
  * @threading Thread-safe due to single-threaded orchestration.
  * @algorithm Parses the command-line arguments, initializes the grid, starts the generator and
  *            monkey threads, and coordinates their activities until a solution is found or all
@@ -68,32 +68,36 @@ import org.apache.logging.log4j.Logger;
 public class StartYourMonkeys {
     
     /**
-     * Logger for StartYourMonkeys class.
+     * Logger for {@code StartYourMonkeys} class.
      * 
      * <p>
      * Logging is used throughout the program to provide insights into the solver's progress,
-     * performance metrics, and any issues encountered during execution. By nature, though, logging
-     * is not thread-safe, and using System.out.println() in a multi-threaded environment can lead to
-     * interleaved output and/or blocked threads. We need an asynchronous logging framework
-     * that can handle concurrent writes without blocking, which is why we use Log4j2.
+     * performance metrics, and any issues encountered during execution. By nature, though, logging is
+     * not thread-safe, and using {@link java.io.PrintStream#println(String) System.out.println()} in a
+     * multi-threaded environment can lead to interleaved output and/or blocked threads. We need an
+     * asynchronous logging framework that can handle concurrent writes without blocking, which is why
+     * we use Log4j2.
      * </p>
      * 
      * <h3>Performance Considerations</h3>
      * <p>
-     * Log4j2 is designed for high performance and low latency, making it suitable for
-     * multi-threaded applications like this one. It supports asynchronous logging,
-     * which allows log messages to be processed in a separate thread, reducing the
-     * impact on the main application threads.
+     * Log4j2 is designed for high performance and low latency, making it suitable for multi-threaded
+     * applications like this one. It supports asynchronous logging, which allows log messages to be
+     * processed in a separate thread, reducing the impact on the main application threads.
      * </p>
      * 
      * @see CombinationMessage
      * @see Logger
      * @see LogManager
      * @see LogManager#getLogger()
-     * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous Logging</a>
+     * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous
+     *      Logging</a>
      * @since 2025.05.04 - Log4j2 Integration
-     * @performance O(1) for logging operations, as they are buffered and processed asynchronously.
-     * @threading This is thread-safe due to Log4j2's asynchronous logging capabilities. None-the-less, there is only one thread that runs this main method, so the logger for this class is effectively single-threaded.
+     * @performance {@code O(1)} for logging operations, as they are buffered and processed
+     *              asynchronously.
+     * @threading This is thread-safe due to Log4j2's asynchronous logging capabilities. None-the-less,
+     *            there is only one thread that runs this main method, so the logger for this class is
+     *            effectively single-threaded.
      * @optimization Asynchronous logging is enabled to minimize the impact on application performance.
      */
     private static final Logger logger = LogManager.getLogger();
@@ -104,15 +108,15 @@ public class StartYourMonkeys {
      * <p>
      * The goal of this solver is to find a solution to the Lights Out puzzle (Q35) using a brute-force
      * approach. After extensive testing and analysis, we've been able to rule out the possibility of a
-     * &le; 16-click solution for Q35. Therefore, the default number of clicks is set to 17, which is the
-     * minimum number of clicks that could potentially yield a solution. This default value can be
-     * overridden by providing a different number of clicks as a command-line argument when starting the
-     * program.
+     * &le; 16-click solution for Q35. Therefore, the default number of clicks is set to
+     * {@value #DEFAULT_NUM_CLICKS}, which is the minimum number of clicks that could potentially yield
+     * a solution. This default value can be overridden by providing a different number of clicks as a
+     * command-line argument when starting the program.
      * </p>
      * 
      * @see #main(String[])
      * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @performance O(1) - This is a constant value used for configuration.
+     * @performance {@code O(1)} - This is a constant value used for configuration.
      * @threading This is a constant value and is inherently thread-safe.
      */
     private static final int DEFAULT_NUM_CLICKS = 17;
@@ -121,15 +125,15 @@ public class StartYourMonkeys {
      * 
      * <p>
      * For my system (an Intel Core i7-13700K with 16 cores), the optimal number of threads is
-     * 16. This allows for efficient CPU utilization without context switching overhead. Larger
-     * numbers of threads tend to lead to diminishing returns due to increased context switching
-     * overhead and resource contention. This default value can be overridden by providing a different
-     * value at startup.
+     * {@value #DEFAULT_NUM_THREADS}. This allows for efficient CPU utilization without context
+     * switching overhead. Larger numbers of threads tend to lead to diminishing returns due to
+     * increased context switching overhead and resource contention. This default value can be
+     * overridden by providing a different value at startup.
      * </p>
      * 
      * @see #main(String[])
      * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @performance O(1) - This is a constant value used for configuration.
+     * @performance {@code O(1)} - This is a constant value used for configuration.
      * @threading This is a constant value and is inherently thread-safe.
      */
     private static final int DEFAULT_NUM_THREADS = 16;
@@ -143,7 +147,7 @@ public class StartYourMonkeys {
      * 
      * @see #main(String[])
      * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @performance O(1) - This is a constant value used for configuration.
+     * @performance {@code O(1)} - This is a constant value used for configuration.
      * @threading This is a constant value and is inherently thread-safe.
      */
     private static final int DEFAULT_QUESTION_NUMBER = 35;
@@ -165,8 +169,8 @@ public class StartYourMonkeys {
      * The method parses command-line arguments to determine the number of clicks, the number of
      * threads, and the question number to solve, providing default values if not specified. We also get
      * the current time in milliseconds to measure the elapsed time for the entire execution of the
-     * program (stored as a long). Note that the number of threads passed to the program is the TOTAL;
-     * an equal number of generator threads and monkeys are created to balance the workload.
+     * program (stored as a {@code long}). Note that the number of threads passed to the program is the
+     * TOTAL; an equal number of generator threads and monkeys are created to balance the workload.
      * </p>
      * 
      * <li>
@@ -179,9 +183,10 @@ public class StartYourMonkeys {
      * <li>
      * <h3>True Adjacents Calculation</h3></li>
      * <p>
-     * The method calculates the first true adjacents in index format, which is used to determine the
-     * index of the first true adjacent cell. This is crucial for the combination generation process, as
-     * it defines the range of indices that the first click in a prefix can take.
+     * The method calculates the first true adjacents in {@link Grid.ValueFormat#Index Index} format,
+     * which is used to determine the index of the first {@code true} adjacent cell. This is crucial for
+     * the combination generation process, as it defines the range of indices that the first click in a
+     * {@code prefix} can take.
      * </p>
      * 
      * <li>
@@ -189,8 +194,8 @@ public class StartYourMonkeys {
      * <p>
      * The method creates and starts the specified number of {@link TestClickCombination monkeys}, each
      * responsible for consuming click combinations from a shared queue and testing them against the
-     * puzzle grid. Each monkey is assigned a unique thread name for identification and is given a
-     * {@link CombinationQueue queue}.
+     * puzzle {@link Grid grid}. Each monkey is assigned a unique thread name for identification and is
+     * given a {@link CombinationQueue queue}.
      * </p>
      * 
      * <li>
@@ -204,7 +209,7 @@ public class StartYourMonkeys {
      * </p>
      * 
      * <p>
-     * Due to some weird ForkJoinPool mechanics, the
+     * Due to some weird {@code ForkJoinPool} mechanics, the
      * {@link ForkJoinPool#awaitQuiescence(long, java.util.concurrent.TimeUnit)} method only waits for
      * completion of the root task to finish and does not wait for tasks that are forked from it. If the
      * method behaved like it should, we would be able to avoid creating a separate path for the root
@@ -218,7 +223,7 @@ public class StartYourMonkeys {
      * Since the {@link CombinationGeneratorTask generators} hold onto their {@link WorkBatch batches}
      * until they are full before flushing them to the queue, we need to ensure that any remaining
      * batches are flushed if the generators exit without a solution being found. This is done by
-     * calling the static method
+     * calling the {@code static} method
      * {@link CombinationGeneratorTask#flushAllPendingBatches(CombinationQueueArray, ForkJoinPool)}.
      * Afterwards, we mark the generation as complete to signal to the monkeys that no more batches will
      * be generated.
@@ -236,8 +241,9 @@ public class StartYourMonkeys {
      * <li>
      * <h3>Result Processing and Output</h3></li>
      * <p>
-     * Finally, the method retrieves the winning combination from the queue (if it exists) and formats
-     * the elapsed time for display. It then logs the winning combination and the elapsed time using the
+     * Finally, the method retrieves the {@link CombinationQueueArray#getWinningCombination() winning
+     * combination} from the queue (if it exists) and {@link #formatElapsedTime(long) formats the
+     * elapsed time} for display. It then logs the winning combination and the elapsed time using the
      * logger. If no solution is found, it logs that information instead. We also verify the solution's
      * correctness by applying the winning combination to a clone of the original grid and checking if
      * it results in a solved state. The grid is printed to the console for visual verification.
@@ -245,15 +251,15 @@ public class StartYourMonkeys {
      * 
      * @param args Command-line arguments:
      *             <ul>
-     *             <li><code>args[0]</code> - Number of clicks (default: 17)</li>
-     *             <li><code>args[1]</code> - Number of threads (default: 8)</li>
-     *             <li><code>args[2]</code> - Question number (default: 35)</li>
+     *             <li>{@code args[0]} - Number of clicks (default: 17)</li>
+     *             <li>{@code args[1]} - Number of threads (default: 8)</li>
+     *             <li>{@code args[2]} - Question number (default: 35)</li>
      *             </ul>
      * @throws IllegalArgumentException if the number of clicks is not between 1 and 109, the number of
      *                                  threads is less than 1, or the question number is not one of the
      *                                  valid options (13, 22, or 35).
-     * @throws NumberFormatException    if the arguments cannot be parsed as integers.
      * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask.GeneratorContext)
+     * @since 2025.04.01 - Multi-threaded Refactor
      */
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis(); // Start timer
@@ -438,7 +444,7 @@ public class StartYourMonkeys {
      * @return A {@link java.lang.String String} representing the formatted elapsed time.
      * @see System#currentTimeMillis()
      * @since 2025.06.29 - Millisecond Precision to Elapsed Time Formatting
-     * @performance O(1) operations and string formatting.
+     * @performance {@code O(1)} operations and string formatting.
      * @threading This method is thread-safe as it does not modify any shared state.
      */
     private static String formatElapsedTime(long millis) {

@@ -275,6 +275,8 @@ public final class ArrayPool {
         
         this.capacity = capacity;
         this.arrays = new short[capacity][numClicks];
+        // Pre-allocated arrays are immediately available
+        this.size = capacity;
     }
 
     /**

@@ -215,6 +215,13 @@ public class TaskPool {
         }
         this.capacity = capacity;
         this.arrays = new CombinationGeneratorTask[capacity];
+        
+        // Pre-allocate all tasks
+        for (int i = 0; i < capacity; i++) {
+            this.arrays[i] = new CombinationGeneratorTask();
+        }
+        
+        this.size = capacity;
     }
 
     /**

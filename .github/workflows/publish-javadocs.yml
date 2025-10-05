@@ -1,0 +1,62 @@
+name: Publish Javadocs to gh-pages
+
+on:
+  push:
+    branches:
+      - generation-balancing-experiments
+    paths:
+      - 'pom.xml'
+      - 'src/main/java/**/*.java'
+      - '.github/workflows/publish-javadocs.yml'
+  workflow_dispatch: {}
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 24
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: maven
+
+      - name: Build project and attach Javadocs (package)
+        run: mvn -B -DskipTests package
+
+      - name: Extract generated Javadocs (robust)
+        run: |
+          set -euxo pipefail
+          echo "Preparing javadoc output directory"
+          mkdir -p javadoc
+          ls -la target || true
+          # Ensure we have exactly one -javadoc.jar to avoid ambiguous results
+          shopt -s nullglob
+          JARS=(target/*-javadoc.jar)
+          if [ ${#JARS[@]} -eq 0 ]; then
+            echo "ERROR: no javadoc jar found in target/"
+            ls -la target || true
+            exit 1
+          fi
+          if [ ${#JARS[@]} -gt 1 ]; then
+            echo "ERROR: multiple javadoc jars found: ${JARS[*]}"
+            ls -la target || true
+            exit 1
+          fi
+          echo "Using ${JARS[0]}"
+          unzip -q "${JARS[0]}" -d javadoc
+
+      - name: Publish to 'gh-pages' branch
+        uses: peaceiris/actions-gh-pages@v4.0.0
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./javadoc
+          publish_branch: gh-pages
+          commit_message: "Publish Javadocs to gh-pages from generation-balancing-experiments @${{ github.sha }}"
+          commit_user_name: 'gh-pages bot'
+          commit_user_email: 'gh-pages-bot@users.noreply.github.com'

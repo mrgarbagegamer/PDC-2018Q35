@@ -1,5 +1,9 @@
 name: Publish Javadocs to gh-pages
 
+# Needs write permission to create/update gh-pages branch
+permissions:
+  contents: write
+
 on:
   push:
     branches:
@@ -54,9 +58,12 @@ jobs:
       - name: Publish to 'gh-pages' branch
         uses: peaceiris/actions-gh-pages@v4.0.0
         with:
-          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          # Use github_token (built-in) instead of personal_token so action picks up permissions block
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./javadoc
           publish_branch: gh-pages
           commit_message: "Publish Javadocs to gh-pages from generation-balancing-experiments @${{ github.sha }}"
-          commit_user_name: 'gh-pages bot'
-          commit_user_email: 'gh-pages-bot@users.noreply.github.com'
+          user_name: 'gh-pages bot'
+          user_email: 'gh-pages-bot@users.noreply.github.com'
+          # Ensure clean history for documentation branch on first run
+          force_orphan: true

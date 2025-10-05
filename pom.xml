@@ -110,11 +110,6 @@
                     <placement>a</placement>
                     <head>Memory Management:</head>
                 </tag>
-                <tag>
-                    <name>optimization</name>
-                    <placement>a</placement>
-                    <head>Optimization Strategy:</head>
-                </tag>
             </tags>
             
             <!-- Include private methods for internal documentation -->

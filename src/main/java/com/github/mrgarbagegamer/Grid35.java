@@ -1,64 +1,56 @@
 package com.github.mrgarbagegamer;
 
 /**
- * A concrete {@code Grid} implementation for Q35/Buttercup.
- * 
+ * A concrete {@link Grid} that provides the initial puzzle state for Q35 ("Buttercup").
+ *
  * <p>
- * This class represents the initial configuration of the hexagonal Lights Out puzzle in PDC's Q35
- * of 2018 (also known as "Buttercup"). It extends the abstract {@link Grid} class, providing a
- * specific implementation for the puzzle's starting state.
+ * This class defines the starting configuration for the 2018 PDC Q35 puzzle. Its sole purpose is to
+ * load a pre-computed bitmask representing the initial layout of {@code true} cells into the
+ * {@link #gridState} array. This puzzle is notable as its solution is currently unknown.
  * </p>
- * 
- * <h2>Configuration Details</h2>
+ *
+ * <h2>Architectural Role</h2>
  * <p>
- * In this configuration, the grid is initialized with a total of 4 {@code true} cells, with the
- * first {@code true} cell located at bit index 39 (row 2, column 8). The grid's state is
- * represented using two {@code long} values in the {@link #gridState} array, where each bit
- * corresponds to a cell in the hexagonal grid. The specific bit pattern for this configuration is
- * pre-computed and directly assigned in the {@link #initialize()} method.
+ * As a concrete implementation of the abstract {@link Grid}, this class represents one of the
+ * specific problems the solver is designed to tackle. The initial state is loaded via the
+ * {@link #initialize()} method, which uses a hardcoded bitmask for maximum performance, avoiding
+ * any computational overhead at runtime.
  * </p>
- * 
- * <h2>Initialization Strategy</h2>
+ *
+ * <h2>Puzzle Details</h2>
  * <p>
- * The {@link #initialize()} method sets up the grid's initial state by directly assigning
- * pre-computed values to the {@link #gridState} array. This approach avoids the need for
- * recalculating the grid state during initialization, which can be computationally expensive. The
- * method also sets the {@link #firstTrueCell} and {@link #trueCellsCount} fields to reflect the
- * initial configuration, and marks the {@link #recalculationNeeded} flag as {@code false},
- * indicating that no further recalculation is necessary at this point.
+ * The Q35 grid is initialized with only 4 {@code true} cells. Unlike Q13 and Q22, no solution is
+ * known, making it the primary target for the brute-force solver.
  * </p>
- * 
- * <p>
- * Since the solution for Q35 is not known, there are no pre-computed solution clicks included.
- * </p>
- * 
+ *
  * @see Grid13
  * @see Grid22
- * @since 2025.03.29 - Concrete Class Introduction
- * @performance {@code O(1)} for initialization, as it involves direct assignments without loops or
- *              complex calculations.
+ * @since 2025.03 - Concrete Class Introduction
+ * @performance {@code O(1)} for initialization and most operations.
  * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
- *            Grid35 to avoid concurrency issues.
- * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
+ *            {@code Grid35} to avoid concurrency issues.
+ * @memory No allocations after initialization (except for methods that explicitly create new
+ *         objects).
  */
 public class Grid35 extends Grid {   
     /**
-     * Initializes the grid to the specific configuration for Q35/Buttercup.
-     * 
+     * Loads the pre-computed state for the Q35 puzzle.
+     *
      * <p>
-     * This method sets the initial state of the grid, directly assigning pre-computed values to the
-     * {@link #gridState} array. The proper values for {@link #firstTrueCell} and
-     * {@link #trueCellsCount} are also set to reflect the initial configuration, and the
-     * {@link #recalculationNeeded} flag is set to {@code false}, indicating that no further
-     * recalculation is necessary at this point.
+     * This method directly assigns the bitmask representing the puzzle's initial state to the
+     * {@link #gridState} array. It also sets cached values for the first {@code true} cell and the
+     * total count of {@code true} cells for efficient processing.
      * </p>
-     * 
+     *
      * <p>
-     * Since the solution for Q35 is not known, there are no pre-computed solution clicks included.
+     * As the solution for Q35 is not known, no solution clicks are included.
      * </p>
-     * 
+     *
      * @see #getGridState()
-     * @since 2025.03.29 - Concrete Class Introduction
+     * @since 2025.03 - Concrete Class Introduction
+     * @performance {@code O(1)} - Direct assignment of pre-computed values.
+     * @threading Not thread-safe; mutates instance state.
+     * @memory Does not allocate.
      */
     void initialize() {
         // Initialize for Q35

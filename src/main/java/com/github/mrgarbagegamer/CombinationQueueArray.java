@@ -5,357 +5,234 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.jctools.queues.MpmcArrayQueue;
 
 /**
- * A shared structure for managing communication and state between
+ * A structure for managing work distribution and shared resources between
  * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}.
- * 
+ *
  * <p>
- * In order to facilitate efficient communication between the generators and the monkeys, we need
- * some type of shared structure that both can access, storing information about the state of the
- * system. We also need a way to manage the lifecycle of our system - specifically, monkeys need to
- * know when all generators have finished working (so they can stop waiting for new work) and
- * generators need to know when a monkey has found a solution (so they can stop generating new
- * work). This class serves that purpose, providing the necessary fields and methods for state
- * management and signaling.
+ * This class serves as the central coordination point for the solver. It has two primary
+ * responsibilities:
  * </p>
- * 
- * <h2>Optimization Strategy</h2>
+ * <ol>
+ * <li><b>Work Distribution:</b> It holds an array of {@link CombinationQueue} instances, one for
+ * each monkey. This partitions the workload and reduces contention.</li>
+ * <li><b>Centralized Pooling:</b> It manages a global {@link #workBatchPool} for recycling
+ * {@link WorkBatch} objects. This is critical for minimizing garbage collection by allowing
+ * consumers to return processed batches to a central location for reuse by generators.</li>
+ * </ol>
+ *
+ * <h2>Architectural Role</h2>
  * <p>
- * We use a combination of lock-free data structures (from JCTools) and volatile flags to manage
- * state and communication between threads. This approach minimizes contention and maximizes
- * throughput, allowing for efficient operation even under high load. As the name suggests, the core
- * field of this class is an array of {@link CombinationQueue CombinationQueues}, one for each
- * {@link TestClickCombination monkey}. The use of a separate queue for each monkey reduces
- * contention and allows for more efficient work distribution. We can facilitate work-stealing
- * between monkeys by providing access to all queues, allowing idle monkeys to take work from busier
- * ones. Additionally, we use a central pool for recycled {@link WorkBatch} objects to avoid
- * frequent allocations and deallocations, which can lead to garbage collection overhead.
+ * As a singleton instance, this class provides the infrastructure for decoupling generators from
+ * monkeys. Generators acquire empty {@code WorkBatch} objects from the central pool, fill them with
+ * work, and offer them to one of the work queues. Monkeys poll their designated queue, process the
+ * entire batch, and return the now-empty {@code WorkBatch} to the central pool.
  * </p>
- * 
- * <h2>Usage Patterns</h2>
+ *
  * <p>
- * This class is intended to be used as a singleton, with one instance shared between all
- * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}. The
- * generators push generated combinations into the appropriate {@link CombinationQueue} based on the
- * monkey they are targeting, while the monkeys pull combinations from their own queue (and
- * potentially steal work from others). The {@link #solutionFound} and {@link #generationComplete}
- * flags are used to signal the end of processing, allowing threads to exit gracefully. The
- * {@link #generatorFinished()} and {@link #solutionFound(String, short[])} methods are used to
- * update the state of the system when generators finish their work or when a solution is found,
- * respectively.
+ * It also manages the application's lifecycle by tracking the number of active producers
+ * ({@link #generatorsRemaining}) and signaling termination conditions via the
+ * {@link #solutionFound} and {@link #generationComplete} flags.
  * </p>
- * 
- * <h2>Memory Management</h2>
+ *
+ * <h2>Memory and Performance</h2>
  * <p>
- * This class uses a fixed-size array for the {@link #queues} field, which is allocated
- * {@link #CombinationQueueArray(int, int) during construction} and remains constant throughout the
- * lifetime of the instance. Queues themselves are bounded to prevent unbounded memory growth and
- * providing backpressure to the generators. The {@link #workBatchPool} is also bounded and
- * pre-allocated to match the total capacity of all queues, ensuring that we never run out of
- * {@link WorkBatch} objects, which would lead to allocations in the hot path. This approach
- * minimizes memory fragmentation and reduces the likelihood of garbage collection pauses, which can
- * impact performance.
+ * The entire structure is designed to minimize allocations and synchronization in the hot path. The
+ * {@link #workBatchPool} is pre-allocated at startup to a size that guarantees a recycled batch is
+ * never discarded, eliminating the need for runtime allocations. Communication relies on lock-free
+ * queues from JCTools and {@code volatile} flags, ensuring high throughput.
  * </p>
- * 
- * @see CombinationQueue
- * @see WorkBatch
- * @see org.jctools.queues.MpmcArrayQueue
- * @since 2025.05.23 - Multiple {@code CombinationQueue}s
- * @performance {@code O(1)} for most operations, <code>O({@link #queues}.length)</code> for
- *              iterating through all queues.
- * @threading Uses lock-free structures and {@code volatile} flags for safe concurrent access and
- *            updates.
- * @memory Pre-allocates fixed-size structures to minimize fragmentation and GC overhead.
+ *
+ * @see MpmcArrayQueue
+ * @since 2025.05 - Multiple {@code CombinationQueue}s
+ * @performance {@code O(1)} for most operations, {@code O(queues.length)} for iterating through all
+ *              queues.
+ * @threading Thread-safe; uses lock-free structures and {@code volatile} flags for safe concurrent
+ *            access and updates.
+ * @memory Fixed memory footprint after initialization; no dynamic allocations in the hot path.
  */
 public class CombinationQueueArray {
     /**
-     * An array of {@link CombinationQueue}s, one for each {@link TestClickCombination monkey}.
-     * 
+     * An array of {@link CombinationQueue work queues}, with each queue dedicated to a specific
+     * {@link TestClickCombination monkey}.
+     *
      * <p>
-     * While using just one queue for all monkeys is the simplest approach and may seem tempting, it can
-     * lead to contention and bottlenecks in performance as threads compete for access to the same queue
-     * (this is the case even with lock-free queues because of CAS operations). Having a separate queue
-     * for each monkey allows them to operate independently from other threads and gives them a
-     * dedicated high-priority path to work with. However, we need a way for the
-     * {@link CombinationGeneratorTask generators} to get a reference to the queues and push WorkBatch
-     * objects to them (or for monkeys to steal work from other queues). This array of
-     * {@code CombinationQueue}s provides that mechanism.
+     * This design partitions the workload, significantly reducing contention compared to a single
+     * shared queue. Each monkey primarily polls its own dedicated queue. The array structure also
+     * facilitates work-stealing, allowing an idle monkey to poll other queues for work.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * An array of {@code CombinationQueue}s allows for efficient access to each queue by its index
-     * without adding extra overhead from custom collections or data structures. Each queue can be
-     * accessed in {@code O(1)} time, and the array itself is a contiguous block of memory, which is
-     * cache-friendly and reduces memory fragmentation.
-     * </p>
-     * 
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} for access to a specific queue, {@code O(queues.length)} for iterating
+     *
+     * @see #getQueue(int)
+     * @see #getAllQueues()
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
+     * @performance {@code O(1)} access of an individual queue, {@code O(queues.length)} for iterating
      *              through all queues.
-     * @threading The array is immutable after construction, making it thread-safe for read operations.
-     * @memory The array has a fixed memory footprint based on the number of queues and their
-     *         capacities.
+     * @threading Thread-safe; immutable for read operations after construction.
+     * @memory Minimal overhead of {@code queues.length * 4} bytes as an array of references.
      */
     private final CombinationQueue[] queues;
     /**
      * A counter for the number of active {@link CombinationGeneratorTask generators}.
-     * 
+     *
      * <p>
-     * In order to determine when all generators have finished their work, we need a way to track how
-     * many are still active. This counter serves that purpose, allowing each generator to decrement the
-     * count when it finishes its work. When the count reaches zero, we know that all generators have
-     * finished, and we can set the {@link #generationComplete} flag to true, signaling to the
-     * {@link TestClickCombination monkeys} that no more combinations will be generated.
+     * This {@link AtomicInteger atomic counter} is decremented when a root generator task completes.
+     * When the count reaches zero, the {@link #generationComplete} flag is set, signaling to monkeys
+     * that no new work will be produced.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * The use of an {@link java.util.concurrent.atomic.AtomicInteger} allows for lock-free updates to
-     * the counter, ensuring that we can accurately track the number of active generators without
-     * introducing contention or performance overhead. However, in our current architecture, we
-     * typically only have one effective generator thread, meaning that the counter will only ever be
-     * decremented once. In the future, we may assume it is always 1 until generation has finished,
-     * letting us get rid of the {@code AtomicInteger} and simply set the {@code generationComplete}
-     * flag to {@code true}.
+     * An {@code AtomicInteger} provides lock-free updates, avoiding contention. Currently, only one
+     * main generator task decrements this counter. Future optimizations might replace this with a
+     * simple flag set by that single task, removing the atomic operation overhead entirely.
      * </p>
-     * 
+     *
      * @see #generatorFinished()
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
      * @performance {@code O(1)} for increment and decrement operations.
-     * @threading Thread-safe due to the use of an {@link java.util.concurrent.atomic.AtomicInteger
-     *            AtomicInteger}, allowing for lock-free updates.
-     * @memory Negligible memory footprint, as it only involves a single {@code int} value.
+     * @threading Thread-safe; uses atomic operations for safe concurrent updates.
+     * @memory Fixed memory footprint of 16 bytes for the atomic integer.
      */
     private final AtomicInteger generatorsRemaining;
     /**
-     * The central pool for recycled {@link WorkBatch} objects. This pool is used to avoid frequent
-     * allocations and deallocations of {@code WorkBatch} instances by providing a backflow for
-     * {@code WorkBatch} objects that have been processed.
-     * 
+     * A central, thread-safe pool for recycling {@link WorkBatch} objects.
+     *
      * <p>
-     * The golden rule of JVM optimizations is the following: <b>Don't allocate.</b> Allocations and
-     * deallocations are expensive operations that can lead to frequent garbage collections, driving up
-     * latency and reducing throughput. Changes could be made to other parts of the codebase to allocate
-     * less, but where there are deallocations, there must be allocations to replace them. This pool
-     * plugs the leak and allows the system to recycle {@code WorkBatch} objects.
+     * This pool is the cornerstone of the application's memory management strategy. It allows
+     * {@link WorkBatch} instances to be reused, effectively eliminating them as a source of garbage
+     * collection pressure.
      * </p>
-     * 
+     *
      * <p>
-     * The pool is pre-allocated with a fixed number of {@code WorkBatch} instances, which matches the
-     * total capacity of all the {@link CombinationQueue}s. Those instances then get pulled into the
-     * {@link CombinationGeneratorTask generators} by their contexts to store generated combinations
-     * until they have been filled with data. The generators then push the filled {@code WorkBatch}
-     * objects into the {@code CombinationQueue}s, where they are processed by the consumers. Once the
-     * consumers have finished processing a {@code WorkBatch}, they return it to the pool for reuse,
-     * restarting the cycle.
+     * The lifecycle is as follows:
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
+     * <ol>
+     * <li>The pool is pre-filled with empty {@code WorkBatch} instances at startup.</li>
+     * <li>A {@link CombinationGeneratorTask generator} polls a batch from this pool.</li>
+     * <li>The generator fills the batch with work items.</li>
+     * <li>The full batch is offered to a work {@link #queues queue}.</li>
+     * <li>A {@link TestClickCombination monkey} polls the batch, processes its contents, and clears
+     * it.</li>
+     * <li>The monkey returns the empty, cleared batch to this pool.</li>
+     * </ol>
+     *
      * <p>
-     * Since pools pre-allocate resources, the size of the pool directly affects the memory footprint of
-     * the application. We choose to allocate the pool to match the capacity of all of the worker queues
-     * to ensure that we never run out of {@code WorkBatch} objects, which would lead to allocations.
-     * Oversizing the pool would lead to wasted memory and potentially lead to problems regarding
-     * in-flight batches, so it's crucial that we maintain the proper size.
+     * The pool is sized to hold a number of batches equal to the total capacity of all work queues,
+     * guaranteeing that a recycled batch is never discarded.
      * </p>
-     * 
-     * @see org.jctools.queues.MpmcArrayQueue
-     * @since 2025.07.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} for offer and poll operations (which should be the only ones used),
-     *              <code>O({@link org.jctools.queues.MpmcArrayQueue#capacity() 
-     *              workBatchPool.capacity()})</code> for {@link MpmcArrayQueue#size() size()}.
-     * @threading The pool is thread-safe and can be accessed by multiple threads concurrently through
-     *            the power of JCTools.
-     * @memory The queue is bounded and has a fixed memory footprint based on the number of
-     *         {@code WorkBatch} instances it contains.
+     *
+     * @see #getWorkBatchPool()
+     * @see MpmcArrayQueue
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} for both offer and poll operations, {@code O(workBatchPool.capacity())}
+     *              for {@link MpmcArrayQueue#size() size()}.
+     * @threading Thread-safe through JCTools wizardry
+     * @memory Fixed memory footprint after initialization
      */
     private final MpmcArrayQueue<WorkBatch> workBatchPool;
     /**
-     * The name of the {@link TestClickCombination monkey} that found the solution.
-     * 
-     * <p>
-     * Since our program concerns itself only with finding a single solution to the puzzle, we can
-     * immediately stop all processing once a solution has been found. While the monkey that finds the
-     * solution may not be important, it is still useful information to have for logging and debugging
-     * purposes. This field stores the name of the monkey that found the solution.
-     * </p>
-     * 
+     * The name of the {@link TestClickCombination monkey} that found the solution. Written once when
+     * {@link #solutionFound} is set.
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This field is marked as {@code volatile} to ensure visibility across threads. While the winning
-     * monkey's name could piggyback on the {@code volatile} status of the {@link #solutionFound} flag
-     * to avoid volatility overhead, for simplicity, we keep it as a separate {@code volatile} field.
-     * The overhead of volatility is negligible in this case, as the field is only
-     * {@link #solutionFound(String, short[]) written} once and {@link #getWinningMonkey() read} a few
-     * times at the end of the program's lifecycle.
+     * This field is {@code volatile} to ensure visibility across threads. It could piggyback on the
+     * {@code volatile} write to {@link #solutionFound} for publication, but is kept as a separate
+     * {@code volatile} field for simplicity. The overhead is negligible as it is written only once.
      * </p>
-     * 
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} for reads and writes.
-     * @threading Marked as {@code volatile} to ensure visibility across threads.
-     * @memory Negligible memory footprint, as it only involves a reference to a {@link java.lang.String
-     *         String} object.
+     *
+     * @see #solutionFound(String, short[])
+     * @see #getWinningMonkey()
      */
     private volatile String winningMonkey = null;
     /**
-     * The combination that solves the puzzle.
-     * 
-     * <p>
-     * Since our program concerns itself only with finding a single solution to the puzzle, we can
-     * immediately stop all processing once a solution has been found. Unlike the {@link #winningMonkey
-     * winning monkey's name}, the actual combination that solves the puzzle is extremely important
-     * information to have. This field stores the winning combination.
-     * </p>
-     * 
+     * The click combination that solves the puzzle. Written once when {@link #solutionFound} is set.
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This field is marked as {@code volatile} to ensure visibility across threads. While the winning
-     * combination could piggyback on the {@code volatile} status of the {@link #solutionFound} flag to
-     * avoid volatility overhead, for simplicity, we keep it as a separate {@code volatile} field. The
-     * overhead of volatility is negligible in this case, as the field is only
-     * {@link #solutionFound(String, short[]) written} once and {@link #getWinningCombination() read} a
-     * few times at the end of the program's lifecycle.
+     * This field is {@code volatile} to ensure visibility across threads. It could piggyback on the
+     * {@code volatile} write to {@link #solutionFound} for publication, but is kept as a separate
+     * {@code volatile} field for simplicity. The overhead is negligible as it is written only once.
      * </p>
-     * 
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} for reads and writes.
-     * @threading Marked as {@code volatile} to ensure visibility across threads.
-     * @memory Negligible memory footprint, as it only involves a reference to a {@code short[]}.
+     *
+     * @see #solutionFound(String, short[])
+     * @see #getWinningCombination()
      */
     private volatile short[] winningCombination = null;
 
     /**
-     * A flag indicating whether a solution has been found.
-     * 
-     * <p>
-     * The goal of the brute force solver is to find a combination that solves the puzzle. It doesn't
-     * matter which {@link TestClickCombination monkey} finds the solution or what the combination is,
-     * as long as it exists. Therefore, it makes no sense to continue searching for solutions once one
-     * has been found. Monkeys are meant to work independently, but if one finds the solution, we need a
-     * mechanism to stop all other monkeys from continuing their work. This flag serves that purpose.
-     * </p>
-     * 
+     * A {@code volatile} flag indicating that a solution has been found.
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This flag is a {@code volatile boolean}, which allows for safe publication and visibility across
-     * threads. An {@link java.util.concurrent.atomic.AtomicBoolean AtomicBoolean} was used previously,
-     * but since we only need to set it once and to read it multiple times, a {@code volatile boolean}
-     * saves us boxing and unboxing overhead while still providing thread-visibility guarantees. The
-     * flag is checked frequently by the monkeys, so it must be lightweight to avoid introducing
-     * unnecessary contention or performance overhead.
+     * A {@code volatile boolean} is used instead of an {@code AtomicBoolean} because it provides the
+     * necessary visibility guarantees for a single-writer/multi-reader scenario with less overhead. It
+     * is read frequently in the hot path.
      * </p>
-     * 
+     *
      * <p>
-     * Previously, this field was also checked explicitly by the generators to determine whether to
-     * continue generating combinations. However, the {@link java.util.concurrent.ForkJoinPool
-     * ForkJoinPool} architecture provides a more efficient way to handle this by facilitating
-     * cooperative cancellation through a shutdown. In theory, something similar could be implemented
-     * for the monkeys to eliminate the need for this flag altogether, but for now, we'll keep this flag
-     * for simplicity.
+     * While generators now rely on the {@link java.util.concurrent.ForkJoinPool ForkJoinPool}'s
+     * cancellation mechanism, the monkeys still poll this flag to terminate work. A future
+     * implementation could potentially unify this under a single cancellation mechanism, but this flag
+     * remains a simple and effective solution.
      * </p>
-     * 
+     *
      * @see #getWinningCombination()
      * @see #getWinningMonkey()
      * @see #solutionFound(String, short[])
-     * @since 2025.07.02 - Volatile Flag Implementation
+     * @since 2025.07 - Volatile Flag Implementation
      * @performance {@code O(1)} for reads and writes.
-     * @threading This flag is marked as {@code volatile}, ensuring that changes made by one thread are
-     *            immediately visible to all other threads. This doesn't ensure atomicity of operations,
-     *            but that is not necessary for this use case.
-     * @memory The flag is a single {@code boolean} value, which has a negligible memory footprint.
+     * @threading Thread-safe; uses {@code volatile} for safe concurrent access.
+     * @memory Fixed memory footprint of 1 byte as a {@code boolean}.
      */
     public volatile boolean solutionFound = false;
     /**
-     * A flag indicating whether the generation of combinations is complete.
-     * 
+     * A volatile flag indicating that all {@link CombinationGeneratorTask producers} have completed.
+     *
      * <p>
-     * There are two ways that the program can finish (under normal circumstances):
+     * This is set to {@code true} when {@link #generatorsRemaining} reaches zero. It signals to
+     * {@link TestClickCombination monkeys} that no new work will be added to the queues. A monkey can
+     * safely terminate when this flag is {@code true} and all work queues are empty.
      * </p>
-     * 
-     * <ol>
-     * <li>A solution is found by one of the {@link TestClickCombination monkeys}, which sets the
-     * {@link #solutionFound} flag to {@code true}.</li>
-     * <li>All generators have finished generating combinations and the monkeys finish processing all of
-     * them.</li>
-     * </ol>
-     * 
-     * <p>
-     * The latter circumstance is more difficult to detect, as it requires coordination between two
-     * different types of architecture: the {@link CombinationGeneratorTask generators} and the
-     * {@link TestClickCombination monkeys}. The monkeys need a way to tell the difference between a
-     * momentary emptiness in the queue (which is expected) and a complete end to the generation of
-     * combinations. This flag serves that purpose.
-     * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This flag is a {@code volatile boolean}, which allows for safe publication and visibility across
-     * threads. An {@link java.util.concurrent.atomic.AtomicBoolean AtomicBoolean} was used previously,
-     * but since we only need to set it once and to read it multiple times, a {@code volatile boolean}
-     * saves us boxing and unboxing overhead while still providing thread-visibility guarantees. The
-     * flag is checked frequently by the monkeys, so it must be lightweight to avoid introducing
-     * unnecessary contention or performance overhead.
+     * A {@code volatile boolean} is used instead of an {@code AtomicBoolean} because it provides the
+     * necessary visibility guarantees for a single-writer/multi-reader scenario with less overhead. It
+     * is read frequently by monkeys to determine when to stop work.
      * </p>
-     * 
+     *
      * @see #generatorFinished()
      * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask#GeneratorContext)
      * @see TestClickCombination#allQueuesEmpty()
-     * @since 2025.07.02 - Volatile Flag Implementation
+     * @since 2025.07 - Volatile Flag Implementation
      * @performance {@code O(1)} for reads and writes.
-     * @threading This flag is marked as {@code volatile}, ensuring that changes made by one thread are
-     *            immediately visible to all other threads. This doesn't ensure atomicity of operations,
-     *            but that is not necessary for this use case.
-     * @memory The flag is a single {@code boolean} value, which has a negligible memory footprint.
+     * @threading Thread-safe; uses {@code volatile} for safe concurrent access.
+     * @memory Fixed memory footprint of 1 byte as a {@code boolean}.
      */
     public volatile boolean generationComplete = false;
 
     /**
-     * Constructs a {@code CombinationQueueArray} with the specified number of consumers
-     * ({@link TestClickCombination monkeys}) and {@link CombinationGeneratorTask generators.}
-     * 
+     * Constructs the shared {@link #queues queue array} and its associated resources.
+     *
      * <p>
-     * Of the two parameters, the number of consumers is the more important one, as it directly affects
-     * the size of the {@link #queues} array and the {@link #workBatchPool} pool. While the number of
-     * generators does affect the {@link #generatorsRemaining} counter, the
-     * {@link java.util.concurrent.ForkJoinPool ForkJoinPool} architecture means that the number of
-     * active generator threads can vary dynamically, so completion signaling is handled by one thread
-     * (the one that spawns the generators) rather than all of them. For this reason, we typically set
-     * the number of generators to 1. In the future, we may remove this parameter entirely and assume it
-     * is always 1.
+     * This constructor initializes the entire communication and resource-sharing infrastructure. It
+     * creates the array of work {@link CombinationQueue queues} and pre-allocates {@link #workBatchPool
+     * the central} {@link WorkBatch} pool. The pool is sized to match the total
+     * {@link CombinationQueue#getCapacity() capacity} of all work queues combined, which is a critical
+     * invariant to ensure the recycling mechanism never fails.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * In the context of our program, we should only need one instance of this class, as it serves as a
-     * central hub for communication and state management. This constructor is therefore not part of the
-     * hot path and does not need to be optimized for performance. However, there are still some tricks
-     * we apply to amortize the cost of allocations and setup.
-     * </p>
-     * 
-     * <p>
-     * First, we pre-allocate the entire {@link #workBatchPool} pool to prevent allocations in the hot
-     * path. The pool is sized to match the total capacity of all the {@link #queues}, ensuring that we
-     * never run out of {@link WorkBatch} objects, which would lead to allocations. Second, we use an
-     * {@link AtomicInteger} for the {@link #generatorsRemaining} counter, which allows for lock-free
-     * updates and avoids the need for synchronization.
-     * </p>
-     * 
-     * @param numConsumers  The number of {@link TestClickCombination monkeys} that will be consuming
-     *                      combinations. Affects the size of the {@link #queues} array and the
-     *                      {@link #workBatchPool} pool.
-     * @param numGenerators The (effective) number of {@link CombinationGeneratorTask generators} that
-     *                      will be producing combinations. Affects the {@link #generatorsRemaining}
-     *                      counter.
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
+     *
+     * @param numConsumers  The number of {@link TestClickCombination monkeys}. This determines the
+     *                      number of work queues to create.
+     * @param numGenerators The (effective) number of {@link CombinationGeneratorTask generators}. This
+     *                      initializes the {@link #generatorsRemaining completion counter}.
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
      * @performance {@code O(numConsumers)} queue initialization + {@code O(1)} counter setup +
-     *              {@code O(numConsumers)} counter initialization + <code>O(numConsumers *
-     *              {@link CombinationQueue#QUEUE_SIZE})</code> pool pre-allocation =
+     *              {@code O(numConsumers)} counter initialization +
+     *              {@code O(numConsumers * CombinationQueue.QUEUE_SIZE)} pool pre-allocation =
      *              {@code O(numConsumers)} time complexity.
-     * @threading Thread-safe due to instance isolation (a constructor must create a new object).
-     * @memory Fixed memory footprint based on {@code numConsumers},
-     *         {@link CombinationQueue#QUEUE_SIZE}, and {@link CombinationGeneratorTask#BATCH_SIZE}.
-     * @optimization Pre-allocates the entire {@code WorkBatch} pool to prevent allocations in the hot
-     *               path.
+     * @threading Thread-safe due to instance isolation
+     * @memory Allocates the array of queues, counters, and flags, and pre-allocates the pool.
      */
     public CombinationQueueArray(int numConsumers, int numGenerators) {
         this.queues = new CombinationQueue[numConsumers];
@@ -383,87 +260,80 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Gets the {@link #workBatchPool central pool} for recycled {@link WorkBatch} objects. This pool
-     * completes the lifecycle of {@code WorkBatch} objects, allowing them to be reused and preventing
-     * frequent allocations and deallocations, but we need a way for the {@link CombinationGeneratorTask
-     * generators} and {@link TestClickCombination monkeys} to get a reference to it. This getter
-     * provides that mechanism.
-     * 
-     * @return a reference to the pool.
+     * Returns the {@link #workBatchPool central pool} for recycled {@link WorkBatch} objects.
+     *
+     * <p>
+     * Both {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} use
+     * this method to access the pool. Generators poll from it to get empty batches, and monkeys offer
+     * to it to return processed batches.
+     * </p>
+     *
+     * @return The thread-safe, multi-producer/multi-consumer queue used for pooling {@code WorkBatch}
+     *         instances.
      * @see #workBatchPool
      * @see #CombinationQueueArray(int, int)
-     * @see WorkBatch
-     * @see org.jctools.queues.MpmcArrayQueue
-     * @since 2025.07.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe due to field immutability after construction. The pool itself is also
-     *            thread-safe through JCTools magic.
+     * @see MpmcArrayQueue
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} retrieval.
+     * @threading Thread-safe; returns a reference to an immutable field.
      */
     public MpmcArrayQueue<WorkBatch> getWorkBatchPool() {
         return workBatchPool;
     }
 
     /**
-     * Gets the {@link CombinationQueue} at the specified index.
-     * 
-     * @param idx the index of the {@link CombinationQueue} to retrieve.
-     * @return the {@link CombinationQueue} at the specified index in the {@link #queues} array.
+     * Returns the {@link CombinationQueue work queue} at the specified index.
+     *
+     * @param idx The index of the queue to retrieve.
+     * @return The {@code CombinationQueue} at the specified index in the {@link #queues} array.
      * @see #CombinationQueueArray(int, int)
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe due to field immutability after construction.
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
+     * @performance {@code O(1)} access.
+     * @threading Thread-safe; returns a reference to an immutable field.
      */
     public CombinationQueue getQueue(int idx) { 
         return queues[idx]; 
     }
 
     /**
-     * Returns all of the {@link CombinationQueue CombinationQueues} in the {@link #queues} array.
-     * 
-     * @return the entire {@link #queues} array.
+     * Returns the {@link #queues entire array} of work queues.
+     *
+     * <p>
+     * This is primarily used to enable work-stealing, where a {@link TestClickCombination monkey} can
+     * iterate through other queues to find work if its own queue is empty.
+     * </p>
+     *
+     * @return The array of all {@link CombinationQueue}s.
      * @see #CombinationQueueArray(int, int)
-     * @since 2025.05.26 - Monkey Work-Stealing Introduction
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe due to field immutability after construction.
+     * @since 2025.05 - Monkey Work-Stealing Introduction
+     * @performance {@code O(1)} access.
+     * @threading Thread-safe; returns a reference to an immutable field.
      */
     public CombinationQueue[] getAllQueues() { 
         return queues; 
     }
 
     /**
-     * Marks that a {@link CombinationGeneratorTask generator} has finished its work. If all generators
-     * have finished, sets the {@link #generationComplete} flag to {@code true}, signaling to the
-     * {@link TestClickCombination monkeys} that no more combinations will be generated.
-     * 
+     * Atomically decrements the {@link #generatorsRemaining} counter and sets the
+     * {@link #generationComplete} flag if the counter reaches zero.
+     *
      * <p>
-     * The {@link CombinationGeneratorTask generators} are responsible for producing combinations that
-     * the {@link TestClickCombination monkeys} will test. Our architecture is designed to allow for
-     * mostly independent operation between the two, but when the generators finish their work, we need
-     * to signal to the monkeys that no more combinations will be enqueued so they can stop waiting for
-     * new work and exit when all queues are empty. This method provides the mechanism for that
-     * signaling.
+     * This method is called by a {@link CombinationGeneratorTask generator} after it has finished
+     * computing all of its subtasks to signal to {@link TestClickCombination monkeys} that no new work
+     * will be produced.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method is designed to be called only once by each generator when it finishes its work, so it
-     * is not performance-critical. Nevertheless, the use of an
-     * {@link java.util.concurrent.atomic.AtomicInteger AtomicInteger} for the
-     * {@link #generatorsRemaining} counter allows for lock-free and thread-safe updates, ensuring that
-     * we can accurately track the number of active generators without introducing contention or
-     * performance overhead. However, in our current architecture, we typically only have one effective
-     * generator thread, meaning that the counter will only ever be decremented once. In the future, we
-     * may remove this parameter entirely and assume it is always 1, letting us get rid of the
-     * {@code AtomicInteger} and simply set the {@code generationComplete} flag to {@code true}.
+     * This method is not in the hot path. It uses an {@code AtomicInteger} for lock-free updates. Since
+     * only one root generator task calls this, a future optimization could be to remove the atomic
+     * operation and have the main thread set the {@code generationComplete} flag directly.
      * </p>
-     * 
-     * @see #generatorsRemaining
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe due to the use of an {@code AtomicInteger} for the
-     *            {@link #generatorsRemaining} counter, allowing for lock-free updates.
-     * @memory Negligible memory footprint, as it only involves updating a single integer and a boolean
-     *         flag.
+     *
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
+     * @performance {@code O(1)} atomic decrement and check.
+     * @threading Thread-safe; uses atomic operations for safe concurrent updates.
+     * @memory Does not allocate.
      */
     public void generatorFinished() {
         if (generatorsRemaining.decrementAndGet() == 0) {
@@ -472,38 +342,30 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Marks that a solution has been found by a {@link TestClickCombination monkey}.
-     * 
+     * Signals that a solution has been found.
+     *
      * <p>
-     * Since our program concerns itself only with finding a single solution to the puzzle, it doesn't
-     * matter what the solution is or which monkey found it. Once a solution has been found, we need a
-     * way to stop all other monkeys from continuing their work and stop all
-     * {@link CombinationGeneratorTask generators} from producing more combinations. Solution signaling
-     * is therefore a crucial part of our architecture, and this method provides the mechanism for it.
+     * This method sets the {@link #solutionFound} flag to {@code true} and records the winning
+     * combination and the name of the thread that found it. It is designed to be called by any
+     * {@link TestClickCombination monkey}. A check ensures that only the first-found solution is
+     * recorded.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method is designed to be called only once, by the first monkey that finds a solution. We
-     * don't need to worry about multiple monkeys finding solutions simultaneously, so we can keep the
-     * method simple and worry less about aggressive optimizations. Rather than using an AtomicBoolean,
-     * we use a {@code volatile boolean} flag for the {@link #solutionFound} field, which saves us
-     * boxing and unboxing overhead as well as some memory while providing the same effect (safe
-     * publication and visibility across threads). The winning monkey's name and combination could
-     * piggyback on the {@code volatile} status of the flag to avoid volatility overhead, but for
-     * simplicity, we keep them as {@code volatile} fields.
+     * This method is called only once. A simple check on the {@code solutionFound} flag prevents a race
+     * condition where multiple monkeys find a solution simultaneously. A {@code volatile
+     * boolean} is used for the flag over an {@code AtomicBoolean} to reduce overhead, as the
+     * single-write nature of the event does not require atomic compare-and-set operations. The other
+     * fields could piggyback on this write for visibility.
      * </p>
-     * 
-     * @see #solutionFound
-     * @see #getWinningCombination()
-     * @see #getWinningMonkey()
-     * @param monkeyName         the name of the monkey that found the solution.
-     * @param winningCombination the combination that solves the puzzle.
-     * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe due to the use of a {@code volatile boolean} flag for the
-     *            {@link #solutionFound} field, ensuring visibility across threads.
-     * @memory Negligible memory footprint, as it only involves updating a few fields.
+     *
+     * @param monkeyName         The name of the monkey that found the solution.
+     * @param winningCombination The combination that solves the puzzle.
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
+     * @performance {@code O(1)} check and set.
+     * @threading Thread-safe; uses {@code volatile} for safe concurrent access.
+     * @memory Does not allocate.
      */
     public void solutionFound(String monkeyName, short[] winningCombination) {
         if (solutionFound == false) {
@@ -514,30 +376,30 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Gets the name of the {@link TestClickCombination monkey} that found the solution.
-     * 
-     * @return the name of the winning monkey, or {@code null} if no solution has been found yet.
+     * Returns the name of the {@link TestClickCombination monkey} that found the solution.
+     *
+     * @return The winning monkey's name, or {@code null} if no solution has been found.
      * @see #getWinningCombination()
      * @see #solutionFound(String, short[])
      * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe due to the use of a {@code volatile} field for the {@link #winningMonkey}
-     *            field, ensuring visibility across threads.
+     * @performance {@code O(1)} retrieval.
+     * @threading Thread-safe; returns a reference to a {@code volatile} field.
+     * @memory Does not allocate.
      */
     public String getWinningMonkey() { 
         return winningMonkey; 
     }
     
     /**
-     * Gets the combination that solves the puzzle.
-     * 
-     * @return the winning combination, or {@code null} if no solution has been found yet.
+     * Returns the combination that solves the puzzle.
+     *
+     * @return The winning combination array, or {@code null} if no solution has been found.
      * @see #getWinningMonkey()
      * @see #solutionFound(String, short[])
      * @since 2025.05.23 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe due to the use of a {@code volatile} field for the
-     *            {@link #winningCombination} field, ensuring visibility across threads.
+     * @performance {@code O(1)} retrieval.
+     * @threading Thread-safe; returns a reference to a {@code volatile} field.
+     * @memory Does not allocate.
      */
     public short[] getWinningCombination() { 
         return winningCombination; 

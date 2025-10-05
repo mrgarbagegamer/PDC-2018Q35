@@ -6,260 +6,169 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
- * The main class to orchestrate the Lights Out puzzle solver.
- * 
+ * The main application entry point and orchestrator for the Lights Out puzzle solver.
+ *
  * <p>
- * Our architecture for solving this problem involves a producer-consumer model where we have
- * {@link TestClickCombination "monkeys"} (workers) that test combinations of clicks on a Lights Out
- * grid and {@link CombinationGeneratorTask generators} that produce these combinations. The main
- * class is responsible for initializing the {@link Grid grids}, starting the generators and
- * monkeys, and coordinating their activities.
+ * This class is responsible for initializing and coordinating the entire puzzle-solving process. It
+ * sets up a producer-consumer architecture where {@link CombinationGeneratorTask generators} act as
+ * producers, generating potential solutions, and {@link TestClickCombination "monkeys"} act as
+ * consumers, validating them.
  * </p>
- * 
+ *
  * <h2>Architecture Role</h2>
  * <p>
- * All of the main orchestration logic is contained within this class. It sets up the environment,
- * manages the lifecycle of threads, and handles the overall flow of the program. The
- * {@link #main(String[]) main method} serves as the entry point to the application and spawns the
- * {@link java.util.concurrent.ForkJoinPool ForkJoinPool} for the generators, starts the
- * {@link CombinationQueueArray queues} for inter-thread communication, and launches the monkeys,
- * blocking until all tasks are complete or the solution is found.
+ * The {@link #main(String[])} method serves as the central hub, performing the following key tasks:
  * </p>
- * 
- * <h2>Performance Characteristics</h2>
+ * <ul>
+ * <li>Parses command-line arguments for {@code numClicks}, {@code numThreads}, and
+ * {@code puzzleNumber}.</li>
+ * <li>Instantiates the correct {@link Grid} implementation (e.g., {@link Grid35}) for the selected
+ * puzzle.</li>
+ * <li>Initializes the {@link CombinationQueueArray}, the communication backbone for distributing
+ * work.</li>
+ * <li>Configures and starts a {@link ForkJoinPool} for the recursive generators.</li>
+ * <li>Launches a pool of monkeys.</li>
+ * <li>Manages the application lifecycle, from submitting the initial root task to gracefully
+ * shutting down and reporting results.</li>
+ * </ul>
+ *
+ * <h2>Performance and Threading</h2>
  * <p>
- * Since this class primarily handles orchestration and thread management, its performance impact is
- * minimal compared to the computational work done by the generators and monkeys. The main method
- * itself runs in approximately constant time complexity, as it involves a fixed number of
- * operations regardless of input size. The overall performance of the application is more
- * significantly influenced by the efficiency of the combination generation and testing algorithms
- * implemented in the other classes.
+ * The orchestration logic within this class has a minimal performance footprint (effectively
+ * {@code O(1)}), as the computational heavy lifting is delegated to the generator and worker
+ * threads. The main thread's primary role is setup, coordination, and shutdown.
  * </p>
- * 
- * <h2>Thread Safety</h2>
+ *
  * <p>
- * Since this class is primarily responsible for initialization and managing the lifecycle of other
- * threads, it is designed to be mostly single-threaded in its operations. After spawning the
- * monkeys and generators, it waits for their completion by
- * {@link java.util.concurrent.ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask) invoking} a
- * {@link CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask.GeneratorContext)
- * blocking root task}, and then {@link Thread#join() joining} each monkey thread, ensuring that the
- * main thread does not proceed until computation is complete (and ensuring that the runtime thread
- * count is at most the number of threads specified at startup).
+ * Orchestration is single-threaded. The main thread blocks after submitting the root generation
+ * task and subsequently {@link Thread#join() joins} all worker threads, ensuring a clean shutdown
+ * and accurate result reporting. This makes it the ideal location for initializing {@code static},
+ * shared resources before the concurrent phase begins.
  * </p>
- * 
- * <p>
- * Static methods meant for pre-computed values are best called in this class, as it is
- * single-threaded for most of its operations. Methods that set {@code static} values for other
- * classes are also safe to call here.
- * </p>
- * 
- * @see CombinationGeneratorTask
- * @see CombinationQueueArray
- * @see Grid
- * @see TestClickCombination
- * @since 2025.04.01 - Multi-threaded Refactor
- * @performance ~{@code O(1)} for orchestration tasks
- * @threading Thread-safe due to single-threaded orchestration.
- * @algorithm Parses the command-line arguments, initializes the grid, starts the generator and
- *            monkey threads, and coordinates their activities until a solution is found or all
- *            combinations are exhausted.
+ *
+ * @since 2025.04 - Multi-threaded Refactor
+ * @performance ~{@code O(1)} for orchestration tasks.
+ * @threading Thread-safe; single-threaded orchestration.
+ * @memory Pre-allocation of shared resources to minimize runtime overhead.
  */
 public class StartYourMonkeys {
     
     /**
-     * Logger for {@code StartYourMonkeys} class.
-     * 
+     * The primary logger for the application, configured for high-performance, asynchronous logging.
+     *
      * <p>
-     * Logging is used throughout the program to provide insights into the solver's progress,
-     * performance metrics, and any issues encountered during execution. By nature, though, logging is
-     * not thread-safe, and using {@link java.io.PrintStream#println(String) System.out.println()} in a
-     * multi-threaded environment can lead to interleaved output and/or blocked threads. We need an
-     * asynchronous logging framework that can handle concurrent writes without blocking, which is why
-     * we use Log4j2.
+     * In a highly concurrent application, standard synchronous logging (like
+     * {@link java.io.PrintStream#println(String) System.out.println}) can become a major bottleneck. To
+     * avoid this, we use Log4j2 with an asynchronous configuration. This allows application threads to
+     * offload log messages to a background thread with minimal blocking, preventing logging from
+     * impacting the performance of the core solving algorithm.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * Log4j2 is designed for high performance and low latency, making it suitable for multi-threaded
-     * applications like this one. It supports asynchronous logging, which allows log messages to be
-     * processed in a separate thread, reducing the impact on the main application threads.
-     * </p>
-     * 
+     *
      * @see CombinationMessage
      * @see Logger
      * @see LogManager
      * @see LogManager#getLogger()
      * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous
      *      Logging</a>
-     * @since 2025.05.04 - Log4j2 Integration
-     * @performance {@code O(1)} for logging operations, as they are buffered and processed
-     *              asynchronously.
-     * @threading This is thread-safe due to Log4j2's asynchronous logging capabilities. None-the-less,
-     *            there is only one thread that runs this main method, so the logger for this class is
-     *            effectively single-threaded.
-     * @optimization Asynchronous logging is enabled to minimize the impact on application performance.
+     * @since 2025.05 - Log4j2 Integration
+     * @performance {@code O(1)} for logging operations.
+     * @threading Thread-safe; designed for concurrent use.
+     * @memory Fixed overhead for asynchronous logging buffers.
      */
     private static final Logger logger = LogManager.getLogger();
 
     /**
-     * Default number of clicks if not specified via command-line arguments.
-     * 
+     * The default number of clicks to test for a solution.
+     *
      * <p>
-     * The goal of this solver is to find a solution to the Lights Out puzzle (Q35) using a brute-force
-     * approach. After extensive testing and analysis, we've been able to rule out the possibility of a
-     * &le; 16-click solution for Q35. Therefore, the default number of clicks is set to
-     * {@value #DEFAULT_NUM_CLICKS}, which is the minimum number of clicks that could potentially yield
-     * a solution. This default value can be overridden by providing a different number of clicks as a
-     * command-line argument when starting the program.
+     * Based on prior analysis, no solution with 16 or fewer clicks exists for the primary target, Q35.
+     * This default is set to the next logical step in the brute-force search.
      * </p>
      * 
      * @see #main(String[])
-     * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @performance {@code O(1)} - This is a constant value used for configuration.
-     * @threading This is a constant value and is inherently thread-safe.
+     * @since 2025.08 - Enhanced Documentation of Codebase
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     private static final int DEFAULT_NUM_CLICKS = 17;
     /**
-     * Default number of threads if not specified via command-line arguments.
-     * 
+     * The default number of threads to use for both generators and workers.
+     *
      * <p>
-     * For my system (an Intel Core i7-13700K with 16 cores), the optimal number of threads is
-     * {@value #DEFAULT_NUM_THREADS}. This allows for efficient CPU utilization without context
-     * switching overhead. Larger numbers of threads tend to lead to diminishing returns due to
-     * increased context switching overhead and resource contention. This default value can be
-     * overridden by providing a different value at startup.
+     * This value is tuned for a high-core-count development machine (16+ cores). The application
+     * allocates half of these threads to the {@link ForkJoinPool} for the
+     * {@link CombinationGeneratorTask generators} and the other half to the {@link TestClickCombination
+     * monkeys}.
      * </p>
      * 
      * @see #main(String[])
-     * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @performance {@code O(1)} - This is a constant value used for configuration.
-     * @threading This is a constant value and is inherently thread-safe.
+     * @since 2025.08 - Enhanced Documentation of Codebase
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     private static final int DEFAULT_NUM_THREADS = 16;
     /**
-     * The default question number to solve if not specified via command-line arguments.
-     * 
-     * <p>
-     * Since our program is mainly concerned with solving Q35, we set this as the default question
-     * number for convenience.
-     * </p>
+     * The default puzzle to solve, corresponding to the hardest variant (Q35).
      * 
      * @see #main(String[])
-     * @since 2025.08.16 - Enhanced Documentation of Codebase
-     * @performance {@code O(1)} - This is a constant value used for configuration.
-     * @threading This is a constant value and is inherently thread-safe.
+     * @since 2025.08 - Enhanced Documentation of Codebase
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe as a {@code static final} constant.
      */
     private static final int DEFAULT_QUESTION_NUMBER = 35;
 
     /**
-     * Main orchestration method for the Lights Out solver.
-     * 
+     * The main entry point for the solver application.
+     *
      * <p>
-     * We need an entry point to the program that can initialize the necessary components, start the
-     * {@link CombinationGeneratorTask generation} of combinations, and manage the lifecycle of the
-     * {@link TestClickCombination monkeys}. This method fulfills that role. The main method is
-     * responsible for several duties:
+     * This method orchestrates the entire solving process, from initialization to shutdown. It follows
+     * a structured sequence:
      * </p>
-     * 
      * <ol>
-     * <li>
-     * <h3>Argument Parsing and Configuration</h3></li>
+     * <li><b>Argument Parsing:</b> Reads {@code numClicks}, {@code numThreads}, and
+     * {@code puzzleNumber} from command-line arguments, with sane defaults.</li>
+     * <li><b>Component Initialization:</b> Selects the appropriate {@link Grid} subclass and
+     * initializes the {@link CombinationQueueArray} and other shared resources.</li>
+     * <li><b>Monkey Creation:</b> Spawns a pool of {@link TestClickCombination} threads that
+     * immediately begin waiting for work.</li>
+     * <li><b>Generator Execution:</b> Creates a {@link ForkJoinPool} and submits a root
+     * {@link CombinationGeneratorTask}. The main thread blocks using
+     * {@link ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask)}, waiting for the entire generation
+     * process (including all forked subtasks) to complete or for a solution to be found.</li>
+     * <li><b>Graceful Shutdown:</b> Once generation finishes, it
+     * {@link CombinationGeneratorTask#flushAllPendingBatches(CombinationQueueArray, ForkJoinPool)
+     * flushes any remaining work} from generator-local batches,
+     * {@link CombinationQueueArray#generatorFinished() signals} to the workers that no more work is
+     * coming, and waits for them to terminate using {@link Thread#join()}.</li>
+     * <li><b>Result Reporting:</b> Reports the outcome (solution found or not found), verifies the
+     * solution if one exists, and {@link #formatElapsedTime(long) logs the total elapsed time} before
+     * shutting down the {@link #logger}.</li>
+     * </ol>
+     *
+     * <h3>ForkJoinPool Behavior</h3>
      * <p>
-     * The method parses command-line arguments to determine the number of clicks, the number of
-     * threads, and the question number to solve, providing default values if not specified. We also get
-     * the current time in milliseconds to measure the elapsed time for the entire execution of the
-     * program (stored as a {@code long}). Note that the number of threads passed to the program is the
-     * TOTAL; an equal number of generator threads and monkeys are created to balance the workload.
+     * A key decision was to use {@code invoke()} to block the main thread. Early prototypes using
+     * non-blocking approaches with
+     * {@link ForkJoinPool#awaitQuiescence(long, java.util.concurrent.TimeUnit)} proved unreliable, as
+     * {@code awaitQuiescence} did not consistently wait for dynamically forked subtasks to complete.
+     * The current blocking approach provides a robust and predictable mechanism for managing the
+     * generator lifecycle.
      * </p>
-     * 
-     * <li>
-     * <h3>Grid Selection and Initialization</h3></li>
-     * <p>
-     * We use the question number to select the appropriate concrete implementation of the {@link Grid}
-     * class, which represents the puzzle grid to be solved.
-     * </p>
-     * 
-     * <li>
-     * <h3>True Adjacents Calculation</h3></li>
-     * <p>
-     * The method calculates the first true adjacents in {@link Grid.ValueFormat#Index Index} format,
-     * which is used to determine the index of the first {@code true} adjacent cell. This is crucial for
-     * the combination generation process, as it defines the range of indices that the first click in a
-     * {@code prefix} can take.
-     * </p>
-     * 
-     * <li>
-     * <h3>Monkey Creation and Startup</h3></li>
-     * <p>
-     * The method creates and starts the specified number of {@link TestClickCombination monkeys}, each
-     * responsible for consuming click combinations from a shared queue and testing them against the
-     * puzzle {@link Grid grid}. Each monkey is assigned a unique thread name for identification and is
-     * given a {@link CombinationQueue queue}.
-     * </p>
-     * 
-     * <li>
-     * <h3>ForkJoinPool Setup and Coordination</h3></li>
-     * <p>
-     * The method sets up a {@link ForkJoinPool} to manage the generation of click combinations. It
-     * submits the root task of the {@link CombinationGeneratorTask} to the pool, which will recursively
-     * generate subtasks for each possible index that the first click can take on. Notably, we use the
-     * {@link ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask)} method to submit the root task,
-     * which blocks the main thread until all its subtasks are completed.
-     * </p>
-     * 
-     * <p>
-     * Due to some weird {@code ForkJoinPool} mechanics, the
-     * {@link ForkJoinPool#awaitQuiescence(long, java.util.concurrent.TimeUnit)} method only waits for
-     * completion of the root task to finish and does not wait for tasks that are forked from it. If the
-     * method behaved like it should, we would be able to avoid creating a separate path for the root
-     * task in generation, but that world is not reality (for some reason). This approach ends up being
-     * the best compromise for our program.
-     * </p>
-     * 
-     * <li>
-     * <h3>Batch Flushing Coordination</h3></li>
-     * <p>
-     * Since the {@link CombinationGeneratorTask generators} hold onto their {@link WorkBatch batches}
-     * until they are full before flushing them to the queue, we need to ensure that any remaining
-     * batches are flushed if the generators exit without a solution being found. This is done by
-     * calling the {@code static} method
-     * {@link CombinationGeneratorTask#flushAllPendingBatches(CombinationQueueArray, ForkJoinPool)}.
-     * Afterwards, we mark the generation as complete to signal to the monkeys that no more batches will
-     * be generated.
-     * </p>
-     * 
-     * <li>
-     * <h3>Thread Synchronization and Cleanup</h3></li>
-     * <p>
-     * After the generation is complete, the method waits for all monkey threads to finish by calling
-     * {@link Thread#join()} on each monkey. This ensures that all threads have completed their work and
-     * allows for the proper cleanup of resources. To be safe, we also explicitly shut down the
-     * generator pool to release any resources it holds.
-     * </p>
-     * 
-     * <li>
-     * <h3>Result Processing and Output</h3></li>
-     * <p>
-     * Finally, the method retrieves the {@link CombinationQueueArray#getWinningCombination() winning
-     * combination} from the queue (if it exists) and {@link #formatElapsedTime(long) formats the
-     * elapsed time} for display. It then logs the winning combination and the elapsed time using the
-     * logger. If no solution is found, it logs that information instead. We also verify the solution's
-     * correctness by applying the winning combination to a clone of the original grid and checking if
-     * it results in a solved state. The grid is printed to the console for visual verification.
-     * </p>
-     * 
+     *
      * @param args Command-line arguments:
      *             <ul>
-     *             <li>{@code args[0]} - Number of clicks (default: 17)</li>
-     *             <li>{@code args[1]} - Number of threads (default: 8)</li>
-     *             <li>{@code args[2]} - Question number (default: 35)</li>
+     *             <li>{@code args[0]}: Number of clicks to test (e.g., 17).</li>
+     *             <li>{@code args[1]}: Total number of threads to use (e.g., 16).</li>
+     *             <li>{@code args[2]}: The puzzle ID to solve (13, 22, or 35).</li>
      *             </ul>
-     * @throws IllegalArgumentException if the number of clicks is not between 1 and 109, the number of
-     *                                  threads is less than 1, or the question number is not one of the
-     *                                  valid options (13, 22, or 35).
+     * @throws IllegalArgumentException if any command-line arguments are invalid.
      * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask.GeneratorContext)
-     * @since 2025.04.01 - Multi-threaded Refactor
+     * @since 2025.04 - Multi-threaded Refactor
+     * @performance ~{@code O(1)} for most orchestration tasks.
+     * @threading Single-threaded for most of orchestration, coordinating multiple threads.
+     * @memory Pre-allocates several shared resources to minimize runtime overhead.
      */
     public static void main(String[] args) {
         long startTime = System.currentTimeMillis(); // Start timer
@@ -430,22 +339,19 @@ public class StartYourMonkeys {
     }
 
     /**
-     * Formats elapsed time in milliseconds to a human-readable {@link java.lang.String string} in the
-     * form "Xh Ym Zs Wms".
-     * 
-     * <p>
-     * This method takes a duration in milliseconds and converts it into a more human-readable format,
-     * breaking it down into hours, minutes, seconds, and milliseconds. This is useful for displaying
-     * the total time taken for the solver to find a solution or exhaust all possibilities at the end of
-     * the program's execution.
-     * </p>
-     * 
-     * @param millis Elapsed time in milliseconds.
-     * @return A {@link java.lang.String String} representing the formatted elapsed time.
+     * {@link String#format(String, Object...) Formats} a millisecond duration into a human-readable "Xh
+     * Ym Zs Wms" string.
+     *
+     * @param millis The elapsed time in milliseconds.
+     * @return A formatted {@link String} representing the duration.
      * @see System#currentTimeMillis()
-     * @since 2025.06.29 - Millisecond Precision to Elapsed Time Formatting
+     * @see StringBuilder
+     * @see StringBuilder#toString()
+     * @since 2025.06 - Millisecond Precision to Elapsed Time Formatting
      * @performance {@code O(1)} operations and string formatting.
-     * @threading This method is thread-safe as it does not modify any shared state.
+     * @threading Thread-safe; does not modify shared state.
+     * @memory Allocates a small, fixed-size {@link StringBuilder} for formatting and returns a new
+     *         {@link String}.
      */
     private static String formatElapsedTime(long millis) {
         long seconds = millis / 1000;

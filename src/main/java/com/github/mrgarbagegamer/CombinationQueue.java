@@ -3,198 +3,162 @@ package com.github.mrgarbagegamer;
 import org.jctools.queues.MpmcArrayQueue;
 
 /**
- * A high-performance, thread-safe queue for managing {@link WorkBatch batches} of click
- * combinations to be tested by {@link TestClickCombination worker threads (monkeys)}.
- * 
+ * A thin, type-safe wrapper around a JCTools {@link MpmcArrayQueue} designed exclusively for
+ * transferring {@link WorkBatch} objects between producer and consumer threads.
+ *
+ * <h2>Architectural Role</h2>
  * <p>
- * Parallelism is key to efficiently solving this puzzle, and an efficient way to do that is to
- * divide the operational roles into {@link CombinationGeneratorTask generators} and
- * {@link TestClickCombination monkeys}. However, this separation of concerns requires a robust and
- * efficient way to exchange work between these two roles. This class serves as the conduit for this
- * exchange, holding batches of click combinations for the monkeys to process.
- * </p>
- * 
- * <p>
- * This queue is implemented using the {@link org.jctools.queues.MpmcArrayQueue MpmcArrayQueue} from
- * the JCTools library, which is designed for high-throughput, low-latency concurrent access. The
- * queue is bounded to a fixed size to prevent unbounded memory growth, and it uses non-blocking
- * operations to minimize contention between threads. This design choice ensures that both the
- * generators and monkeys can operate efficiently without being bottlenecked by synchronization
+ * This class serves as a high-performance communication channel between
+ * {@link CombinationGeneratorTask} producer threads and {@link TestClickCombination} consumer
+ * threads ("monkeys"). Its sole purpose is to enqueue and dequeue {@link WorkBatch} instances,
+ * which is the cornerstone of the solver's low-contention batching architecture. By batching
+ * thousands of combinations into a single queue operation, it dramatically reduces synchronization
  * overhead.
  * </p>
- * 
- * <h2>Architecture Role</h2>
+ *
+ * <h2>Implementation Details</h2>
  * <p>
- * The {@code CombinationQueue} acts as a bridge between the {@link CombinationGeneratorTask
- * generators} and the {@link TestClickCombination monkeys}. Generators produce {@link WorkBatch
- * batches} of work and enqueue them into a queue, while monkeys dequeue these batches and process
- * them. This decoupling allows both components to operate independently and at their own pace,
- * improving the overall throughput and responsiveness of the system.
+ * It is implemented as a thin wrapper over {@code MpmcArrayQueue} to provide a clear,
+ * domain-specific API. The queue is bounded and operates in a lock-free manner, using relaxed
+ * (non-blocking) offers and polls for maximum throughput.
  * </p>
- * 
- * <h2>Performance Characteristics</h2>
- * <p>
- * {@code CombinationQueue} is optimized for high performance in a multi-threaded environment. By
- * using a bounded, lock-free queue, it minimizes the overhead associated with thread
- * synchronization. The use of batches instead of individual combinations further reduces the
- * frequency of enqueue and dequeue operations, amortizing the overhead across multiple
- * combinations. This design is particularly effective in scenarios with high contention, as it
- * allows multiple threads to operate concurrently with minimal interference.
- * </p>
- * 
+ *
  * <h2>Thread Safety</h2>
  * <p>
- * {@code CombinationQueue} is inherently thread-safe due to its use of the {@code MpmcArrayQueue},
- * which is designed for concurrent access by multiple producers and consumers. The non-blocking
- * operations used for enqueuing and dequeuing ensure that threads can operate without waiting on
- * locks or other synchronization mechanisms.
+ * This class is thread-safe for multiple producers and multiple consumers, as guaranteed by the
+ * underlying JCTools queue. However, the {@link WorkBatch} objects passed through it are
+ * <strong>not</strong> thread-safe. A safe hand-off protocol is required, where producers do not
+ * modify a batch after it has been offered to the queue.
  * </p>
- * 
- * <p>
- * Though the queue itself is thread-safe, it is important to note that the {@link WorkBatch}
- * objects enqueued in the queue are not. Care should be taken to ensure that these objects are
- * handed off between threads in a safe manner, preventing a thread from modifying a
- * {@code WorkBatch} after it enqueues it.
- * </p>
- * 
- * @see CombinationGeneratorTask
- * @see TestClickCombination
- * @see WorkBatch
- * @since 2025.04.01 - Multi-threaded Architecture Introduction
+ *
+ * @see CombinationQueueArray
+ * @since 2025.04 - Multi-threaded Architecture Introduction
  * @performance {@code O(1)} amortized for enqueue/dequeue operations and field accesses.
- * @threading Thread-safe via JCTools magic.
- * @algorithm Lock-free MPMC queue using JCTools wizardry.
+ * @threading Thread-safe via JCTools "magic".
+ * @algorithm Lock-free, bounded MPMC queue with relaxed semantics using JCTools wizardry.
+ * @memory Fixed memory overhead for the queue structure.
  */
 public class CombinationQueue {
     /**
      * The fixed capacity of the queue.
-     * 
-     * <h3>Performance Considerations</h3>
+     *
      * <p>
-     * A smaller queue size is chosen to minimize memory overhead while still allowing effective
-     * batching of work. This size is a balance between memory usage and the need to keep the
-     * {@link TestClickCombination monkeys} fed with work. Higher queue sizes increase the likelihood of
-     * empty spots in the queue for {@link CombinationGeneratorTask generators} to fill, but also
-     * increase memory usage. Lower sizes reduce memory usage, but may lead to starved monkeys if the
-     * generators cannot keep up.
+     * This size represents a trade-off:
+     * <ul>
+     * <li><b>Larger Queue:</b> Reduces the chance of a {@link CombinationGeneratorTask generator}
+     * failing to enqueue a new batch, but increases the solver's overall memory footprint.</li>
+     * <li><b>Smaller Queue:</b> Minimizes memory overhead but increases the risk of
+     * {@link TestClickCombination monkeys} becoming starved for work if generators are temporarily
+     * blocked.</li>
+     * </ul>
+     * A small size is chosen because the queue holds large {@link WorkBatch} objects, making memory a
+     * primary consideration.
      * </p>
      * 
-     * @see org.jctools.queues.MpmcArrayQueue#capacity()
-     * @since 2025.07.07 - Enqueuing {@link WorkBatch} Objects
-     * @performance {@code O(1)} time complexity for capacity access.
-     * @optimization Small, fixed-size queue to minimize memory overhead while batching work.
+     * <p>
+     * Note that, per {@link MpmcArrayQueue#MpmcArrayQueue(int)}, the capacity will be rounded up to the
+     * next power of two if it is not already.
+     * </p>
+     * 
+     * @see MpmcArrayQueue#capacity()
+     * @since 2025.07 - Enqueuing {@link WorkBatch} Objects
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe; immutable field.
+     * @memory Minimal footprint of 4 bytes as an {@code int}.
      */
     private final int QUEUE_SIZE = 16;
     /**
-     * The underlying MPMC queue from the JCTools library, used for its high performance and thread-safe
-     * characteristics. This queue holds {@link WorkBatch} objects, each containing multiple click
-     * combinations to be processed by {@link TestClickCombination worker threads (monkeys)}.
+     * The underlying {@link MpmcArrayQueue JCTools queue} that holds {@link WorkBatch} objects.
      * 
-     * @see org.jctools.queues.MpmcArrayQueue
-     * @see WorkBatch
-     * @since 2025.07.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} amortized time complexity for enqueue/dequeue operations, {@code O(1)}
-     *              capacity access, and <code>O({@link #QUEUE_SIZE})</code> size access.
-     * @threading Thread-safe via JCTools magic.
-     * @optimization Uses a bounded, lock-free queue to minimize memory overhead and contention.
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} amortized for enqueue/dequeue operations, {@code O(1)} capacity access,
+     *              and {@code O(QUEUE_SIZE)} size access.
+     * @threading Thread-safe via JCTools "magic".
+     * @memory Fixed memory overhead for the queue structure.
      */
     private final MpmcArrayQueue<WorkBatch> queue;
 
     /**
-     * Constructs a new {@code CombinationQueue} with a fixed capacity of {@link #QUEUE_SIZE}.
+     * Constructs a new {@code CombinationQueue} with a {@link #QUEUE_SIZE fixed capacity}.
      * 
      * @see #queue
-     * @see org.jctools.queues.MpmcArrayQueue
-     * @see org.jctools.queues.MpmcArrayQueue#MpmcArrayQueue(int)
-     * @since 2025.07.07 - Enqueuing {@link WorkBatch} Objects
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe via JCTools magic.
-     * @optimization Uses a small, fixed-size queue to minimize memory overhead while batching work.
+     * @see MpmcArrayQueue
+     * @see MpmcArrayQueue#MpmcArrayQueue(int)
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} creation and assignment.
+     * @threading Thread-safe via JCTools "magic".
+     * @memory Allocates memory for the underlying queue structure.
      */
     public CombinationQueue() {
         queue = new MpmcArrayQueue<>(QUEUE_SIZE);
     }
 
     /**
-     * Gets the capacity of the queue.
-     * 
-     * @return the fixed capacity of the queue.
-     * @see #QUEUE_SIZE
-     * @see #CombinationQueue()
-     * @see org.jctools.queues.MpmcArrayQueue#capacity()
-     * @since 2025.07.08 - Matching Sized Queues for Generators and Monkeys
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe, since it only reads a {@code final} field.
-     * @optimization Simple field access with minimal overhead.
+     * Returns the fixed capacity of the queue.
+     *
+     * @return the queue's capacity.
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} field access.
+     * @threading Thread-safe; returns an immutable field.
+     * @memory Does not allocate.
      */
     public int getCapacity() {
         return QUEUE_SIZE;
     }
 
     /**
-     * Offers a {@link WorkBatch} to the queue. Returns {@code true} if the batch was added, or
-     * {@code false} if the queue is full.
-     * 
-     * <h3>Performance Considerations</h3>
+     * Offers a {@link WorkBatch} to the queue using a non-blocking, relaxed operation.
+     *
      * <p>
-     * This method is non-blocking and uses a relaxed offer {@link MpmcArrayQueue#relaxedOffer(Object)
-     * as defined by} the JCTools library. This method trades perfect accuracy for speed, meaning it may
-     * occasionally fail to add an item (and return {@code false}) even if the queue is not full.
-     * This is acceptable in our use case, as the {@link CombinationGeneratorTask generator} can simply
-     * try to add the batch to a new queue or retry later.
+     * This method may occasionally fail (return {@code false}) even if the queue is not full, which is
+     * an acceptable trade-off for higher throughput.
      * </p>
-     * 
-     * @param workBatch the {@link WorkBatch} to add to the queue.
-     * @return {@code true} if the batch was added successfully, or {@code false} if
-     *         unsuccessful (the queue is full or the relaxed offer failed).
-     * @see #getWorkBatch()
-     * @see org.jctools.queues.MpmcArrayQueue#relaxedOffer(Object)
-     * @since 2025.07.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} amortized time complexity.
-     * @threading Thread-safe via JCTools magic.
-     * @optimization Relaxed offer for speed, accepting occasional false negatives. Enqueues batches
-     *               instead of combinations to amortize overhead across more combinations.
+     *
+     * @param workBatch the batch to add.
+     * @return {@code true} if the batch was successfully added, {@code false} otherwise.
+     * @see MpmcArrayQueue#relaxedOffer(Object)
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} amortized enqueue operation.
+     * @threading Thread-safe via JCTools "magic".
+     * @memory Does not allocate; uses pre-allocated queue slots.
      */
     public boolean add(WorkBatch workBatch) {
         return queue.relaxedOffer(workBatch);
     }
 
     /**
-     * Attempts to retrieve a {@link WorkBatch} from the queue.
-     * 
-     * <h3>Performance Considerations</h3>
+     * Retrieves a {@link WorkBatch} from the queue using a non-blocking, relaxed operation.
+     *
      * <p>
-     * This method is non-blocking and uses a relaxed poll {@link MpmcArrayQueue#relaxedPoll() as
-     * defined by} the JCTools library. This method trades perfect accuracy for speed, meaning it may
-     * occasionally return {@code null} even if the queue is not empty. This is acceptable in our use
-     * case, as the {@link TestClickCombination monkeys} can try to poll from a new queue or retry
-     * later.
+     * This method may occasionally fail (return {@code null}) even if the queue is not empty, which is
+     * an acceptable trade-off for higher throughput.
      * </p>
-     * 
-     * @return the next {@link WorkBatch} from the queue, or {@code null} if the queue is empty or the
-     *         relaxed poll failed.
-     * @see #add(WorkBatch)
-     * @see org.jctools.queues.MpmcArrayQueue#relaxedPoll()
-     * @since 2025.07.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} amortized time complexity.
-     * @threading Thread-safe via JCTools magic.
-     * @optimization Relaxed poll for speed, accepting occasional false negatives. Polls batches instead
-     *               of combinations to amortize overhead across more combinations.
+     *
+     * @return a {@link WorkBatch} if one was available, or {@code null} otherwise.
+     * @see MpmcArrayQueue#relaxedPoll()
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} amortized dequeue operation.
+     * @threading Thread-safe via JCTools "magic".
+     * @memory Does not allocate; returns references to existing objects.
      */
     public WorkBatch getWorkBatch() {
         return queue.relaxedPoll();
     }
 
     /**
-     * Checks the queue for emptiness. Note that due to the concurrent nature of the queue, this is only
-     * a snapshot in time and may not reflect the state immediately after the call.
-     * 
-     * @return {@code true} if the queue is empty at the time of the call, otherwise {@code false}.
-     * @see org.jctools.queues.MpmcArrayQueue#isEmpty()
-     * @since 2025.08.02 - Class Formatting Cleanup
-     * @performance {@code O(1)} time complexity.
-     * @threading Thread-safe via JCTools magic.
-     * @optimization Simple check with minimal overhead.
+     * Checks if the queue is empty.
+     *
+     * <p>
+     * Note: In a concurrent environment, the result of this call is only a snapshot in time and may be
+     * immediately outdated.
+     * </p>
+     *
+     * @return {@code true} if the queue was empty at the time of the call, {@code false} otherwise.
+     * @see MpmcArrayQueue#isEmpty()
+     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
+     * @performance {@code O(1)} call to queue method.
+     * @threading Thread-safe via JCTools "magic". May be stale immediately after return.
+     * @memory Does not allocate.
      */
     public boolean isEmpty() {
         return queue.isEmpty();

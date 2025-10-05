@@ -86,12 +86,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * performance. Static members are effectively immutable after initialization and are safe to be
  * shared across threads.
  * </p>
- *
- * @see CombinationGeneratorTask
- * @see Grid13
- * @see Grid22
- * @see Grid35
- * @see TestClickCombination
+ * 
  * @since 2025.03 - Initial Creation
  * @performance Critical operations like {@link #click(short)} and state checks are {@code O(1)} due
  *              to extensive pre-computation. The majority of computational complexity is handled
@@ -104,160 +99,85 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  */
 public abstract class Grid {
     /**
-     * Format specification for cell values in the grid.
-     * 
+     * Defines the different formats used to represent a cell's location on the grid.
+     *
      * <p>
-     * The grid can represent cell values in three different formats, each with its own advantages and
-     * disadvantages. The {@link #PackedInt PackedInt} format is human-readable and easy to work with
-     * for adjacency calculations, but it isn't the most efficient for storage. The {@link #Index Index}
-     * format is more memory-efficient and is easier for generators to work with, but it isn't as easily
-     * understood by humans. The {@link #Bitmask Bitmask} format allows for compact storage and fast
-     * operations using bitwise logic, but it is the least human-readable and requires more complex
-     * logic to work with.
+     * To balance performance, memory usage, and readability, the solver uses multiple ways to identify
+     * a cell. This {@code enum} provides a type-safe way to distinguish between them and prevents the
+     * use of "magic numbers," improving maintainability.
      * </p>
      * 
-     * <p>
-     * To streamline the codebase and clarify the operations used, we defined these formats as an enum,
-     * letting us switch between them easily and avoid magic numbers. This also facilitates future
-     * expansions or modifications to the formats, as we can simply add new enum values and update the
-     * relevant methods accordingly, improving maintainability.
-     * </p>
-     * 
-     * @since 2025.07 - ValueFormat Enum Introduction
+     * @since 2025.07 - {@code ValueFormat} Enum Introduction
      * @performance {@code O(1)} access time.
-     * @threading This enum is immutable and therefore thread-safe.
-     * @optimization Using an enum improves code clarity and maintainability by avoiding "magic numbers" for
-     *               format types.
+     * @threading Thread-safe as an immutable {@code enum}.
+     * @memory Minimal memory overhead as a singleton per {@code enum} constant.
      */
     public enum ValueFormat {
         /**
-         * A format where each cell is represented as a packed integer, with the row and column encoded as
-         * {@code row * 100 + col}. For example, the cell at row 3, column 5 would be represented as
-         * 305.
-         * 
+         * A human-readable format where a cell's location is encoded as {@code (row * 100 + col)}.
+         *
          * <p>
-         * This format is human-readable and easy to work with for adjacency calculations, as the row and
-         * column can be easily extracted using simple arithmetic. However, it isn't the most efficient for
-         * storage, as it uses more bits than necessary to represent the cell values.
+         * For example, the cell at row 3, column 5 is represented as {@code 305}. This format is intuitive
+         * and simplifies adjacency arithmetic, but it is not as memory-efficient as {@link #Index}. It is
+         * primarily used for debugging, configuration, and initial adjacency calculations during static
+         * initialization. While cell identifiers are stored as {@code short}s, the "PackedInt" name is
+         * retained for historical consistency.
          * </p>
-         * 
-         * <p>
-         * It's worth noting that, as of July 24th, 2025, most of our codebase has been updated to use
-         * {@code short}s instead of {@code int}s for cell values, due to the grid's size fitting
-         * comfortably within the range of a {@code short}. However, the naming has persisted for
-         * clarity and consistency, as the format's structure remains unchanged. "PackedShort" would be more
-         * accurate, but it would require modifying a significant portion of the codebase, which may not be
-         * worth the effort at this time.
-         * </p>
-         * 
-         * <h3>Performance Considerations</h3>
-         * <p>
-         * While this format is easy to understand and work with, it does incur some overhead in terms of
-         * storage and computation. Each packed integer requires more bits than necessary, and operations
-         * like adjacency checks require additional arithmetic to extract the row and column.
-         * </p>
-         * 
-         * <p>
-         * Our codebase uses this format primarily for human-readable outputs and for operations that
-         * benefit from the clarity of row and column representation (e.g., adjacency calculations).
-         * However, we avoid using it in performance-critical paths where efficiency is paramount.
-         * </p>
-         * 
+         *
          * @see #indexToPacked(short)
          * @see #packedToIndex(short)
-         * @since 2025.07 - ValueFormat Enum Introduction
+         * @since 2025.07 - {@code ValueFormat} Enum Introduction
          * @performance {@code O(1)} access time.
-         * @threading This enum value is an immutable constant and is thread-safe.
-         * @optimization This format is used for human-readable output and for clarity in adjacency
-         *               calculations. It is avoided in performance-critical paths, which prefer the
-         *               {@link #Index} format.
+         * @threading Thread-safe as an immutable {@code enum}.
+         * @memory Minimal memory overhead as a singleton per enum constant.
          */
         PackedInt,
         /**
-         * A format where each cell is represented as a zero-based index, ranging from {@code 0} to
-         * {@code 108} for our {@value Grid#NUM_CELLS}-cell grid. The index is calculated based on the
-         * cell's position in a flattened array representation of the grid.
-         * 
+         * A zero-based index from {@code 0} to {@code 108}, representing a cell's position in the flattened
+         * grid.
+         *
          * <p>
-         * This format is more memory-efficient than {@link #PackedInt PackedInt}, as it uses the minimum
-         * number of bits necessary to represent the cell values. It is also easier for generators to work
-         * with, as they can simply iterate over the indices to generate combinations. However, it isn't as
-         * easily understood by humans, as the row and column information is not directly encoded in the
-         * index.
+         * This is the primary format used in many performance-critical code paths, such as in caches and
+         * generator tasks. It offers a compact and efficient way to iterate over cells and is the native
+         * format for most internal data structures (along with {@link #Bitmask}). However, it is less
+         * intuitive for humans to read compared to {@link #PackedInt}.
          * </p>
-         * 
-         * <h3>Performance Considerations</h3>
-         * <p>
-         * In comparison with the {@code PackedInt} format, this format is more efficient in terms of
-         * storage, as it uses fewer bits to represent the cell values. However, operations that require
-         * multiple cell accesses and/or modifications may benefit from using the {@link #Bitmask Bitmask}
-         * format instead, as it can allow for operations in parallel.
-         * </p>
-         * 
+         *
          * @see #indexToPacked(short)
          * @see #packedToIndex(short)
-         * @since 2025.07 - ValueFormat Enum Introduction
+         * @since 2025.07 - {@code ValueFormat} Enum Introduction
          * @performance {@code O(1)} access time.
-         * @threading This enum value is an immutable constant and is thread-safe.
-         * @optimization This format provides a compact, efficient representation for iterating through
-         *               cells, making it ideal for generator tasks.
+         * @threading Thread-safe as an immutable {@code enum}.
+         * @memory Minimal memory overhead as a singleton per enum constant.
          */
         Index,
         /**
-         * A format where the entire grid state is represented as a bitmask, with each bit corresponding to
-         * a cell in the grid. A bit value of 1 indicates that the cell is "on" ({@code true}), while a bit
-         * value of 0 indicates that the cell is "off" ({@code false}).
-         * 
+         * A format representing the entire grid state as a bitmask. This format is not used to identify
+         * individual cells but is included for completeness.
+         *
          * <p>
-         * This format allows for compact storage and fast operations using bitwise logic, as multiple cell
-         * states can be manipulated in parallel. However, it is the least human-readable of the three
-         * formats, as the individual cell states are not directly visible. It also requires more complex
-         * logic to work with, as operations like adjacency checks and cell clicks need to be implemented
-         * using bitwise operations.
+         * The {@link #gridState grid state} is stored internally as a {@code long[2]} bitmask. This
+         * {@code enum} value signifies operations or data related to this internal representation, such as
+         * the {@link #click(long[])} method. Methods that accept or return a single cell value will
+         * typically throw an {@link IllegalArgumentException} if this format is specified.
          * </p>
-         * 
-         * <h3>Performance Considerations</h3>
-         * <p>
-         * While this format carries several efficiency advantages, it is rarely used in our current
-         * codebase due to its trade-offs. Further complicating matters is Java's lack of a native 128-bit
-         * primitive type, which would be ideal for representing our 109-cell grid in a single bitmask.
-         * Without such a type, we are forced to split the grid state across two 64-bit {@code long}s, which
-         * adds complexity and slightly diminishes the performance benefits of using a bitmask.
-         * </p>
-         * 
-         * <p>
-         * Despite this, we could still see some benefits from using this format in certain scenarios.
-         * Combinations of clicks could be represented as bitmasks, allowing for fast application to the
-         * grid state using two bitwise OR operations. Our current codebase hasn't explored this avenue yet,
-         * but it remains a potential optimization for the future to squeeze out additional performance,
-         * especially for operations involving very long click combinations.
-         * </p>
-         * 
+         *
          * @see #gridState
          * @see #clearBit(int)
          * @see #click(long[])
          * @see #getBit(int)
+         * @see #getGridState()
          * @see #setBit(int)
-         * @since 2025.07 - ValueFormat Enum Introduction
+         * @since 2025.07 - {@code ValueFormat} Enum Introduction
          * @performance {@code O(1)} access time.
-         * @threading This enum value is an immutable constant and is thread-safe.
-         * @optimization This format is primarily for internal grid state representation and is not exposed
-         *               in most public methods due to its complexity and Java's lack of a native 128-bit
-         *               primitive type.
+         * @threading Thread-safe as an immutable {@code enum}.
+         * @memory Minimal memory overhead as a singleton per enum constant.
          */
         Bitmask
     }
-    
+
     /**
-     * The number of rows in the grid. This is a constant value of {@value #NUM_ROWS}, as the grid is
-     * defined to have {@value #NUM_ROWS} rows.
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
-     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
-     * of grid operations and ensuring that all methods operate within the valid range of rows.
-     * </p>
+     * The number of rows in the hexagonal grid.
      * 
      * @see #EVEN_NUM_COLS
      * @see #NUM_CELLS
@@ -265,20 +185,12 @@ public abstract class Grid {
      * @see #ROW_OFFSETS
      * @since 2025.03 - Grid Definition
      * @performance {@code O(1)} access time.
-     * @threading This constant is immutable and thread-safe.
-     * @optimization Using a named constant improves code clarity and maintainability.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     public static final int NUM_ROWS = 7;
     /**
-     * The number of columns in odd-indexed rows of the grid. This is a constant value of
-     * {@value #ODD_NUM_COLS}, as defined by the grid's structure.
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
-     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
-     * of grid operations and ensuring that all methods operate within the valid range of columns.
-     * </p>
+     * The number of columns in the odd-indexed rows of the grid (rows 1, 3, 5).
      * 
      * @see #EVEN_NUM_COLS
      * @see #NUM_CELLS
@@ -286,20 +198,12 @@ public abstract class Grid {
      * @see #ROW_OFFSETS
      * @since 2025.03 - Grid Definition
      * @performance {@code O(1)} access time.
-     * @threading This constant is immutable and thread-safe.
-     * @optimization Using a named constant improves code clarity and maintainability.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     public static final int ODD_NUM_COLS = 15;
     /**
-     * The number of columns in even-indexed rows of the grid. This is a constant value of
-     * {@value #EVEN_NUM_COLS}, as defined by the grid's structure.
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
-     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
-     * of grid operations and ensuring that all methods operate within the valid range of columns.
-     * </p>
+     * The number of columns in the even-indexed rows of the grid (rows 0, 2, 4, 6).
      * 
      * @see #NUM_CELLS
      * @see #NUM_ROWS
@@ -307,279 +211,207 @@ public abstract class Grid {
      * @see #ROW_OFFSETS
      * @since 2025.03 - Grid Definition
      * @performance {@code O(1)} access time.
-     * @threading This constant is immutable and thread-safe.
-     * @optimization Using a named constant improves code clarity and maintainability.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     public static final int EVEN_NUM_COLS = 16;
     /**
-     * Offsets for each row in the grid, used to convert between {@link ValueFormat#PackedInt PackedInt}
-     * and {@link ValueFormat#Index Index} formats.
-     * 
+     * Pre-computed offsets for the starting index of each row in the flattened grid.
+     *
      * <p>
-     * {@code PackedInt} format is human-readable and easy to work with for adjacency calculations, but
-     * it isn't the most efficient for storage. {@code Index} format is more memory-efficient and is
-     * easier for generators to work with, but it isn't as easily understood by humans. The offsets
-     * bridge the gap between these two formats, allowing us to convert between them without losing
-     * information.
+     * This array is used to accelerate the conversion from {@link ValueFormat#PackedInt} to
+     * {@link ValueFormat#Index} by providing an {@code O(1)} lookup for the base index of any given
+     * row. For example, {@code ROW_OFFSETS[2]} gives the index of the first cell in row 2.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * Lookup time for the offsets is {@code O(1)} since they are stored in a static array. Testing has
-     * shown that using a static array is more efficient than calculating the offsets at runtime, at
-     * least for {@code PackedInt} -> {@code Index} conversions.
-     * </p>
-     * 
+     *
      * @see #EVEN_NUM_COLS
      * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
      * @see #computePackedToIndex(short)
      * @see ValueFormat
-     * @since 2025.06 - BitSet Grid State
-     * @performance {@code O(1)} lookup time.
-     * @threading This array is immutable after static initialization and is thread-safe.
-     * @optimization Using a pre-computed static array for conversions avoids runtime calculations.
+     * @since 2025.06 - {@link java.util.BitSet BitSet} Grid State
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
      */
     public static final short[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93};
     /**
-     * The total number of cells in the grid. This is a constant value of {@value #NUM_CELLS}, derived
-     * from the grid's structure of {@value #NUM_ROWS} rows with alternating counts of
-     * {@value #EVEN_NUM_COLS} and {@value #ODD_NUM_COLS} columns.
-     * 
+     * The total number of cells in the grid.
+     *
      * <p>
-     * The grid consists of {@value #NUM_ROWS} rows, where even-indexed rows (0, 2, 4, 6) contain
-     * {@value #EVEN_NUM_COLS} columns each, and odd-indexed rows (1, 3, 5) contain
-     * {@value #EVEN_NUM_COLS} columns each. This results in a total of 4 * {@value #EVEN_NUM_COLS} + 3
-     * * {@value #ODD_NUM_COLS} = {@value NUM_CELLS} cells.
+     * Calculated from the number of rows and their respective column counts: <code>(4 rows ×
+     * {@value #EVEN_NUM_COLS} cols) + (3 rows × {@value #ODD_NUM_COLS} cols) =
+     * {@value #NUM_CELLS}</code> total cells. This constant is used to define the size of arrays and
+     * loop bounds throughout the class.
      * </p>
      * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This constant is used throughout the class to define array sizes and loop bounds, ensuring
-     * consistency and preventing magic numbers in the code. It is crucial for maintaining the integrity
-     * of grid operations and ensuring that all methods operate within the valid range of cells.
-     * </p>
-     * 
-     * @see #EVEN_NUM_COLS
      * @see #gridState
      * @see #NUM_ROWS
-     * @see #ODD_NUM_COLS
      * @see #ROW_OFFSETS
      * @see #trueCellsCount
      * @since 2025.04 - Static Block Initialization
      * @performance {@code O(1)} access time.
-     * @threading This constant is immutable and thread-safe.
-     * @optimization Using a named constant improves code clarity and maintainability.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     public static final int NUM_CELLS = 109;
 
     /**
-     * The current state of the grid as an array of two{@code long}s. Each long contains a bitmask, with
-     * the first representing the first 64 cells and the second representing the last 45 cells.
-     * 
+     * The state of the grid, represented as a 128-bit {@link ValueFormat#Bitmask bitmask} split across
+     * two {@code long} values.
+     *
      * <p>
-     * The core part of the grid state is, well, the grid state. We need something that can efficiently
-     * represent the state of the grid, allowing for fast access and manipulation of each cell while
-     * also keeping memory usage low. The bitmask approach fits both of these requirements, making
-     * operations very efficient.
+     * A {@code 1} at a given bit position indicates the cell is {@code true} while a {@code 0}
+     * indicates it is {@code false} The first {@code long} ({@code gridState[0]}) stores the state for
+     * cells 0-63, and the second ({@code gridState[1]}) stores the state for cells 64-108.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
+     *
      * <p>
-     * The fundamental rule of JVM optimization: <b>Don't allocate</b>. To achieve a throughput of tens
-     * of billions of {@code click}s per second, we need to avoid unnecessary allocations and use
-     * primitive types wherever possible. This takes most collections off the table.
+     * This primitive array representation was chosen over {@link java.util.BitSet} and the Vector API
+     * to eliminate object allocation overhead and ensure cache-friendliness in the hot path. While
+     * Java's lack of a 128-bit primitive adds complexity, this approach provides the highest
+     * performance on the modern JVM for the solver's workload.
      * </p>
-     * 
-     * <p>
-     * An array of {@code boolean}s seems like a good fit, but a {@code boolean} takes up 1 byte at
-     * minimum in Java (with arrays using extra padding), which would require 109 bytes for the grid. In
-     * addition, clicks act on adjacent cells, meaning that each operation would require 6 lookups and 6
-     * updates, which is suboptimal.
-     * </p>
-     * 
-     * <p>
-     * {@link java.util.BitSet BitSets} are a good fit, but they incur some overhead in terms of object
-     * headers and the need to perform up to 6 XOR operations per click. Their internals give way to the
-     * best implementation: a bitmask. We can make custom masks to represent click operations, turning
-     * clicks into a single operation (technically two because of size limitations) and storing our grid
-     * in an array that takes up just 128 bits (or 16 bytes).
-     * </p>
-     * 
-     * <p>
-     * There could be some further optimizations in the future, but we're running against the limits of
-     * Java as a whole. There is no 128-bit primitive type, so we can't use that. LongVectors seemed
-     * promising, but the Vector API allocates TERRIBLY (we're talking 4 allocations per lanewise
-     * operation, all from the internal non-overridable logic of the API). Until we can find something
-     * that can represent a 128-bit value without allocations, we will stick with this approach.
-     * </p>
-     * 
+     *
      * @see #clearBit(int)
      * @see #getBit(int)
      * @see #getGridState()
      * @see #printGrid()
      * @see #setBit(int)
      * @since 2025.07 - Bitmasked Grid State
-     * @performance {@code O(1)} access and update time.
-     * @threading Not thread-safe. Access must be synchronized externally.
-     * @optimization Uses a primitive {@code long[]} bitmask to avoid object allocation overhead,
-     *               enabling extremely fast, cache-friendly state manipulation via bitwise operations.
+     * @performance {@code O(1)} accesses and modifications using bitwise operations.
+     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads without
+     *            external synchronization.
+     * @memory Fixed memory footprint of 16 bytes (2 {@code long}s) per instance.
      */
     protected final long[] gridState = new long[2];
     /**
-     * Cached value of the number of cells that are currently {@code true} (on) in the grid. Used for
-     * quick {@link #isSolved() solution checks} and to optimize certain operations. Updated whenever
-     * {@link #getTrueCount()} is called and {@link #recalculationNeeded} is {@code true}.
-     * 
-     * @see #getTrueCount()
-     * @see #isSolved()
+     * A cached count of the number of "on" ({@code true}) cells in the grid.
+     *
+     * <p>
+     * This value is updated lazily. It is only recalculated by methods like {@link #getTrueCount()} or
+     * {@link #findFirstTrueCell(ValueFormat)} when the {@link #recalculationNeeded} flag is
+     * {@code true}. This makes {@link #isSolved()} checks instantaneous in most cases.
+     * </p>
+     *
      * @since 2025.07 - Bitmasked Grid State
-     * @performance {@code O(1)} access. The value is updated lazily.
-     * @threading Not thread-safe. This field is mutated by {@link #click(short)} and read by
-     *            {@link #getTrueCount()}.
-     * @optimization Caches the number of "on" cells to make {@link #isSolved()} checks instantaneous.
-     *               The count is recalculated only when necessary, controlled by
-     *               {@link #recalculationNeeded}.
+     * @performance {@code O(1)} accesses and {@code O(1)} {@link #getTrueCount() recalculations}.
+     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads without
+     *            external synchronization.
+     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     protected int trueCellsCount = 0;
     /**
-     * A cached index of the first cell that is currently {@code true} (on) in the grid. Stored in
-     * {@link ValueFormat#Index Index} format and used to optimize constraint satisfaction checks and
-     * certain operations. Updated whenever {@link #findFirstTrueCell(ValueFormat)} is called and
-     * {@link #recalculationNeeded} is {@code true}.
-     * 
-     * @see #findFirstTrueCell()
+     * A cached index of the first "on" ({@code true}) cell in the grid, in {@link ValueFormat#Index}
+     * format.
+     *
+     * <p>
+     * This value is critical for pruning the search space in the {@link CombinationGeneratorTask}, as
+     * any valid solution must interact with the first {@code true} cell. It is updated lazily whenever
+     * {@link #findFirstTrueCell()} is called and {@link #recalculationNeeded} is {@code true}. A value
+     * of {@code -1} indicates no cells are {@code true}.
+     * </p>
+     *
      * @since 2025.07 - First True Cell Caching
-     * @performance {@code O(1)} access. The value is updated lazily.
-     * @threading Not thread-safe. This field is mutated by {@link #click(short)} and read by
-     *            {@link #findFirstTrueCell()}.
-     * @optimization Caches the index of the first "on" cell, a critical optimization for pruning the
-     *               search space in the generator. Recalculated only when needed via
-     *               {@link #recalculationNeeded}.
+     * @performance {@code O(1)} access and {@code O(1)} {@link #findFirstTrueCell() recalculations}.
+     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads without
+     *            external synchronization.
+     * @memory Fixed memory footprint of 2 bytes as a primitive {@code short}.
      */
     protected short firstTrueCell = -1;
     /**
-     * A flag indicating whether a recalculation of {@link #trueCellsCount} and/or
-     * {@link #firstTrueCell} is needed. Set to {@code true} whenever the grid state is modified
-     * (e.g., via a click operation) and reset to {@code false} after the next call to
-     * {@link #getTrueCount()} or {@link #findFirstTrueCell(ValueFormat) findFirstTrueCell()}.
+     * A dirty flag indicating that the {@link #gridState grid state} has been modified and cached
+     * values are stale.
+     *
+     * <p>
+     * This flag is set to {@code true} by any {@code click} operation. It signals to accessor methods
+     * like {@link #getTrueCount()} and {@link #findFirstTrueCell()} that they must recompute the
+     * {@link #trueCellsCount} and {@link #firstTrueCell} caches before returning a value. It is reset
+     * to {@code false} after the caches are updated.
+     * </p>
      * 
-     * @see #firstTrueCell
-     * @see #trueCellsCount
      * @since 2025.07 - Bitmasked Grid State
      * @performance {@code O(1)} access.
-     * @threading Not thread-safe. This flag coordinates lazy recalculations.
-     * @optimization Implements a lazy evaluation strategy for {@link #trueCellsCount} and
-     *               {@link #firstTrueCell}, ensuring that expensive recalculations are only performed
-     *               when the state has been modified.
+     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads without
+     *            external synchronization.
+     * @memory Fixed memory footprint of 1 byte as a primitive {@code boolean}.
      */
     protected boolean recalculationNeeded = false;
 
     /**
-     * Adjacency masks for each cell in the grid. These are filled in during the {@code static} block of
-     * {@link Grid this class} and are used to quickly determine the adjacent cells for a given cell in
-     * the grid.
-     * 
-     * <h3>Performance Considerations</h3>
+     * Pre-computed {@link ValueFormat#Bitmask bitmasks} representing the result of clicking each cell.
+     *
      * <p>
-     * Pre-computing these masks allows for {@code O(1)} lookups when determining the adjacent cells for
-     * a given cell, avoiding the need to compute adjacencies on-the-fly. This is crucial, as
-     * {@link TestClickCombination monkeys} perform tens of billions of {@code click}s per second (as of
-     * writing this), and we need to ensure that adjacency checks are as fast as possible.
+     * Each entry {@code ADJACENCY_MASKS[i]} is a {@code long[2]} bitmask where the set bits correspond
+     * to the cells adjacent to cell {@code i}. This is the core optimization that makes the
+     * {@link #click(short[]) click} operation an {@code O(1)} bitwise XOR, as it eliminates the need
+     * for runtime adjacency lookups.
      * </p>
-     * 
+     *
      * <p>
-     * We standardize the masks to use 2 {@code long}s for each cell since we have {@value #NUM_CELLS}
-     * cells, which fits comfortably within 128 bits. Though a click could only affect cells in the
-     * range of one of these {@code long}s, we use two for simplicity and to avoid additional complexity
-     * in the hot path. The indices are standardized to follow the {@link ValueFormat#Index Index}
-     * format, consistent with other fields in this class.
+     * This array is populated once in a static initializer block when the class is loaded. Though a
+     * click could only affect cells in one of the two {@code long}s, we store the full {@code long[2]}
+     * for simplicity and to avoid conditional logic in the hot path.
      * </p>
-     * 
+     *
      * @see #NUM_CELLS
-     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
      * @since 2025.04 - Static Block Initialization
-     * @performance {@code O(1)} lookup time.
-     * @threading This array is immutable after {@code static} initialization and is thread-safe.
-     * @optimization Pre-computing adjacency masks is the core optimization that makes
-     *               {@link #click(short)} an {@code O(1)} operation. Each mask represents the bitwise
-     *               change required to toggle all cells adjacent to a given cell.
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe as a {@code static final} constant after class initialization.
+     * @memory Fixed memory footprint of ~{@code NUM_CELLS × 2 × 8} bytes as a {@code long[][]}.
      */
     private static final long[][] ADJACENCY_MASKS = new long[NUM_CELLS][2];
-    
-    // Legacy support for existing code that expects adjacency arrays
     /**
-     * Adjacency array for each cell in the grid. Each entry contains a {@code short[]} of the indices
-     * of adjacent cells. These are filled in during the {@code static} block of {@code Grid}'s
-     * initialization, and are used to quickly retrieve results with the
-     * {@link #findAdjacents(short, ValueFormat, ValueFormat) findAdjacents()} method.
-     * 
-     * <h3>Performance Considerations</h3>
+     * A pre-computed table storing the adjacent cells for each cell as an array of indices.
+     *
      * <p>
-     * Pre-computing these arrays allows for {@code O(1)} lookups when determining the adjacent cells
-     * for a given cell, avoiding the need to compute adjacencies on-the-fly. Previously, we used this
-     * array in the {@link #click(short, ValueFormat) click()} method, but we have since moved to using
-     * the {@link #ADJACENCY_MASKS adjacency masks} for better performance. The array is retained for
-     * use in the {@link #findAdjacents(short, ValueFormat, ValueFormat) findAdjacents()} method.
+     * Each entry {@code adjacencyArray[i]} contains a {@code short[]} listing the neighbors of cell
+     * {@code i} in {@link ValueFormat#Index} format. This structure provides {@code O(1)} lookups for
+     * the {@link #findAdjacents(short, ValueFormat, ValueFormat)} method and serves as a legacy
+     * alternative to the bitmask-based approach, used in parts of the code that require iterating over
+     * neighbors.
      * </p>
-     * 
+     *
      * @see #NUM_CELLS
      * @see #computeAdjacents(short, ValueFormat, ValueFormat)
      * @since 2025.05 - Adjacency Storage Optimization
      * @performance {@code O(1)} lookup time.
-     * @threading This array is immutable after {@code static} initialization and is thread-safe.
-     * @optimization Pre-computing adjacency lists in this array allows the
-     *               {@link #findAdjacents(short, ValueFormat, ValueFormat) findAdjacents()} methods to
-     *               be fast lookups rather than expensive computations.
+     * @threading Thread-safe as a {@code static final} constant after class initialization.
+     * @memory Fixed memory footprint as a {@code short[][]}.
      */
     private static final short[][] adjacencyArray = new short[NUM_CELLS][]; // Index format
     /**
-     * A 2D {@code boolean} array representing adjacency between cells in the grid. This is a legacy
-     * structure, primarily used for quick adjacency checks between two cells in
-     * {@link #areAdjacent(short, short, ValueFormat) areAdjacent()}. It is filled in during the static
-     * block of Grid's initialization and is not used in performance-critical paths.
-     * 
-     * <h3>Performance Considerations</h3>
+     * A pre-computed boolean matrix for {@code O(1)} adjacency checks between any two cells.
+     *
      * <p>
-     * This structure allows for {@code O(1)} adjacency checks between two cells, which is useful for
-     * certain operations. However, it is not used in the hot path of the application, as most
-     * operations use the {@link #ADJACENCY_MASKS adjacency masks} or the {@link #adjacencyArray
-     * adjacency array} for better performance. The 2D array is retained for legacy support and for use
-     * in specialized operations.
+     * An entry {@code ADJACENCY_CACHE[i][j]} is {@code true} if cell {@code i} and cell {@code j} are
+     * adjacent. This cache is used by {@link #areAdjacent(short, short)} to provide near-instantaneous
+     * lookups. While not used in most hot paths, it is a useful utility for specific algorithmic
+     * checks.
      * </p>
-     * 
+     *
      * @see #NUM_CELLS
-     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
      * @since 2025.06 - {@code O(1)} Adjacency Check
      * @performance {@code O(1)} lookup time.
-     * @threading This array is immutable after static initialization and is thread-safe.
-     * @optimization A pre-computed {@code boolean} matrix that provides a near-instantaneous way to
-     *               check if two cells are adjacent, used by {@link #areAdjacent(short, short)}.
+     * @threading Thread-safe as a {@code static final} constant after class initialization.
      */
     private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_CELLS][NUM_CELLS]; // Index format
     /**
-     * A cache for converting {@link ValueFormat#PackedInt PackedInt} values to {@link ValueFormat#Index
-     * Index} values. This is filled in during the {@code static} block of {@code Grid}'s initialization
-     * and is used to quickly convert between these two formats without needing to compute the
-     * conversion on-the-fly.
-     * 
-     * <h3>Performance Considerations</h3>
+     * A pre-computed lookup table to accelerate {@link #packedToIndex(short) conversion} from
+     * {@link ValueFormat#PackedInt} to {@link ValueFormat#Index}.
+     *
      * <p>
-     * Pre-computing this cache allows for {@code O(1)} lookups when converting from {@code PackedInt}
-     * to {@code Index} format, avoiding the need to compute the conversion on-the-fly. This is useful
-     * for operations that need to work with both formats, as it allows for quick conversions without
-     * incurring the cost of calculations.
+     * The index of the array corresponds to a {@code PackedInt} value, and the element at that index is
+     * the corresponding {@code Index} value. This provides an {@code O(1)} conversion, avoiding the
+     * arithmetic typically required.
      * </p>
-     * 
+     *
      * @see #NUM_CELLS
      * @see #computePackedToIndex(short)
      * @see ValueFormat
      * @since 2025.06 - {@code PackedInt} to {@code Index} Precomputation
      * @performance {@code O(1)} lookup time.
-     * @threading This array is immutable after {@code static} initialization and is thread-safe.
-     * @optimization A cache to accelerate the conversion from the human-readable
-     *               {@link ValueFormat#PackedInt PackedInt} format to the performance-oriented
-     *               {@link ValueFormat#Index Index} format.
+     * @threading Thread-safe as a {@code static final} constant after class initialization.
      */
     private static final short[] PACKED_TO_INDEX_CACHE = new short[(NUM_ROWS - 1) * 100 + EVEN_NUM_COLS];
 
@@ -614,77 +446,55 @@ public abstract class Grid {
     }
 
     /**
-     * Determines the hexagonally adjacent cells for a cell in the grid. This overload allows the user
-     * to specify the input and output formats, providing flexibility in how the static block for this
-     * class is built.
-     * 
+     * Computes the hexagonally adjacent cells for a given cell, supporting flexible input and output
+     * formats.
+     *
      * <p>
-     * Unlike a traditional grid, a cell in a hexagonal grid has up to 6 adjacent cells. The cells
-     * adjacent to a given cell aren't just based on the row and column, but also on the row's parity
-     * (even or odd), making calculations much more complex than a simple rectangular grid. This problem
-     * is exacerbated by the fact that the Grid is represented in a flattened, bitmask format, doing
-     * away with the concept of rows and columns entirely for memory efficiency. Since {@code click}
-     * operations affect the adjacent cells, we need some way to determine which cells are adjacent to a
-     * given cell. This method provides that functionality.
+     * This method is primarily used during the {@code static} initialization block to build the
+     * {@link #adjacencyArray} and {@link #ADJACENCY_MASKS}. It handles the complex adjacency rules of a
+     * hexagonal grid, which vary based on a cell's row and column parity, unlike a simple rectangular
+     * grid.
      * </p>
-     * 
-     * <h3>Algorithm Details</h3> For a given cell {@code n} (in {@link ValueFormat#PackedInt} format)
-     * in an even row, the adjacent cells include:
+     *
+     * <h3>Algorithm Details</h3>
+     * <p>
+     * Adjacency calculations are performed using the {@link ValueFormat#PackedInt} format internally
+     * due to its straightforward arithmetic for determining relative positions. The algorithm
+     * dynamically adds potential neighbors based on the cell's row parity (even or odd).
+     * </p>
      * <ul>
-     * <li>{@code n - 101} (row - 1, col - 1)</li>
-     * <li>{@code n - 100} (row - 1, col)</li>
-     * <li>{@code n - 1} (row, col - 1)</li>
-     * <li>{@code n + 1} (row, col + 1)</li>
-     * <li>{@code n + 99} (row + 1, col - 1)</li>
-     * <li>{@code n + 100} (row + 1, col)</li>
+     * <li><b>Even Rows:</b> Cells {@code (row-1, col-1)}, {@code (row-1, col)}, {@code (row, col-1)},
+     * {@code (row, col+1)}, {@code (row+1, col-1)}, {@code (row+1, col)}.</li>
+     * <li><b>Odd Rows:</b> Cells {@code (row-1, col)}, {@code (row-1, col+1)}, {@code (row, col-1)},
+     * {@code (row, col+1)}, {@code (row+1, col)}, {@code (row+1, col+1)}.</li>
      * </ul>
-     * 
-     * For a cell in an odd row, the adjacent cells include:
-     * <ul>
-     * <li>{@code n - 100} (row - 1, col)</li>
-     * <li>{@code n - 99} (row - 1, col + 1)</li>
-     * <li>{@code n - 1} (row, col - 1)</li>
-     * <li>{@code n + 1} (row, col + 1)</li>
-     * <li>{@code n + 100} (row + 1, col)</li>
-     * <li>{@code n + 101} (row + 1, col + 1)</li>
-     * </ul>
-     * 
+     * <p>
+     * After identifying potential neighbors, the method filters out any cells that fall outside the
+     * grid boundaries.
+     * </p>
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * Internal computations are performed in {@code PackedInt} format for efficiency, as it allows for
-     * straightforward arithmetic operations to determine adjacency. The method has to convert between
-     * formats as needed, which adds some overhead, but this is offset by our use of the method in the
-     * {@code static} block to pre-compute an {@link #adjacencyArray adjacency table}. Future calls to
-     * find adjacents can then use this pre-computed table for {@code O(1)} lookups.
+     * The method's complexity is {@code O(1)} because the number of potential neighbors is small and
+     * constant (at most 6). It uses FastUtil's {@link ShortArrayList} to efficiently store results
+     * without boxing overhead. While format conversions add minor overhead, this is acceptable as the
+     * method's primary use case is during the one-time {@code static} initialization.
      * </p>
-     * <p>
-     * Since cells in different grid positions can have a different number of valid adjacent cells (due
-     * to edges and corners), we use a dynamic list ({@code ShortList}) to store the results, letting
-     * the calling method handle conversion to a fixed-size array if needed. Fastutil's primitive
-     * collections are used to avoid boxing overhead and allow for efficient storage and retrieval of
-     * short values.
-     * </p>
-     * 
-     * @param cell         A short representing the cell in the grid, expected to be in the same format
-     *                     as inputFormat.
-     * @param inputFormat  The {@link ValueFormat} of the input cell, which can either be
-     *                     {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
-     * @param outputFormat The {@link ValueFormat} of the output cell, which can either be
-     *                     {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
-     * @return affectedPieces A {@code ShortList} of adjacent cells in the specified output format,
-     *         containing up to 6 items.
-     * @throws IllegalArgumentException if the input or output format is {@link ValueFormat#Bitmask},
-     *                                  since we cannot represent a single cell in that format.
-     * @see #findAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
+     *
+     * @param cell         The cell for which to find adjacents, in the specified {@code inputFormat}.
+     * @param inputFormat  The {@link ValueFormat} of the input {@code cell}.
+     * @param outputFormat The {@link ValueFormat} in which the adjacent cells should be returned.
+     * @return A {@link ShortList} of adjacent cells in the specified {@code outputFormat}.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for {@code inputFormat}
+     *                                  or {@code outputFormat}, as it is not suitable for single-cell
+     *                                  representation.
+     * @see #findAdjacents(short, ValueFormat, ValueFormat)
+     * @see ShortArrayList#ShortArrayList(int)
      * @see ShortList
      * @since 2025.07 - Format Support
-     * @performance Overall {@code O(1)} complexity. The number of adjacent cells is small and constant.
-     * @threading This method is thread-safe as it is a pure function with no side effects.
-     * @memory Uses a {@code ShortList} from FastUtil to avoid boxing primitive {@code short} values,
-     *         reducing garbage collection pressure compared to a standard {@code ArrayList<Short>}.
-     * @optimization Internal calculations are performed in {@link ValueFormat#PackedInt} for simpler
-     *               arithmetic. The use of {@code ShortList} avoids an initial pass to count valid
-     *               neighbors before creating a perfectly sized array.
+     * @performance {@code O(1)} complexity due to constant number of potential neighbors.
+     * @threading Thread-safe; does not modify instance state.
+     * @memory Allocates a new {@code ShortArrayList} of capacity 6 for the result.
      */
     public static ShortList computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         ShortList affectedPieces = new ShortArrayList(6);
@@ -701,11 +511,11 @@ public abstract class Grid {
                 // If the cell is in packed int format, we can directly compute adjacents
                 break;
         }
-        
+
         int row = cell / 100;
 
         if (row % 2 == 0) // even rows with 16 columns
-        { 
+        {
             affectedPieces.add((short) (cell - 101)); // (row - 1, col - 1)
             affectedPieces.add((short) (cell - 100)); // (row - 1, col)
             affectedPieces.add((short) (cell - 1));   // (row, col - 1)
@@ -713,7 +523,7 @@ public abstract class Grid {
             affectedPieces.add((short) (cell + 99));  // (row + 1, col - 1)
             affectedPieces.add((short) (cell + 100)); // (row + 1, col)
         } else // odd rows with 15 columns
-        { 
+        {
             affectedPieces.add((short) (cell - 100)); // (row - 1, col)
             affectedPieces.add((short) (cell - 99));  // (row - 1, col + 1)
             affectedPieces.add((short) (cell - 1));   // (row, col - 1)
@@ -745,102 +555,81 @@ public abstract class Grid {
     }
 
     /**
-     * Overload of {@link #computeAdjacents(short, ValueFormat, ValueFormat) computeAdjacents()} that
-     * assumes the input and output formats are the same. This exists purely for convenience, as it
-     * simply calls the main method with the same format for both parameters.
-     * 
-     * @param cell   a {@code short} representing the cell in the grid, expected to be in the same
-     *               format as {@code format}.
-     * @param format the {@link ValueFormat} of both the input and output cell, which can either be
-     *               {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
-     * @return A {@code ShortList} of adjacent cells in the specified format, containing up to 6
-     *         items.
-     * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
-     *                                  represent a single cell in that format.
+     * Convenience overload for {@link #computeAdjacents(short, ValueFormat, ValueFormat)} that assumes
+     * the input and output formats are the same.
+     *
+     * @param cell   The cell for which to find adjacents.
+     * @param format The {@link ValueFormat} for both the input cell and the output adjacent cells.
+     * @return A {@link ShortList} of adjacent cells in the specified {@code format}.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
      * @see #computeAdjacents(short, ValueFormat, ValueFormat)
-     * @see ShortList
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity. Delegates to the main implementation.
-     * @threading This method is thread-safe.
-     * @memory Creates a new {@code ShortList} for the result.
-     * @optimization Convenience overload.
+     * @performance Delegates to the main implementation; {@code O(1)} complexity.
+     * @threading Thread-safe; delegates to a {@link #computeAdjacents(short, ValueFormat, ValueFormat)
+     *            thread-safe method}.
+     * @memory Allocates a new {@code ShortArrayList} with a capacity of 6 for the result.
      */
     public static ShortList computeAdjacents(short cell, ValueFormat format) {
         return computeAdjacents(cell, format, format);
     }
 
     /**
-     * Overload of {@link #computeAdjacents(short, ValueFormat) computeAdjacents()} that assumes that
-     * the format is {@link ValueFormat#Index Index}. This exists purely for convenience, as it simply
-     * calls the main method with {@code Index} for both parameters.
-     * 
-     * @param cell a {@code short} representing the cell in the grid, expected to be in
-     *             {@link ValueFormat#Index Index} format.
-     * @return A {@code ShortList} of adjacent cells in {@link ValueFormat#Index Index} format,
-     *         containing up to 6 items.
-     * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
-     *                                  represent a single cell in that format.
+     * Convenience overload for {@link #computeAdjacents(short, ValueFormat)} that assumes
+     * {@link ValueFormat#Index} for both input and output.
+     *
+     * @param cell The cell for which to find adjacents, in {@link ValueFormat#Index} format.
+     * @return A {@link ShortList} of adjacent cells in {@link ValueFormat#Index} format.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is implicitly used (though
+     *                                  unlikely with this overload).
      * @see #computeAdjacents(short, ValueFormat, ValueFormat)
-     * @see ShortList
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity. Delegates to the main implementation.
-     * @threading This method is thread-safe.
-     * @memory Creates a new {@code ShortList} for the result.
-     * @optimization Convenience overload with default format.
+     * @performance Delegates to the main implementation; {@code O(1)} complexity.
+     * @threading Thread-safe; delegates to a {@link #computeAdjacents(short, ValueFormat) thread-safe
+     *            method}.
+     * @memory Allocates a new {@link ShortArrayList} with a capacity of 6 for the result.
      */
     public static ShortList computeAdjacents(short cell) {
         return computeAdjacents(cell, ValueFormat.Index);
     }
 
     /**
-     * Finds the hexagonally adjacent cells for a given cell in the grid, parsing inputs and outputting
-     * in the requested formats.
-     * 
+     * Finds the hexagonally adjacent cells for a given cell, supporting flexible input and output
+     * formats.
+     *
      * <p>
-     * Since our grid is hexagonal, each cell can have up to 6 adjacent cells, depending on the cell's
-     * position and the grid's boundaries. This method provides a way to retrieve those adjacent cells
-     * in various formats, making it versatile for different use cases.
+     * This method retrieves {@link #computeAdjacents(short, ValueFormat, ValueFormat) pre-computed}
+     * adjacency data from the {@link #adjacencyArray}. It handles format conversions as needed, making
+     * it versatile for different use cases, such as debugging, logging, or specific algorithmic checks.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * While this method does pull from a {@link #adjacencyArray pre-computed adjacency array} for
-     * {@code O(1)} lookups, it is forced to convert each of the results to the requested output format,
-     * which adds some overhead and makes the method {@code O(adjacencyArray[cell].length)} in
-     * complexity (with the length being 6 at most). In addition, the large {@code switch} statements
-     * for format handling limit this method's ability to be inlined by the JVM.
+     * The core lookup from {@code adjacencyArray} is an {@code O(1)} operation. However, if the
+     * {@code outputFormat} is not {@link ValueFormat#Index}, the method incurs additional overhead for
+     * converting each adjacent cell's format. This makes the method's complexity {@code O(k)} where
+     * {@code k} is the number of adjacent cells (at most 6). The presence of {@code switch} statements
+     * also limits JIT inlining opportunities.
      * </p>
-     * 
      * <p>
-     * A potential area for optimization would be to pre-compute adjacency arrays for each format
-     * combination, but this method is designed to be called infrequently (if at all) during the
-     * lifetime of the program, so the added complexity and memory usage may not be worth it.
+     * Though specialized caches for each format could solve these problems, since this method is not on
+     * the critical performance path, the overhead of format conversion and branching is deemed
+     * acceptable. For hot paths requiring adjacency information, direct access to
+     * {@link #ADJACENCY_MASKS} or {@code adjacencyArray} in {@link ValueFormat#Index} is preferred.
      * </p>
-     * 
-     * @param cell         A {@code short} representing the cell in the grid, expected to be in the same
-     *                     format as {@code inputFormat}.
-     * @param inputFormat  The {@link ValueFormat} of the input cell, which can either be
-     *                     {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
-     * @param outputFormat The {@link ValueFormat} of the output cell, which can either be
-     *                     {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
-     * @return A {@code short[]} of adjacent cells in the specified output format, containing up to 6
-     *         items.
-     * @throws IllegalArgumentException       if the input or output format is
-     *                                        {@link ValueFormat#Bitmask Bitmask}, since we cannot
-     *                                        represent a single cell in that format.
-     * @throws ArrayIndexOutOfBoundsException if the input cell is out of bounds for the specified input
-     *                                        format (implicitly checked by array accesses).
-     * @see #adjacencyArray
-     * @see #computeAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat)
-     * @see ValueFormat
+     *
+     * @param cell         The cell for which to find adjacents.
+     * @param inputFormat  The {@link ValueFormat} of the input {@code cell}.
+     * @param outputFormat The {@link ValueFormat} in which the adjacent cells should be returned.
+     * @return A {@code short[]} of adjacent cells in the specified {@code outputFormat}.
+     * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for
+     *                                        {@code inputFormat} or {@code outputFormat}.
+     * @throws ArrayIndexOutOfBoundsException if the input {@code cell} is out of bounds for the
+     *                                        specified {@code inputFormat}.
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} for {@link ValueFormat#Index} output,
-     *              {@code O(adjacencyArray[cell].length)} for other formats due to conversion.
-     * @threading This method is thread-safe, as it relies only on immutable, pre-computed
-     *            {@code static} data.
+     * @performance {@code O(1)} for {@link ValueFormat#Index} output, otherwise {@code O(k)} where
+     *              {@code k} is the number of adjacent cells (max 6).
+     * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
      * @memory Allocates a new {@code short[]} for the result only if format conversion is necessary.
-     * @optimization The primary lookup from {@link #adjacencyArray} is an {@code O(1)} operation. The
-     *               main performance consideration is the potential overhead of format conversion.
      */
     public static short[] findAdjacents(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         short[] result;
@@ -881,92 +670,65 @@ public abstract class Grid {
     }
 
     /**
-     * Overload of {@link #findAdjacents(short, ValueFormat, ValueFormat) findAdjacents()} that assumes
-     * the input and output formats are the same. This exists purely for convenience, as it simply calls
-     * the main method with the same format for both parameters.
-     * 
-     * @param cell   a {@code short} representing the cell in the grid, expected to be in the same
-     *               format as {@code format}.
-     * @param format the {@link ValueFormat} of both the input and output cell, which can either be
-     *               {@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt PackedInt}.
-     * @return A {@code short[]} of adjacent cells in the specified format, containing up to 6 items.
-     * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
-     *                                  represent a single cell in that format.
-     * @see #findAdjacents(short)
+     * Convenience overload for {@link #findAdjacents(short, ValueFormat, ValueFormat)} that assumes the
+     * input and output formats are the same.
+     *
+     * @param cell   The cell for which to find adjacents.
+     * @param format The {@link ValueFormat} for both the input cell and the output adjacent cells.
+     * @return A {@code short[]} of adjacent cells in the specified {@code format}.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
+     * @see #findAdjacents(short, ValueFormat, ValueFormat)
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity. Delegates to the main implementation.
-     * @threading This method is thread-safe.
-     * @memory May allocate a new {@code short[]} if format conversion occurs.
-     * @optimization Convenience overload.
+     * @performance Delegates to the main implementation; {@code O(k)} complexity where {@code k} is the
+     *              number of adjacent cells.
+     * @threading Thread-safe; delegates to a {@link #findAdjacents(short, ValueFormat, ValueFormat)
+     *            thread-safe method}.
+     * @memory Allocates a new {@code short[]} for the result only if format conversion is necessary.
      */
     public static short[] findAdjacents(short cell, ValueFormat format) {
         return findAdjacents(cell, format, format);
     }
 
     /**
-     * Overload of {@link #findAdjacents(short, ValueFormat) findAdjacents()} that assumes that the
-     * format is {@link ValueFormat#Index Index}. This exists purely for convenience, as it simply calls
-     * the main method with {@code Index} for both parameters.
-     * 
-     * @param cell a {@code short} representing the cell in the grid, expected to be in
-     *             {@link ValueFormat#Index Index} format.
-     * @return A {@code short[]} of adjacent cells in {@link ValueFormat#Index Index} format, containing
-     *         up to 6 items.
-     * @throws IllegalArgumentException if the input or output format is Bitmask, since we cannot
-     *                                  represent a single cell in that format.
-     * @see #findAdjacents(short, ValueFormat)
+     * Convenience overload for {@link #findAdjacents(short, ValueFormat)} that assumes
+     * {@link ValueFormat#Index} for both input and output.
+     *
+     * @param cell The cell for which to find adjacents, in {@link ValueFormat#Index} format.
+     * @return A {@code short[]} of adjacent cells in {@link ValueFormat#Index} format.
+     * @see #findAdjacents(short, ValueFormat, ValueFormat)
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} adjacency lookup.
-     * @threading This method is thread-safe.
-     * @memory Returns a reference to a statically allocated array, avoiding new allocations.
-     * @optimization The most direct and efficient way to get adjacents, as no format conversion is
-     *               needed.
+     * @performance {@code O(1)} complexity as it directly returns a reference to a pre-computed array.
+     * @threading Thread-safe; delegates to a {@link #findAdjacents(short, ValueFormat) thread-safe
+     *            method}.
+     * @memory Does not allocate; returns a reference to an existing {@code short[]}.
      */
     public static short[] findAdjacents(short cell) {
         return findAdjacents(cell, ValueFormat.Index);
     }
 
     /**
-     * Computes the conversion from {@link ValueFormat#PackedInt PackedInt} format to
-     * {@link ValueFormat#Index Index} format. This method performs the necessary arithmetic to
-     * determine the correct {@code Index} for a given {@code PackedInt} value.
-     * 
-     * <h3>Algorithm Details</h3>
+     * Computes the {@link #packedToIndex(short) conversion} from {@link ValueFormat#PackedInt} to
+     * {@link ValueFormat#Index} format.
+     *
      * <p>
-     * The conversion is based on the structure of the grid, which has rows of varying lengths. The
-     * first row has {@value #EVEN_NUM_COLS} columns, the second row has {@value #ODD_NUM_COLS} columns,
-     * and this pattern continues to alternate. To convert a {@code PackedInt} value (which encodes the
-     * row and column) to an {@code Index} value (which is a single {@code short} representing the
-     * cell's position in a flattened array), we need to account for the varying row lengths.
+     * This method performs the necessary arithmetic to determine the correct {@code Index} for a given
+     * {@code PackedInt} value, taking into account the varying row lengths of the hexagonal grid. It
+     * extracts the row and column from the {@code PackedInt} and uses the {@link #ROW_OFFSETS} array to
+     * calculate the flattened index.
      * </p>
-     * 
+     *
      * <p>
-     * After obtaining the row and column from the {@code PackedInt} value, we use a {@link #ROW_OFFSETS
-     * pre-defined array of row offsets} to determine the starting index of the row in the flattened
-     * array. We then add the column to this offset to get the final index.
+     * This method is primarily used during {@code static} initialization to populate the
+     * {@link #PACKED_TO_INDEX_CACHE}. It does not perform bounds checking, assuming valid input during
+     * its intended use.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method is designed to be used by the {@code static} block of the {@code Grid} class to
-     * pre-compute a {@link #PACKED_TO_INDEX_CACHE cache} for fast lookups. While the method itself is
-     * {@code O(1)} in complexity, it is not intended to be called frequently during the program's
-     * execution. Instead, it serves as a utility for initializing the cache, which can then be used for
-     * {@code O(1)} lookups in performance-critical paths. The method does not perform any bounds
-     * checking on the input packed value, as it is assumed that the static block will only call it with
-     * valid values.
-     * </p>
-     * 
-     * @param packed the {@code short} representing the cell in {@link ValueFormat#PackedInt PackedInt}
-     *               format.
-     * @return A {@code short} representing the cell in {@link ValueFormat#Index Index} format.
-     * @throws ArrayIndexOutOfBoundsException (implicitly) if the input packed value is out of bounds
-     *                                        (less than 0 or greater than 615).
-     * @since 2025.06 - PackedInt to Index Precomputation
+     *
+     * @param packed The cell in {@link ValueFormat#PackedInt} format.
+     * @return The cell in {@link ValueFormat#Index} format.
+     * @since 2025.06 - {@link ValueFormat#PackedInt} to {@link ValueFormat#Index} Precomputation
      * @performance {@code O(1)} complexity due to direct arithmetic and a single array lookup.
-     * @threading This method is thread-safe as it is a pure function.
-     * @memory Does not allocate memory.
-     * @optimization Relies on the pre-computed {@link #ROW_OFFSETS} for fast calculation.
+     * @threading Thread-safe; does not modify instance state.
+     * @memory Does not allocate.
      */
     private static short computePackedToIndex(short packed) {
         short row = (short) (packed / 100);
@@ -975,41 +737,32 @@ public abstract class Grid {
     }
 
     /**
-     * Converts a cell from {@link ValueFormat#PackedInt PackedInt} format to {@link ValueFormat#Index
-     * Index} format. This method uses a cache to speed up conversions for commonly used values, and
-     * {@link #computePackedToIndex(short) calculates} new values as needed.
-     * 
-     * <h3>Performance Considerations</h3>
+     * Converts a cell from {@link ValueFormat#PackedInt} to {@link ValueFormat#Index} format using a
+     * pre-computed cache.
+     *
      * <p>
-     * This method is designed to be efficient, using a cache to store previously computed conversions
-     * for fast lookups. If a value is not found in the cache, it is computed on-the-fly using the
-     * {@link #computePackedToIndex(short) computePackedToIndex()} method.
+     * This method leverages the {@link #PACKED_TO_INDEX_CACHE} for {@code O(1)} lookups. If a value is
+     * not found in the cache (which should only happen for {@code packed = 0} during initial
+     * {@code static} setup), it is computed on-the-fly using {@link #computePackedToIndex(short)}.
      * </p>
-     * 
+     *
+     * <h3>Optimization Rationale</h3>
      * <p>
-     * A potential area for optimization would be to explicitly compute the entire cache in the
-     * {@code static} block to avoid the need for on-the-fly calculations. Doing this would increase the
-     * startup time slightly, but would eliminate the need for any calculations during runtime, allowing
-     * us to remove the check for uncached values and make this method smaller, improving its chances of
-     * being inlined by the JVM. We've chosen not to do this for now, since conversions from the
-     * human-friendly {@code PackedInt} format to the memory efficient {@code Index} format are not a
-     * common operation in performance-critical paths (we try to use {@code Index} internally as much as
-     * possible), but the option remains open for the future.
+     * The cache is partially populated during {@code static} initialization to avoid a full
+     * pre-computation of all possible {@code PackedInt} values, which would increase startup time for a
+     * conversion that is not frequently used in performance-critical paths. A TODO comment indicates a
+     * potential future optimization to fully pre-compute the cache, which would further reduce method
+     * size and improve JIT inlining chances.
      * </p>
-     * 
-     * @param packed A {@code short} representing the cell in {@link ValueFormat#PackedInt PackedInt}
-     *               format.
-     * @return A {@code short} representing the cell in {@link ValueFormat#Index Index} format.
-     * @throws IllegalArgumentException if the input packed value is out of bounds (less than 0 or
-     *                                  greater than 615).
+     *
+     * @param packed The cell in {@link ValueFormat#PackedInt} format.
+     * @return The cell in {@link ValueFormat#Index} format.
+     * @throws IllegalArgumentException if the input {@code packed} value is out of bounds.
      * @see #PACKED_TO_INDEX_CACHE
-     * @see #computePackedToIndex(short)
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity due to direct cache lookup.
-     * @threading This method is thread-safe. The cache is populated statically.
-     * @memory Does not allocate memory.
-     * @optimization Provides an {@code O(1)} alternative to the arithmetic conversion. Declared
-     *               {@code final} to encourage JIT inlining.
+     * @performance {@code O(1)} lookup.
+     * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
+     * @memory Does not allocate.
      */
     public final static short packedToIndex(short packed) {
         if (packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length) {
@@ -1024,36 +777,29 @@ public abstract class Grid {
     }
 
     /**
-     * Converts a cell from {@link ValueFormat#Index Index} format to {@link ValueFormat#PackedInt
-     * PackedInt} format. This method uses a series of conditional checks to determine the correct row
-     * and column for the given {@code Index}.
-     * 
+     * Converts a cell from {@link ValueFormat#Index} to {@link ValueFormat#PackedInt} format.
+     *
      * <p>
-     * Note that this method does not explicitly check if the input {@code Index} is greater than
-     * {@code 0} for performance. Negative indices may return a value, but they are not valid packed int
-     * values.
+     * This method uses a series of conditional checks to determine the correct row and column for the
+     * given {@code Index}, leveraging the grid's alternating row lengths. It constructs the
+     * {@code PackedInt} value by combining the calculated row and column.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method is designed to be efficient, using a series of conditional checks to quickly
-     * determine the correct row and column for the given index. If extra performance is needed, we
-     * could cache the results of this method (a similar approach is taken for
-     * {@link #packedToIndex(short)}), but since this method is not frequently called in
-     * performance-critical paths, the added complexity and memory usage may not be worth it.
+     * This method is {@code O(1)} in complexity due to the fixed number of comparisons. It is declared
+     * {@code final} to encourage JIT inlining, as it is a pure function with no side effects. While a
+     * cache could be implemented (similar to {@link #packedToIndex(short)}), it is not deemed necessary
+     * given that this conversion is not frequently called in performance-critical paths.
      * </p>
-     * 
-     * @param index A {@code short} representing the cell in {@link ValueFormat#Index Index} format.
-     * @return A {@code short} representing the cell in {@link ValueFormat#PackedInt PackedInt} format.
-     * @throws IllegalArgumentException if the input index is out of bounds (less than 0 or greater than
-     *                                  108).
-     * @see #packedToIndex(short)
+     *
+     * @param index The cell in {@link ValueFormat#Index} format.
+     * @return The cell in {@link ValueFormat#PackedInt} format.
+     * @throws IllegalArgumentException if the input {@code index} is out of bounds (0-108).
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity. The series of comparisons is constant time.
-     * @threading This method is thread-safe as it is a pure function.
-     * @memory Does not allocate memory.
-     * @optimization A branch-based approach that is friendly to modern CPU branch predictors. Declared
-     *               {@code final} to encourage JIT inlining.
+     * @performance {@code O(1)} comparisons and computation.
+     * @threading Thread-safe; does not modify instance state.
+     * @memory Does not allocate.
      */
     public final static short indexToPacked(short index) {
         if (index < 16) return  (short) (0 * 100 + index);
@@ -1067,75 +813,63 @@ public abstract class Grid {
     }
 
     /**
-     * Constructs a new {@code Grid} instance and initializes it to a specific starting state by calling
-     * the {@link #initialize()} method.
-     * 
+     * Constructs a new {@code Grid} instance and initializes it to a specific starting state.
+     *
      * <p>
-     * Since {@link Grid} is an abstract class, this constructor is called implicitly via a subclass's
-     * constructor. The {@link #initialize()} method is abstract and must be implemented by subclasses
-     * to define their own initial configurations.
+     * As {@code Grid} is an {@code abstract} class, this constructor is implicitly called by concrete
+     * subclass constructors (e.g., {@link Grid13}, {@link Grid22}, {@link Grid35}). It ensures that the
+     * grid is properly set up by invoking the abstract {@link #initialize()} method, which subclasses
+     * must implement to define their unique initial puzzle configurations.
      * </p>
-     * 
+     *
      * @see #initialize()
      * @since 2025.03 - Abstract {@code Grid} Introduction
-     * @threading The constructor is thread-safe as it operates on a new instance.
+     * @performance {@code O(1)} complexity for construction, plus the complexity of
+     *              {@link #initialize()}.
+     * @threading Thread-safe; each instance is independent.
      */
     public Grid() {
         initialize();
     }
 
     /**
-     * Initializes the {@code Grid} to a specific starting state. This method is abstract and must be
-     * implemented by subclasses to define their own initial configurations.
-     * 
+     * Initializes the {@code Grid} instance to a specific starting state.
+     *
      * <p>
-     * This method is called in the {@link #Grid() constructor} of the {@link Grid} class, ensuring that
-     * any subclass will have its {@link #gridState grid state} properly initialized upon instantiation.
-     * The specific implementation of this method will depend on the requirements of the subclass.
+     * This {@code abstract} method must be implemented by concrete subclasses to define their unique
+     * initial puzzle configurations. It is called by the {@link #Grid() constructor} during instance
+     * creation, ensuring the {@link #gridState grid state} is properly set up from the outset.
      * </p>
-     * 
+     *
      * @see Grid13
      * @see Grid22
      * @see Grid35
      * @since 2025.03 - Abstract {@code Grid} Introduction
-     * @threading Not thread-safe. This method modifies the instance's state.
+     * @performance Implementation-dependent.
+     * @threading Not thread-safe; this method modifies the instance's {@link #gridState}.
      */
     abstract void initialize();
 
-    // Core bitmask operations
-
     /**
-     * Sets the bit at the specified index in the {@link #gridState grid state}. We assume that the
-     * index is in {@link ValueFormat#Index Index} format ({@code 0}-{@code 108}) to save time on format
-     * checks.
-     * 
+     * Sets the bit at the specified {@link ValueFormat#Index index} in the {@link #gridState grid
+     * state} to {@code true}.
+     *
      * <p>
-     * While this method can be used to toggle a cell in the grid, we pre-compute
-     * {@link #ADJACENCY_MASKS adjacency masks} for each cell to perform clicks more efficiently. As
-     * such, this method is not used in any method of the codebase.
+     * This is a low-level helper method primarily used during grid initialization. It updates the
+     * {@link #gridState bitmask} and increments {@link #trueCellsCount} if the bit was previously
+     * {@code false}. For performance-critical click operations, {@link #click(short[])} is used
+     * instead, which leverages pre-computed {@link #ADJACENCY_MASKS}.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * For performance reasons, this method does not perform bounds checking on the index. It is the
-     * caller's responsibility to ensure that the index is within the valid range
-     * ({@code 0}-{@code 108}).
-     * </p>
-     * <p>
-     * This method checks internally if the bit is already set before setting it, but this move is not
-     * necessary for performance. Removing the check would be more efficient, but we don't utilize this
-     * method for any performance-critical paths.
-     * </p>
-     * 
-     * @param index The index of the bit to set ({@code 0}-{@code 108}).
-     * @throws IndexOutOfBoundsException if the index is out of bounds ({@code 0}-{@code 127}).
+     *
+     * @param index The {@link ValueFormat#Index index} of the bit to set (0-108).
+     * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
+     *                                   {@code long[]} array.
      * @see #clearBit(int)
      * @see #getBit(int)
      * @since 2025.07 - Bitmasked {@code Grid} State
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
-     * @optimization This is a low-level helper. For performance reasons, it does not perform bounds
-     *               checking; the caller is responsible for providing a valid index.
+     * @performance {@code O(1)} bitwise operation.
+     * @threading Not thread-safe; modifies {@link #gridState} and {@link #trueCellsCount}.
+     * @memory Does not allocate.
      */
     protected void setBit(int index) {
         int longIndex = index / 64;
@@ -1147,70 +881,53 @@ public abstract class Grid {
     }
 
     /**
-     * Clears the bit at the specified index in the {@link #gridState grid state}. We assume that the
-     * index is in {@link ValueFormat#Index Index} format ({@code 0}-{@code 108}) to save time on format
-     * checks.
-     * 
+     * Clears the bit at the specified {@link ValueFormat#Index index} in the {@link #gridState grid
+     * state} to {@code false}.
+     *
      * <p>
-     * While this method can be used to clear a cell in the grid, we pre-compute {@link #ADJACENCY_MASKS
-     * adjacency masks} for each cell to perform clicks more efficiently. As such, this method is not
-     * used in any method of the codebase.
+     * This is a low-level helper method, analogous to {@link #setBit(int)}. It updates the
+     * {@link #gridState bitmask} and decrements {@link #trueCellsCount} if the bit was previously
+     * {@code true}. It is not used in performance-critical paths, which prefer {@link #click(short[])}.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * For performance reasons, this method does not perform bounds checking on the index. It is the
-     * caller's responsibility to ensure that the index is within the valid range
-     * ({@code 0}-{@code 108}).
-     * </p>
-     * 
-     * @param index The index of the bit to clear ({@code 0}-{@code 108}).
-     * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
+     *
+     * @param index The {@link ValueFormat#Index index} of the bit to clear (0-108).
+     * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
+     *                                   {@code long[]} array.
      * @see #getBit(int)
-     * @see #setBit(int)
      * @since 2025.07 - Bitmasked {@code Grid} State
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
-     * @optimization Low-level helper. The caller is responsible for providing a valid index.
-     **/
+     * @performance {@code O(1)} bitwise operation.
+     * @threading Not thread-safe; modifies {@link #gridState} and {@link #trueCellsCount}.
+     * @memory Does not allocate.
+     */
     protected void clearBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
-        if ((gridState[longIndex] & (1L << bitPosition)) != 0)
-        {
+        if ((gridState[longIndex] & (1L << bitPosition)) != 0) {
             gridState[longIndex] &= ~(1L << bitPosition);
             trueCellsCount--;
         }
     }
 
     /**
-     * Extracts the bit at the specified index from the {@link #gridState grid state}. We assume that
-     * the index is in {@link ValueFormat#Index Index} format ({@code 0}-{@code 108}) to save time on
-     * format checks.
-     * 
+     * Checks the state of the bit at the specified {@link ValueFormat#Index index} in the
+     * {@link #gridState grid state}.
+     *
      * <p>
-     * This method is used to check if a specific cell in the grid is {@code true} (active) or
-     * {@code false} (inactive). We internally use this method for finding {@code true} cells in the
-     * grid, which is crucial for {@link #findTrueCells() outputting a list of true cells} or
-     * {@link #printGrid() printing the grid state.}
+     * This method is used to determine if a specific cell is {@code true} (on) or {@code false} (off).
+     * It is utilized internally for operations like {@link #printGrid()} or when iterating to find
+     * {@code true} cells.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * For performance reasons, this method does not perform bounds checking on the index. It is the
-     * caller's responsibility to ensure that the index is within the valid range
-     * ({@code 0}-{@code 108}).
-     * </p>
-     * 
-     * @param index The index of the bit to check ({@code 0}-{@code 108}).
-     * @return true if the bit is set, false otherwise.
-     * @throws IndexOutOfBoundsException if the index is out of bounds (0-127).
+     *
+     * @param index The {@link ValueFormat#Index index} of the bit to check (0-108).
+     * @return {@code true} if the bit is set (cell is "on"), {@code false} otherwise.
+     * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
+     *                                   {@code long[]} array.
      * @see #clearBit(int)
      * @see #setBit(int)
      * @since 2025.07 - Bitmasked {@code Grid} State
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe, as it reads potentially mutable state.
-     * @optimization Low-level helper. The caller is responsible for providing a valid index.
+     * @performance {@code O(1)} bitwise operation.
+     * @threading Not thread-safe; reads potentially mutable {@link #gridState}.
+     * @memory Does not allocate.
      */
     protected boolean getBit(int index) {
         int longIndex = index / 64;
@@ -1219,62 +936,43 @@ public abstract class Grid {
     }
 
     /**
-     * Scans the {@link #gridState grid bitmask} and returns an array of all {@code true} cells.
-     * Converts the result to the requested format ({@link ValueFormat#Index} or
-     * {@link ValueFormat#PackedInt}).
-     * 
+     * Scans the {@link #gridState grid bitmask} and returns an array of all {@code true} cells in the
+     * requested {@link ValueFormat format}.
+     *
      * <p>
-     * For {@link CombinationGeneratorTask generator} and {@link TestClickCombination monkey}
-     * efficiency, we perform several checks to prune combinations early. Many of these checks involve
-     * the initial state of the grid, so we need a way to conveniently extract the {@code true} bits
-     * from the bitmask and return them in a format that can be used for processing. This method
-     * provides that functionality, allowing for the efficient scanning of the grid state.
+     * This method is used by {@link CombinationGeneratorTask generators} and
+     * {@link TestClickCombination monkeys} to extract the current state of the grid for pruning or
+     * processing. It iterates through the grid's bits and collects the indices of all set bits.
      * </p>
-     * 
+     *
      * <h3>Algorithm Details</h3>
      * <p>
-     * We use the {@link #getBit(int index)} method to check each bit in the grid state, iterating
-     * across the values in the range 0-108 (inclusive). For each bit that is set, we add its index to
-     * an array that is pre-sized to the number of {@code true} cells in the grid. To avoid scanning the
-     * entire grid after finding the requisite number of {@code true} cells, we use a counter to track
-     * the index in the array and exit the for loop early when the array is full.
+     * The method iterates from {@code 0} to {@value #NUM_CELLS}-1, checking each bit's state using
+     * {@link #getBit(int)}. It populates a {@code short[]} which is pre-sized based on
+     * {@link #trueCellsCount} to avoid dynamic resizing. The iteration stops early once all expected
+     * {@code true} cells are found.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method isn't expected to be called frequently, as it is primarily used for obtaining the
-     * initial grid state. For this reason, we avoid {@link #recalculationNeeded checking for
-     * recalculation} or {@link #getTrueCount() recalculating the true cells count}, assuming the
-     * {@code true} count is correctly maintained by the {@link #setBit(int index)} and
-     * {@link #clearBit(int index)} methods. This avoids overhead, though it does allow for the
-     * possibility of an incorrectly sized array or missing {@code true} cells. A future update could
-     * target this.
+     * This method has a worst-case complexity of {@code O(NUM_CELLS)}. While a more optimized approach
+     * could use {@link Long#numberOfTrailingZeros(long)} to find set bits directly, this method is not
+     * on a critical performance path (as it's mainly used for initial state extraction or debugging)
+     * and the current implementation is clear and sufficient. The {@link #trueCellsCount} is assumed to
+     * be accurately maintained by {@link #setBit(int)} and {@link #clearBit(int)}.
      * </p>
-     * 
-     * <p>
-     * Another area for potential optimization is in the extraction of {@code true} cells. We could
-     * create two temporary {@code long}s to store the grid state, use the
-     * {@link Long#numberOfTrailingZeros(long)} method to find the first 1 in our bitmask, add the index
-     * to the array and turn off the bit (by ANDing with 0) and repeat until we have found all true
-     * cells. This would allow us to avoid the overhead of iterating over the entire grid state, but it
-     * would require additional complexity in the code that is unneeded at the moment.
-     * </p>
-     * 
-     * @param format the desired output format (Index or PackedInt).
-     * @return a {@code short[]} of {@code true} cells in the specified format.
-     * @throws IllegalArgumentException if the format is {@link ValueFormat#Bitmask Bitmask}, (since
-     *                                  that would just be the Grid itself). Use {@link #getGridState()}
-     *                                  instead to fulfill that purpose.
+     *
+     * @param format The desired output format ({@link ValueFormat#Index} or
+     *               {@link ValueFormat#PackedInt}).
+     * @return A {@code short[]} of {@code true} cells in the specified format.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is provided, as it is not
+     *                                  suitable for representing individual cells.
      * @see #findFirstTrueCell(ValueFormat)
-     * @see #findTrueCells()
+     * @see #getGridState()
      * @since 2025.07 - Format Support
-     * @performance <code>O({@value #NUM_CELLS})</code>. A more optimized version could use
-     *              {@link Long#numberOfTrailingZeros(long)} to find set bits directly, but this method
-     *              is not on a critical performance path.
-     * @threading Not thread-safe, as it reads the mutable {@link #gridState}.
-     * @memory Allocates a new {@code short[]} for the results.
-     * @optimization Creates a perfectly sized array based on the cached {@link #trueCellsCount} to
-     *               avoid resizing. Stops iterating as soon as all {@code true} cells have been found.
+     * @performance {@code O(NUM_CELLS)} in the worst case.
+     * @threading Not thread-safe; reads the mutable {@link #gridState}.
+     * @memory Allocates a new {@code short[]} for the result.
      */
     public short[] findTrueCells(ValueFormat format) {
         short[] trueCellsArray = new short[trueCellsCount];
@@ -1309,22 +1007,19 @@ public abstract class Grid {
 
     /**
      * Scans the {@link #gridState grid bitmask} and returns an array of all {@code true} cells in
-     * {@link ValueFormat#Index Index} format (0-108).
-     * 
+     * {@link ValueFormat#Index Index} format.
+     *
      * <p>
-     * This method is a convenience overload of {@link #findTrueCells(ValueFormat format)} that defaults
-     * to the {@code Index} format, allowing for better inlining and performance if this method is on
-     * the hot path.
+     * This is a convenience overload of {@link #findTrueCells(ValueFormat)} that defaults to the
+     * {@link ValueFormat#Index} format, providing a simpler API for the most common use case.
      * </p>
-     * 
-     * @return An array of {@code true} cells in the specified format.
-     * @see #findFirstTrueCell(ValueFormat)
+     *
+     * @return A {@code short[]} of {@code true} cells in {@link ValueFormat#Index} format.
      * @see #findTrueCells(ValueFormat)
      * @since 2025.04 - Adjacency Optimizations
-     * @performance <code>O({@value #NUM_CELLS})</code>.
-     * @threading Not thread-safe.
-     * @memory Allocates a new {@code short[]} for the results.
-     * @optimization A {@code final} convenience overload that defaults to the most common format.
+     * @performance {@code O(NUM_CELLS)} in the worst case.
+     * @threading Not thread-safe; reads mutable state.
+     * @memory Allocates a new {@code short[]} for the result.
      */
     public final short[] findTrueCells() {
         short[] trueCellsArray = new short[trueCellsCount];
@@ -1340,62 +1035,44 @@ public abstract class Grid {
     }
 
     /**
-     * Scans the {@link #gridState grid} and returns the first {@code true} cell. Converts the result to
-     * the requested format ({@link ValueFormat#Index} or {@link ValueFormat#PackedInt}). If no
-     * {@code true} cell is found, returns -1.
-     * 
+     * Scans the {@link #gridState grid} and returns the first {@code true} cell in the requested
+     * {@link ValueFormat format}.
+     *
      * <p>
-     * Since {@code click}s are limited in scope to the adjacents of one cell, we can derive an
-     * important property of the solution: It must toggle the first {@code true} cell in the initial
-     * grid state. We can therefore optimize the search for the solution by pruning combinations that
-     * violate this condition, making it important to have a fast way to find the first {@code true}
-     * cell in the grid. While one could use the {@code findTrueCells()} method to find the first
-     * {@code true} cell, this method is optimized for that purpose.
+     * This method is crucial for optimizing the solution search. A core property of the puzzle is that
+     * any valid solution must interact with the first {@code true} cell in the initial grid state. This
+     * method provides a fast way to identify that cell, enabling early pruning of invalid combinations.
      * </p>
-     * 
+     *
      * <h3>Algorithm Details</h3>
      * <p>
-     * Java contains a built-in method for finding the first set bit in a {@code long}, called
-     * {@link Long#numberOfTrailingZeros(long)}. We can use this method to grab the first {@code true}
-     * cell and update the {@link #firstTrueCell} field. We also update {@link #trueCellsCount} field
-     * with another method, {@link Long#bitCount(long)}, which counts the number of set bits in a
-     * {@code long}.
+     * The method employs highly optimized {@link Long#numberOfTrailingZeros(long)} and
+     * {@link Long#bitCount(long)} intrinsics to efficiently determine the first {@code true} bit and
+     * the total count of {@code true} bits in the {@code long[2]} {@link #gridState}.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * If no changes have been made to the grid state since the last call to this method, we'd want to
-     * save on recalculating the value of the first true cell and the count of {@code true} cells. We
-     * can do this by checking the {@link #recalculationNeeded recalculationNeeded} flag and updating
-     * the values if it is {@code true}. In the case where the flag is {@code false} and the count of
-     * true cells is {@code 0}, we can short-circuit the method to avoid unnecessary calculations,
-     * returning {@code -1} immediately.
+     * This method implements a lazy recalculation strategy for {@link #firstTrueCell} and
+     * {@link #trueCellsCount}. These values are only recomputed if the {@link #recalculationNeeded}
+     * flag is {@code true}, ensuring {@code O(1)} performance in most cases. If no {@code true} cells
+     * exist, it short-circuits to return -1 immediately.
      * </p>
-     * 
-     * <p>
-     * The methods used to find the first {@code true} cell and count the number of true cells are
-     * {@code O(1)} due to some clever programming on the Java developers' part. Reinventing the wheel
-     * would be a waste of time (and likely less efficient), so we avoid that effort.
-     * </p>
-     * 
-     * @param format the desired output format ({@link ValueFormat#Index Index} or
-     *               {@link ValueFormat#PackedInt PackedInt}).
-     * @return the first {@code true} cell in the specified format, or -1 if no {@code true} cell is
+     *
+     * @param format The desired output format ({@link ValueFormat#Index} or
+     *               {@link ValueFormat#PackedInt}).
+     * @return The first {@code true} cell in the specified format, or -1 if no {@code true} cell is
      *         found.
-     * @throws IllegalArgumentException if the format is {@link ValueFormat#Bitmask Bitmask} (since
-     *                                  bitmasks aren't supported for single values).
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not suitable
+     *                                  for single-cell representation.
      * @see #click(short[])
-     * @see #click(short, ValueFormat)
-     * @see #findFirstTrueCell()
      * @see #findTrueCells(ValueFormat)
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe due to lazy evaluation of cached fields.
-     * @algorithm Uses the highly optimized {@link Long#numberOfTrailingZeros(long)} and
-     *            {@link Long#bitCount(long)} intrinsics for recalculation.
-     * @optimization Implements lazy recalculation. The cached {@link #firstTrueCell} and
-     *               {@link #trueCellsCount} are only recomputed if the {@link #recalculationNeeded}
-     *               flag is set.
+     * @performance {@code O(1)} complexity due to lazy evaluation and highly optimized intrinsics.
+     * @threading Not thread-safe due to lazy evaluation of mutable cached fields.
+     * @algorithm Uses {@link Long#numberOfTrailingZeros(long)} and {@link Long#bitCount(long)}
+     *            intrinsics.
+     * @memory Does not allocate.
      */
     public short findFirstTrueCell(ValueFormat format) {
         if (!recalculationNeeded && trueCellsCount == 0) 
@@ -1442,26 +1119,23 @@ public abstract class Grid {
 
     /**
      * Scans the {@link #gridState grid} and returns the first {@code true} cell in
-     * {@link ValueFormat#Index Index} format ({@code 0}-{@code 108}). If no {@code true} cell is found,
-     * returns -1.
-     * 
+     * {@link ValueFormat#Index Index} format.
+     *
      * <p>
-     * This method is a convenience overload of {@link #findFirstTrueCell(ValueFormat format)} that
-     * defaults to the {@code Index} format, allowing for better inlining and performance if this method
-     * is on the hot path.
+     * This is a convenience overload of {@link #findFirstTrueCell(ValueFormat)} that strips the format
+     * conversion, providing a simpler API for the most common use case where the generator requires the
+     * index.
      * </p>
-     * 
-     * @return The first {@code true} cell in {@code Index} format, or -1 if no {@code true} cell is
-     *         found.
-     * @see #click(short[])
-     * @see #click(short, ValueFormat)
-     * @see #findFirstTrueCell(ValueFormat)
+     *
+     * @return The first {@code true} cell in {@link ValueFormat#Index} format, or -1 if no {@code true}
+     *         cell is found.
      * @see #findTrueCells()
      * @since 2025.04 - Adjacency Optimizations
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe.
-     * @algorithm Delegates to the main implementation, using {@link ValueFormat#Index}.
-     * @optimization A {@code final} convenience overload for the most common use case.
+     * @performance {@code O(1)} complexity due to lazy evaluation and optimized intrinsics.
+     * @threading Not thread-safe due to lazy evaluation of mutable cached fields.
+     * @algorithm Uses {@link Long#numberOfTrailingZeros(long)} and {@link Long#bitCount(long)}
+     *            intrinsics.
+     * @memory Does not allocate.
      */
     public final short findFirstTrueCell() {
         if (!recalculationNeeded && trueCellsCount == 0) 
@@ -1492,48 +1166,41 @@ public abstract class Grid {
     }
 
     /**
-     * Simulates a click on the {@code Grid} at the specified cell, which can be in any of the supported
-     * {@link ValueFormat formats} ({@link ValueFormat#Index Index} or {@link ValueFormat#PackedInt
-     * PackedInt}).
-     * 
+     * Simulates a click on the {@code Grid} at the specified cell, supporting {@link ValueFormat#Index}
+     * or {@link ValueFormat#PackedInt} formats.
+     *
      * <p>
-     * A click toggles the state of its adjacent cells (excluding itself), so we can perform a click
-     * simply by XORing the {@link #gridState grid state} with a pre-computed {@link #ADJACENCY_MASKS
-     * adjacency mask.}
+     * A click toggles the state of its adjacent cells (excluding itself). This operation is performed
+     * by XORing the {@link #gridState grid state} with a pre-computed {@link #ADJACENCY_MASKS adjacency
+     * mask} corresponding to the clicked cell.
      * </p>
-     * 
+     *
      * <p>
-     * Setting the {@link #recalculationNeeded recalculationNeeded} flag to {@code true} ensures that
-     * the next call to {@link #findFirstTrueCell(ValueFormat) findFirstTrueCell()} will recalculate the
-     * {@link #firstTrueCell first true cell} and the {@link #trueCellsCount count of true cells}. This
-     * avoids unnecessary recalculations on every click, which is crucial for performance in
-     * high-frequency scenarios.
+     * The {@link #recalculationNeeded} flag is set to {@code true} to ensure that subsequent calls to
+     * {@link #findFirstTrueCell(ValueFormat)} or {@link #getTrueCount()} will recompute the cached
+     * {@link #firstTrueCell} and {@link #trueCellsCount} values. This lazy evaluation avoids
+     * unnecessary recalculations on every click.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * Since the Grid has {@link #NUM_CELLS 109 cells}, we can't use a single 64-bit {@code long} for
-     * the grid state, meaning that we have to use two {@code long}s, and thus two adjacency masks per
-     * cell. Though we could strategically use a single {@code long} as a bitmask if the adjacent cells
-     * are localized to the same {@code long}, we choose to use two{@code long}s for simplicity and to
-     * avoid branching.
+     * This method achieves {@code O(1)} complexity due to the direct bitwise XOR operations on the
+     * {@code long[2]} {@link #gridState} using pre-computed masks. While the grid spans 109 cells,
+     * requiring two {@code long} values for the bitmask, the implementation avoids conditional
+     * branching based on cell position for simplicity and consistent performance.
      * </p>
-     * 
-     * @param cell   the cell to click, in the specified format.
-     * @param format the format of the cell ({@code Index} or {@code PackedInt}).
-     * @throws IllegalArgumentException       if the format is {@link ValueFormat#Bitmask Bitmask}
-     *                                        (since bitmasks aren't supported for single values) or
-     *                                        another unsupported format.
-     * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by the
-     *                                        array accesses).
-     * @see #click(short)
+     *
+     * @param cell   The cell to click, in the specified {@code format}.
+     * @param format The {@link ValueFormat} of the input {@code cell} (Index or PackedInt).
+     * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used, as it is not
+     *                                        suitable for single-cell representation.
+     * @throws ArrayIndexOutOfBoundsException if the {@code cell} is out of bounds (implicitly checked
+     *                                        by array accesses).
      * @see #click(short[])
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
-     * @optimization The core of this operation is two bitwise XORs against the pre-computed
-     *               {@link #ADJACENCY_MASKS}, which is extremely fast. It also lazily marks the state
-     *               for recalculation.
+     * @performance {@code O(1)} complexity due to bitwise operations and pre-computed masks.
+     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @memory Does not allocate.
      */
     public void click(short cell, ValueFormat format) {
         switch (format) 
@@ -1558,48 +1225,40 @@ public abstract class Grid {
     }
 
     /**
-     * Simulates a click on the {@code Grid} at the specified cell. We assume that the cell is in
-     * {@link ValueFormat#Index {@code Index}} format ({@code 0}-{@code 108}) to save time on format
-     * checks.
-     * 
+     * Simulates a click on the {@code Grid} at the specified cell, assuming {@link ValueFormat#Index}
+     * format.
+     *
      * <p>
-     * A click toggles the state of its adjacent cells (excluding itself), so we can perform a click
-     * simply by XORing the {@link #gridState grid state} with a pre-computed {@link #ADJACENCY_MASKS
-     * adjacency mask.}
+     * This is a highly optimized, {@code final} method designed for performance-critical paths. It
+     * directly applies the pre-computed adjacency mask to the {@link #gridState grid state} using
+     * bitwise XOR.
      * </p>
-     * 
+     *
      * <p>
-     * Setting the {@link #recalculationNeeded recalculationNeeded} flag to {@code true} ensures that
-     * the next call to {@link #findFirstTrueCell(ValueFormat) findFirstTrueCell()} will recalculate the
-     * {@link #firstTrueCell first true cell} and the {@link #trueCellsCount count of true cells}. This
-     * avoids unnecessary recalculations on every click, which is crucial for performance in
-     * high-frequency scenarios.
+     * The {@link #recalculationNeeded} flag is set to {@code true} to trigger lazy recomputation of
+     * {@link #firstTrueCell} and {@link #trueCellsCount}.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * Since the Grid has {@link #NUM_CELLS 109 cells}, we can't use a single 64-bit {@code long} for
-     * the grid state, meaning that we have to use two {@code long}s, and thus two adjacency masks per
-     * cell. Though we could strategically use a single {@code long} as a bitmask if the adjacent cells
-     * are localized to the same {@code long}, we choose to use two{@code long}s for simplicity and to
-     * avoid branching.
+     * This method is {@code O(1)} in complexity. It is declared {@code final} to encourage JIT inlining
+     * and avoids any format-checking overhead by requiring the {@link ValueFormat#Index} format. This
+     * method has largely been superseded by {@link #click(short[])} for bulk operations in
+     * {@link TestClickCombination}, as single-click operations are no longer the primary hot path.
      * </p>
-     * 
-     * @param cell The cell to click, in {@link ValueFormat#Index Index} format ({@code 0}-{@code 108}).
-     * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by the
-     *                                        array accesses).
+     *
+     * @param cell The cell to click, in {@link ValueFormat#Index} format (0-108).
+     * @throws ArrayIndexOutOfBoundsException if the {@code cell} is out of bounds (implicitly checked
+     *                                        by array accesses).
      * @see #areAdjacent(short, short, ValueFormat)
      * @see #click(short, ValueFormat)
      * @see #computeAdjacents(short, ValueFormat, ValueFormat)
      * @since 2025.07 - Inlining Improvements
-     * @deprecated As of 2025.07, this has been replaced by {@link #click(short[])} for bulk operations
-     *             in {@link TestClickCombination}. Single-click operations are no longer on the hot
-     *             path.
-     * @performance {@code O(1)} complexity. This is a hot-path method.
-     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
-     * @optimization This minimal implementation is declared {@code final} to encourage JIT inlining. It
-     *               avoids any format-checking overhead by requiring the {@link ValueFormat#Index}
-     *               format.
+     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations. Single-click
+     *             operations are no longer on the hot path.
+     * @performance {@code O(1)} retrieval and bitwise operations.
+     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @memory Does not allocate.
      */
     public final void click(short cell) {
         // XOR the grid state with the pre-computed adjacency mask
@@ -1611,19 +1270,23 @@ public abstract class Grid {
     }
 
     /**
-     * Specialized click method for the {@link ValueFormat#PackedInt PackedInt} format. Made
-     * {@code final} to encourage inlining.
-     * 
+     * Simulates a click on the {@code Grid} at the specified row and column.
+     *
+     * <p>
+     * This is a convenience {@code final} method that converts the row and column into a
+     * {@link ValueFormat#PackedInt} value, then converts it to {@link ValueFormat#Index} format, before
+     * delegating to the core {@link #click(short)} method.
+     * </p>
+     *
      * @param row The row of the cell to click.
      * @param col The column of the cell to click.
-     * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by the
-     *                                        array accesses).
+     * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by array
+     *                                        accesses).
      * @see #click(short, ValueFormat)
      * @since 2025.03 - Initial Creation
      * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
-     * @optimization A {@code final} convenience overload that handles {@link ValueFormat#PackedInt}
-     *               conversion before performing the click. Designed to be inlined.
+     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @memory Does not allocate.
      */
     public final void click(short row, short col) {
         // Convert packed int to index format first
@@ -1638,34 +1301,27 @@ public abstract class Grid {
     }
 
     /**
-     * Specialized click method for the {@link ValueFormat#Bitmask Bitmask} format.
-     * 
+     * Applies a pre-computed bitmask to the {@link #gridState grid state}.
+     *
      * <p>
-     * A click toggles the state of its adjacent cells (excluding itself), so we can perform a click by
-     * XORing the {@link #gridState grid state} with the provided bitmask.
+     * This method provides a direct way to modify the grid state by XORing it with an external bitmask.
+     * It is intended for advanced scenarios where the caller has already calculated the cumulative
+     * effect of one or more clicks as a bitmask.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
+     *
      * <p>
-     * This method is built for scenarios where the caller has pre-computed the adjacency bitmask for a
-     * cell and wants to apply it directly, avoiding the overhead of format conversions or lookups.
-     * While our code does not currently leverage this method, it is provided for completeness and
-     * potential future use cases.
+     * The {@link #recalculationNeeded} flag is set to {@code true} to trigger lazy recomputation of
+     * {@link #firstTrueCell} and {@link #trueCellsCount}.
      * </p>
-     * 
-     * <p>
-     * To optimize performance further, we could make the method {@code final} to encourage inlining,
-     * but we leave it as-is for now to allow for potential overrides in subclasses.
-     * </p>
-     * 
-     * @param bitmask The bitmask representing the adjacents to toggle, as a {@code long[]} of length 2.
-     * @throws IllegalArgumentException if the bitmask is not of length 2.
-     * @see #click(short)
-     * @see #click(short, ValueFormat)
+     *
+     * @param bitmask The bitmask (a {@code long[2]} array) representing the changes to apply to the
+     *                grid.
+     * @throws IllegalArgumentException if the {@code bitmask} array is not of length 2.
+     * @see #click(short[])
      * @since 2025.07 - Click Format Support
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
-     * @optimization Directly applies a pre-computed bitmask, avoiding any lookup overhead.
+     * @performance {@code O(1)} bitwise operations.
+     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @memory Does not allocate.
      */
     public void click(long[] bitmask) {
         if (bitmask.length != 2) {
@@ -1679,119 +1335,82 @@ public abstract class Grid {
     }
 
     /**
-     * Simulates a click on multiple cells in the {@code Grid}. We assume that the cells are in the
-     * {@link ValueFormat#Index {@code Index}} format ({@code 0}-{@code 108}) and the array is
-     * non-{@code null} to save on format checks.
-     * 
+     * Simulates clicks on multiple cells in the {@code Grid}.
+     *
      * <p>
-     * A click simply toggles the state of its adjacent cells (excluding itself), so we can perform a
-     * click by XORing the {@link #gridState grid state} with the pre-computed {@link #ADJACENCY_MASKS
-     * adjacency masks}. As opposed to the single cell {@link #click(short cell)} method, this method
-     * allows for bulk operations on combinations of cells, saving on the overhead of multiple method
-     * calls.
+     * This method efficiently processes an array of cells (in {@link ValueFormat#Index} format) by
+     * iteratively applying their corresponding {@link #ADJACENCY_MASKS} to the {@link #gridState grid
+     * state} using bitwise XOR operations. This is the primary method for applying click combinations
+     * in bulk, particularly within {@link TestClickCombination monkeys}.
      * </p>
-     * 
+     *
      * <p>
-     * Setting the {@link #recalculationNeeded recalculationNeeded} flag to {@code true} ensures that
-     * the next call to {@link #findFirstTrueCell(ValueFormat) findFirstTrueCell()} will recalculate the
-     * {@link #firstTrueCell first true cell} and the {@link #trueCellsCount count of true cells}. This
-     * avoids unnecessary recalculations on every click, which is crucial for performance in
-     * high-frequency scenarios.
+     * The {@link #recalculationNeeded} flag is set to {@code true} once after all clicks are applied,
+     * ensuring lazy recomputation of {@link #firstTrueCell} and {@link #trueCellsCount}.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * Since the Grid has {@link #NUM_CELLS 109 cells}, we can't use a single 64-bit {@code long} for
-     * the grid state, meaning that we have to use two {@code long}s, and thus two adjacency masks per
-     * cell. Though we could strategically use a single {@code long} as a bitmask if the adjacent cells
-     * are localized to the same {@code long}, we choose to use two {@code long}s for simplicity and to
-     * avoid branching.
+     * This method is a hot-path operation with {@code O(cells.length)} complexity. It is declared
+     * {@code final} to encourage JIT inlining and assumes valid input to minimize branching and checks
+     * within the loop. We avoid unrolling the loop to delegate the responsibility to the JIT compiler.
+     * Vectorization is also not applicable here, due to the non-predictable array accesses.
      * </p>
-     * <p>
-     * We avoid unrolling the loop here, since the JVM can handle that for us and it would deliver
-     * mediocre performance gains at best. Vectorization is also not applicable here, since we perform
-     * array accesses in a non-predictable manner.
-     * </p>
-     * 
-     * @param cells The array of cells to click, in Index format ({@code 0}-{@code 108}).
-     * @throws IllegalArgumentException if the clicks are out of bounds (implicitly checked by the array
-     *                                  accesses).
-     * @throws NullPointerException     if the cells array is {@code null} (implicitly thrown by the for-each
-     *                                  loop).
-     * @see #areAdjacent(short, short, ValueFormat)
-     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
+     *
+     * @param cells An array of cells (in {@link ValueFormat#Index} format) to click.
+     * @throws ArrayIndexOutOfBoundsException if any {@code cell} in the array is out of bounds.
+     * @throws NullPointerException           if the {@code cells} array is {@code null}.
+     * @see #click(short)
      * @since 2025.07 - Bulk Clicks
-     * @performance {@code O(cells.length)}. This is a hot-path method for worker threads.
-     * @threading Not thread-safe. Modifies the instance's {@link #gridState}.
-     * @optimization This method is the primary replacement for single-cell clicks. It processes an
-     *               array of clicks in a tight loop. It is {@code final} to encourage JIT inlining and
-     *               assumes valid input to avoid branching and checks inside the loop.
+     * @performance {@code O(cells.length)} for iterating over {@code cells}.
+     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @memory Does not allocate.
      */
     public final void click(short[] cells) {
         for (short cell : cells) {
-            // XOR the grid state with the pre-computed adjacency mask
             gridState[0] ^= ADJACENCY_MASKS[cell][0];
             gridState[1] ^= ADJACENCY_MASKS[cell][1];
         }
-        
-        // Mark for recalculation of first true cell and count
         recalculationNeeded = true;
     }
 
     /**
-     * Returns an array of adjacents of the {@link #findFirstTrueCell() first true cell} in the
-     * requested {@link ValueFormat format}. If no {@code true} cell exists, returns {@code null}.
-     * 
+     * Returns an array of adjacent cells to the {@link #findFirstTrueCell() first true cell} in the
+     * requested {@link ValueFormat format}.
+     *
      * <p>
-     * Since clicks are limited in scope to the adjacents of one cell (excluding itself), we can derive
-     * an important property of the solution: It must contain at least one click on the adjacents of the
-     * first {@code true} cell in the initial grid state. This may seem obvious, but it allows us to
-     * establish bounds for generation, limiting the maximum cell that needs to be considered for the
-     * first click to the last adjacent of the first {@code true} cell. This method gives us an easy way
-     * to extract and test those adjacents.
+     * This method leverages the puzzle property that any solution must interact with the first
+     * {@code true} cell. It provides the generator with the adjacent cells of this critical point,
+     * enabling focused exploration of the search space.
      * </p>
      * 
      * <p>
-     * As a note, we currently prevent the use of {@link ValueFormat#Bitmask Bitmask} formats here,
-     * since bitmasks aren't well-suited for representing small sets of values. If we were to support
-     * them, we would either need to create a {@code long[]} of length 2 (to match the internal grid
-     * size) or a {@code short[]} with a length of 7 to cover 116 bits (the closest multiple of 16 above
-     * 109). The former would likely require a new method due to the incompatible return type (unless we
-     * made the return type {@code Object}, which would be messy), while the latter would waste space
-     * and require additional conversions. Given the limited utility of bitmasks in this context, we opt
-     * to exclude them for now.
+     * {@link ValueFormat#Bitmask Bitmask} formats are not supported for this method. While it's
+     * technically possible to represent small sets of values as bitmasks (e.g., a {@code long[2]} or a
+     * {@code short[7]}), the overhead of conversion and potential for wasted space makes it impractical
+     * for this context.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method is designed to be efficient, performing a simple lookup of the first {@code true}
-     * cell and then retrieving its adjacents. The operation is {@code O(1)} due to the fixed size of
-     * the adjacency list (up to 6 elements).
+     * The operation is {@code O(1)} because it involves a simple lookup of the first {@code true} cell
+     * and then retrieving its pre-computed adjacents. While caching the result could be considered, the
+     * small, fixed size of the adjacency list (at most 6 elements) makes the current approach efficient
+     * enough without the overhead of cache management and defensive copying.
      * </p>
-     * 
-     * <p>
-     * To optimize performance further, we could consider caching the result of the operation if the
-     * state has not changed since the last call, but given the simplicity of the operation and the
-     * small size of the adjacency list, the current implementation is sufficient. If the first
-     * {@code true} cell were to change, we would need to invalidate the cache anyway, requiring an
-     * allocation of a new array; we would also need to clone the array before returning it to avoid
-     * external modifications, which would negate the performance benefits of caching in the first
-     * place.
-     * </p>
-     * 
-     * @param format The desired output format ({@link ValueFormat#Index Index} or
-     *               {@link ValueFormat#PackedInt PackedInt}).
-     * @return A {@code short[]} of adjacent cells in the requested format, or {@code null} if no true
-     *         cell exists.
-     * @throws IllegalArgumentException if the format is {@link ValueFormat#Bitmask Bitmask}.
+     *
+     * @param format The desired output format ({@link ValueFormat#Index} or
+     *               {@link ValueFormat#PackedInt}).
+     * @return A {@code short[]} of adjacent cells to the first {@code true} cell, or {@code null} if no
+     *         {@code true} cell exists.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not suitable
+     *                                  for representing individual cells.
      * @see #findAdjacents(short, ValueFormat)
+     * @see #findFirstTrueCell()
      * @since 2025.04 - First True Adjacents Method Creation
-     * @performance {@code O(1)} for {@link ValueFormat#Index},
-     *              <code>O({@link #adjacencyArray}[cell].length)</code> for others.
-     * @threading Not thread-safe, as it depends on the result of non-thread-safe methods.
+     * @performance {@code O(1)} operations and conversion due to fixed-size adjacency lists.
+     * @threading Not thread-safe; depends on the result of non-thread-safe methods.
      * @memory Allocates a new {@code short[]} for the result.
-     * @optimization Leverages the lazy evaluation of {@link #findFirstTrueCell()} and the pre-computed
-     *               {@link #adjacencyArray}.
      */
     public short[] findFirstTrueAdjacents(ValueFormat format) {
         if (format == ValueFormat.Bitmask) {
@@ -1808,78 +1427,64 @@ public abstract class Grid {
     }
 
     /**
-     * Overload of {@link #findFirstTrueAdjacents(ValueFormat)} that assumes the output format is
-     * {@link ValueFormat#Index Index}. This exists purely for convenience, as it simply calls the main
-     * method with the {@code Index} format.
-     * 
-     * @return A {@code short[]} of adjacent cells in {@link ValueFormat#Index Index} format, or
-     *         {@code null} if no {@code true} cell exists.
+     * Convenience overload for {@link #findFirstTrueAdjacents(ValueFormat)} that assumes
+     * {@link ValueFormat#Index} for the output format.
+     *
+     * @return A {@code short[]} of adjacent cells to the first {@code true} cell in
+     *         {@link ValueFormat#Index} format, or {@code null} if no {@code true} cell exists.
+     * @see #findFirstTrueAdjacents(ValueFormat)
      * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity.
+     * @performance Delegates to the main implementation; {@code O(1)} complexity.
      * @threading Not thread-safe.
-     * @memory Allocates a new {@code short[]}.
-     * @optimization Convenience overload.
+     * @memory Allocates a new {@code short[]} for the result.
      */
     public short[] findFirstTrueAdjacents() {
         return findFirstTrueAdjacents(ValueFormat.Index);
     }
 
     /**
-     * Returns an array of adjacents of the {@link #findFirstTrueCell() first true cell} that come after
-     * the specified cell, in the requested {@link ValueFormat format}. If no {@code true} cell exists,
-     * or if no {@code true} adjacents after the specified cell exist, returns {@code null}.
-     * 
+     * Returns an array of adjacent cells to the {@link #findFirstTrueCell() first true cell} that have
+     * an {@link ValueFormat#Index index} greater than the specified {@code cell}.
+     *
      * <p>
-     * Since clicks are limited in scope to the adjacents of one cell (excluding itself), we can derive
-     * an important property of the solution: It must contain at least one click on the adjacents of the
-     * first {@code true} cell in the initial grid state. This may seem obvious, but it allows us to
-     * establish bounds for generation, limiting the maximum cell that needs to be considered for the
-     * first click to the last adjacent of the first {@code true} cell. This method gives us an easy way
-     * to extract and test those adjacents.
+     * This method is a specialized pruning helper for the generator. It identifies potential subsequent
+     * clicks by filtering the adjacents of the first {@code true} cell, considering only those that
+     * appear after a given {@code cell} in the flattened grid order. This helps to establish bounds for
+     * combination generation.
      * </p>
-     * 
+     *
      * <h3>Algorithm Details</h3>
      * <p>
-     * We first {@link #findFirstTrueAdjacents(ValueFormat) find the adjacents of the first true cell}
-     * in the specified input format. If no {@code true} cell exists, we return {@code null}. We then
-     * convert the input cell to {@link ValueFormat#Index index} format if necessary, using the
-     * {@link #packedToIndex(short)} method for {@link ValueFormat#PackedInt packed int} format. We then
-     * perform a binary search on the array of adjacents to find the first adjacent cell that is greater
-     * than the specified cell. If no such adjacent exists, we return {@code null}. If we find such an
-     * adjacent, we create a new array containing all adjacents from that point onward. Finally, we
-     * convert the result to the desired output format if necessary and return it.
+     * The method first retrieves all adjacents of the first {@code true} cell using
+     * {@link #findFirstTrueAdjacents(ValueFormat)}. It then performs a binary search on this sorted
+     * list to find the first adjacent cell whose index is greater than the provided {@code cell}. A
+     * subarray containing only these subsequent adjacents is then returned, with optional format
+     * conversion.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method is designed to be efficient, performing a logarithmic search on a small array of
-     * adjacents and linear copying the resulting subarray. For greater efficiency, we could consider
-     * caching the result of the operation or figuring out some way to avoid an array copy, but given
-     * the small size of the adjacency list (up to 6 elements) and the infrequent nature of this
-     * operation, the current implementation is sufficient.
+     * The complexity is dominated by the binary search and array copy, resulting in an effectively
+     * constant time operation {@code O(log(k) + m)}, where {@code k} is the number of adjacents (max 6)
+     * and {@code m} is the number of remaining adjacents to copy. Given the small size of {@code k},
+     * this method is highly efficient. Caching the result is generally not beneficial due to the
+     * dynamic nature of the {@code cell} parameter and the small performance gains from avoiding an
+     * array copy.
      * </p>
-     * 
-     * @param cell         the cell after which to find adjacents, in the specified input format.
-     * @param inputFormat  the {@link ValueFormat format} of the input cell ({@link ValueFormat#Index
-     *                     Index} or {@link ValueFormat#PackedInt PackedInt}).
-     * @param outputFormat the {@link ValueFormat format} of the output array ({@link ValueFormat#Index
-     *                     Index} or {@link ValueFormat#PackedInt PackedInt}).
-     * @return An array of adjacent cells after the specified cell, in the requested output format, or
-     *         {@code null} if no true cell exists or if no adjacents after the specified cell exist.
-     * @throws IllegalArgumentException if either format is {@link ValueFormat#Bitmask Bitmask} (since
-     *                                  bitmasks aren't supported for single values) or anything else.
+     *
+     * @param cell         The reference cell (in {@code inputFormat}) after which to find adjacents.
+     * @param inputFormat  The {@link ValueFormat} of the input {@code cell}.
+     * @param outputFormat The {@link ValueFormat} of the output adjacent cells.
+     * @return An array of adjacent cells that appear after the specified {@code cell}, or {@code null}
+     *         if no {@code true} cell exists or no such adjacents are found.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for any format.
      * @see #findAdjacents(short)
      * @see #findFirstTrueAdjacents(ValueFormat)
      * @see #findFirstTrueCell()
      * @since 2025.07 - Format Support
-     * @performance <code>O(log({@link #adjacencyArray}[cell].length) + m)}</code> where {@code m} is
-     *              the number of remaining adjacents to copy. Effectively constant time.
-     * @threading Not thread-safe.
-     * @algorithm Performs a binary search on the sorted adjacency list of the first {@code true} cell
-     *            to find the subset of neighbors that appear after the given cell.
+     * @performance {@code O(1)} effectively, due to small, fixed-size lists.
+     * @threading Not thread-safe; relies on non-thread-safe methods.
      * @memory Allocates a new {@code short[]} for the result.
-     * @optimization A specialized method for the generator to efficiently prune the search space by
-     *               only considering relevant subsequent clicks.
      */
     public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
@@ -1945,33 +1550,40 @@ public abstract class Grid {
     }
 
     /**
-     * Checks if the grid is completely solved (i.e., all cells are {@code false}). We use the
-     * {@link #getTrueCount()} method to determine if there are any true cells remaining rather than
-     * directly checking the {@link #gridState grid state} or the {@link #trueCellsCount true cells
-     * count} to ensure that any necessary recalculations are performed before making the check while
-     * avoiding code duplication.
-     * 
+     * Checks if the grid is completely solved (i.e., all cells are {@code false}).
+     *
+     * <p>
+     * This method determines if the puzzle is solved by checking if the {@link #getTrueCount()} is
+     * zero. It leverages the lazy evaluation of {@link #trueCellsCount} to ensure efficient and
+     * up-to-date checks without redundant calculations.
+     * </p>
+     *
      * @return {@code true} if the grid is solved (no {@code true} cells), {@code false} otherwise.
      * @see #recalculationNeeded
      * @since 2025.03 - Initial Creation
      * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe, as it calls the non-thread-safe {@link #getTrueCount()}.
+     * @threading Not thread-safe; calls the non-thread-safe {@link #getTrueCount()}.
+     * @memory Does not allocate.
      */
     public boolean isSolved() {
         return getTrueCount() == 0;
     }
 
     /**
-     * Returns the count of {@code true} cells in the grid. If the grid state has changed since the last
-     * calculation, it recalculates the count using {@link Long#bitCount(long) bitwise operations}.
-     * 
-     * @return the number of true cells in the grid.
-     * @see #recalculationNeeded
+     * Returns the count of {@code true} cells in the grid.
+     *
+     * <p>
+     * This method implements a lazy evaluation strategy. If the grid state has been modified (indicated
+     * by {@link #recalculationNeeded}), it recalculates the count using highly optimized bitwise
+     * operations ({@link Long#bitCount(long)}); otherwise, it returns the cached
+     * {@link #trueCellsCount}.
+     * </p>
+     *
+     * @return The number of {@code true} cells in the grid.
      * @since 2025.03 - Dynamic True Cell Count Tracking
      * @performance {@code O(1)} complexity.
      * @threading Not thread-safe due to lazy evaluation of a mutable field.
-     * @optimization Implements lazy evaluation; the count is only recalculated using fast bitwise
-     *               operations when the {@link #recalculationNeeded} flag is true.
+     * @memory Does not allocate.
      */
     public int getTrueCount() {
         if (recalculationNeeded) {
@@ -1983,16 +1595,17 @@ public abstract class Grid {
 
     /**
      * Creates and returns a deep copy of this {@code Grid} instance.
-     * 
+     *
      * <p>
-     * The cloned instance has its own copy of the grid state, ensuring that modifications to
-     * the clone do not affect the original instance and vice versa. The method uses reflection to
-     * create a new instance of the same class, allowing for proper cloning of subclasses without
-     * needing to create overrides for each subclass.
+     * The cloned instance has its own independent copy of the grid state and cached values, ensuring
+     * that modifications to the clone do not affect the original. This method uses reflection to create
+     * a new instance of the same class, allowing for proper cloning of subclasses without requiring
+     * overrides in each subclass.
      * </p>
-     * 
+     *
      * @return A deep copy of this {@code Grid} instance.
-     * @throws RuntimeException if the cloning process fails due to reflection issues.
+     * @throws RuntimeException if the cloning process fails (e.g., due to reflection issues or an
+     *                          inaccessible constructor).
      * @see #firstTrueCell
      * @see #gridState
      * @see #recalculationNeeded
@@ -2000,7 +1613,7 @@ public abstract class Grid {
      * @see java.lang.Object#clone()
      * @see java.lang.Cloneable
      * @since 2025.03 - Cloning Introduction
-     * @performance {@code O(1)} complexity.
+     * @performance {@code O(1)} complexity (fixed number of field copies).
      * @threading Thread-safe, as it returns a new, independent instance.
      * @memory Allocates a new {@code Grid} object and a new {@code long[2]} for its state.
      */
@@ -2020,48 +1633,40 @@ public abstract class Grid {
     }
 
     /**
-     * Determines if a click on a specified cell can affect or create a new first {@code true} cell in
-     * the grid.
-     * 
+     * Determines if a prospective click on a {@code clickCell} can affect or create a new
+     * {@link #findFirstTrueCell() first true cell} in the grid.
+     *
      * <p>
-     * Since the solution must toggle the first {@code true} cell in the initial grid state, we can
-     * optimize our search for the solution by pruning combinations whose first click cannot affect or
-     * create a new first {@code true} cell. This method provides the logic to determine that.
+     * This method is a crucial pruning helper for the {@link CombinationGeneratorTask generator}. Since
+     * any valid solution must ultimately toggle the puzzle's {@code first true cell}, combinations
+     * whose initial clicks cannot influence this state can be discarded early.
      * </p>
-     * 
-     * <p>
-     * There are several scenarios that this program considers:
+     *
+     * <h3>Scenarios Considered:</h3>
      * <ul>
-     * <li>If there are no {@code true} cells, any click can create one. In the context of our solver,
-     * we shouldn't see this case happen too often, but it's included for short-circuiting
-     * purposes.</li>
-     * <li>If the first {@code true} cell is the top-left cell (0,0), only its adjacents can affect
-     * it.</li>
-     * <li>If the click is before or equal to the first {@code true} cell, it can create a new one.</li>
-     * <li>If the click is adjacent to the first {@code true} cell, it can affect it.</li>
+     * <li>If there are no {@code true} cells ({@code firstTrueCell == -1}), any click can create one,
+     * so it returns {@code true}.</li>
+     * <li>If the {@code clickCell} is at or before the {@code firstTrueCell} in flattened grid order,
+     * it is considered capable of affecting it, returning {@code true}.</li>
+     * <li>If the {@code clickCell} is adjacent to the {@code firstTrueCell}, it can directly affect its
+     * state, returning {@code true}.</li>
      * </ul>
-     * If none of these conditions are met, the click cannot affect or create a new first {@code true}
-     * cell.
-     * </p>
-     * 
-     * @param firstTrueCell the first {@code true} cell in the specified format.
-     * @param clickCell     the cell to be clicked, in the specified format.
-     * @param format        the {@link ValueFormat format} of both cells ({@link ValueFormat#Index
-     *                      Index} or {@link ValueFormat#PackedInt PackedInt}).
-     * @return {@code true} if the click can affect or create a new first {@code true} cell,
+     * If none of these conditions are met, the click cannot affect or create a new
+     * {@code firstTrueCell}, and the method returns {@code false}.
+     *
+     * @param firstTrueCell The current {@code first true cell} in the specified {@code format}.
+     * @param clickCell     The cell being considered for a click, in the specified {@code format}.
+     * @param format        The {@link ValueFormat} of both {@code firstTrueCell} and {@code clickCell}.
+     * @return {@code true} if the click can affect or create a new {@code first true cell},
      *         {@code false} otherwise.
-     * @throws IllegalArgumentException if the format is {@link ValueFormat#Bitmask Bitmask} (since
-     *                                  bitmasks aren't supported for single values) or another
-     *                                  unsupported format.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for any format.
      * @see #areAdjacent(short, short, ValueFormat)
-     * @see #findAdjacents(short, ValueFormat)
      * @see #findFirstTrueCell(ValueFormat)
      * @since 2025.07 - Format and Adjacency Optimizations
-     * @performance <code>O(log({@link #adjacencyArray}[firstTrueCell].length))</code>. Effectively
-     *              constant time.
-     * @threading This method is thread-safe as it is a pure function.
-     * @optimization A specialized pruning helper for the generator. Uses an efficient binary search on
-     *               the pre-sorted adjacency list.
+     * @performance {@code O(1)} complexity due to fixed-size adjacency lookups and binary search on
+     *              small arrays.
+     * @threading Thread-safe; relies only on immutable static data and input parameters.
+     * @memory Does not allocate.
      */
     public static boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell, ValueFormat format) {
         if (firstTrueCell == -1) return true; // No true cells, any click can create one
@@ -2131,44 +1736,34 @@ public abstract class Grid {
     }
 
     /**
-     * Determines if two cells are adjacent to each other in the grid. Leverages the pre-computed
-     * {@link #ADJACENCY_CACHE adjacency cache} for {@code O(1)} lookups.
-     * 
+     * Determines if two cells are adjacent to each other in the grid.
+     *
      * <p>
-     * Two cells are considered adjacent if they share a common edge or vertex. In a hexagonal grid,
-     * each cell can have up to 6 adjacent cells, depending on its position in the grid. Since clicks
-     * only affect adjacent cells, we rely on adjacency calculations to optimize our search for the
-     * solution to a state, factoring these calculations into much of our logic. Therefore, we need a
-     * {@code public} facing method to quickly determine adjacency between any two cells. This method
-     * fills that role.
+     * This method leverages the pre-computed {@link #ADJACENCY_CACHE} for {@code O(1)} lookups,
+     * providing a highly efficient way to check adjacency. Adjacency is critical for the puzzle's
+     * mechanics, as clicks only affect neighboring cells.
      * </p>
-     * 
+     *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method performs {@code O(1)} lookups in a pre-computed adjacency cache, making it extremely
-     * fast. The overhead of converting between formats is likely larger than the lookup itself, so this
-     * method should be used judiciously in performance-critical paths, or redesigned to assume a single
-     * format if necessary.
+     * The core lookup in {@link #ADJACENCY_CACHE} is extremely fast. The primary performance
+     * consideration is the overhead of format conversion if {@link ValueFormat#PackedInt} is used. For
+     * optimal performance in hot paths, it is recommended to use {@link ValueFormat#Index} directly.
      * </p>
-     * 
-     * @param cellA  the first cell to check, in the specified format.
-     * @param cellB  the second cell to check, in the specified format.
-     * @param format the {@link ValueFormat format} of both cells ({@link ValueFormat#Index Index} or
-     *               {@link ValueFormat#PackedInt PackedInt}).
+     *
+     * @param cellA  The first cell to check.
+     * @param cellB  The second cell to check.
+     * @param format The {@link ValueFormat} of both input cells ({@link ValueFormat#Index} or
+     *               {@link ValueFormat#PackedInt}).
      * @return {@code true} if the cells are adjacent, {@code false} otherwise.
-     * @throws IllegalArgumentException       if the format is {@link ValueFormat#Bitmask Bitmask}
-     *                                        (since bitmasks aren't supported for single values) or
-     *                                        another unsupported format.
-     * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds (implicitly checked by the
-     *                                        array access).
-     * @see #ADJACENCY_CACHE
+     * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for any format.
+     * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds.
      * @see #areAdjacent(short, short)
      * @see #canAffectFirstTrueCell(short, short, ValueFormat)
      * @since 2025.07 - Index Format Usage
-     * @performance {@code O(1)} complexity.
-     * @threading Thread-safe, as it only reads from immutable static data.
-     * @optimization Directly uses the {@link #ADJACENCY_CACHE} for an instantaneous lookup after
-     *               handling any necessary format conversion.
+     * @performance {@code O(1)} lookup in the cache, plus conversion overhead if applicable.
+     * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
+     * @memory Does not allocate.
      */
     public static boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         // Convert both cells to index format if necessary
@@ -2189,43 +1784,38 @@ public abstract class Grid {
     }
 
     /**
-     * Overload of {@link #areAdjacent(short, short, ValueFormat)} that assumes the input format is
-     * {@link ValueFormat#Index Index}. This exists purely for convenience, as it simply calls the main
-     * method with the {@code Index} format.
-     * 
-     * @param cellA the first cell to check, in {@link ValueFormat#Index Index} format (0-108).
-     * @param cellB the second cell to check, in {@link ValueFormat#Index Index} format (0-108).
+     * Convenience overload for {@link #areAdjacent(short, short, ValueFormat)} that assumes
+     * {@link ValueFormat#Index} for both input cells.
+     *
+     * @param cellA The first cell to check, in {@link ValueFormat#Index} format.
+     * @param cellB The second cell to check, in {@link ValueFormat#Index} format.
      * @return {@code true} if the cells are adjacent, {@code false} otherwise.
-     * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds (implicitly checked by the
-     *                                        array access).
+     * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds.
      * @since 2025.06 - Odd Adjacency Pruning
      * @performance {@code O(1)} lookup.
      * @threading Thread-safe.
-     * @optimization The most direct way to check adjacency, assuming {@link ValueFormat#Index} format.
+     * @memory Does not allocate.
      */
     public static boolean areAdjacent(short cellA, short cellB) {
         return areAdjacent(cellA, cellB, ValueFormat.Index);
     }
 
     /**
-     * Returns a copy of the current {@link #gridState grid state} as a bitmask (array of two
-     * {@code long}s).
-     * 
+     * Returns a copy of the current {@link #gridState grid state} as a {@code long[2]} bitmask.
+     *
      * <p>
-     * This method exists to provide direct access to the grid's internal state. While no current code
-     * paths leverage this method (in part due to the allocation it requires), it may be useful for
-     * debugging, logging, or future features that require direct manipulation or inspection of the grid
-     * state.
+     * This method provides direct access to a snapshot of the grid's internal state. While it involves
+     * an allocation, it is useful for debugging, logging, or scenarios requiring immutable copies of
+     * the grid state without exposing the internal array directly.
      * </p>
-     * 
-     * @return A copy of the current grid state as a bitmask (array of two {@code long}s).
+     *
+     * @return A copy of the current grid state as a {@code long[2]} bitmask.
      * @see #click(long[])
      * @see ValueFormat#Bitmask
      * @since 2025.07 - Bitmasked Grid State
-     * @performance {@code O(1)} complexity.
-     * @threading The output is thread-safe, since it is a copy of the internal state.
-     * @memory Allocates a new {@code long[2]} array to prevent external modification of the instance's
-     *         internal state.
+     * @performance {@code O(1)} complexity (fixed-size array copy).
+     * @threading The returned array is thread-safe as it is a new, independent copy.
+     * @memory Allocates a new {@code long[2]} array.
      */
     public long[] getGridState() {
         return gridState.clone();
@@ -2233,9 +1823,14 @@ public abstract class Grid {
 
     /**
      * Prints the current grid state to the {@link LogManager#getLogger() logger} in a human-readable
-     * format, with '1' representing {@code true} cells and '0' representing {@code false} cells. Rows
-     * are indented to reflect the hexagonal layout, matching the format used in the PDC puzzle code.
-     * 
+     * format.
+     *
+     * <p>
+     * Cells are represented by '1' for {@code true} (on) and '0' for {@code false} (off). Rows are
+     * indented to visually reflect the hexagonal layout, matching the format used in the original PDC
+     * puzzle description. This method is primarily for debugging and visualization.
+     * </p>
+     *
      * @see #EVEN_NUM_COLS
      * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
@@ -2248,11 +1843,9 @@ public abstract class Grid {
      * @see org.apache.logging.log4j.Logger
      * @see org.apache.logging.log4j.LogManager
      * @since 2025.03 - Grid Printing Method Creation
-     * @performance <code>O({@value Grid#NUM_CELLS})</code>. This is a debugging method and is not
-     *              performance-critical.
-     * @threading Not thread-safe, as it iterates over the mutable grid state.
+     * @performance {@code O(NUM_CELLS)} due to iteration over all cells. Not performance-critical.
+     * @threading Not thread-safe; iterates over the mutable grid state.
      * @memory Allocates a new {@link StringBuilder} for each row.
-     * @optimization Uses a {@link StringBuilder} for efficient string concatenation within each row.
      */
     public void printGrid() {
         Logger logger = LogManager.getLogger();

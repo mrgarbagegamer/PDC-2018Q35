@@ -1,68 +1,57 @@
 package com.github.mrgarbagegamer;
 
 /**
- * A concrete {@code Grid} implementation for Q22/Shrek.
- * 
+ * A concrete {@link Grid} that provides the initial puzzle state for Q22 ("Shrek").
+ *
  * <p>
- * This class represents the initial configuration of the hexagonal Lights Out puzzle in PDC's Q22
- * of 2018 (also known as "Shrek"). It extends the abstract {@link Grid} class, providing a specific
- * implementation for the puzzle's starting state.
+ * This class defines the starting configuration for the 2018 PDC Q22 puzzle. Its sole purpose is to
+ * load a pre-computed bitmask representing the initial layout of {@code true} cells into the
+ * {@link #gridState} array.
  * </p>
- * 
- * <h2>Configuration Details</h2>
+ *
+ * <h2>Architectural Role</h2>
  * <p>
- * In this configuration, the grid is initialized with a total of 50 {@code true} cells, with the
- * first {@code true} cell located at bit index 1 (row 0, column 1). The grid's state is represented
- * using two {@code long} values in the {@link #gridState} array, where each bit corresponds to a
- * cell in the hexagonal grid. The specific bit pattern for this configuration is pre-computed and
- * directly assigned in the {@link #initialize()} method.
+ * As a concrete implementation of the abstract {@link Grid}, this class represents one of the
+ * specific problems the solver is designed to tackle. The initial state is loaded via the
+ * {@link #initialize()} method, which uses a hardcoded bitmask for maximum performance, avoiding
+ * any computational overhead at runtime.
  * </p>
- * 
- * <h2>Initialization Strategy</h2>
+ *
+ * <h2>Puzzle Details</h2>
  * <p>
- * The {@link #initialize()} method sets up the grid's initial state by directly assigning
- * pre-computed values to the {@link #gridState} array. This approach avoids the need for
- * recalculating the grid state during initialization, which can be computationally expensive. The
- * method also sets the {@link #firstTrueCell} and {@link #trueCellsCount} fields to reflect the
- * initial configuration, and marks the {@link #recalculationNeeded} flag as {@code false},
- * indicating that no further recalculation is necessary at this point.
+ * The Q22 grid is initialized with 50 {@code true} cells. A known 15-click solution is included in
+ * the source code, which can be uncommented for validation or testing of the solver's logic.
  * </p>
- * 
- * <p>
- * Since this puzzle has a known solution in 15 clicks, the method includes the solution in
- * commented out form. These clicks can be uncommented to test lower click counts, and they are
- * pre-computed to avoid unnecessary recalculations during initialization.
- * </p>
- * 
+ *
  * @see Grid13
  * @see Grid35
- * @since 2025.03.29 - Concrete Class Introduction
- * @performance {@code O(1)} for initialization, as it involves direct assignments without loops or
- *              complex calculations.
+ * @since 2025.03 - Concrete Class Introduction
+ * @performance {@code O(1)} for initialization and most operations.
  * @threading This class is <b>not</b> thread-safe. Each thread should use its own instance of
- *            Grid22 to avoid concurrency issues.
- * @memory Minimal additional memory usage, only storing the grid state and a few metadata fields.
+ *            {@code Grid22} to avoid concurrency issues.
+ * @memory No allocations after initialization (except for methods that explicitly create new
+ *         objects).
  */
 public class Grid22 extends Grid {   
     /**
-     * Initializes the grid to the specific configuration for Q22/Shrek.
-     * 
+     * Loads the pre-computed state for the Q22 puzzle.
+     *
      * <p>
-     * This method sets the initial state of the grid, directly assigning pre-computed values to the
-     * {@link #gridState} array. The proper values for {@link #firstTrueCell} and
-     * {@link #trueCellsCount} are also set to reflect the initial configuration, and the
-     * {@link #recalculationNeeded} flag is set to {@code false}, indicating that no further
-     * recalculation is necessary at this point.
+     * This method directly assigns the bitmask representing the puzzle's initial state to the
+     * {@link #gridState} array. It also sets cached values for the first {@code true} cell and the
+     * total count of {@code true} cells for efficient processing.
      * </p>
-     * 
+     *
      * <p>
-     * Commented out are the clicks that make up the solution to the Q22 puzzle, which can be
-     * uncommented to test lower click counts. These clicks are pre-computed to avoid unnecessary
-     * recalculations during initialization.
+     * The commented-out clicks represent the known 15-click solution and can be used for testing or
+     * validation purposes.
      * </p>
-     * 
+     *
      * @see #getGridState()
-     * @since 2025.03.29 - Concrete Class Introduction
+     * @since 2025.03 - Concrete Class Introduction
+     * @performance {@code O(1)} - Direct assignment of pre-computed values.
+     * @threading Not thread-safe; mutates instance state.
+     * @memory Does not allocate.
      */
     void initialize() {
         // Initialize for Q22/Shrek

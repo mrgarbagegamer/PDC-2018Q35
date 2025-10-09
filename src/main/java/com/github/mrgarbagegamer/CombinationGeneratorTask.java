@@ -220,7 +220,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * retrieve a recycled batch instance.
          * </p>
          * 
-         * @return The current, non-{@code null} {@code WorkBatch}.
+         * @return The current {@code WorkBatch}, or {@code null} if interrupted while obtaining a batch.
          * @since 2025.07 - {@code GeneratorContext} Introduction
          * @performance {@code O(1)} null check and amortized {@code O(1)} for batch retrieval.
          * @threading Not thread-safe. Each thread should manage its own context instance.
@@ -235,17 +235,25 @@ public class CombinationGeneratorTask extends RecursiveAction {
         /**
          * Retrieves a new {@link WorkBatch} from the {@link CombinationQueueArray#getWorkBatchPool() global
          * pool}, spinning until one is available.
-         * 
+         *
          * <p>
          * When a {@link TestClickCombination monkey} finishes with a {@code WorkBatch}, it returns it to a
          * central pool for recycling. This method retrieves a batch from that pool. It uses a non-blocking,
          * busy-wait (spin) loop with a {@link org.jctools.queues.MpmcArrayQueue#relaxedPoll()
          * relaxedPoll()} to ensure the generator thread remains responsive to cancellation signals from the
-         * {@link ForkJoinPool}, which a standard {@link Thread#onSpinWait()} call would prevent.
+         * {@link ForkJoinPool}, which a standard {@link Thread#onSpinWait()} call would prevent. The loop
+         * also checks for interruption, allowing for a graceful shutdown when the pool is shutting down.
          * </p>
-         * 
-         * @return A clean, recycled {@code WorkBatch}.
+         *
+         * <p>
+         * The loop now properly checks for thread interruption, allowing the {@link ForkJoinPool} to
+         * shutdown generator threads when a solution is found. If the thread is interrupted during the spin
+         * loop, the method returns {@code null} to signal shutdown.
+         * </p>
+         *
+         * @return A clean, recycled {@code WorkBatch}, or {@code null} if the thread was interrupted.
          * @see CombinationQueueArray#getWorkBatchPool()
+         * @see TestClickCombination#triggerGeneratorShutdown()
          * @since 2025.07 - {@code GeneratorContext} Introduction
          * @performance {@code O(1)} amortized access time, spinning if necessary.
          * @threading Thread-safe interactions with the global pool, but the method itself is not
@@ -255,6 +263,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
         private WorkBatch getNewBatchBlocking() {
             WorkBatch batch;
             while ((batch = queueArray.getWorkBatchPool().relaxedPoll()) == null) {
+                // Check for thread interruption to allow proper shutdown when solution is found
+                if (Thread.currentThread().isInterrupted()) {
+                    return null; // Exit gracefully when interrupted
+                }
                 // NOTE: Thread.onSpinWait() can not be used here since it doesn't respond to cancellation.
             }
             batch.clear(); // Ensure the recycled batch is clean before use
@@ -272,7 +284,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * filling it.
          * </p>
          * 
-         * @return The new, non-{@code null} {@code WorkBatch}.
+         * @return The new {@code WorkBatch} or {@code null} if interrupted.
          * @see #getNewBatchBlocking()
          * @since 2025.07 - {@code GeneratorContext} Introduction
          * @performance {@code O(1)} amortized access time, spinning if necessary.

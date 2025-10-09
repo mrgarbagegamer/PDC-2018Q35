@@ -65,5 +65,5 @@ jobs:
           commit_message: "Publish Javadocs to gh-pages from generation-balancing-experiments @${{ github.sha }}"
           user_name: 'gh-pages bot'
           user_email: 'gh-pages-bot@users.noreply.github.com'
-          # Ensure clean history for documentation branch on first run
-          force_orphan: true
+          # Do not force an orphan branch; keep history and append commits on each run
+          # force_orphan: true

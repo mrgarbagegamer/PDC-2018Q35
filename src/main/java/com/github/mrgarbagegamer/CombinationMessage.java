@@ -187,6 +187,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable
                 buffer.append(',');
                 buffer.append(' ');
             }
+            // TODO: Consider formatting with leading zeros for better readability (though at a performance cost).
             buffer.append(list[i]);
         }
         buffer.append(']');

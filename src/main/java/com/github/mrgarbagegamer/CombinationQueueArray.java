@@ -92,7 +92,7 @@ public class CombinationQueueArray {
      * @threading Thread-safe; uses atomic operations for safe concurrent updates.
      * @memory Fixed memory footprint of 16 bytes for the atomic integer.
      */
-    private final AtomicInteger generatorsRemaining;
+    private final AtomicInteger generatorsRemaining; // TODO: Remove in favor of the generationComplete flag.
     /**
      * A central, thread-safe pool for recycling {@link WorkBatch} objects.
      *
@@ -143,7 +143,7 @@ public class CombinationQueueArray {
      * @see #solutionFound(String, short[])
      * @see #getWinningMonkey()
      */
-    private volatile String winningMonkey = null;
+    private volatile String winningMonkey = null; // TODO: Consider piggybacking on the volatile write to solutionFound.
     /**
      * The click combination that solves the puzzle. Written once when {@link #solutionFound} is set.
      *
@@ -157,7 +157,7 @@ public class CombinationQueueArray {
      * @see #solutionFound(String, short[])
      * @see #getWinningCombination()
      */
-    private volatile short[] winningCombination = null;
+    private volatile short[] winningCombination = null; // TODO: Consider piggybacking on the volatile write to solutionFound.
 
     /**
      * A {@code volatile} flag indicating that a solution has been found.
@@ -226,6 +226,8 @@ public class CombinationQueueArray {
      *                      number of work queues to create.
      * @param numGenerators The (effective) number of {@link CombinationGeneratorTask generators}. This
      *                      initializes the {@link #generatorsRemaining completion counter}.
+     * @throws IllegalStateException if the pre-allocation of the {@link #workBatchPool pool} fails,
+     *                               indicating a configuration issue.
      * @since 2025.05 - Multiple {@code CombinationQueue}s
      * @performance {@code O(numConsumers)} queue initialization + {@code O(1)} counter setup +
      *              {@code O(numConsumers)} counter initialization +
@@ -254,8 +256,9 @@ public class CombinationQueueArray {
         final int BATCH_SIZE = CombinationGeneratorTask.BATCH_SIZE;
         for (int i = 0; i < totalWorkQueueCapacity; i++)
         {
-            // TODO: Make this offer strict and handle failure (which shouldn't happen) with an exception.
-            workBatchPool.relaxedOffer(new WorkBatch(BATCH_SIZE));
+            if (!workBatchPool.offer(new WorkBatch(BATCH_SIZE))) {
+                throw new IllegalStateException("Failed to pre-allocate the WorkBatch pool. Reconfiguration is required.");
+            }
         }
     }
 
@@ -336,9 +339,11 @@ public class CombinationQueueArray {
      * @memory Does not allocate.
      */
     public void generatorFinished() {
+        // TODO: Remove in favor of the generationComplete flag.
         if (generatorsRemaining.decrementAndGet() == 0) {
             generationComplete = true;
         }
+        // TODO: Log the time when generation completes for consistent reporting.
     }
 
     /**
@@ -373,6 +378,7 @@ public class CombinationQueueArray {
             this.winningMonkey = monkeyName;
             this.winningCombination = winningCombination;
         }
+        // TODO: Log the time of completion for consistent reporting.
     }
 
     /**

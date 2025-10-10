@@ -1,7 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import org.jctools.queues.MessagePassingQueue;
-
 /**
  * A high-performance, reusable container for batching puzzle combinations
  * 
@@ -57,7 +55,7 @@ import org.jctools.queues.MessagePassingQueue;
  *            intended to be used by one thread at a time. Queues should be the only point of
  *            inter-thread communication.
  */
-public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, MessagePassingQueue.Supplier<short[]> {
+public final class WorkBatch {
     /**
      * The pre-allocated circular buffer storing the {@code short[]} combinations.
      *
@@ -390,56 +388,6 @@ public final class WorkBatch implements MessagePassingQueue.Consumer<short[]>, M
         head = 0;
         tail = 0;
         remainingCapacity = capacity; // Reset remaining capacity to full
-    }
-
-    /**
-     * Legacy JCTools integration method.
-     *
-     * <p>
-     * This was used in a previous architecture where individual combinations were drained from a queue
-     * into a {@code WorkBatch}. It is now unused since entire {@code WorkBatch} objects are enqueued
-     * directly.
-     * </p>
-     *
-     * @param combination The combination to add.
-     * @deprecated This method is no longer used in the current batch-based queuing architecture.
-     * @see org.jctools.queues.MessagePassingQueue
-     * @see org.jctools.queues.MessagePassingQueue.Consumer
-     * @see org.jctools.queues.MessagePassingQueue.Consumer#accept(Object)
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} call to {@link #add(short[])}.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate; reuses the pre-allocated arrays in {@link #buffer}.
-     */
-    @Override
-    public void accept(short[] combination) {
-        // TODO: Remove Consumer interface and this method from the class, since it is no longer used.
-        add(combination);
-    }
-
-    /**
-     * Legacy JCTools integration method.
-     *
-     * <p>
-     * This was used in a previous architecture where a {@code WorkBatch} was used to fill a queue with
-     * individual combinations. It is now unused since entire {@code WorkBatch} objects are enqueued
-     * directly.
-     * </p>
-     *
-     * @return The next combination from the batch.
-     * @deprecated This method is no longer used in the current batch-based queuing architecture.
-     * @see org.jctools.queues.MessagePassingQueue
-     * @see org.jctools.queues.MessagePassingQueue.Supplier
-     * @see org.jctools.queues.MessagePassingQueue.Supplier#get()
-     * @since 2025.07 - {@code WorkBatch} Integration in Generators
-     * @performance {@code O(1)} call to {@link #poll()}.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate; reuses the pre-allocated arrays in {@link #buffer}.
-     */
-    @Override
-    public short[] get() {
-        // TODO: Remove Supplier interface and this method from the class, since it is no longer used.
-        return poll();
     }
 
     /**

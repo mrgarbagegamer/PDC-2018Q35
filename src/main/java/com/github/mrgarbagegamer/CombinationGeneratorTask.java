@@ -87,7 +87,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    public static final int BATCH_SIZE = 8000;
+    public static final int BATCH_SIZE = 8000; // TODO: Consider moving this to WorkBatch so it makes more sense.
     /**
      * The pre-allocated size of the {@link ThreadLocal thread-local} resource pools in
      * {@link GeneratorContext}.
@@ -1458,7 +1458,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            {@link CombinationQueue#add(WorkBatch)}.
      */
     public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) {
-        if (queueArray.solutionFound || pool.isShutdown()) return;
+        if (queueArray.isSolutionFound() || pool.isShutdown()) return;
         
         try {
             pool.submit(() -> {
@@ -1467,7 +1467,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 WorkBatch batch = ctx.currentBatch;
                 if (batch != null && !batch.isEmpty()) 
                 {
-                    flushBatchHelper(batch, queueArray, false, !queueArray.solutionFound);
+                    flushBatchHelper(batch, queueArray, false, !queueArray.isSolutionFound());
                     ctx.resetBatch(); // Reset rather than remove ThreadLocal
                 }
             }).join();
@@ -1546,7 +1546,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 return false; // No queue accepted the batch
             }
             // Only check cancellation if requested (for task flushing, not final flush)
-            if (checkCancellation && queueArray.solutionFound) return false;
+            if (checkCancellation && queueArray.isSolutionFound()) return false;
         }
     }
 }

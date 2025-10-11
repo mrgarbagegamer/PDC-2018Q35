@@ -104,11 +104,13 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      *         passed {@code list}.
      */
     public CombinationMessage(short[] list, Grid.ValueFormat format) {
-        this.list = list;
-        this.format = format;
+        // TODO: Consider adding the success/failure status to the message so it can be passed directly.
         if (format == Grid.ValueFormat.Bitmask) {
             throw new IllegalArgumentException("Cannot create CombinationMessage with Bitmask format at the moment. Use Index or PackedInt instead.");
         }
+        this.list = list;
+        this.format = format;
+        
     }
 
     /**

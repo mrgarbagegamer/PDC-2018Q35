@@ -85,12 +85,16 @@ public class TestClickCombination extends Thread {
      *
      * @see #run()
      * @see CombinationMessage
+     * @see Logger#debug(String)
+     * @see Logger#info(String, Object)
+     * 
+     * @see LogManager#getLogger()
      * @since 2025.05 - Async Logging Introduction
      * @performance {@code O(1)} for logger retrieval.
      * @threading Thread-safe per Log4j2 design.
      * @memory Fixed memory footprint of 4 bytes for the {@code static} reference.
      */
-    private static final Logger logger = LogManager.getLogger(TestClickCombination.class);
+    private static final Logger logger = LogManager.getLogger();
     /**
      * A constant defining the frequency of logging for failed attempts.
      *
@@ -328,15 +332,15 @@ public class TestClickCombination extends Thread {
      * <ol>
      * <li>Attempt to {@link #getWork() get a work batch}.</li>
      * <li>If no work is found, check for termination conditions
-     * ({@link CombinationQueueArray#solutionFound solution found}, or
-     * {@link CombinationQueueArray#generationComplete generation is complete} and
+     * ({@link CombinationQueueArray#isSolutionFound() solution found}, or
+     * {@link CombinationQueueArray#isGenerationComplete() generation is complete} and
      * {@link #allQueuesEmpty() all queues are empty}). If no reason to terminate,
      * {@link Thread#sleep(long) sleep briefly} and continue.</li>
      * <li>If a batch is acquired, iterate through each combination within it.</li>
      * <li>For each combination, perform the {@link #satisfiesOddAdjacency(short[])} check.</li>
      * <li>If the check passes, apply the clicks to the local {@link #puzzleGrid}.</li>
-     * <li>If the grid {@link Grid#isSolved() is solved}, log the solution, trigger a global
-     * {@link #triggerGeneratorShutdown() shutdown}, and terminate.</li>
+     * <li>If the grid {@link Grid#isSolved() is solved}, {@link Logger#info(String, Object) log} the
+     * solution, trigger a global {@link #triggerGeneratorShutdown() shutdown}, and terminate.</li>
      * <li>If the grid is not solved, {@link Grid#initialize() reset} it and continue.</li>
      * <li>After the batch is exhausted, recycle it to {@link CombinationQueueArray#getWorkBatchPool()
      * the shared pool} and repeat the loop.</li>
@@ -364,14 +368,16 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        while (!queueArray.solutionFound)
+        while (!queueArray.isSolutionFound())
         {
             WorkBatch workBatch = getWork();
 
             if (workBatch == null)
             {
-                // TODO: Look at removing the redundant solutionFound check here
-                if (queueArray.solutionFound || (queueArray.generationComplete && allQueuesEmpty()))
+                // TODO: Look at removing the redundant solutionFound check here.
+                // TODO: Consider adding the isGenerationComplete() check to allQueuesEmpty() to simplify the
+                // method.
+                if (queueArray.isSolutionFound() || (queueArray.isGenerationComplete() && allQueuesEmpty()))
                 {
                     break; // Exit if solution found or generation is done and all queues are empty
                 }
@@ -382,7 +388,7 @@ public class TestClickCombination extends Thread {
                 catch (InterruptedException e)
                 {
                     Thread.currentThread().interrupt();
-                    logger.debug("Thread {} interrupted while waiting for work", getName());
+                    logger.debug("Thread interrupted while waiting for work");
                     break; // Exit on interruption (from pool shutdown)
                 }
                 continue; // Retry getting a combination
@@ -391,7 +397,7 @@ public class TestClickCombination extends Thread {
             // OPTIMIZED: Process entire batch with reduced branching
             short[] combinationClicks;
             // TODO: Look at removing the redundant solutionFound check here
-            while ((combinationClicks = workBatch.poll()) != null && !queueArray.solutionFound)
+            while ((combinationClicks = workBatch.poll()) != null && !queueArray.isSolutionFound())
             {
                 if (satisfiesOddAdjacency(combinationClicks))
                 {

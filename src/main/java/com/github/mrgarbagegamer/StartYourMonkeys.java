@@ -66,8 +66,12 @@ public class StartYourMonkeys {
      *
      * @see CombinationMessage
      * @see Logger
+     * @see Logger#info(String)
+     * @see Logger#info(String, Object)
+     * @see Logger#info(String, Object, Object)
      * @see LogManager
      * @see LogManager#getLogger()
+     * @see LogManager#shutdown()
      * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous
      *      Logging</a>
      * @since 2025.05 - Log4j2 Integration
@@ -135,16 +139,18 @@ public class StartYourMonkeys {
      * immediately begin waiting for work.</li>
      * <li><b>Generator Execution:</b> Creates a {@link ForkJoinPool} and submits a root
      * {@link CombinationGeneratorTask}. The main thread blocks using
-     * {@link ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask)}, waiting for the entire generation
-     * process (including all forked subtasks) to complete or for a solution to be found.</li>
+     * {@link ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask) invoke(CombinationGeneratorTask)},
+     * waiting for the entire generation process (including all forked subtasks) to complete or for a
+     * solution to be found.</li>
      * <li><b>Graceful Shutdown:</b> Once generation finishes, it
      * {@link CombinationGeneratorTask#flushAllPendingBatches(CombinationQueueArray, ForkJoinPool)
      * flushes any remaining work} from generator-local batches,
-     * {@link CombinationQueueArray#generatorFinished() signals} to the workers that no more work is
+     * {@link CombinationQueueArray#generationComplete() signals} to the workers that no more work is
      * coming, and waits for them to terminate using {@link Thread#join()}.</li>
-     * <li><b>Result Reporting:</b> Reports the outcome (solution found or not found), verifies the
-     * solution if one exists, and {@link #formatElapsedTime(long) logs the total elapsed time} before
-     * shutting down the {@link #logger}.</li>
+     * <li><b>Result Reporting:</b> Reports the outcome ({@link CombinationQueueArray#isSolutionFound()
+     * solution found or not found}), verifies the solution if one exists, and
+     * {@link #formatElapsedTime(long) logs the total elapsed time} before {@link LogManager#shutdown()
+     * shutting down} the {@link #logger}.</li>
      * </ol>
      *
      * <h3>ForkJoinPool Behavior</h3>
@@ -164,7 +170,6 @@ public class StartYourMonkeys {
      *             <li>{@code args[2]}: The puzzle ID to solve (13, 22, or 35).</li>
      *             </ul>
      * @throws IllegalArgumentException if any command-line arguments are invalid.
-     * @see CombinationGeneratorTask#computeRootSubtasks(CombinationGeneratorTask.GeneratorContext)
      * @since 2025.04 - Multi-threaded Refactor
      * @performance ~{@code O(1)} for most orchestration tasks.
      * @threading Single-threaded for most of orchestration, coordinating multiple threads.
@@ -233,15 +238,15 @@ public class StartYourMonkeys {
             }
         }
 
-        final int numGeneratorThreads = numThreads / 2;
+        final int numGeneratorThreads = numThreads / 2; // Rounds down in the case of odd numbers
 
         // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
         WorkBatch.setNumClicks(numClicks);
-        CombinationQueueArray queueArray = new CombinationQueueArray(numGeneratorThreads, 1);
+        CombinationQueueArray queueArray = new CombinationQueueArray(numThreads - numGeneratorThreads); // One queue per worker thread (with an equal)
         short[] trueCells = baseGrid.findTrueCells();
 
         // Start consumer threads BEFORE generation
-        TestClickCombination[] monkeys = new TestClickCombination[numGeneratorThreads];
+        TestClickCombination[] monkeys = new TestClickCombination[numThreads - numGeneratorThreads];
         for(int i = 0; i < numGeneratorThreads; i++)
         {
             String threadName = String.format("Monkey-%d", i);
@@ -262,13 +267,13 @@ public class StartYourMonkeys {
         finally 
         {
             // Flush any remaining batches only if no solution found
-            if (!queueArray.solutionFound) 
+            if (!queueArray.isSolutionFound()) 
             {
                 CombinationGeneratorTask.flushAllPendingBatches(queueArray, generatorPool);
             }
             
             // Mark generation complete
-            queueArray.generatorFinished();
+            queueArray.generationComplete();
             
             // Wait for worker threads to finish
             for (TestClickCombination worker : monkeys) 
@@ -288,7 +293,6 @@ public class StartYourMonkeys {
         }
         
         // Process results
-        short[] winningCombination = queueArray.getWinningCombination();
         long runtimeMillis = queueArray.getEndTime() - queueArray.getStartTime();
         if (runtimeMillis <= 0)
         {
@@ -307,14 +311,17 @@ public class StartYourMonkeys {
 
         logger.info("\n\n--------------------------------------\n");
 
-        if (winningCombination == null) 
+        if (!queueArray.isSolutionFound()) 
         {
+            // TODO: Consider using the Unbox utility from Log4j2 for GC-free primitive logging.
             logger.info("No solution to Q{} in {} clicks was found.", questionNumber, numClicks);
             logger.info("Elapsed time: {}", elapsedFormatted);
             logger.info("\n\n--------------------------------------\n");
             LogManager.shutdown();
             return;
         }
+
+        short[] winningCombination = queueArray.getWinningCombination();
 
         // Convert to packed int format and display results
         for (int i = 0; i < winningCombination.length; i++) 

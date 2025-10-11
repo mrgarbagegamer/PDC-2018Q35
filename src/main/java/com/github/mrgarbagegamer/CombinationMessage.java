@@ -166,7 +166,8 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      *
      * <p>
      * This is the core method for garbage-free logging. It ensures the combination is in a readable
-     * {@link Grid.ValueFormat#PackedInt} format and appends it to the buffer.
+     * {@link Grid.ValueFormat#PackedInt} format and appends it to the buffer. Values are zero-padded
+     * for better readability.
      * </p>
      *
      * @param buffer The {@code StringBuilder} to which the formatted message will be appended.
@@ -189,7 +190,13 @@ public class CombinationMessage implements Message, StringBuilderFormattable
                 buffer.append(',');
                 buffer.append(' ');
             }
-            // TODO: Consider formatting with leading zeros for better readability (though at a performance cost).
+            if (list[i] < 10) { // Leading zeros for better alignment
+                buffer.append('0');
+                buffer.append('0');
+            }
+            else if (list[i] < 100) { // Leading zero for better alignment
+                buffer.append('0');
+            }
             buffer.append(list[i]);
         }
         buffer.append(']');

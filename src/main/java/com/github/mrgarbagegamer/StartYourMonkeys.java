@@ -171,8 +171,6 @@ public class StartYourMonkeys {
      * @memory Pre-allocates several shared resources to minimize runtime overhead.
      */
     public static void main(String[] args) {
-        long startTime = System.currentTimeMillis(); // Start timer
-
         int parsedNumClicks  = DEFAULT_NUM_CLICKS;
         int parsedNumThreads = DEFAULT_NUM_THREADS;
         int parsedQuestionNumber = DEFAULT_QUESTION_NUMBER;
@@ -270,7 +268,7 @@ public class StartYourMonkeys {
             }
             
             // Mark generation complete
-            queueArray.generationComplete = true;
+            queueArray.generatorFinished();
             
             // Wait for worker threads to finish
             for (TestClickCombination worker : monkeys) 
@@ -291,8 +289,12 @@ public class StartYourMonkeys {
         
         // Process results
         short[] winningCombination = queueArray.getWinningCombination();
-        long elapsedMillis = System.currentTimeMillis() - startTime;
-        String elapsedFormatted = formatElapsedTime(elapsedMillis);
+        long runtimeMillis = queueArray.getEndTime() - queueArray.getStartTime();
+        if (runtimeMillis <= 0)
+        {
+            throw new IllegalStateException("Program marked as complete but recorded non-positive runtime.");
+        }
+        String elapsedFormatted = formatElapsedTime(runtimeMillis);
 
         // Sleep for logger flush
         try 

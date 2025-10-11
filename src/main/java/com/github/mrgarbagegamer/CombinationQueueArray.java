@@ -130,6 +130,33 @@ public class CombinationQueueArray {
      */
     private final MpmcArrayQueue<WorkBatch> workBatchPool;
     /**
+     * The start time of the program's operation, used for logging purposes. This timestamp is
+     * initialized during {@link #CombinationQueueArray(int, int) construction}.
+     * 
+     * @see #endTime
+     * @see #getStartTime()
+     * @see StartYourMonkeys
+     * @since 2025.10 - Elapsed Time Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe; immutable field.
+     * @memory Minimal footprint of 8 bytes as a {@code long}.
+     */
+    private final long startTime;
+    /**
+     * The end time of the program's operation, used for logging purposes. This timestamp is set when a
+     * {@link #solutionFound solution is found} or generation is {@link #generatorFinished() marked} as
+     * {@link #generationComplete complete}.
+     * 
+     * @see #startTime
+     * @see #getEndTime()
+     * @see StartYourMonkeys
+     * @since 2025.10 - Elapsed Time Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe; mutable field with {@code volatile} for visibility.
+     * @memory Minimal footprint of 8 bytes as a {@code long}.
+     */
+    private volatile long endTime = -1L; // TODO: Consider piggybacking on the volatile write to solutionFound/generationComplete.
+    /**
      * The name of the {@link TestClickCombination monkey} that found the solution. Written once when
      * {@link #solutionFound} is set.
      *
@@ -142,6 +169,10 @@ public class CombinationQueueArray {
      *
      * @see #solutionFound(String, short[])
      * @see #getWinningMonkey()
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
+     * @performance {@code O(1)} retrieval.
+     * @threading Thread-safe; returns a reference to a {@code volatile} field.
+     * @memory Minimal footprint of 4 bytes as a reference.
      */
     private volatile String winningMonkey = null; // TODO: Consider piggybacking on the volatile write to solutionFound.
     /**
@@ -156,6 +187,10 @@ public class CombinationQueueArray {
      *
      * @see #solutionFound(String, short[])
      * @see #getWinningCombination()
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
+     * @performance {@code O(1)} retrieval.
+     * @threading Thread-safe; returns a reference to a {@code volatile} field.
+     * @memory Minimal footprint of 4 bytes as a reference.
      */
     private volatile short[] winningCombination = null; // TODO: Consider piggybacking on the volatile write to solutionFound.
 
@@ -219,7 +254,8 @@ public class CombinationQueueArray {
      * creates the array of work {@link CombinationQueue queues} and pre-allocates {@link #workBatchPool
      * the central} {@link WorkBatch} pool. The pool is sized to match the total
      * {@link CombinationQueue#getCapacity() capacity} of all work queues combined, which is a critical
-     * invariant to ensure the recycling mechanism never fails.
+     * invariant to ensure the recycling mechanism never fails. Finally, it starts the timer for program
+     * execution by initializing the {@link #startTime} field.
      * </p>
      *
      * @param numConsumers  The number of {@link TestClickCombination monkeys}. This determines the
@@ -260,6 +296,7 @@ public class CombinationQueueArray {
                 throw new IllegalStateException("Failed to pre-allocate the WorkBatch pool. Reconfiguration is required.");
             }
         }
+        this.startTime = System.currentTimeMillis();
     }
 
     /**
@@ -323,27 +360,30 @@ public class CombinationQueueArray {
      * <p>
      * This method is called by a {@link CombinationGeneratorTask generator} after it has finished
      * computing all of its subtasks to signal to {@link TestClickCombination monkeys} that no new work
-     * will be produced.
+     * will be produced. It also records the {@link #endTime end time} of the program's operation for
+     * logging.
      * </p>
      *
      * <h3>Performance Considerations</h3>
      * <p>
      * This method is not in the hot path. It uses an {@code AtomicInteger} for lock-free updates. Since
      * only one root generator task calls this, a future optimization could be to remove the atomic
-     * operation and have the main thread set the {@code generationComplete} flag directly.
+     * operation and have the main thread set the {@code generationComplete} flag directly. The other
+     * fields could piggyback on this write for visibility.
      * </p>
      *
+     * @see StartYourMonkeys#main(String[])
      * @since 2025.05 - Multiple {@code CombinationQueue}s
      * @performance {@code O(1)} atomic decrement and check.
      * @threading Thread-safe; uses atomic operations for safe concurrent updates.
      * @memory Does not allocate.
      */
     public void generatorFinished() {
-        // TODO: Remove in favor of the generationComplete flag.
+        // TODO: Remove in favor of the generationComplete flag (and synchronize on a lock).
         if (generatorsRemaining.decrementAndGet() == 0) {
             generationComplete = true;
+            this.endTime = System.currentTimeMillis();
         }
-        // TODO: Log the time when generation completes for consistent reporting.
     }
 
     /**
@@ -351,9 +391,9 @@ public class CombinationQueueArray {
      *
      * <p>
      * This method sets the {@link #solutionFound} flag to {@code true} and records the winning
-     * combination and the name of the thread that found it. It is designed to be called by any
-     * {@link TestClickCombination monkey}. A check ensures that only the first-found solution is
-     * recorded.
+     * combination, the name of the thread that found it, and the {@link System#currentTimeMillis()
+     * current time}. It is designed to be called by any {@link TestClickCombination monkey}. A check
+     * ensures that only the first-found solution is recorded.
      * </p>
      *
      * <h3>Performance Considerations</h3>
@@ -367,18 +407,20 @@ public class CombinationQueueArray {
      *
      * @param monkeyName         The name of the monkey that found the solution.
      * @param winningCombination The combination that solves the puzzle.
+     * @see #endTime
      * @since 2025.05 - Multiple {@code CombinationQueue}s
      * @performance {@code O(1)} check and set.
      * @threading Thread-safe; uses {@code volatile} for safe concurrent access.
      * @memory Does not allocate.
      */
     public void solutionFound(String monkeyName, short[] winningCombination) {
+        // TODO: Synchronize on a lock to ensure only one thread can set the solution at a time.
         if (solutionFound == false) {
             solutionFound = true;
             this.winningMonkey = monkeyName;
             this.winningCombination = winningCombination;
+            this.endTime = System.currentTimeMillis();
         }
-        // TODO: Log the time of completion for consistent reporting.
     }
 
     /**
@@ -409,5 +451,41 @@ public class CombinationQueueArray {
      */
     public short[] getWinningCombination() { 
         return winningCombination; 
+    }
+
+    /**
+     * Returns the {@link #startTime start time} of the program's operation, used for logging purposes.
+     * This timestamp is initialized during {@link #CombinationQueueArray(int, int) construction}.
+     * 
+     * @return The start time in milliseconds since the epoch.
+     * @see #endTime
+     * @see #getEndTime()
+     * @see StartYourMonkeys#main(String[])
+     * @since 2025.10 - Elapsed Time Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe; returns a immutable field.
+     * @memory Does not allocate.
+     */
+    public long getStartTime() {
+        return startTime;
+    }
+
+    /**
+     * Returns the {@link #endTime end time} of the program's operation, used for logging purposes. This
+     * timestamp is set when a {@link #solutionFound solution is found} or generation is
+     * {@link #generatorFinished() marked} as {@link #generationComplete complete}. Otherwise, it
+     * remains {@code -1}.
+     * 
+     * @return The end time in milliseconds since the epoch, or {@code -1} if not finished.
+     * @see #startTime
+     * @see #getStartTime()
+     * @see StartYourMonkeys#main(String[])
+     * @since 2025.10 - Elapsed Time Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe; performs a read of a {@code volatile} field.
+     * @memory Does not allocate.
+     */
+    public long getEndTime() {
+        return endTime;
     }
 }

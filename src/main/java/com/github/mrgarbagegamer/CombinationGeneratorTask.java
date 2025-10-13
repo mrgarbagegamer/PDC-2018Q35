@@ -37,8 +37,8 @@ import java.util.concurrent.ThreadLocalRandom;
  * To avoid performance degradation from excessive garbage collection, this class adheres to a
  * strict "don't allocate" policy in its hot paths. All critical resources, including
  * {@code short[]} {@code prefix} arrays and the tasks themselves, are recycled using
- * {@link ThreadLocal thread-local} pools managed by the {@link GeneratorContext}. This design
- * reduces heap allocations to nearly zero during the main generation loop.
+ * {@link ThreadLocal thread-local} pools managed by the {@link GeneratorContext GeneratorContext}.
+ * This design reduces heap allocations to nearly zero during the main generation loop.
  * </p>
  * 
  * @see java.util.concurrent.ForkJoinTask
@@ -47,8 +47,8 @@ import java.util.concurrent.ThreadLocalRandom;
  *              aggressive bitmask-based pruning and parallel execution significantly reduce the
  *              practical workload.
  * @threading Tasks are isolated by the {@code ForkJoinTask} framework. Shared resources are managed
- *            via a {@link #context ThreadLocal} {@link GeneratorContext} to ensure thread safety
- *            and eliminate contention.
+ *            via a {@link #context ThreadLocal} {@link GeneratorContext GeneratorContext} to ensure
+ *            thread safety and eliminate contention.
  * @algorithm A recursive, divide-and-conquer approach. Tasks form a generation tree where each node
  *            is a click prefix. Subtasks are {@link #computeIntermediateSubtasks(GeneratorContext)
  *            forked} until a {@link #numClicks target length} is reached. Leaf tasks
@@ -417,6 +417,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @see #TRUE_CELL_ADJACENCY_MASKS
      * @see #canPotentiallySatisfyConstraints(int)
      * @see #ensureTrueCellMasks(short[])
+     * @see #init(short[], int, long, boolean, boolean)
      * @see Grid#areAdjacent(short, short)
      * @see Grid#findTrueCells()
      * @since 2025.07 - Cached adjacency state introduction
@@ -425,6 +426,25 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Minimal memory footprint of 8 bytes as a {@code long}.
      */
     private long cachedAdjacencyState = -1;
+    /**
+     * A boolean indicating the parity of clicks affecting the first initially {@code true} cell in the
+     * {@link #prefix}.
+     * 
+     * <p>
+     * Like {@link #cachedAdjacencyState}, this value is incrementally built in the generator threads to
+     * allow for {@code O(1)} checks in {@link #computeLeafCombinations(GeneratorContext) leaf tasks}.
+     * </p>
+     * 
+     * @see #computeIntermediateSubtasksConstraintPath(GeneratorContext)
+     * @see #computeIntermediateSubtasksSkipPath(GeneratorContext)
+     * @see #init(short[], int, long, boolean, boolean)
+     * @since 2025.10 - Prefix Parity Pre-computation
+     * @performance {@code O(1)} for updates during task initialization, which avoids a previously
+     *              {@code O(prefixLength)} operation in the leaf task path.
+     * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask} isolation.
+     * @memory Minimal memory footprint of 1 byte as a {@code boolean}.
+     */
+    private boolean prefixParity;
     /**
      * A flag indicating that this task and all its descendants are guaranteed to satisfy the
      * constraints, allowing future checks to be skipped.
@@ -737,6 +757,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * forked by the task it was invoked on. If we didn't block here, the main thread would un-park
      * prematurely, long before the search is complete.
      * </p>
+     * 
      * <p>
      * Using {@code helpQuiesce()} forces the root task (and by extension, the main thread that
      * {@link ForkJoinPool#invoke(ForkJoinTask) invoked} it) to participate in work-stealing until all
@@ -767,9 +788,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
             // Get recycled task from context pool
             CombinationGeneratorTask subtask = ctx.taskPool.get();
+
+            // Identify the parity of this root subtask:
+            final long maskValue = i < 64 ? FIRST_TRUE_ADJACENTS[0] : FIRST_TRUE_ADJACENTS[1];
+            final boolean parity = (maskValue & (1L << (i & 63))) != 0;
             
             // Fix: Pass TRUE_CELL_ADJACENCY_MASKS[i] instead of 0L for correct initial state
-            subtask.init(newPrefix, prefixLength + 1, TRUE_CELL_ADJACENCY_MASKS[i], false);
+            subtask.init(newPrefix, prefixLength + 1, TRUE_CELL_ADJACENCY_MASKS[i], false, parity);
             
             // Fork the subtask - it will clean itself up
             subtask.fork();
@@ -784,7 +809,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * This method is central to the object pooling strategy. Instead of creating a new task, we recycle
-     * an existing one from the {@link TaskPool} and re-initialize it with a new }{@code prefix} and
+     * an existing one from the {@link TaskPool} and re-initialize it with a new {@code prefix} and
      * state. It assigns the given parameters and calls {@link #reinitialize()} to reset the
      * {@link java.util.concurrent.ForkJoinTask ForkJoinTask} state, making the task ready for
      * re-submission.
@@ -801,16 +826,20 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param prefixLength         The length of the {@code prefix}.
      * @param parentAdjacencyState The {@link #cachedAdjacencyState} from the parent task.
      * @param skipConstraints      A flag indicating if constraint checks can be skipped.
+     * @param prefixParity         The parity of the {@code prefix} affecting the first {@code true}
+     *                             cell.
      * @since 2025.07 - Task Pool Introduction
      * @performance {@code O(1)} for assignments and reinitialization.
      * @threading Not thread-safe; must be called by only one thread at a time on a given task.
      * @memory Does not allocate; uses pooled resources.
      */
-    public void init(short[] prefix, int prefixLength, long parentAdjacencyState, boolean skipConstraints) {
+    public void init(short[] prefix, int prefixLength, long parentAdjacencyState, boolean skipConstraints,
+            boolean prefixParity) {
         this.prefix = prefix;
         this.prefixLength = prefixLength;
         this.cachedAdjacencyState = parentAdjacencyState;
         this.skipConstraintsCheck = skipConstraints;
+        this.prefixParity = prefixParity;
         reinitialize();
     }
 
@@ -827,30 +856,21 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <h3>Algorithm and Pruning</h3>
      * <p>
-     * The primary optimization here is a lightweight parity check. For a solution to be valid, the
-     * first initially {@code true} cell must be toggled an odd number of times. This method first
-     * computes the parity of the existing {@link #prefix} (whether it toggles that cell an even or odd
-     * number of times). It then iterates through all possible final clicks, adding only those that
-     * result in a correct final parity. Incidentally, this means including clicks that have an opposite
-     * parity to the {@code prefix} (i.e., if the {@code prefix} has even parity, we need a final click
-     * with odd parity, and vice versa).
+     * The primary optimization here is a lightweight {@link #prefixParity parity} check. For a solution
+     * to be valid, the first initially {@code true} cell must be toggled an odd number of times. It
+     * iterates through all possible final clicks, adding only those that result in a correct final
+     * parity. Incidentally, this means including clicks that have an opposite parity to the
+     * {@code prefix} (i.e., if the {@code prefix} has even parity, we need a final click with odd
+     * parity, and vice versa).
      * </p>
      * 
      * <h3>Performance and Inlining</h3>
      * <p>
-     * This is a critical hot path. The parity calculation was deliberately inlined into this method to
-     * flatten the call stack, helping the JIT compiler with optimizations like loop unrolling. The
-     * trade-off is that this check runs for every single potential final click, which is expensive.
-     * However, removing it could flood the queues with non-viable combinations, shifting the burden to
-     * the monkeys and degrading overall performance.
-     * </p>
-     * 
-     * <h3>Future Optimization Ideas</h3>
-     * <p>
-     * The cost of this check could be amortized by tracking parity incrementally, similar to
-     * {@link #cachedAdjacencyState}. This would involve passing the parity down from parent to child,
-     * adding a small overhead to intermediate tasks but making this leaf method faster. For now, the
-     * current implementation represents a stable balance of trade-offs.
+     * This is a critical hot path. The parity calculation for each leaf combination was deliberately
+     * inlined into this method to flatten the call stack, helping the JIT compiler with optimizations
+     * like loop unrolling. The trade-off is that this check runs for every single potential final
+     * click, which is expensive. However, removing it could flood the queues with non-viable
+     * combinations, shifting the burden to the monkeys and degrading overall performance.
      * </p>
      * 
      * @param ctx The thread-local {@link GeneratorContext}.
@@ -858,12 +878,11 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @see #flushBatchFast(WorkBatch)
      * @see GeneratorContext#getOrCreateBatch()
      * @since 2025.07 - Splitting the Compute Method Into Paths
-     * @performance {@code O(prefixLength)} for {@code prefix} parity computation, and
-     *              {@code O(NUM_CELLS - prefix[prefixLength - 1])} for iterating over possible next
+     * @performance {@code O(NUM_CELLS - prefix[prefixLength - 1])} for iterating over possible next
      *              clicks.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask} isolation.
-     * @algorithm Iterates over {@code prefix} to compute parity, then iterates over possible next
-     *            clicks to find valid combinations based on the computed parity.
+     * @algorithm Iterates over possible next clicks to find valid combinations based on the computed
+     *            parity.
      * @memory Does not allocate unless pools are empty; uses pooled resources.
      */
     private final void computeLeafCombinations(GeneratorContext ctx) {
@@ -873,25 +892,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final long[] mask = FIRST_TRUE_ADJACENTS; // Use the pre-computed mask for the first true cell
         final long mask0 = mask[0]; // Cache array elements to avoid repeated dereferences
         final long mask1 = mask[1];
+        final boolean prefixParity = this.prefixParity;
 
         // Use context batch directly
         WorkBatch batch = ctx.getOrCreateBatch();
-
-        // OPTIMIZED: Compute prefix parity with cached mask values
-        // TODO: Consider tracking prefix parity per task and passing down the values to avoid recomputing and to condense this method
-        boolean prefixParity = false; // Track parity of the prefix
-        for (int j = 0; j < pLen; j++) // For each cell in the prefix
-        {
-            final int c = prefix[j];
-            final long maskValue = (c < 64) ? mask0 : mask1; // Find the mask the cell belongs to
-            final int bitPos = c & 63; // Find the bit position within the mask
-
-            // Check if the cell exists within the mask (if it toggles the first true cell)
-            if ((maskValue & (1L << bitPos)) != 0)
-            {
-                prefixParity ^= true; // Toggle parity (XOR with true is the same as toggling)
-            }
-        }
 
         // TODO: Consider replacing the parity check with the constraints check again and/or skipping if the prefix is known to satisfy constraints
 
@@ -975,7 +979,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <p>
      * This method contains a highly optimized, branch-free loop. It iterates through all possible next
      * clicks, gets a recycled task and {@code prefix} from the pools,
-     * {@link #init(short[], int, long, boolean) initializes them}, and {@link #fork() forks} them for
+     * {@link #init(short[], int, long, boolean, boolean) initializes them}, and {@link #fork() forks} them for
      * execution. Because no pruning checks are needed, the loop body is minimal and extremely friendly
      * to JIT compiler optimizations. A small safeguard exists to allocate a new array if the
      * {@link ArrayPool} is exhausted, though this is not expected in normal operation and could be
@@ -995,6 +999,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final short max = (short) (Grid.NUM_CELLS - (numClicks - prefixLength) + 1);
         final ArrayPool prefixPool = ctx.prefixArrayPool;
         final TaskPool taskPool = ctx.taskPool;
+        final boolean prefixParity = this.prefixParity; // Cache field read
+        final long mask0 = FIRST_TRUE_ADJACENTS[0]; // Cache array elements to avoid repeated dereferences
+        final long mask1 = FIRST_TRUE_ADJACENTS[1];
         
         // Pure loop - no constraint checking, no mask loading, no conditionals
         for (short i = start; i < max; i++)
@@ -1004,10 +1011,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
             
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = i;
+            
+            // Determine the parity of the new prefix based on the new click
+            final long maskValue = (i < 64) ? mask0 : mask1;
+            final boolean iAdj = (maskValue & (1L << (i & 63))) != 0;
+            final boolean newPrefixParity = prefixParity ^ iAdj; // Update parity
 
             // All parameters are constants - perfect for JIT optimization
             CombinationGeneratorTask subtask = taskPool.get();
-            subtask.init(newPrefix, prefixLength + 1, -1L, true);
+            subtask.init(newPrefix, prefixLength + 1, -1L, true, newPrefixParity);
             
             // Fork the subtask - it will clean itself up
             subtask.fork();
@@ -1064,6 +1076,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final TaskPool taskPool = ctx.taskPool;
         final long[] masks = TRUE_CELL_ADJACENCY_MASKS;
         final boolean skipConstraints = this.skipConstraintsCheck; // Cache field read
+        final boolean prefixParity = this.prefixParity; // Cache field read
+        final long mask0 = FIRST_TRUE_ADJACENTS[0]; // Cache array elements to avoid repeated dereferences
+        final long mask1 = FIRST_TRUE_ADJACENTS[1];
         
         // Pure loop - no conditionals inside, all branching resolved outside loop
         for (short i = start; i < max; i++) // loops from prefix[prefixLength - 1] + 1 to Grid.NUM_CELLS - (numClicks - prefixLength) + 1
@@ -1074,13 +1089,18 @@ public class CombinationGeneratorTask extends RecursiveAction {
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = i;
 
+            // Determine the parity of the new prefix based on the new click
+            final long maskValue = (i < 64) ? mask0 : mask1;
+            final boolean iAdj = (maskValue & (1L << (i & 63))) != 0;
+            final boolean newPrefixParity = prefixParity ^ iAdj; // Update parity
+
             // No conditional - pure XOR calculation every time
             // TODO: Double check that you're supposed to XOR and not OR here (since XORing represents a toggle rather than a set)
             long childAdjacencyState = currentAdjacencyState ^ masks[i];
             
             // All parameters determined - perfect for JIT constant propagation
             CombinationGeneratorTask subtask = taskPool.get();
-            subtask.init(newPrefix, prefixLength + 1, childAdjacencyState, skipConstraints);
+            subtask.init(newPrefix, prefixLength + 1, childAdjacencyState, skipConstraints, newPrefixParity);
             
             // Fork the subtask - it will clean itself up
             subtask.fork();

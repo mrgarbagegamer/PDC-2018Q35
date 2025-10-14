@@ -2,8 +2,9 @@ package com.github.mrgarbagegamer;
 
 import java.util.concurrent.ForkJoinPool;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.util.Unbox;
 
 /**
  * The main application entry point and orchestrator for the Lights Out puzzle solver.
@@ -313,9 +314,8 @@ public class StartYourMonkeys {
 
         if (!queueArray.isSolutionFound()) 
         {
-            // TODO: Consider using the Unbox utility from Log4j2 for GC-free primitive logging.
-            logger.info("No solution to Q{} in {} clicks was found.", questionNumber, numClicks);
-            logger.info("Elapsed time: {}", elapsedFormatted);
+            logger.info("No solution to Q{} in {} clicks was found.", Unbox.box(questionNumber), Unbox.box(numClicks));
+            logger.info(elapsedFormatted);
             logger.info("\n\n--------------------------------------\n");
             LogManager.shutdown();
             return;
@@ -331,7 +331,7 @@ public class StartYourMonkeys {
 
         logger.info("{} - Found the solution as the following click combination: {}", 
                    queueArray.getWinningMonkey(), winningCombination);
-        logger.info("{} - Elapsed time: {}", queueArray.getWinningMonkey(), elapsedFormatted);
+        logger.info("{} - {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
         // Verify solution
         Grid puzzleGrid = baseGrid.clone();
@@ -348,8 +348,8 @@ public class StartYourMonkeys {
     }
 
     /**
-     * {@link String#format(String, Object...) Formats} a millisecond duration into a human-readable "Xh
-     * Ym Zs Wms" string.
+     * {@link String#format(String, Object...) Formats} a millisecond duration into a human-readable
+     * "Elapsed time: Xh Ym Zs Wms" {@link String string}.
      *
      * @param millis The elapsed time in milliseconds.
      * @return A formatted {@link String} representing the duration.
@@ -373,6 +373,7 @@ public class StartYourMonkeys {
         minutes = minutes % 60;
 
         StringBuilder sb = new StringBuilder();
+        sb.append("Elapsed time: ");
         if (hours > 0) sb.append(hours).append("h ");
         if (minutes > 0 || hours > 0) sb.append(minutes).append("m ");
         sb.append(seconds).append("s ");

@@ -49,6 +49,22 @@ import org.jctools.queues.MpmcArrayQueue;
  */
 public class CombinationQueueArray {
     /**
+     * The singleton instance of this class.
+     *
+     * <p>
+     * This field ensures that only one instance of {@code CombinationQueueArray} exists throughout the
+     * application's lifecycle. It is initialized lazily via {@link #getInstance(int)} to allow proper
+     * configuration with the number of consumers.
+     * </p>
+     *
+     * @since 2025.10 - Singleton Enforcement
+     * @performance {@code O(1)} access.
+     * @threading Thread-safe; uses {@code volatile} for safe publication.
+     * @memory Minimal footprint of 4 bytes as a reference.
+     */
+    private static volatile CombinationQueueArray instance = null;
+
+    /**
      * An array of {@link CombinationQueue work queues}, with each queue dedicated to a specific
      * {@link TestClickCombination monkey}.
      *
@@ -226,7 +242,8 @@ public class CombinationQueueArray {
     private volatile boolean generationComplete = false;
 
     /**
-     * Constructs the shared {@link #queues queue array} and its associated resources.
+     * Constructs the shared {@link #queues queue array} and its associated resources. As a private
+     * constructor, it enforces the singleton pattern via {@link #getInstance(int)}.
      *
      * <p>
      * This constructor initializes the entire communication and resource-sharing infrastructure. It
@@ -249,7 +266,7 @@ public class CombinationQueueArray {
      * @threading Thread-safe due to instance isolation.
      * @memory Allocates the array of queues, counters, and flags, and pre-allocates the pool.
      */
-    public CombinationQueueArray(int numConsumers) { // TODO: Consider enforcing the singleton pattern for this class.
+    private CombinationQueueArray(int numConsumers) {
         if (numConsumers <= 0) {
             throw new IllegalArgumentException("Number of consumers must be positive.");
         }
@@ -277,6 +294,39 @@ public class CombinationQueueArray {
             }
         }
         this.startTime = System.currentTimeMillis();
+    }
+
+    /**
+     * Returns the singleton instance of {@code CombinationQueueArray}, initializing it with the
+     * specified number of consumers if it has not been created yet.
+     *
+     * <p>
+     * This method enforces the singleton pattern, ensuring that only one instance exists. If the
+     * instance has already been initialized, subsequent calls will return the existing instance
+     * regardless of the {@code numConsumers} parameter. This allows the instance to be configured once
+     * at application startup.
+     * </p>
+     *
+     * @param numConsumers The number of {@link TestClickCombination monkeys}. Used only for
+     *                     initialization if the instance does not yet exist.
+     * @return The singleton instance of {@code CombinationQueueArray}.
+     * @throws IllegalArgumentException if {@code numConsumers} is not positive (only on first call).
+     * @throws IllegalStateException    if the pre-allocation of the {@link #workBatchPool pool} fails
+     *                                  (only on first call).
+     * @since 2025.10 - Singleton Enforcement
+     * @performance {@code O(1)} for subsequent calls; {@code O(numConsumers)} for initialization.
+     * @threading Thread-safe; uses double-checked locking for lazy initialization.
+     * @memory Does not allocate unless initializing the singleton.
+     */
+    public static CombinationQueueArray getInstance(int numConsumers) {
+        if (instance == null) {
+            synchronized (CombinationQueueArray.class) {
+                if (instance == null) {
+                    instance = new CombinationQueueArray(numConsumers);
+                }
+            }
+        }
+        return instance;
     }
 
     /**

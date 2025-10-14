@@ -243,7 +243,7 @@ public class StartYourMonkeys {
 
         // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
         WorkBatch.setNumClicks(numClicks);
-        CombinationQueueArray queueArray = new CombinationQueueArray(numThreads - numGeneratorThreads); // One queue per worker thread (with an equal)
+        CombinationQueueArray queueArray = CombinationQueueArray.getInstance(numThreads - numGeneratorThreads); // One queue per worker thread
         short[] trueCells = baseGrid.findTrueCells();
 
         // Start consumer threads BEFORE generation

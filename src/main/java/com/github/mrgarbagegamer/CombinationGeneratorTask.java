@@ -65,36 +65,6 @@ import org.apache.logging.log4j.util.Unbox;
  */
 public class CombinationGeneratorTask extends RecursiveAction {
     /**
-     * The target number of combinations to store in a {@link WorkBatch} before
-     * {@link #flushBatchFast(WorkBatch)} flushing it to a {@link CombinationQueue}.
-     * 
-     * <p>
-     * Batching is a critical optimization that amortizes the high cost of concurrent queue operations.
-     * Instead of enqueuing millions of individual combinations, generators group them into large
-     * batches, reducing queue contention by several orders of magnitude.
-     * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The batch size is a trade-off:
-     * <ul>
-     * <li><b>Larger batches:</b> Reduce queue-related overhead and improve throughput by allowing
-     * generators and {@link TestClickCombination monkeys} to work uninterrupted for longer. However,
-     * they increase memory footprint and can lead to work-distribution latency.</li>
-     * <li><b>Smaller batches:</b> Provide a more even flow of work to monkeys, but increase the
-     * frequency of high-contention queue operations, which can become a bottleneck.</li>
-     * </ul>
-     * A value of {@value} was found to be a good balance for the development system.
-     * </p>
-     * 
-     * @see GeneratorContext#getOrCreateBatch()
-     * @since 2025.06 - Work-stealing introduction
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Minimal memory footprint of 4 bytes as an {@code int}.
-     */
-    public static final int BATCH_SIZE = 8000; // TODO: Consider moving this to WorkBatch so it makes more sense.
-    /**
      * The pre-allocated size of the {@link ThreadLocal thread-local} resource pools in
      * {@link GeneratorContext}.
      * 
@@ -293,7 +263,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * context, eliminates contention and simplifies batch management.
          * </p>
          * 
-         * @see #BATCH_SIZE
+         * @see WorkBatch#BATCH_SIZE
          * @see #getOrCreateBatch()
          * @since 2025.07 - {@code WorkBatch} Introduction
          * @performance {@code O(1)} access and update time.
@@ -1550,7 +1520,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <p>
      * This method is called once by the main thread after all generator tasks have completed. Its
      * purpose is to ensure that any partially filled {@code WorkBatch}es, which might not have reached
-     * {@link #BATCH_SIZE} and thus weren't flushed during normal operation, are nonetheless processed.
+     * {@link WorkBatch#BATCH_SIZE} and thus weren't flushed during normal operation, are nonetheless
+     * processed.
      * </p>
      * 
      * <p>

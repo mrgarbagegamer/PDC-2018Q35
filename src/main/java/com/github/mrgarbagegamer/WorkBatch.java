@@ -57,6 +57,36 @@ package com.github.mrgarbagegamer;
  */
 public final class WorkBatch {
     /**
+     * The default {@link #capacity} for a batch. This serves as the target number of combinations to
+     * store in a batch before flushing it to a {@link CombinationQueue}. This field has been moved from
+     * {@link CombinationGeneratorTask} to here to centralize configuration related to batching.
+     * 
+     * <p>
+     * Batching is a critical optimization that amortizes the high cost of concurrent queue operations.
+     * Instead of enqueuing millions of individual combinations, generators group them into large
+     * batches, reducing queue contention by several orders of magnitude.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * The batch size is a trade-off:
+     * <ul>
+     * <li><b>Larger batches:</b> Reduce queue-related overhead and improve throughput by allowing
+     * generators and {@link TestClickCombination monkeys} to work uninterrupted for longer. However,
+     * they increase memory footprint and can lead to work-distribution latency.</li>
+     * <li><b>Smaller batches:</b> Provide a more even flow of work to monkeys, but increase the
+     * frequency of high-contention queue operations, which can become a bottleneck.</li>
+     * </ul>
+     * A value of {@value} was found to be a good balance for the development system.
+     * </p>
+     * 
+     * @since 2025.10 - Reorganize Constants for Clarity
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Minimal memory footprint of 4 bytes as an {@code int}.
+     */
+    private static final int BATCH_SIZE = 8000;
+    /**
      * The pre-allocated circular buffer storing the {@code short[]} combinations.
      *
      * <p>
@@ -87,10 +117,10 @@ public final class WorkBatch {
      * </p>
      * 
      * @see #buffer
+     * @see #BATCH_SIZE
      * @see #WorkBatch(int)
      * @see #add(short[])
      * @see #isFull()
-     * @see CombinationGeneratorTask#BATCH_SIZE
      * @since 2025.07 - {@code WorkBatch} Introduction
      * @performance {@code O(1)} field access.
      * @threading Not thread-safe; must be accessed by only one thread at a time.
@@ -171,10 +201,39 @@ public final class WorkBatch {
     private int remainingCapacity; // Replacement for size to avoid deoptimizations
 
     /**
-     * Constructs a new {@code WorkBatch} with a pre-allocated {@link #buffer internal buffer}.
+     * Constructs a new {@code WorkBatch} with a pre-allocated {@link #buffer internal buffer}. Uses the
+     * default {@link #BATCH_SIZE} as the {@link #capacity}.
      *
      * <p>
-     * The {@code buffer} size is determined by the specified {@code capacity} and the static
+     * The {@code buffer} size is determined by the specified {@code BATCH_SIZE} and the {@code static}
+     * {@link #numClicks} value, which must be set via {@link #setNumClicks(int)} before calling this
+     * constructor.
+     * </p>
+     * 
+     * @throws IllegalStateException if {@link #numClicks} has not been set to a positive value.
+     * @see #WorkBatch(int)
+     * @since 2025.10 - Reorganize Constants for Clarity
+     * @performance {@code O(BATCH_SIZE × numClicks)} for initial buffer allocation, {@code O(1)} for
+     *              construction.
+     * @threading Thread-safe during construction; the resulting instance is not thread-safe.
+     * @memory Allocates a {@code short[BATCH_SIZE][numClicks]}.
+     */
+    public WorkBatch() {
+        if (numClicks <= 0) {
+            throw new IllegalStateException("numClicks must be set to a positive value before creating WorkBatch instances.");
+        }
+
+        this.capacity = BATCH_SIZE;
+        this.remainingCapacity = capacity;
+        this.buffer = new short[BATCH_SIZE][numClicks];
+    }
+
+    /**
+     * Constructs a new {@code WorkBatch} with a pre-allocated {@link #buffer internal buffer}, using
+     * the inputted {@code capacity}.
+     *
+     * <p>
+     * The {@code buffer} size is determined by the specified {@code capacity} and the {@code static}
      * {@link #numClicks} value, which must be set via {@link #setNumClicks(int)} before calling this
      * constructor.
      * </p>
@@ -404,5 +463,23 @@ public final class WorkBatch {
      */
     public boolean isFull() {
         return remainingCapacity == 0;
+    }
+
+    /**
+     * Returns the {@link #capacity maximum number of combinations} this batch can hold. Often, this is
+     * the same as {@link #BATCH_SIZE the batch size}.
+     * 
+     * @return The batch capacity.
+     * @see #WorkBatch(int)
+     * @see #isEmpty()
+     * @see #isFull()
+     * @see #size()
+     * @since 2025.10 - Reorganize Constants for Clarity
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe; returns a {@code final} field.
+     * @memory Does not allocate.
+     */
+    public int getCapacity() {
+        return capacity;
     }
 }

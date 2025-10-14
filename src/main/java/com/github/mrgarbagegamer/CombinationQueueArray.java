@@ -285,11 +285,9 @@ public class CombinationQueueArray {
         this.workBatchPool = new MpmcArrayQueue<>(totalWorkQueueCapacity);
 
         // OPTIMIZATION: Pre-allocate the entire WorkBatch pool to prevent allocation in the hot path.
-        // The BATCH_SIZE must match the one defined in CombinationGeneratorTask.
-        final int BATCH_SIZE = CombinationGeneratorTask.BATCH_SIZE;
         for (int i = 0; i < totalWorkQueueCapacity; i++)
         {
-            if (!workBatchPool.offer(new WorkBatch(BATCH_SIZE))) {
+            if (!workBatchPool.offer(new WorkBatch())) {
                 throw new IllegalStateException("Failed to pre-allocate the WorkBatch pool. Reconfiguration is required.");
             }
         }

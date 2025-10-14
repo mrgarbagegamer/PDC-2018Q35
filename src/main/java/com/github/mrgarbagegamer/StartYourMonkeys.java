@@ -143,10 +143,10 @@ public class StartYourMonkeys {
      * waiting for the entire generation process (including all forked subtasks) to complete or for a
      * solution to be found.</li>
      * <li><b>Graceful Shutdown:</b> Once generation finishes, it
-     * {@link CombinationGeneratorTask#flushAllPendingBatches(CombinationQueueArray, ForkJoinPool)
-     * flushes any remaining work} from generator-local batches,
-     * {@link CombinationQueueArray#generationComplete() signals} to the workers that no more work is
-     * coming, and waits for them to terminate using {@link Thread#join()}.</li>
+     * {@link CombinationGeneratorTask#flushAllPendingBatches() flushes any remaining work} from
+     * generator-local batches, {@link CombinationQueueArray#generationComplete() signals} to the
+     * workers that no more work is coming, and waits for them to terminate using
+     * {@link Thread#join()}.</li>
      * <li><b>Result Reporting:</b> Reports the outcome ({@link CombinationQueueArray#isSolutionFound()
      * solution found or not found}), verifies the solution if one exists, and
      * {@link #formatElapsedTime(long) logs the total elapsed time} before {@link LogManager#shutdown()
@@ -269,7 +269,7 @@ public class StartYourMonkeys {
             // Flush any remaining batches only if no solution found
             if (!queueArray.isSolutionFound()) 
             {
-                CombinationGeneratorTask.flushAllPendingBatches(queueArray, generatorPool);
+                CombinationGeneratorTask.flushAllPendingBatches();
             }
             
             // Mark generation complete

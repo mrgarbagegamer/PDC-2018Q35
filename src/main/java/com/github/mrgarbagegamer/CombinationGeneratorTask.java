@@ -1,8 +1,14 @@
 package com.github.mrgarbagegamer;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.util.Unbox;
 
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
@@ -119,6 +125,21 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private static final int POOL_SIZE = 512;
 
     /**
+     * The {@link Logger logger} for this class.
+     * 
+     * @see #flushAllPendingBatches()
+     * @see Logger#debug(String, Object, Object)
+     * @see Logger#info(String)
+     * @see Logger#info(String, Object)
+     * @see LogManager#getLogger()
+     * @since 2025.10 - Final Flush Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe due to the design of Log4j2.
+     * @memory Fixed memory footprint of ~4 bytes as a reference.
+     */
+    private static final Logger logger = LogManager.getLogger();
+ 
+    /**
      * A {@link ThreadLocal} container for the {@link GeneratorContext}.
      * 
      * <p>
@@ -137,6 +158,29 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private static final ThreadLocal<GeneratorContext> context =
         ThreadLocal.withInitial(GeneratorContext::new);
+
+    /**
+     * A thread-safe collection of all active {@link GeneratorContext} instances.
+     * 
+     * <p>
+     * This is the key to solving the final flush problem. Each time a {@link #context GeneratorContext}
+     * is {@link GeneratorContext#GeneratorContext() created} for a new thread, it adds itself to this
+     * {@code static}, concurrent queue. When {@link #flushAllPendingBatches()} is called, it can safely
+     * iterate over this queue to access every thread's context and flush any remaining partial batches.
+     * We use a {@link ConcurrentLinkedQueue} to ensure thread-safe additions and safe iteration without
+     * locking.
+     * </p>
+     *
+     * @see ConcurrentLinkedQueue
+     * @see ConcurrentLinkedQueue#ConcurrentLinkedQueue()
+     * @see Queue
+     * @since 2025.10 - Final Flush Refactor
+     * @performance {@code O(1)} amortized insertion time; {@code O(n)} iteration time for flushing.
+     * @threading Thread-safe due to the use of {@link ConcurrentLinkedQueue}.
+     * @memory Grows with the number of generator threads; each entry has a minimal footprint of 4 bytes
+     *         as a reference.
+     */
+    private static final Queue<GeneratorContext> allContexts = new ConcurrentLinkedQueue<>();
 
     /**
      * A container for all {@link ThreadLocal thread-local} resources used by a generator.
@@ -167,6 +211,55 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Minimal memory footprint of two fixed-capacity pools and a batch reference.
      */
     private static class GeneratorContext {
+        /**
+         * The name of the thread owning this context, for logging purposes.
+         * 
+         * @see #allContexts
+         * @see CombinationGeneratorTask#flushAllPendingBatches()
+         * @see Thread#getName()
+         * @since 2025.10 - Final Flush Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Thread-safe due to immutability after initialization.
+         * @memory Minimal memory footprint of ~20 bytes as a {@code String}.
+         */
+        private final String threadName = Thread.currentThread().getName();
+
+        /**
+         * Gets the {@link #threadName name} of the thread owning this context. Used for logging purposes.
+         * 
+         * @return The name of the this context's thread.
+         * @see CombinationGeneratorTask#flushAllPendingBatches()
+         * @since 2025.10 - Final Flush Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Thread-safe, as it returns an immutable field.
+         * @memory Does not allocate; returns a reference to an existing {@code String}.
+         */
+        public String getThreadName() {
+            return threadName;
+        }
+        
+        /**
+         * Initializes a new {@link GeneratorContext} and registers it in the {@link #allContexts global
+         * context list}.
+         * 
+         * <p>
+         * This constructor is meant to be called only by the {@link #context ThreadLocal's}
+         * {@link ThreadLocal#withInitial(java.util.function.Supplier) initializer}, and
+         * {@link ConcurrentLinkedQueue#add(Object) adds} the context to the global list for the
+         * {@link CombinationGeneratorTask#flushAllPendingBatches() final flush}.
+         * </p>
+         * 
+         * @since 2025.10 - Final Flush Refactor
+         * @performance {@code O(1)} amortized insertion time into the global context list.
+         * @threading Thread-safe by nature of construction and use of a {@link ConcurrentLinkedQueue
+         *            thread-safe queue}.
+         * @memory Does not allocate, apart from the instance itself.
+         */
+        private GeneratorContext()
+        {
+            allContexts.add(this);
+        }
+
         /**
          * A {@link ThreadLocal thread-local} {@link ArrayPool pool} for recycling {@code short[]} arrays
          * used for {@code prefix}es.
@@ -1461,112 +1554,67 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      * 
      * <p>
-     * It submits a small task to the {@code ForkJoinPool} to access a {@link ThreadLocal}
-     * {@code GeneratorContext} and
-     * {@link #flushBatchHelper(WorkBatch, CombinationQueueArray, boolean, boolean) flush} its
-     * {@link GeneratorContext#currentBatch}. This approach currently only flushes the batch for the
-     * thread that executes this task. A more comprehensive solution would involve a mechanism to
-     * iterate over and flush all {@code GeneratorContext}s across all threads.
+     * It iterates through all known {@code GeneratorContext} instances (tracked in
+     * {@link #allContexts}), checks if they have a {@link WorkBatch#isEmpty() non-empty} current batch,
+     * and {@link #flushBatchBlocking(WorkBatch) flushes it} using a blocking strategy to guarantee
+     * delivery. It also logs the start and completion of the flush process for transparency.
      * </p>
      * 
-     * @param queueArray The {@link CombinationQueueArray} to flush batches to.
-     * @param pool       The {@link ForkJoinPool} to submit the flushing task to.
      * @see #context
      * @since 2025.06 - Flush Batches when Full (or on Completion)
      * @performance {@code O(numQueues)} for the flushing operation.
-     * @threading Thread-safe due to local context access and atomic operations in
-     *            {@link CombinationQueue#add(WorkBatch)}.
+     * @threading Synchronized to prevent concurrent invocations.
+     * @memory Does not allocate, apart from some logging overhead.
      */
-    public static void flushAllPendingBatches(CombinationQueueArray queueArray, ForkJoinPool pool) {
-        if (queueArray.isSolutionFound() || pool.isShutdown()) return;
+    public static synchronized void flushAllPendingBatches() {
+        logger.info("Starting final, single-threaded flush of all pending batches from {} contexts...", Unbox.box(allContexts.size()));
         
-        try {
-            pool.submit(() -> {
-                // Single ThreadLocal access per flush operation
-                final GeneratorContext ctx = context.get();
-                WorkBatch batch = ctx.currentBatch;
-                if (batch != null && !batch.isEmpty()) 
-                {
-                    flushBatchHelper(batch, queueArray, false, !queueArray.isSolutionFound());
-                    ctx.resetBatch(); // Reset rather than remove ThreadLocal
-                }
-            }).join();
-        } catch (Exception e) {
-            // Do nothing, just return.
+        for (GeneratorContext ctx : allContexts) {
+            WorkBatch batch = ctx.currentBatch;
+            if (batch != null && !batch.isEmpty()) {
+                logger.debug("Flushing final batch of size {} from {}.", Unbox.box(batch.size()), ctx.getThreadName());
+                flushBatchBlocking(batch);
+                ctx.currentBatch = null;
+            }
         }
+        
+        logger.info("Final flush completed.");
+        allContexts.clear();
     }
 
     /**
-     * A helper method for flushing a single {@link WorkBatch batch} to an available
-     * {@link CombinationQueue queue}.
+     * Flushes a {@link WorkBatch} to the {@link CombinationQueueArray}, {@link Thread#sleep(long)
+     * blocking} if necessary until successful.
      * 
      * <p>
-     * This method encapsulates the core logic for attempting to enqueue a {@code WorkBatch}. It
-     * iterates through available queues, trying to add the batch. It includes options for handling
-     * queue fullness (either returning immediately or spinning with a short delay) and checking for
-     * cancellation signals.
+     * This method is similar to {@link #flushBatchFast(WorkBatch)}, but it employs a blocking strategy
+     * to ensure that the batch is eventually flushed, even if all queues are temporarily full. It is
+     * used during the final flush of pending batches to guarantee that no combinations are lost.
      * </p>
      * 
-     * <p>
-     * While originally designed for both continuous and final flushing,
-     * {@link #flushBatchFast(WorkBatch)} is now preferred for its streamlined nature. This helper is
-     * primarily used by {@link #flushAllPendingBatches(CombinationQueueArray, ForkJoinPool)} for its
-     * specific requirements (e.g., forcing a flush of remaining batches).
-     * </p>
-     * 
-     * <h3>Future Optimizations</h3>
-     * <p>
-     * This method could be simplified by removing its boolean parameters and integrating its logic
-     * directly into {@code flushAllPendingBatches()}. A more advanced refactoring would be to give it
-     * access to all {@link GeneratorContext} instances, allowing it to flush all pending batches from
-     * all threads in a single, unified operation.
-     * </p>
-     * 
-     * @param batch             The {@link WorkBatch} to flush.
-     * @param queueArray        The {@link CombinationQueueArray} containing the queues.
-     * @param checkCancellation If {@code true}, the method will check if a solution has been found and
-     *                          abort if so.
-     * @param forceFlush        If {@code true}, the method will repeatedly try to flush the batch,
-     *                          sleeping briefly between attempts if queues are full. If {@code false},
-     *                          it will return immediately if all queues are full after one attempt.
-     * @return {@code true} if the batch was successfully flushed; {@code false} if the thread was
-     *         interrupted or if {@code forceFlush} was {@code false} and all queues were full.
-     * @see CombinationQueueArray#getAllQueues()
-     * @see ThreadLocalRandom
-     * @see ThreadLocalRandom#current()
-     * @see ThreadLocalRandom#nextInt(int)
-     * @since 2025.06 - Flush Batches when Full (or on Completion)
-     * @performance {@code O(numQueues)} per attempt.
-     * @threading Thread-safe due to local queue access and atomic operations in
+     * @throws InterruptedException if the thread is interrupted while sleeping.
+     * @see #flushAllPendingBatches()
+     * @since 2025.10 - Guaranteed Flush for Final Batches
+     * @performance {@code O(numQueues)} per attempt, with a brief sleep if all queues are full.
+     * @threading Thread-safe due to local queue access and atomic operations within
      *            {@link CombinationQueue#add(WorkBatch)}.
+     * @memory Does not allocate.
      */
-    private static boolean flushBatchHelper(WorkBatch batch, CombinationQueueArray queueArray, boolean checkCancellation, boolean forceFlush) {
+    private static void flushBatchBlocking(WorkBatch batch) {
         CombinationQueue[] queues = queueArray.getAllQueues();
-        int numQueues = queues.length;
-        int startQueue = ThreadLocalRandom.current().nextInt(numQueues);
-
-        // Try to offer the entire batch to a queue.
-        while (true) {   
-            for (int attempt = 0; attempt < numQueues; attempt++) {
-                int idx = (startQueue + attempt) % numQueues;
-                CombinationQueue queue = queues[idx];
-                
-                if (queue.add(batch)) return true;
+        int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
+        
+        while (true) {
+            for (int i = 0; i < queues.length; i++) {
+                if (queues[(startIdx + i) % queues.length].add(batch)) return;
             }
-            if (forceFlush) {
-                try { 
-                    Thread.sleep(1); 
-                } catch (InterruptedException e) { 
-                    Thread.currentThread().interrupt();
-                    return false; // Exit if interrupted 
-                }
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
             }
-            else {
-                // If not forcing flush, we can break after one attempt
-                return false; // No queue accepted the batch
-            }
-            // Only check cancellation if requested (for task flushing, not final flush)
-            if (checkCancellation && queueArray.isSolutionFound()) return false;
         }
     }
+
 }

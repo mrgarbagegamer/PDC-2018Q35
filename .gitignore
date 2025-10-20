@@ -9,4 +9,4 @@ target
 *.log
 *.jfr
 JFR/*
-.kilocode/*
+.kilocode/mcp.json

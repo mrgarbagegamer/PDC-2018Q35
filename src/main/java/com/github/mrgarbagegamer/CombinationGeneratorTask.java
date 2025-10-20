@@ -466,7 +466,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <p>
      * This is a critical field for early-stage pruning. Instead of recomputing which {@code true} cells
      * are affected by a {@code prefix}, each task inherits the state from its parent and updates it
-     * incrementally with a single {@code XOR} operation. This state is then used in
+     * incrementally with a single {@code OR} operation. This state is then used in
      * {@link #canPotentiallySatisfyConstraints(int)} to determine if the current path is viable. A
      * value of {@code -1} indicates an uninitialized state, used only by the root task.
      * </p>
@@ -1103,7 +1103,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * If the path is viable, the method proceeds to fork subtasks in a tight loop. For each new
-     * subtask, it incrementally updates the {@link #cachedAdjacencyState} with a single {@code XOR}
+     * subtask, it incrementally updates the {@link #cachedAdjacencyState} with a single {@code OR}
      * operation and passes it down. It also propagates the {@link #skipConstraintsCheck} flag, which
      * may have been set to {@code true} inside {@code canPotentiallySatisfyConstraints}, allowing all
      * subsequent children to use the "fast path" from this point forward. To keep the loop free of
@@ -1157,9 +1157,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
             final boolean iAdj = (maskValue & (1L << (i & 63))) != 0;
             final boolean newPrefixParity = prefixParity ^ iAdj; // Update parity
 
-            // No conditional - pure XOR calculation every time
-            // TODO: Double check that you're supposed to XOR and not OR here (since XORing represents a toggle rather than a set)
-            long childAdjacencyState = currentAdjacencyState ^ masks[i];
+            // No conditional - pure OR calculation every time
+            long childAdjacencyState = currentAdjacencyState | masks[i];
             
             // All parameters determined - perfect for JIT constant propagation
             CombinationGeneratorTask subtask = taskPool.get();

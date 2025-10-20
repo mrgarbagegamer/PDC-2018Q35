@@ -703,35 +703,92 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Fixed memory footprint of ~16 bytes as two {@code long}s.
      */
     private static long[] FIRST_TRUE_ADJACENTS;
+    /**
+     * An array of {@link #computeAdjacencyMaskFast(short) pre-computed} indices of all clicks with odd
+     * {@link #prefixParity parity}.
+     *
+     * @see Grid#findAdjacents(short)
+     * @see Grid#findFirstTrueCell(Grid.ValueFormat)
+     * @since 2025.10 - Pre-computed Parity Masks
+     * @performance {@code O(ODD_CLICK_INDICES.length)} for iteration in leaf tasks.
+     * @threading Thread-safe due to immutability after initialization.
+     * @memory Fixed memory footprint proportional to the number of odd parity clicks.
+     */
+    private static short[] ODD_CLICK_INDICES;
+    /**
+     * An array of {@link #computeAdjacencyMaskFast(short) pre-computed} indices of all clicks with even
+     * {@link #prefixParity parity}.
+     *
+     * @see Grid#findAdjacents(short)
+     * @see Grid#findFirstTrueCell(Grid.ValueFormat)
+     * @since 2025.10 - Pre-computed Parity Masks
+     * @performance {@code O(EVEN_CLICK_INDICES.length)} for iteration in leaf tasks.
+     * @threading Thread-safe due to immutability after initialization.
+     * @memory Fixed memory footprint proportional to the number of even parity clicks.
+     */
+    private static short[] EVEN_CLICK_INDICES;
     
     /**
-     * Computes and caches the bitmask for {@link #FIRST_TRUE_ADJACENTS}.
-     * 
+     * Computes and caches bitmasks and index arrays for parity checks.
+     *
      * <p>
-     * This is a one-time operation performed by the root task. It finds all cells adjacent to the first
-     * {@code true} cell and sets the corresponding bits in the static mask, making it available for all
-     * subsequent leaf-level checks.
+     * This is a one-time operation performed by the root task. It computes the
+     * {@link #FIRST_TRUE_ADJACENTS} bitmask and then uses it to classify all
+     * {@value Grid#NUM_CELLS} possible clicks into two groups: those with "odd" parity (they are
+     * adjacent to the first {@code true} cell) and those with "even" parity (they are not).
      * </p>
-     * 
+     *
+     * <p>
+     * The indices of these clicks are stored in the {@link #ODD_CLICK_INDICES} and
+     * {@link #EVEN_CLICK_INDICES} arrays. This pre-computation allows the
+     * {@link #computeLeafCombinations(GeneratorContext) leaf generation} to iterate over a much
+     * smaller, pre-filtered set of valid final clicks, significantly improving performance.
+     * </p>
+     *
      * @param firstTrueCell The index of the first true cell.
      * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
      * @see Grid.ValueFormat#Bitmask
      * @since 2025.06 - Bitmasked Leaf Pruning Introduction
-     * @performance {@code O(Grid.findAdjacents(short).length)} for initial computation.
+     * @performance {@code O(Grid.NUM_CELLS)} for initial computation.
      * @threading Single-threaded during root task initialization, no synchronization needed.
-     * @memory Allocates a fixed size {@code long[2]} array with a minimal footprint of ~16 bytes.
-     *         Creates a temporary {@code short[]} for adjacent cells.
+     * @memory Allocates fixed-size arrays for masks and indices.
      */
     private static void computeAdjacencyMaskFast(short firstTrueCell) {
         short[] adjacents = Grid.findAdjacents(firstTrueCell);
-        long[] mask = new long[2];
-        
-        for (short adj : adjacents) 
+        long[] adjMask = new long[2];
+        for (short adj : adjacents)
         {
-            mask[adj >>> 6] |= (1L << (adj & 63));
+            adjMask[adj >>> 6] |= (1L << (adj & 63));
         }
-        
-        FIRST_TRUE_ADJACENTS = mask;
+        FIRST_TRUE_ADJACENTS = adjMask;
+    
+        // Invert the logic: Instead of checking parity in the hot path, pre-calculate which clicks are
+        // odd or even and iterate over a pre-filtered set.
+        short[] oddIndices = new short[Grid.NUM_CELLS];
+        short[] evenIndices = new short[Grid.NUM_CELLS];
+        int oddCount = 0;
+        int evenCount = 0;
+    
+        for (short i = 0; i < Grid.NUM_CELLS; i++)
+        {
+            // A click has "odd" parity if it is adjacent to the first true cell.
+            boolean isOdd = (adjMask[i >>> 6] & (1L << (i & 63))) != 0;
+            if (isOdd)
+            {
+                oddIndices[oddCount++] = i;
+            }
+            else
+            {
+                evenIndices[evenCount++] = i;
+            }
+        }
+    
+        // Trim the index arrays to their actual size to save memory.
+        ODD_CLICK_INDICES = new short[oddCount];
+        System.arraycopy(oddIndices, 0, ODD_CLICK_INDICES, 0, oddCount);
+    
+        EVEN_CLICK_INDICES = new short[evenCount];
+        System.arraycopy(evenIndices, 0, EVEN_CLICK_INDICES, 0, evenCount);
     }
 
     /**
@@ -908,74 +965,65 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     // LEAF TASK PATH:
     /**
-     * Generates the final combinations for a leaf task by iterating through all possible final clicks.
-     * 
+     * Generates the final combinations for a leaf task by iterating through a pre-computed set of
+     * valid final clicks.
+     *
      * <p>
      * This is the final, non-recursive step in the generation process. When a task's
      * {@link #prefixLength} is one short of the target {@link #numClicks}, this method takes over. It
-     * calculates all valid final clicks and adds the resulting complete combinations to the current
+     * efficiently generates all valid final combinations and adds them to the current
      * {@link WorkBatch}.
      * </p>
-     * 
+     *
      * <h3>Algorithm and Pruning</h3>
      * <p>
-     * The primary optimization here is a lightweight {@link #prefixParity parity} check. For a solution
-     * to be valid, the first initially {@code true} cell must be toggled an odd number of times. It
-     * iterates through all possible final clicks, adding only those that result in a correct final
-     * parity. Incidentally, this means including clicks that have an opposite parity to the
-     * {@code prefix} (i.e., if the {@code prefix} has even parity, we need a final click with odd
-     * parity, and vice versa).
+     * This method is a critical hot path. Instead of iterating through all possible final clicks and
+     * checking their parity, it selects a pre-filtered array of click indices
+     * ({@link #ODD_CLICK_INDICES} or {@link #EVEN_CLICK_INDICES}) based on the {@link #prefixParity}
+     * of the current prefix. This ensures that the first initially {@code true} cell is toggled an
+     * odd number of times, a requirement for any valid solution.
      * </p>
-     * 
-     * <h3>Performance and Inlining</h3>
+     *
      * <p>
-     * This is a critical hot path. The parity calculation for each leaf combination was deliberately
-     * inlined into this method to flatten the call stack, helping the JIT compiler with optimizations
-     * like loop unrolling. The trade-off is that this check runs for every single potential final
-     * click, which is expensive. However, removing it could flood the queues with non-viable
-     * combinations, shifting the burden to the monkeys and degrading overall performance.
+     * By iterating only over clicks guaranteed to have the correct parity, this method avoids expensive
+     * conditional checks inside the loop, significantly reducing the computational load on the
+     * generator threads.
      * </p>
-     * 
+     *
      * @param ctx The thread-local {@link GeneratorContext}.
-     * @see #FIRST_TRUE_ADJACENTS
+     * @see #ODD_CLICK_INDICES
+     * @see #EVEN_CLICK_INDICES
      * @see #flushBatchFast(WorkBatch)
      * @see GeneratorContext#getOrCreateBatch()
      * @since 2025.07 - Splitting the Compute Method Into Paths
-     * @performance {@code O(NUM_CELLS - prefix[prefixLength - 1])} for iterating over possible next
-     *              clicks.
+     * @performance {@code O(validClicks.length)} where `validClicks` is a pre-filtered list, making
+     *              this much faster than iterating over all possible clicks.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask} isolation.
-     * @algorithm Iterates over possible next clicks to find valid combinations based on the computed
-     *            parity.
+     * @algorithm Iterates over a pre-computed array of valid final clicks and adds them to a work
+     *            batch, flushing the batch when full.
      * @memory Does not allocate unless pools are empty; uses pooled resources.
      */
     private final void computeLeafCombinations(GeneratorContext ctx) {
-        // ULTRA-OPTIMIZED: Pre-compute all loop-invariant values and cache array references
-        final int start = prefix[prefixLength - 1] + 1;
+        // ULTRA-OPTIMIZED: Instead of iterating and checking, we now iterate over a pre-filtered list
+        // of valid final clicks.
         final int pLen = prefixLength;
-        final long[] mask = FIRST_TRUE_ADJACENTS; // Use the pre-computed mask for the first true cell
-        final long mask0 = mask[0]; // Cache array elements to avoid repeated dereferences
-        final long mask1 = mask[1];
-        final boolean prefixParity = this.prefixParity;
+        final short lastPrefixClick = prefix[pLen - 1];
 
-        // Use context batch directly
+        // Select the correct pre-filtered index array based on the prefix's parity.
+        // If the prefix has odd parity, we need an even click to make the total odd.
+        // If the prefix has even parity, we need an odd click.
+        final short[] validClicks = this.prefixParity ? EVEN_CLICK_INDICES : ODD_CLICK_INDICES;
+
         WorkBatch batch = ctx.getOrCreateBatch();
+        if (batch == null) return; // Exit if interrupted while getting a batch
 
-        // TODO: Consider replacing the parity check with the constraints check again and/or skipping if the prefix is known to satisfy constraints
-
-        // ULTRA-OPTIMIZED: Tight loop with minimal branching and cached values
-        for (int i = start; i < Grid.NUM_CELLS; i++)
+        // Iterate only over the pre-calculated valid clicks.
+        for (final short i : validClicks)
         {
-            // Use cached mask values instead of array access
-            final long maskValue = (i < 64) ? mask0 : mask1;
-            final int bitPos = i & 63;
-            final boolean iAdj = (maskValue & (1L << bitPos)) != 0;
-            
-            if (iAdj == prefixParity)
-            {
-                continue; // Skip if parity condition not met
-            }
+            // We only care about clicks that come after the last one in the prefix.
+            if (i <= lastPrefixClick) continue;
 
-            if (!batch.add(prefix, pLen, (short) i))
+            if (!batch.add(prefix, pLen, i))
             {
                 if (flushBatchFast(batch))
                 {

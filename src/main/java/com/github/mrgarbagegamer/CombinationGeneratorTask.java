@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
@@ -965,29 +966,31 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     // LEAF TASK PATH:
     /**
-     * Generates the final combinations for a leaf task by iterating through a pre-computed set of
-     * valid final clicks.
+     * Generates and bulk-adds the final combinations for a leaf task.
      *
      * <p>
-     * This is the final, non-recursive step in the generation process. When a task's
-     * {@link #prefixLength} is one short of the target {@link #numClicks}, this method takes over. It
-     * efficiently generates all valid final combinations and adds them to the current
-     * {@link WorkBatch}.
+     * This is the final, non-recursive step in the generation process and a critical hot path. It
+     * efficiently generates all valid final combinations by building on the task's {@link #prefix} and
+     * bulk-adding them to the current {@link WorkBatch}.
      * </p>
      *
-     * <h3>Algorithm and Pruning</h3>
+     * <h3>Algorithm and Optimizations</h3>
      * <p>
-     * This method is a critical hot path. Instead of iterating through all possible final clicks and
-     * checking their parity, it selects a pre-filtered array of click indices
-     * ({@link #ODD_CLICK_INDICES} or {@link #EVEN_CLICK_INDICES}) based on the {@link #prefixParity}
-     * of the current prefix. This ensures that the first initially {@code true} cell is toggled an
-     * odd number of times, a requirement for any valid solution.
-     * </p>
-     *
-     * <p>
-     * By iterating only over clicks guaranteed to have the correct parity, this method avoids expensive
-     * conditional checks inside the loop, significantly reducing the computational load on the
-     * generator threads.
+     * The method incorporates three key optimizations to maximize throughput:
+     * <ol>
+     * <li><b>Pre-filtered Clicks:</b> It selects a pre-filtered array of valid final clicks
+     * ({@link #ODD_CLICK_INDICES} or {@link #EVEN_CLICK_INDICES}) based on the prefix's
+     * {@link #prefixParity parity}, ensuring the first-true-cell constraint is met without runtime
+     * checks.</li>
+     * <li><b>Binary Search:</b> It uses {@link Arrays#binarySearch(short[], short)} to find the
+     * starting index of valid final clicks in {@code O(log N)} time, avoiding a linear scan.</li>
+     * <li><b>Bulk Batching:</b> Instead of adding combinations one by one, it calculates how many can
+     * fit in the current batch and uses the high-performance
+     * {@link WorkBatch#addBulk(short[], int, short[], int, int)} method to copy them in a single
+     * operation.</li>
+     * </ol>
+     * This bulk-processing approach dramatically reduces method call overhead and loop-related costs,
+     * making it significantly more efficient than an iterative approach.
      * </p>
      *
      * @param ctx The thread-local {@link GeneratorContext}.
@@ -996,41 +999,50 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @see #flushBatchFast(WorkBatch)
      * @see GeneratorContext#getOrCreateBatch()
      * @since 2025.07 - Splitting the Compute Method Into Paths
-     * @performance {@code O(validClicks.length)} where `validClicks` is a pre-filtered list, making
-     *              this much faster than iterating over all possible clicks.
+     * @performance {@code O(log N)} binary search, where {@code N} is the number of valid final clicks.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask} isolation.
-     * @algorithm Iterates over a pre-computed array of valid final clicks and adds them to a work
-     *            batch, flushing the batch when full.
-     * @memory Does not allocate unless pools are empty; uses pooled resources.
+     * @algorithm Uses binary search to find the start index in a pre-filtered array of clicks, then
+     *            adds combinations to the {@code WorkBatch} in bulk.
+     * @memory Does not allocate; uses pooled resources and bulk-copies into the pre-allocated
+     *         {@code WorkBatch} buffer.
      */
     private final void computeLeafCombinations(GeneratorContext ctx) {
-        // ULTRA-OPTIMIZED: Instead of iterating and checking, we now iterate over a pre-filtered list
-        // of valid final clicks.
+        // ULTRA-OPTIMIZED: Use binary search and bulk-copying to avoid per-element overhead.
         final int pLen = prefixLength;
         final short lastPrefixClick = prefix[pLen - 1];
 
         // Select the correct pre-filtered index array based on the prefix's parity.
-        // If the prefix has odd parity, we need an even click to make the total odd.
-        // If the prefix has even parity, we need an odd click.
         final short[] validClicks = this.prefixParity ? EVEN_CLICK_INDICES : ODD_CLICK_INDICES;
+        
+        // 1. Find the starting index using binary search.
+        int startIdx = Arrays.binarySearch(validClicks, (short) (lastPrefixClick + 1));
+        if (startIdx < 0) {
+            startIdx = -startIdx - 1; // If not found, binarySearch returns (-(insertion point) - 1)
+        }
 
         WorkBatch batch = ctx.getOrCreateBatch();
-        if (batch == null) return; // Exit if interrupted while getting a batch
+        if (batch == null) return; // Exit if interrupted
 
-        // Iterate only over the pre-calculated valid clicks.
-        for (final short i : validClicks)
-        {
-            // We only care about clicks that come after the last one in the prefix.
-            if (i <= lastPrefixClick) continue;
+        int remainingInSource = validClicks.length - startIdx;
+        int currentOffset = startIdx;
 
-            if (!batch.add(prefix, pLen, i))
-            {
-                if (flushBatchFast(batch))
-                {
-                    batch = ctx.resetBatch();
-                    batch.add(prefix, pLen, (short) i);
-                }
+        // 2. Bulk-add combinations in a loop until all are processed.
+        while (remainingInSource > 0) {
+            int spaceInBatch = batch.remainingCapacity();
+            int toAdd = Math.min(remainingInSource, spaceInBatch);
+
+            if (toAdd > 0) { // Potential deoptimization, but necessary safeguard.
+                int added = batch.addBulk(prefix, pLen, validClicks, currentOffset, toAdd);
+                currentOffset += added;
+                remainingInSource -= added;
             }
+
+            // If batch is full, flush and get a new one.
+            if (remainingInSource > 0 && flushBatchFast(batch)) {
+                batch = ctx.resetBatch();
+                if (batch == null) return; // Exit if interrupted
+            }
+            else return; // Interrupted or done.
         }
     }
     

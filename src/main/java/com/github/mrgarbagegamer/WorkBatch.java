@@ -356,6 +356,42 @@ public final class WorkBatch {
     }
 
     /**
+     * Adds a bulk of combinations to the batch from a source array of final clicks.
+     *
+     * <p>
+     * This is a high-performance method designed for the leaf-generation hot path. It takes a common
+     * {@code prefix} and a source array of {@code lastElements} and copies them into the internal
+     * buffer in a tight loop. This is significantly faster than adding them one by one, as it avoids
+     * repeated capacity checks and method call overhead.
+     * </p>
+     *
+     * @param prefix The common prefix for all combinations.
+     * @param prefixLength The length of the prefix.
+     * @param lastElements The array of final clicks to append.
+     * @param offset The starting offset in the {@code lastElements} array.
+     * @param count The number of combinations to add, never less than 1.
+     * @return The number of combinations successfully added.
+     * @since 2025.10 - Bulk Add Optimization
+     * @performance {@code O(count × prefixLength)} for array copying, {@code O(1)} for capacity checks
+     *              outside the loop.
+     * @threading Not thread-safe; must be accessed by only one thread at a time.
+     * @memory Does not allocate; reuses the pre-allocated arrays in {@code buffer}.
+     */
+    public int addBulk(short[] prefix, int prefixLength, short[] lastElements, int offset, int count) {
+        int added = 0;
+        for (int i = 0; i < count; i++) {
+            // Optimization: Remove the capacity check from inside the loop to prevent de-optimizations
+            final short[] dest = buffer[tail];
+            System.arraycopy(prefix, 0, dest, 0, prefixLength);
+            dest[prefixLength] = lastElements[offset + i];
+            tail = (tail + 1) % capacity;
+            remainingCapacity--;
+            added++;
+        }
+        return added;
+    }
+
+    /**
      * Retrieves the next combination from the batch without allocating a new array.
      *
      * <p>
@@ -426,6 +462,22 @@ public final class WorkBatch {
      */
     public int size() {
         return capacity - remainingCapacity; // Calculate size based on remaining capacity
+    }
+
+    /**
+     * Returns the number of additional combinations that can be added to the batch before it is
+     * {@link #isFull() full}.
+     * 
+     * @return The {@link #remainingCapacity remaining capacity} of the batch.
+     * @see #capacity
+     * @see #isEmpty()
+     * @since 2025.10 - Bulk Add Optimization
+     * @performance {@code O(1)} field access.
+     * @threading Not thread-safe; must be accessed by only one thread at a time.
+     * @memory Does not allocate.
+     */
+    public int remainingCapacity() {
+        return remainingCapacity;
     }
 
     /**

@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -298,21 +299,22 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         /**
          * Retrieves a new {@link WorkBatch} from the {@link CombinationQueueArray#getWorkBatchPool() global
-         * pool}, spinning until one is available.
+         * pool}, blocking until one is available.
          *
          * <p>
          * When a {@link TestClickCombination monkey} finishes with a {@code WorkBatch}, it returns it to a
-         * central pool for recycling. This method retrieves a batch from that pool. It uses a non-blocking,
-         * busy-wait (spin) loop with a {@link org.jctools.queues.MpmcArrayQueue#relaxedPoll()
-         * relaxedPoll()} to ensure the generator thread remains responsive to cancellation signals from the
-         * {@link ForkJoinPool}, which a standard {@link Thread#onSpinWait()} call would prevent. The loop
-         * also checks for interruption, allowing for a graceful shutdown when the pool is shutting down.
+         * central pool for recycling. This method retrieves a batch from that pool. It uses a lightweight
+         * spin loop with a {@link org.jctools.queues.MpmcArrayQueue#relaxedPoll() relaxedPoll()} to ensure
+         * the generator thread remains responsive to cancellation signals from the {@link ForkJoinPool},
+         * which a standard {@link Thread#onSpinWait()} call would prevent. The loop also checks for
+         * interruption, allowing for a graceful shutdown when the pool is shutting down.
          * </p>
          *
          * <p>
          * The loop now properly checks for thread interruption, allowing the {@link ForkJoinPool} to
          * shutdown generator threads when a solution is found. If the thread is interrupted during the spin
-         * loop, the method returns {@code null} to signal shutdown.
+         * loop, the method returns {@code null} to signal shutdown. The thread also
+         * {@link LockSupport#parkNanos(long) parks} briefly to reduce CPU usage during the wait.
          * </p>
          *
          * @return A clean, recycled {@code WorkBatch}, or {@code null} if the thread was interrupted.
@@ -331,6 +333,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 if (Thread.currentThread().isInterrupted()) {
                     return null; // Exit gracefully when interrupted
                 }
+                LockSupport.parkNanos(1);
                 // NOTE: Thread.onSpinWait() can not be used here since it doesn't respond to cancellation.
             }
             batch.clear(); // Ensure the recycled batch is clean before use

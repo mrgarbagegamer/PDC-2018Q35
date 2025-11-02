@@ -975,7 +975,7 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result.
      */
     public short[] findTrueCells(ValueFormat format) {
-        short[] trueCellsArray = new short[trueCellsCount];
+        short[] trueCellsArray = new short[getTrueCount()];
         int idx = 0;
         
         // Internally, we iterate over bit indices (0-108)
@@ -1260,6 +1260,7 @@ public abstract class Grid {
      * @threading Not thread-safe; modifies the instance's {@link #gridState}.
      * @memory Does not allocate.
      */
+    @Deprecated
     public final void click(short cell) {
         // XOR the grid state with the pre-computed adjacency mask
         gridState[0] ^= ADJACENCY_MASKS[cell][0];
@@ -1444,7 +1445,7 @@ public abstract class Grid {
 
     /**
      * Returns an array of adjacent cells to the {@link #findFirstTrueCell() first true cell} that have
-     * an {@link ValueFormat#Index index} greater than the specified {@code cell}.
+     * an index greater than the specified {@code cell}.
      *
      * <p>
      * This method is a specialized pruning helper for the generator. It identifies potential subsequent
@@ -1487,22 +1488,11 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result.
      */
     public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
-        short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
-        if (firstTrueAdjacents == null) return null;
-
-        // Convert the input cell to index format if necessary
-        switch (inputFormat)
-        {
-            case Bitmask:
-                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                cell = packedToIndex(cell);
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + inputFormat);
+        if (inputFormat == ValueFormat.Bitmask || outputFormat == ValueFormat.Bitmask) {
+            throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
         }
+        short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
+        if (firstTrueAdjacents == null) return null; // TODO: Consider replacing this with an empty array for consistency.
         
         // Binary search to find the index of the first adjacent cell greater than 'cell'
         int index = -1;
@@ -1528,22 +1518,23 @@ public abstract class Grid {
         System.arraycopy(firstTrueAdjacents, index, result, 0, result.length);
 
         // Convert the result to the desired output format
-        switch (outputFormat)
+        if (outputFormat == inputFormat) 
         {
-            case Bitmask:
-                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
-                // Convert index to packed int format
-                for (int i = 0; i < result.length; i++) 
-                {
-                    result[i] = indexToPacked(result[i]);
-                }
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + outputFormat);
+            return result; // No conversion needed
+        } 
+        else if (outputFormat == ValueFormat.PackedInt && inputFormat == ValueFormat.Index) 
+        {
+            for (int i = 0; i < result.length; i++) 
+            {
+                result[i] = indexToPacked(result[i]);
+            }
+        }
+        else if (outputFormat == ValueFormat.Index && inputFormat == ValueFormat.PackedInt) 
+        {
+            for (int i = 0; i < result.length; i++) 
+            {
+                result[i] = packedToIndex(result[i]);
+            }
         }
 
         return result;
@@ -1659,80 +1650,24 @@ public abstract class Grid {
      * @param format        The {@link ValueFormat} of both {@code firstTrueCell} and {@code clickCell}.
      * @return {@code true} if the click can affect or create a new {@code first true cell},
      *         {@code false} otherwise.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for any format.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
      * @see #areAdjacent(short, short, ValueFormat)
      * @see #findFirstTrueCell(ValueFormat)
      * @since 2025.07 - Format and Adjacency Optimizations
-     * @performance {@code O(1)} complexity due to fixed-size adjacency lookups and binary search on
-     *              small arrays.
+     * @performance {@code O(1)} comparisons and method call.
      * @threading Thread-safe; relies only on immutable static data and input parameters.
      * @memory Does not allocate.
      */
     public static boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell, ValueFormat format) {
+        if (format == ValueFormat.Bitmask) {
+            throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+        }
+
         if (firstTrueCell == -1) return true; // No true cells, any click can create one
         if (clickCell <= firstTrueCell) return true; // packed int order: row * 100 + col
 
         // Convert both cells to index format if necessary
-        switch (format) 
-        {
-            case Bitmask:
-                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                firstTrueCell = packedToIndex(firstTrueCell);
-                clickCell = packedToIndex(clickCell);
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
-        }
-        
-        // Edge case: first true cell is top-left (0,0)
-        if (firstTrueCell == 0) 
-        {
-            short[] adj = findAdjacents((short) 0);
-            if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-            
-            // Binary search for the click cell in the adjacents
-            int low = 0, high = adj.length - 1;
-            while (low <= high) 
-            {
-                int mid = (low + high) / 2;
-                if (adj[mid] == clickCell) 
-                {
-                    return true; // Click cell is adjacent to the first true cell
-                } else if (adj[mid] < clickCell) 
-                {
-                    low = mid + 1; // Search right
-                } else 
-                {
-                    high = mid - 1; // Search left
-                }
-            }
-            return false; // Click cell is not adjacent to the first true cell
-        }
-
-        // General case: check adjacency
-        short[] adj = findAdjacents(firstTrueCell);
-        if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-        
-        // perform binary search to find if clickCell is adjacent
-        int low = 0, high = adj.length - 1;
-        while (low <= high) 
-        {
-            int mid = (low + high) / 2;
-            if (adj[mid] == clickCell) 
-            {
-                return true; // Click cell is adjacent to the first true cell
-            } else if (adj[mid] < clickCell) 
-            {
-                low = mid + 1; // Search right
-            } else 
-            {
-                high = mid - 1; // Search left
-            }
-        }
-        return false; // Click cell is not adjacent to the first true cell
+        return Grid.areAdjacent(firstTrueCell, clickCell, format);
     }
 
     /**

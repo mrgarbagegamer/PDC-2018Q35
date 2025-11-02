@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -247,6 +248,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         grid.click(clicks);
         long[] gridState = grid.getGridState();
 
@@ -278,6 +280,52 @@ class GridTest {
     }
 
     /**
+     * Tests the {@link Grid#findFirstTrueCell()} and {@link Grid#findFirstTrueCell(Grid.ValueFormat)}
+     * methods to ensure they return correct results after random clicks on the grid. This test also
+     * verifies that the methods throw the appropriate exceptions for invalid Bitmask output formats.
+     * 
+     * This method assumes that the grid's internal state is correctly updated by the
+     * {@link Grid#click(short[])} method and that the conversions between different value formats are
+     * functioning correctly.
+     */
+    @Test
+    void testGridFindFirstTrueCell() {
+        Grid grid = new Grid13();
+        Random random = new Random();
+        int clicksCount = random.nextInt(4, 10);
+
+        short[] clicks = new short[clicksCount];
+        for (int i = 0; i < clicksCount; i++) {
+            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
+        }
+        Arrays.sort(clicks);
+        grid.click(clicks);
+        long[] gridState = grid.getGridState();
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            grid.findFirstTrueCell(Grid.ValueFormat.Bitmask);
+        }, "Expected IllegalArgumentException for findFirstTrueCell with Bitmask format");
+
+        // Find the first true cell using bitwise operations
+        short expectedFirstTrueCell = -1;
+        if (gridState[0] != 0L) {
+            expectedFirstTrueCell = (short) Long.numberOfTrailingZeros(gridState[0]);
+        } else if (gridState[1] != 0L) {
+            expectedFirstTrueCell = (short) (64 + Long.numberOfTrailingZeros(gridState[1]));
+        }
+
+        short actualFirstTrueCell = grid.findFirstTrueCell(Grid.ValueFormat.Index);
+        assertEquals(expectedFirstTrueCell, actualFirstTrueCell, "The first true cell should match expected value after random clicks (Combination: " + Arrays.toString(clicks) + ")");
+        assertEquals(actualFirstTrueCell, grid.findFirstTrueCell(), "The no argument overload should give the same value as the single argument overload with Index (Combination: " + Arrays.toString(clicks) + ")");
+
+        if (expectedFirstTrueCell != -1) {
+            short expectedPackedFirstTrueCell = Grid.indexToPacked(expectedFirstTrueCell);
+            short actualPackedFirstTrueCell = grid.findFirstTrueCell(Grid.ValueFormat.PackedInt);
+            assertEquals(expectedPackedFirstTrueCell, actualPackedFirstTrueCell, "The first true cell in PackedInt format should match expected value after random clicks (Combination: " + Arrays.toString(clicks) + ")");
+        }
+    }
+
+    /**
      * Tests the {@link Grid#click(short[])} method to ensure that clicking cells correctly updates the
      * grid state. This test performs a series of random clicks and verifies that the resulting grid
      * state matches the expected state computed manually.
@@ -291,6 +339,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         
         long[] initialState = grid.getGridState();
         long[] expectedState = initialState.clone();
@@ -327,6 +376,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         grid.click(clicks);
         short firstTrueCell = grid.findFirstTrueCell();
         short[] expectedAdjacents = Grid.findAdjacents(firstTrueCell);
@@ -363,6 +413,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         grid.click(clicks);
 
         assertThrows(IllegalArgumentException.class, () -> {
@@ -400,6 +451,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         grid.click(clicks);
         short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
         short[] firstTrueAdjacentsPackedIntOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
@@ -451,6 +503,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         grid.click(clicks);
         short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
         short[] firstTrueAdjacentsPackedIntOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
@@ -510,6 +563,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         grid.click(clicks);
 
         long[] state = grid.getGridState();
@@ -544,6 +598,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
 
         original.click(clicks);
 
@@ -555,6 +610,7 @@ class GridTest {
         assertEquals(original.findFirstTrueCell(), clone.findFirstTrueCell(), "Cloned grid first true cell should match the original's");
 
         // Verify that the clone is a separate instance
+        assertNotSame(original, clone, "Cloned grid should not be the same object as the original");
         clone.click(clicks);
         assertFalse(Arrays.equals(original.getGridState(), clone.getGridState()), "Modifying the clone should not affect the original grid");
     }
@@ -728,6 +784,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         singleClick[0] = clicks[0];
         
         // Test for a single cell that clicking twice returns to the initial state
@@ -835,6 +892,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         singleClick[0] = clicks[0];
 
         // Test for a single cell that clicking twice returns to the initial state
@@ -929,6 +987,7 @@ class GridTest {
         for (int i = 0; i < clicksCount; i++) {
             clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
         }
+        Arrays.sort(clicks);
         singleClick[0] = clicks[0];
 
         // Test for a single cell that clicking twice returns to the initial state

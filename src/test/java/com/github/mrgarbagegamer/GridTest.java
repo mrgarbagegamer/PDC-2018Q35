@@ -48,7 +48,7 @@ class GridTest {
      * they throw a NullPointerException when provided with null formats.
      */
     @Test
-    void testGridComputeAdjacentsNull() {
+    void testComputeAdjacentsNull() {
         // Dual format overload
         assertThrows(NullPointerException.class, () -> {
             Grid.computeAdjacents((short)0, null, Grid.ValueFormat.Index);
@@ -74,7 +74,7 @@ class GridTest {
      * updated accordingly.
      */
     @Test
-    void testGridComputeAdjacentsBitmask() {
+    void testComputeAdjacentsBitmask() {
         // Dual format overload
         assertThrows(IllegalArgumentException.class, () -> {
             Grid.computeAdjacents((short)0, Grid.ValueFormat.Index, Grid.ValueFormat.Bitmask);
@@ -104,7 +104,7 @@ class GridTest {
      * return correct results when provided with Index as the input format.
      */
     @Test
-    void testGridComputeAdjacentsIndexInput() {
+    void testComputeAdjacentsIndexInput() {
         // Index output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
             short[] adjacentsArray = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index).toShortArray();
@@ -133,7 +133,7 @@ class GridTest {
      * return correct results when provided with PackedInt as the input format.
      */
     @Test
-    void testGridComputeAdjacentsPackedIntInput() {
+    void testComputeAdjacentsPackedIntInput() {
         // Index output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
             short packedInput = Grid.indexToPacked(cellIndex);
@@ -161,7 +161,7 @@ class GridTest {
      * throw a NullPointerException when provided with null formats.
      */
     @Test
-    void testGridFindAdjacentsNull() {
+    void testFindAdjacentsNull() {
         // Dual format overload
         assertThrows(NullPointerException.class, () -> {
             Grid.findAdjacents((short)0, null, Grid.ValueFormat.Index);
@@ -187,7 +187,7 @@ class GridTest {
      * accordingly.
      */
     @Test
-    void testGridFindAdjacentsBitmask() {
+    void testFindAdjacentsBitmask() {
         // Dual format overload
         assertThrows(IllegalArgumentException.class, () -> {
             Grid.findAdjacents((short)0, Grid.ValueFormat.Index, Grid.ValueFormat.Bitmask);
@@ -221,7 +221,7 @@ class GridTest {
      * correctly and uses it to generate expected results for comparison.
      */
     @Test
-    void testGridFindAdjacentsIndexInput() {
+    void testFindAdjacentsIndexInput() {
         // Index output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
             ShortList adjacentsList = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index);
@@ -255,7 +255,7 @@ class GridTest {
      * correctly and uses it to generate expected results for comparison.
      */
     @Test
-    void testGridFindAdjacentsPackedIntInput() {
+    void testFindAdjacentsPackedIntInput() {
         // Index output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
             short packedInput = Grid.indexToPacked(cellIndex);
@@ -287,7 +287,7 @@ class GridTest {
      * functioning correctly.
      */
     @Test
-    void testGridFindTrueCells() {
+    void testFindTrueCells() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = random.nextInt(4, 10);
@@ -337,7 +337,7 @@ class GridTest {
      * functioning correctly.
      */
     @Test
-    void testGridFindFirstTrueCell() {
+    void testFindFirstTrueCell() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = random.nextInt(4, 10);
@@ -382,7 +382,7 @@ class GridTest {
      * grid state.
      */
     @Test
-    void testGridClickBitmask() {
+    void testClickBitmask() {
         Grid grid = new Grid35();
         Random random = new Random();
 
@@ -413,7 +413,7 @@ class GridTest {
      * state matches the expected state computed manually.
      */
     @Test
-    void testGridClickShortArray() {
+    void testClickShortArray() {
         Grid grid = new Grid35();
         Random random = new Random();
         int clicksCount = 15;
@@ -450,7 +450,7 @@ class GridTest {
      * correctly.
      */
     @Test
-    void testGridFindFirstTrueAdjacents() {
+    void testFindFirstTrueAdjacents() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = 10;
@@ -487,7 +487,7 @@ class GridTest {
      * formats. If, in the future, we modify the method to accept Bitmask as an input or output
      * format, these tests should be updated accordingly.
      */
-    void testGridFindFirstTrueAdjacentsAfterBitmask() {
+    void testFindFirstTrueAdjacentsAfterBitmask() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = 10;
@@ -525,7 +525,7 @@ class GridTest {
      * {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method is functioning correctly.
      */
     @Test
-    void testGridFindFirstTrueAdjacentsAfterIndexInput() {
+    void testFindFirstTrueAdjacentsAfterIndexInput() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = 10;
@@ -577,7 +577,7 @@ class GridTest {
      * {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method is functioning correctly.
      */
     @Test
-    void testGridFindFirstTrueAdjacentsAfterPackedIntInput() {
+    void testFindFirstTrueAdjacentsAfterPackedIntInput() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = 10;
@@ -631,7 +631,7 @@ class GridTest {
      * correctly.
      */
     @Test
-    void testGridGetTrueCount() {
+    void testGetTrueCount() {
         // Verify initial consistency between getTrueCount() and findTrueCells()
         Grid grid = new Grid13();
         int initialCount = grid.getTrueCount();
@@ -672,7 +672,7 @@ class GridTest {
      * identical, but independent, state.
      */
     @Test
-    void testGridClone() {
+    void testClone() {
         Grid original = new Grid13();
         Random random = new Random();
         int clicksCount = 10;
@@ -704,7 +704,7 @@ class GridTest {
      * relative to the first true cell.
      */
     @Test
-    void testGridCanAffectFirstTrueCell() {
+    void testCanAffectFirstTrueCell() {
         assertThrows(IllegalArgumentException.class, () -> {
             Grid.canAffectFirstTrueCell((short)-1, (short)0, Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for Bitmask format");
@@ -762,7 +762,7 @@ class GridTest {
      * accordingly.
      */
     @Test
-    void testGridAreAdjacentBitmaskInput() {
+    void testAreAdjacentBitmaskInput() {
         assertThrows(IllegalArgumentException.class, () -> {
             Grid.areAdjacent((short)0, (short)0, Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for Bitmask input format");
@@ -776,7 +776,7 @@ class GridTest {
      * functioning correctly and uses it to generate expected results for comparison.
      */
     @Test
-    void testGridAreAdjacentIndexInput() {
+    void testAreAdjacentIndexInput() {
         for (short cellA = 0; cellA < Grid.NUM_CELLS; cellA++) {
             ShortList adjacents = Grid.computeAdjacents(cellA, Grid.ValueFormat.Index);
             for (short cellB = 0; cellB < Grid.NUM_CELLS; cellB++) {
@@ -795,7 +795,7 @@ class GridTest {
      * functioning correctly and uses it to generate expected results for comparison.
      */
     @Test
-    void testGridAreAdjacentPackedIntInput() {
+    void testAreAdjacentPackedIntInput() {
         for (short cellA = 0; cellA < Grid.NUM_CELLS; cellA++) {
             short packedA = Grid.indexToPacked(cellA);
             ShortList adjacents = Grid.computeAdjacents(packedA, Grid.ValueFormat.PackedInt);
@@ -814,7 +814,7 @@ class GridTest {
      * state.
      */
     @Test
-    void testGridToString() {
+    void testToString() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = 15;
@@ -861,7 +861,7 @@ class GridTest {
      * performs clicks to change their states, and verifies equality and inequality as appropriate.
      */
     @Test
-    void testGridEquals() {
+    void testEquals() {
         Grid gridOne = new Grid13();
         Grid gridOneReference = gridOne;
         Grid gridTwo = new Grid13();
@@ -886,10 +886,10 @@ class GridTest {
     /**
      * Tests the {@link Grid#hashCode()} method to ensure it produces consistent hash codes for equal
      * grid instances and different hash codes for unequal instances. This test uses the same test cases
-     * as the {@link #testGridEquals()} method to verify hash code behavior.
+     * as the {@link #testEquals()} method to verify hash code behavior.
      */
     @Test
-    void testGridHashCode() {
+    void testHashCode() {
         Grid gridOne = new Grid13();
         Grid gridOneReference = gridOne;
         Grid gridTwo = new Grid13();
@@ -921,7 +921,7 @@ class GridTest {
      * reported as solved.
      */
     @Test
-    void testGrid13IsSolved() {
+    void test13IsSolved() {
         Grid grid = new Grid13();
         // A known 7-click solution for the default puzzle
         short[] solution = {48, 50, 52, 54, 56, 58, 60};
@@ -934,7 +934,7 @@ class GridTest {
      * result in a solved state.
      */
     @Test
-    void testGrid13IsNotSolved() {
+    void test13IsNotSolved() {
         Grid grid = new Grid13();
         // An incorrect solution
         short[] incorrectSolution = {0, 1, 2, 3, 4, 5, 6};
@@ -948,7 +948,7 @@ class GridTest {
      * and the count of true cells.
      */
     @Test
-    void testGrid13InitialState() {
+    void test13InitialState() {
         Grid grid = new Grid13();
         long[] expectedState = {-6917317925703516160L, 8191L};
         assertArrayEquals(expectedState, grid.getGridState(), "Initial grid state should match the expected pre-computed state for Grid13");
@@ -960,7 +960,7 @@ class GridTest {
      * Tests the reversibility of clicks on the {@link Grid13}.
      */
     @Test
-    void testGrid13ClickReversibility() {
+    void test13ClickReversibility() {
         Grid grid = new Grid13();
         Random random = new Random();
         int clicksCount = 10;
@@ -992,7 +992,7 @@ class GridTest {
      * verifies that the order of clicks does not affect the final grid state.
      */
     @Test
-    void testGrid13ClickCommutativity() {
+    void test13ClickCommutativity() {
         Grid grid1 = new Grid13();
         Grid grid2 = new Grid13();
         ShortList clickList1 = new ShortArrayList();
@@ -1029,7 +1029,7 @@ class GridTest {
      * reported as solved.
      */
     @Test
-    void testGrid22IsSolved() {
+    void test22IsSolved() {
         Grid grid = new Grid22();
         // A known 15-click solution for the default puzzle
         short[] solution = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85, 88, 91};
@@ -1042,7 +1042,7 @@ class GridTest {
      * result in a solved state.
      */
     @Test
-    void testGrid22IsNotSolved() {
+    void test22IsNotSolved() {
         Grid grid = new Grid13();
         // An incorrect solution
         short[] incorrectSolution = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
@@ -1056,7 +1056,7 @@ class GridTest {
      * and the count of true cells.
      */
     @Test
-    void testGrid22InitialState() {
+    void test22InitialState() {
         Grid grid = new Grid22();
         long[] expectedState = {3293960916490350006L, 15078939901952L};
         assertArrayEquals(expectedState, grid.getGridState(), "Initial grid state should match the expected pre-computed state for Grid22");
@@ -1068,7 +1068,7 @@ class GridTest {
      * Tests the reversibility of clicks on the {@link Grid22}.
      */
     @Test
-    void testGrid22ClickReversibility() {
+    void test22ClickReversibility() {
         Grid grid = new Grid22();
         Random random = new Random();
         int clicksCount = 10;
@@ -1098,7 +1098,7 @@ class GridTest {
      * Tests the commutativity of clicks on the {@link Grid22}.
      */
     @Test
-    void testGrid22ClickCommutativity() {
+    void test22ClickCommutativity() {
         Grid grid1 = new Grid22();
         Grid grid2 = new Grid22();
         ShortList clickList1 = new ShortArrayList();
@@ -1133,7 +1133,7 @@ class GridTest {
      * solution is unknown.
      */
     @Test
-    void testGrid35IsNotSolved() {
+    void test35IsNotSolved() {
         Grid grid = new Grid35();
         // An incorrect solution (there is no known 10-click solution)
         ShortSet incorrectSolutionSet = new ShortOpenHashSet();
@@ -1151,7 +1151,7 @@ class GridTest {
      * the expected pre-computed state.
      */
     @Test
-    void testGrid35InitialState() {
+    void test35InitialState() {
         Grid grid = new Grid35();
         long[] expectedState = {45036546029518848L, 32L};
         assertArrayEquals(expectedState, grid.getGridState(), "Initial grid state should match the expected pre-computed state for Grid35");
@@ -1163,7 +1163,7 @@ class GridTest {
      * Tests the reversibility of clicks on the {@link Grid35}.
      */
     @Test
-    void testGrid35ClickReversibility() {
+    void test35ClickReversibility() {
         Grid grid = new Grid35();
         Random random = new Random();
         int clicksCount = 10;
@@ -1193,7 +1193,7 @@ class GridTest {
      * Tests the commutativity of clicks on the {@link Grid35}.
      */
     @Test
-    void testGrid35ClickCommutativity() {
+    void test35ClickCommutativity() {
         Grid grid1 = new Grid35();
         Grid grid2 = new Grid35();
         ShortList clickList1 = new ShortArrayList();

@@ -1757,15 +1757,16 @@ public abstract class Grid {
     }
 
     /**
-     * Prints the current grid state to the {@link LogManager#getLogger() logger} in a human-readable
-     * format.
-     *
+     * Returns a {@link java.lang.String String} representation of the current grid state in a
+     * human-readable format.
+     * 
      * <p>
      * Cells are represented by '1' for {@code true} (on) and '0' for {@code false} (off). Rows are
      * indented to visually reflect the hexagonal layout, matching the format used in the original PDC
      * puzzle description. This method is primarily for debugging and visualization.
      * </p>
-     *
+     * 
+     * @return A string representation of the grid state.
      * @see #EVEN_NUM_COLS
      * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
@@ -1775,24 +1776,24 @@ public abstract class Grid {
      * @see ValueFormat#Index
      * @see ValueFormat#PackedInt
      * @see java.lang.StringBuilder
-     * @see org.apache.logging.log4j.Logger
-     * @see org.apache.logging.log4j.LogManager
-     * @since 2025.03 - Grid Printing Method Creation
+     * @see java.lang.System#lineSeparator()
+     * @since 2025.11 - toString Method Addition
      * @performance {@code O(NUM_CELLS)} due to iteration over all cells. Not performance-critical.
      * @threading Not thread-safe; iterates over the mutable grid state.
-     * @memory Allocates a new {@link StringBuilder} for each row.
+     * @memory Allocates a new {@link StringBuilder} and {@link String} for the grid representation.
      */
-    public void printGrid() {
-        Logger logger = LogManager.getLogger();
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
         for (int row = 0; row < NUM_ROWS; row++) {
-            StringBuilder sb = new StringBuilder();
             if (row % 2 != 0) sb.append(" ");
             int cols = (row % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS;
             for (int col = 0; col < cols; col++) {
                 int bitIdx = packedToIndex((short) (row * 100 + col));
                 sb.append(getBit(bitIdx) ? "1 " : "0 ");
             }
-            logger.info(sb.toString());
+            sb.append(System.lineSeparator());
         }
+        return sb.toString();
     }
 }

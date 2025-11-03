@@ -335,13 +335,8 @@ public class StartYourMonkeys {
 
         // Verify solution
         Grid puzzleGrid = baseGrid.clone();
-        boolean solved = false;
-        for (int i = 0; (i < winningCombination.length) && (!solved); i++)
-        {
-            puzzleGrid.click(winningCombination[i], Grid.ValueFormat.PackedInt);
-            solved = puzzleGrid.isSolved();
-        }
-        puzzleGrid.printGrid();
+        puzzleGrid.click(winningCombination);
+        logger.info(puzzleGrid);
 
         logger.info("\n\n--------------------------------------\n");
         LogManager.shutdown();

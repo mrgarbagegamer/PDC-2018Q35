@@ -867,6 +867,7 @@ class GridTest {
         Grid gridTwo = new Grid13();
         Grid gridThree = new Grid22();
 
+        assertNotEquals(gridOne, null, "Non-null grid should not be equal to null");
         assertEquals(gridOne, gridOneReference, "Grid should be equal to itself");
         assertEquals(gridOne, gridTwo, "Two grids with the same initial state should be equal");
         assertNotEquals(gridOne, gridThree, "Grids with different initial states should not be equal");
@@ -879,6 +880,33 @@ class GridTest {
 
         if (gridOne.isSolved() && gridThree.isSolved()) {
             assertEquals(gridOne, gridThree, "Two grids solved with the same solution should be equal");
+        }
+    }
+
+    /**
+     * Tests the {@link Grid#hashCode()} method to ensure it produces consistent hash codes for equal
+     * grid instances and different hash codes for unequal instances. This test uses the same test cases
+     * as the {@link #testGridEquals()} method to verify hash code behavior.
+     */
+    @Test
+    void testGridHashCode() {
+        Grid gridOne = new Grid13();
+        Grid gridOneReference = gridOne;
+        Grid gridTwo = new Grid13();
+        Grid gridThree = new Grid22();
+
+        assertEquals(gridOne.hashCode(), gridOneReference.hashCode(), "Hash code should be consistent for the same grid instance");
+        assertEquals(gridOne.hashCode(), gridTwo.hashCode(), "Hash codes should be equal for grids with the same initial state");
+        assertNotEquals(gridOne.hashCode(), gridThree.hashCode(), "Hash codes should differ for grids with different initial states");
+
+        short[] solution13 = {48, 50, 52, 54, 56, 58, 60};
+        short[] solution22 = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85, 88, 91};
+
+        gridOne.click(solution13);
+        gridThree.click(solution22);
+
+        if (gridOne.isSolved() && gridThree.isSolved()) {
+            assertEquals(gridOne.hashCode(), gridThree.hashCode(), "Hash codes should be equal for two grids solved with the same solution");
         }
     }
 

@@ -488,6 +488,7 @@ public abstract class Grid {
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for {@code inputFormat}
      *                                  or {@code outputFormat}, as it is not suitable for single-cell
      *                                  representation.
+     * @throws NullPointerException     if {@code inputFormat} or {@code outputFormat} is {@code null}.
      * @see #findAdjacents(short, ValueFormat, ValueFormat)
      * @see ShortArrayList#ShortArrayList(int)
      * @see ShortList
@@ -510,6 +511,8 @@ public abstract class Grid {
             case PackedInt:
                 // If the cell is in packed int format, we can directly compute adjacents
                 break;
+            case null:
+                throw new NullPointerException("Input format cannot be null.");
         }
 
         int row = cell / 100;
@@ -549,6 +552,8 @@ public abstract class Grid {
             case PackedInt:
                 // Already in packed int format, no conversion needed
                 break;
+            case null:
+                throw new NullPointerException("Output format cannot be null.");
         }
 
         return affectedPieces;
@@ -623,6 +628,8 @@ public abstract class Grid {
      * @return A {@code short[]} of adjacent cells in the specified {@code outputFormat}.
      * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for
      *                                        {@code inputFormat} or {@code outputFormat}.
+     * @throws NullPointerException           if {@code inputFormat} or {@code outputFormat} is
+     *                                        {@code null}.
      * @throws ArrayIndexOutOfBoundsException if the input {@code cell} is out of bounds for the
      *                                        specified {@code inputFormat}.
      * @since 2025.07 - Format Support
@@ -644,8 +651,8 @@ public abstract class Grid {
                 // Already in index format, no conversion needed.
                 result = adjacencyArray[cell];
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + inputFormat);
+            case null:
+                throw new NullPointerException("Input format cannot be null.");
         }
         switch (outputFormat) 
         {
@@ -662,8 +669,8 @@ public abstract class Grid {
                     packedResult[i] = indexToPacked(result[i]);
                 }
                 return packedResult;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + outputFormat);
+            case null:
+                throw new NullPointerException("Output format cannot be null.");
         }
 
         return result;
@@ -967,6 +974,7 @@ public abstract class Grid {
      * @return A {@code short[]} of {@code true} cells in the specified format.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is provided, as it is not
      *                                  suitable for representing individual cells.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #findFirstTrueCell(ValueFormat)
      * @see #getGridState()
      * @since 2025.07 - Format Support
@@ -998,8 +1006,8 @@ public abstract class Grid {
                     trueCellsArray[i] = (short) indexToPacked(trueCellsArray[i]);
                 }
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
 
         return trueCellsArray;
@@ -1065,6 +1073,7 @@ public abstract class Grid {
      *         found.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not suitable
      *                                  for single-cell representation.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #click(short[])
      * @see #findTrueCells(ValueFormat)
      * @since 2025.07 - Format Support
@@ -1111,8 +1120,8 @@ public abstract class Grid {
             case PackedInt:
                 // Convert index to packed int format
                 return indexToPacked(firstTrueCell);
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
         return firstTrueCell;
     }
@@ -1198,10 +1207,13 @@ public abstract class Grid {
      *                                        by array accesses).
      * @see #click(short[])
      * @since 2025.07 - Format Support
+     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations. Single-click
+     *             operations are no longer on the hot path.
      * @performance {@code O(1)} complexity due to bitwise operations and pre-computed masks.
      * @threading Not thread-safe; modifies the instance's {@link #gridState}.
      * @memory Does not allocate.
      */
+    @Deprecated
     public void click(short cell, ValueFormat format) {
         switch (format) 
         {
@@ -1219,8 +1231,8 @@ public abstract class Grid {
                 // Mark for recalculation of first true cell
                 recalculationNeeded = true;
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
     }
 
@@ -1285,10 +1297,13 @@ public abstract class Grid {
      *                                        accesses).
      * @see #click(short, ValueFormat)
      * @since 2025.03 - Initial Creation
+     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations. Single-click
+     *             operations are no longer on the hot path.
      * @performance {@code O(1)} complexity.
      * @threading Not thread-safe; modifies the instance's {@link #gridState}.
      * @memory Does not allocate.
      */
+    @Deprecated
     public final void click(short row, short col) {
         // Convert packed int to index format first
         short cell = packedToIndex((short) (row * 100 + col));
@@ -1406,6 +1421,7 @@ public abstract class Grid {
      *         {@code true} cell exists.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not suitable
      *                                  for representing individual cells.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #findAdjacents(short, ValueFormat)
      * @see #findFirstTrueCell()
      * @since 2025.04 - First True Adjacents Method Creation
@@ -1416,6 +1432,9 @@ public abstract class Grid {
     public short[] findFirstTrueAdjacents(ValueFormat format) {
         if (format == ValueFormat.Bitmask) {
             throw new IllegalArgumentException("Bitmask format is not supported for this operation.");
+        }
+        else if (format == null) {
+            throw new NullPointerException("Format cannot be null.");
         }
         
         short firstTrueCell = findFirstTrueCell(format);
@@ -1479,6 +1498,7 @@ public abstract class Grid {
      * @return An array of adjacent cells that appear after the specified {@code cell}, or {@code null}
      *         if no {@code true} cell exists or no such adjacents are found.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for any format.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #findAdjacents(short)
      * @see #findFirstTrueAdjacents(ValueFormat)
      * @see #findFirstTrueCell()
@@ -1490,6 +1510,9 @@ public abstract class Grid {
     public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
         if (inputFormat == ValueFormat.Bitmask || outputFormat == ValueFormat.Bitmask) {
             throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+        }
+        else if (inputFormat == null || outputFormat == null) {
+            throw new NullPointerException("Formats cannot be null.");
         }
         short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
         if (firstTrueAdjacents == null) return null; // TODO: Consider replacing this with an empty array for consistency.
@@ -1601,8 +1624,11 @@ public abstract class Grid {
      * @see #gridState
      * @see #recalculationNeeded
      * @see #trueCellsCount
-     * @see java.lang.Object#clone()
+     * @see java.lang.Class#getDeclaredConstructor()
      * @see java.lang.Cloneable
+     * @see java.lang.Object#clone()
+     * @see java.lang.Object#getClass()
+     * @see java.lang.reflect.Constructor#newInstance(Object...)
      * @since 2025.03 - Cloning Introduction
      * @performance {@code O(1)} complexity (fixed number of field copies).
      * @threading Thread-safe, as it returns a new, independent instance.
@@ -1651,6 +1677,7 @@ public abstract class Grid {
      * @return {@code true} if the click can affect or create a new {@code first true cell},
      *         {@code false} otherwise.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #areAdjacent(short, short, ValueFormat)
      * @see #findFirstTrueCell(ValueFormat)
      * @since 2025.07 - Format and Adjacency Optimizations
@@ -1662,11 +1689,13 @@ public abstract class Grid {
         if (format == ValueFormat.Bitmask) {
             throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
         }
+        else if (format == null) {
+            throw new NullPointerException("Format cannot be null.");
+        }
 
         if (firstTrueCell == -1) return true; // No true cells, any click can create one
         if (clickCell <= firstTrueCell) return true; // packed int order: row * 100 + col
 
-        // Convert both cells to index format if necessary
         return Grid.areAdjacent(firstTrueCell, clickCell, format);
     }
 
@@ -1692,6 +1721,7 @@ public abstract class Grid {
      *               {@link ValueFormat#PackedInt}).
      * @return {@code true} if the cells are adjacent, {@code false} otherwise.
      * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for any format.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds.
      * @see #areAdjacent(short, short)
      * @see #canAffectFirstTrueCell(short, short, ValueFormat)
@@ -1712,8 +1742,8 @@ public abstract class Grid {
             case Index:
                 // Already in index format, no conversion needed
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
         return ADJACENCY_CACHE[cellA][cellB];
     }

@@ -44,6 +44,30 @@ class GridTest {
     /**
      * Tests the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} and
      * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that
+     * they throw a NullPointerException when provided with null formats.
+     */
+    @Test
+    void testGridComputeAdjacentsNull() {
+        // Dual format overload
+        assertThrows(NullPointerException.class, () -> {
+            Grid.computeAdjacents((short)0, null, Grid.ValueFormat.Index);
+        }, "Expected NullPointerException for dual format overload with null input format");
+        assertThrows(NullPointerException.class, () -> {
+            Grid.computeAdjacents((short)0, Grid.ValueFormat.Index, null);
+        }, "Expected NullPointerException for dual format overload with null output format");
+        assertThrows(NullPointerException.class, () -> {
+            Grid.computeAdjacents((short)0, null, null);
+        }, "Expected NullPointerException for dual format overload with both formats null");
+        
+        // Single format overload
+        assertThrows(NullPointerException.class, () -> {
+            Grid.computeAdjacents((short)0, null);
+        }, "Expected NullPointerException for single format overload with null format");
+    }
+
+    /**
+     * Tests the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} and
+     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that
      * they throw the appropriate exceptions for invalid Bitmask input & output formats. If, in the
      * future, we modify the methods to accept Bitmask as an output format, these tests should be
      * updated accordingly.
@@ -130,6 +154,29 @@ class GridTest {
         }
     }
 
+    /**
+     * Tests the {@link Grid#findAdjacents(short, Grid.ValueFormat)} and
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that they
+     * throw a NullPointerException when provided with null formats.
+     */
+    @Test
+    void testGridFindAdjacentsNull() {
+        // Dual format overload
+        assertThrows(NullPointerException.class, () -> {
+            Grid.findAdjacents((short)0, null, Grid.ValueFormat.Index);
+        }, "Expected NullPointerException for dual format overload with null input format");
+        assertThrows(NullPointerException.class, () -> {
+            Grid.findAdjacents((short)0, Grid.ValueFormat.Index, null);
+        }, "Expected NullPointerException for dual format overload with null output format");
+        assertThrows(NullPointerException.class, () -> {
+            Grid.findAdjacents((short)0, null, null);
+        }, "Expected NullPointerException for dual format overload with both formats null");
+
+        // Single format overload
+        assertThrows(NullPointerException.class, () -> {
+            Grid.findAdjacents((short)0, null);
+        }, "Expected NullPointerException for single format overload with null format");
+    }
 
     /**
      * Tests the {@link Grid#findAdjacents(short, Grid.ValueFormat)} and
@@ -306,6 +353,10 @@ class GridTest {
             grid.findFirstTrueCell(Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueCell with Bitmask format");
 
+        assertThrows(NullPointerException.class, () -> {
+            grid.findFirstTrueCell(null);
+        }, "Expected NullPointerException for findFirstTrueCell with null format");
+
         // Find the first true cell using bitwise operations
         short expectedFirstTrueCell = -1;
         if (gridState[0] != 0L) {
@@ -326,12 +377,42 @@ class GridTest {
     }
 
     /**
+     * Tests the {@link Grid#click(long[])} method to ensure that clicking cells correctly updates the
+     * grid state.
+     */
+    @Test
+    void testGridClickBitmask() {
+        Grid grid = new Grid35();
+        Random random = new Random();
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            grid.click(new long[1]);
+        }, "Expected IllegalArgumentException for click with invalid bitmask length");
+        assertThrows(IllegalArgumentException.class, () -> {
+            grid.click(new long[3]);
+        }, "Expected IllegalArgumentException for click with invalid bitmask length");
+
+        long[] clickBitmask = new long[2];
+        int clicksCount = 15;
+        for (int i = 0; i < clicksCount; i++) {
+            short cellIndex = (short) random.nextInt(Grid.NUM_CELLS);
+            int longIndex = cellIndex / 64;
+            int bitIndex = cellIndex % 64;
+            clickBitmask[longIndex] |= (1L << bitIndex);
+        }
+        long[] initialState = grid.getGridState();
+        long[] expectedState = {initialState[0] ^ clickBitmask[0], initialState[1] ^ clickBitmask[1]};
+        grid.click(clickBitmask);
+        assertArrayEquals(expectedState, grid.getGridState(), "Grid state should match expected state after clicks (Bitmask: " + Arrays.toString(clickBitmask) + ")");
+    }
+
+    /**
      * Tests the {@link Grid#click(short[])} method to ensure that clicking cells correctly updates the
      * grid state. This test performs a series of random clicks and verifies that the resulting grid
      * state matches the expected state computed manually.
      */
     @Test
-    void testGridClick() {
+    void testGridClickShortArray() {
         Grid grid = new Grid35();
         Random random = new Random();
         int clicksCount = 15;

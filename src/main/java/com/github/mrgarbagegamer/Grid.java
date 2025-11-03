@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.Arrays;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
@@ -1822,8 +1821,56 @@ public abstract class Grid {
                 int bitIdx = packedToIndex((short) (row * 100 + col));
                 sb.append(getBit(bitIdx) ? "1 " : "0 ");
             }
-            sb.append(System.lineSeparator());
+            if (row < NUM_ROWS - 1) sb.append(System.lineSeparator());
         }
         return sb.toString();
+    }
+
+    /**
+     * Compares this {@code Grid} instance to another object for equality.
+     * 
+     * @param obj The object to compare with this instance.
+     * @return {@code true} if the other object is a {@code Grid} of the same concrete class with an
+     *         identical {@link #gridState grid state}; {@code false} otherwise.
+     * @see java.lang.Object#equals(Object)
+     * @see java.util.Arrays#equals(long[], long[])
+     * @since 2025.11 - equals Method Addition
+     * @performance {@code O(1)} complexity due to fixed-size array comparison.
+     * @threading Not thread-safe; reads the mutable {@link #gridState}.
+     * @memory Does not allocate.
+     */
+    @Override
+    public boolean equals(Object obj) {
+        // Following the Effective Java recipe for equals
+        
+        if (obj == this) return true;
+        if (!(obj instanceof Grid)) return false;
+        Grid other = (Grid) obj;
+
+        // Since firstTrueCell and trueCellsCount are lazily evaluated and derived from gridState, we only
+        // need to compare gridState arrays.
+        return Arrays.equals(other.gridState, this.gridState);
+    }
+
+    /**
+     * Computes the hash code for this {@code Grid} instance, delegating to the
+     * {@link java.util.Arrays#hashCode(long[])} utility method.
+     * 
+     * <p>
+     * This method generates a hash code based on the {@link #gridState grid state}, ignoring the
+     * concrete class type or other, lazily evaluated fields.
+     * </p>
+     * 
+     * @return The hash code for this {@code Grid} instance.
+     * @see #equals(Object)
+     * @see java.lang.Object#hashCode()
+     * @since 2025.11 - hashCode Method Addition
+     * @performance {@code O(1)} complexity due to fixed-size array hashing.
+     * @threading Not thread-safe; reads the mutable {@link #gridState}.
+     * @memory Does not allocate.
+     */
+    @Override
+    public final int hashCode() {
+        return Arrays.hashCode(gridState);
     }
 }

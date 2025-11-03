@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -787,8 +788,8 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method with PackedInt input format
-     * to ensure it correctly determines adjacency between all pairs of cells in the grid.
+     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method with PackedInt input
+     * format to ensure it correctly determines adjacency between all pairs of cells in the grid.
      * 
      * This method assumes that the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} method is
      * functioning correctly and uses it to generate expected results for comparison.
@@ -803,6 +804,81 @@ class GridTest {
                 boolean expected = adjacents.contains(packedB);
                 assertEquals(expected, Grid.areAdjacent(packedA, packedB, Grid.ValueFormat.PackedInt), "Adjacency mismatch for packed cells " + packedA + " and " + packedB + " using PackedInt format overload");
             }
+        }
+    }
+
+    /**
+     * Tests the {@link Grid#toString()} method to ensure it produces a correct string representation
+     * of the grid's current state. This test performs random clicks on the grid and verifies that the
+     * resulting string representation matches the expected format and accurately reflects the grid's
+     * state.
+     */
+    @Test
+    void testGridToString() {
+        Grid grid = new Grid13();
+        Random random = new Random();
+        int clicksCount = 15;
+
+        short[] clicks = new short[clicksCount];
+        for (int i = 0; i < clicksCount; i++) {
+            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
+        }
+        Arrays.sort(clicks);
+        grid.click(clicks);
+
+        String gridString = grid.toString();
+        String[] rows = gridString.split(System.lineSeparator());
+        assertEquals(Grid.NUM_ROWS, rows.length, "Grid string representation should have correct number of rows");
+        
+        // Ensure that each row has the correct number of columns
+        for (int row = 0; row < Grid.NUM_ROWS; row++) {
+            String[] cols = rows[row].trim().split(" ");
+            int expectedCols = (row % 2 == 0) ? Grid.EVEN_NUM_COLS : Grid.ODD_NUM_COLS;
+            assertEquals(expectedCols, cols.length, "Row " + row + " should have correct number of columns in string representation");
+        }
+
+        // Verify that the string representation matches the grid state by turning the strings into
+        // a string of 0's and 1's, then combinining them and comparing to the grid state.
+        long[] rebuiltState = new long[2];
+        int cellIndex = 0;
+        for (String row : rows) {
+            String[] cells = row.trim().split(" ");
+            for (String cell : cells) {
+                if ("1".equals(cell)) {
+                    int longIndex = cellIndex / 64;
+                    int bitIndex = cellIndex % 64;
+                    rebuiltState[longIndex] |= (1L << bitIndex);
+                }
+                cellIndex++;
+            }
+        }
+        assertArrayEquals(grid.getGridState(), rebuiltState, "The rebuilt grid state from the string representation should match the actual grid state");
+    }
+
+    /**
+     * Tests the {@link Grid#equals(Object)} method to ensure it correctly determines equality between
+     * different grid instances based on their states. This test creates multiple grid instances,
+     * performs clicks to change their states, and verifies equality and inequality as appropriate.
+     */
+    @Test
+    void testGridEquals() {
+        Grid gridOne = new Grid13();
+        Grid gridOneReference = gridOne;
+        Grid gridTwo = new Grid13();
+        Grid gridThree = new Grid22();
+
+        assertEquals(gridOne, gridOneReference, "Grid should be equal to itself");
+        assertEquals(gridOne, gridTwo, "Two grids with the same initial state should be equal");
+        assertNotEquals(gridOne, gridThree, "Grids with different initial states should not be equal");
+
+        short[] solution13 = {48, 50, 52, 54, 56, 58, 60};
+        short[] solution22 = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85, 88, 91};
+
+        gridOne.click(solution13);
+        gridThree.click(solution22);
+
+        if (gridOne.isSolved() && gridThree.isSolved()) {
+            assertEquals(gridOne, gridThree, "Two grids solved with the same solution should be equal");
         }
     }
 

@@ -808,14 +808,17 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     public final static short indexToPacked(short index) {
+        if (index < 0 || index >= NUM_CELLS) {
+            throw new IllegalArgumentException("Invalid index: " + index);
+        }
+        
         if (index < 16) return  (short) (0 * 100 + index);
         if (index < 31) return  (short) (1 * 100 + (index - 16));
         if (index < 47) return  (short) (2 * 100 + (index - 31));
         if (index < 62) return  (short) (3 * 100 + (index - 47));
         if (index < 78) return  (short) (4 * 100 + (index - 62));
         if (index < 93) return  (short) (5 * 100 + (index - 78));
-        if (index < 109) return (short) (6 * 100 + (index - 93));
-        throw new IllegalArgumentException("Invalid index: " + index);
+        else            return  (short) (6 * 100 + (index - 93));
     }
 
     /**
@@ -1023,13 +1026,14 @@ public abstract class Grid {
      *
      * @return A {@code short[]} of {@code true} cells in {@link ValueFormat#Index} format.
      * @see #findTrueCells(ValueFormat)
+     * @see #getTrueCount()
      * @since 2025.04 - Adjacency Optimizations
      * @performance {@code O(NUM_CELLS)} in the worst case.
      * @threading Not thread-safe; reads mutable state.
      * @memory Allocates a new {@code short[]} for the result.
      */
     public final short[] findTrueCells() {
-        short[] trueCellsArray = new short[trueCellsCount];
+        short[] trueCellsArray = new short[getTrueCount()];
         int idx = 0;
         
         // Internally, we iterate over bit indices (0-108)

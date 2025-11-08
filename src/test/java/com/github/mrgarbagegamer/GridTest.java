@@ -1,5 +1,12 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.TestingUtils.convertToBitmask;
+import static com.github.mrgarbagegamer.util.TestingUtils.convertToBitmaskPackedInt;
+import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomCombination;
+import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomCombinationPackedInt;
+import static com.github.mrgarbagegamer.util.TestingUtils.shuffleArray;
+import static com.github.mrgarbagegamer.util.TestingUtils.validPackedInts;
+
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -10,7 +17,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
-import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
@@ -18,7 +24,6 @@ import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortBidirectionalIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
-import it.unimi.dsi.fastutil.shorts.ShortLists;
 import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
 
 /**
@@ -33,12 +38,17 @@ class GridTest {
 
     private static final short[] solution13 = {48, 50, 52, 54, 56, 58, 60};
     private static final short[] solution22 = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85, 88, 91};
-    private static final short[] validPackedInts = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 100, 101, 102,
-            103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 200, 201, 202, 203, 204, 205, 206, 207, 208,
-            209, 210, 211, 212, 213, 214, 215, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313,
-            314, 400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 500, 501, 502, 503,
-            504, 505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 600, 601, 602, 603, 604, 605, 606, 607, 608, 609,
-            610, 611, 612, 613, 614, 615};
+
+    /**
+     * Creates and returns a solved Grid13 instance for testing purposes.
+     * 
+     * @return A Grid13 instance in a solved state.
+     */
+    private static Grid createSolvedGrid13() {
+        Grid grid = new Grid13();
+        grid.click(solution13); // Start from a known state.
+        return grid;
+    }
 
     /**
      * Tests the {@link Grid#packedToIndex(short)} method to ensure it throws an exception if provided
@@ -413,10 +423,8 @@ class GridTest {
     void testFindTrueCellsIndex() {
         // We need to be able to test the index format specifically, handling true cell counts from
         // 1 to NUM_CELLS
-        Grid grid = new Grid13();
-        grid.click(solution13); // Start from a known state.
-        Random random = new Random();
-
+        Grid grid = createSolvedGrid13();
+        
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
 
@@ -433,27 +441,12 @@ class GridTest {
         // Iterate for each possible true cell count
         for (int trueCellsCount = 1; trueCellsCount <= Grid.NUM_CELLS; trueCellsCount++) {
             // Generate unique random clicks
-            ShortSortedSet trueSet = new ShortAVLTreeSet();
-            while (trueSet.size() < trueCellsCount) {
-                trueSet.add((short) random.nextInt(Grid.NUM_CELLS));
-            }
+            short[] expectedTrueCells = generateRandomCombination(trueCellsCount);
+            long[] toggleBitmask = convertToBitmask(expectedTrueCells);
 
-            // To directly toggle these cells, we need to make a bitmask representation of the
-            // toggled cells, and then XOR it with the current, solved grid state through the
-            // click(long[]) method.
-            long[] toggleBitmask = new long[2];
-            ShortBidirectionalIterator iterator = trueSet.iterator(); // Use an Iterator to avoid boxing
-
-            while (iterator.hasNext()) {
-                short cellIndex = iterator.nextShort();
-                int longIndex = cellIndex / 64;
-                int bitIndex = cellIndex % 64;
-                toggleBitmask[longIndex] |= (1L << bitIndex);
-            }
             grid.click(toggleBitmask);
 
             // Now, we can verify that the true cells found match the expected set
-            short[] expectedTrueCells = trueSet.toShortArray();
             short[] actualTrueCellsIndex = grid.findTrueCells(Grid.ValueFormat.Index);
             short[] actualTrueCellsNoFormat = grid.findTrueCells();
 
@@ -481,9 +474,7 @@ class GridTest {
      */
     @Test
     void testFindTrueCellsPackedInt() {
-        Grid grid = new Grid13();
-        grid.click(solution13); // Start from a known state.
-        Random random = new Random();
+        Grid grid = createSolvedGrid13();
 
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
@@ -496,22 +487,12 @@ class GridTest {
 
         // Iterate for each possible true cell count
         for (int trueCellsCount = 1; trueCellsCount <= Grid.NUM_CELLS; trueCellsCount++) {
-            ShortSortedSet trueSet = new ShortAVLTreeSet();
-            while (trueSet.size() < trueCellsCount) {
-                trueSet.add(validPackedInts[random.nextInt(validPackedInts.length)]);
-            }
-            long[] toggleBitmask = new long[2];
-            ShortBidirectionalIterator iterator = trueSet.iterator();
-            while (iterator.hasNext()) {
-                short packedValue = iterator.nextShort();
-                short cellIndex = Grid.packedToIndex(packedValue);
-                int longIndex = cellIndex / 64;
-                int bitIndex = cellIndex % 64;
-                toggleBitmask[longIndex] |= (1L << bitIndex);
-            }
+            short[] expectedTrueCells = generateRandomCombinationPackedInt(trueCellsCount);
+
+            long[] toggleBitmask = convertToBitmaskPackedInt(expectedTrueCells);
+
             grid.click(toggleBitmask);
 
-            short[] expectedTrueCells = trueSet.toShortArray();
             short[] actualTrueCellsPacked = grid.findTrueCells(Grid.ValueFormat.PackedInt);
 
             assertArrayEquals(expectedTrueCells, actualTrueCellsPacked,
@@ -560,9 +541,7 @@ class GridTest {
      */
     @Test
     void testFirstTrueCellIndex() {
-        Grid grid = new Grid13();
-        grid.click(solution13); // Start from a known state.
-        Random random = new Random();
+        Grid grid = createSolvedGrid13();
 
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
@@ -576,21 +555,12 @@ class GridTest {
 
         // Iterate for each possible true cell count
         for (int trueCellsCount = 1; trueCellsCount <= Grid.NUM_CELLS; trueCellsCount++) {
-            ShortSortedSet trueSet = new ShortAVLTreeSet();
-            while (trueSet.size() < trueCellsCount) {
-                trueSet.add((short) random.nextInt(Grid.NUM_CELLS));
-            }
-            long[] toggleBitmask = new long[2];
-            ShortBidirectionalIterator iterator = trueSet.iterator();
-            while (iterator.hasNext()) {
-                short cellIndex = iterator.nextShort();
-                int longIndex = cellIndex / 64;
-                int bitIndex = cellIndex % 64;
-                toggleBitmask[longIndex] |= (1L << bitIndex);
-            }
+            short[] expectedTrueCells = generateRandomCombination(trueCellsCount);
+
+            long[] toggleBitmask = convertToBitmask(expectedTrueCells);
             grid.click(toggleBitmask);
 
-            short expectedFirstTrueCell = trueSet.firstShort();
+            short expectedFirstTrueCell = expectedTrueCells[0];
             short actualFirstTrueCellIndex = grid.findFirstTrueCell(Grid.ValueFormat.Index);
             short actualFirstTrueCellNoFormat = grid.findFirstTrueCell();
 
@@ -618,9 +588,7 @@ class GridTest {
      */
     @Test
     void testFirstTrueCellPackedInt() {
-        Grid grid = new Grid13();
-        grid.click(solution13); // Start from a known state.
-        Random random = new Random();
+        Grid grid = createSolvedGrid13();
 
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
@@ -631,22 +599,12 @@ class GridTest {
 
         // Iterate for each possible true cell count
         for (int trueCellsCount = 1; trueCellsCount <= Grid.NUM_CELLS; trueCellsCount++) {
-            ShortSortedSet trueSet = new ShortAVLTreeSet();
-            while (trueSet.size() < trueCellsCount) {
-                trueSet.add(validPackedInts[random.nextInt(validPackedInts.length)]);
-            }
-            long[] toggleBitmask = new long[2];
-            ShortBidirectionalIterator iterator = trueSet.iterator();
-            while (iterator.hasNext()) {
-                short packedValue = iterator.nextShort();
-                short cellIndex = Grid.packedToIndex(packedValue);
-                int longIndex = cellIndex / 64;
-                int bitIndex = cellIndex % 64;
-                toggleBitmask[longIndex] |= (1L << bitIndex);
-            }
+            short[] expectedTrueCells = generateRandomCombinationPackedInt(trueCellsCount);
+
+            long[] toggleBitmask = convertToBitmaskPackedInt(expectedTrueCells);
             grid.click(toggleBitmask);
 
-            short expectedFirstTrueCellPacked = trueSet.firstShort();
+            short expectedFirstTrueCellPacked = expectedTrueCells[0];
             short actualFirstTrueCellPacked = grid.findFirstTrueCell(Grid.ValueFormat.PackedInt);
             assertEquals(expectedFirstTrueCellPacked, actualFirstTrueCellPacked,
                     "The first true cell should match expected value in PackedInt format for true cell count "
@@ -664,7 +622,6 @@ class GridTest {
     @Test
     void testClickBitmask() {
         Grid grid = new Grid35();
-        Random random = new Random();
 
         assertThrows(IllegalArgumentException.class, () -> {
             grid.click(new long[1]);
@@ -673,14 +630,9 @@ class GridTest {
             grid.click(new long[3]);
         }, "Expected IllegalArgumentException for click with invalid bitmask length");
 
-        long[] clickBitmask = new long[2];
-        int clicksCount = 15;
-        for (int i = 0; i < clicksCount; i++) {
-            short cellIndex = (short) random.nextInt(Grid.NUM_CELLS);
-            int longIndex = cellIndex / 64;
-            int bitIndex = cellIndex % 64;
-            clickBitmask[longIndex] |= (1L << bitIndex);
-        }
+        short[] combination = generateRandomCombination(15);
+        long[] clickBitmask = convertToBitmask(combination);
+        
         long[] initialState = grid.getGridState();
         long[] expectedState = {initialState[0] ^ clickBitmask[0], initialState[1] ^ clickBitmask[1]};
         grid.click(clickBitmask);
@@ -696,24 +648,16 @@ class GridTest {
     @Test
     void testClickShortArray() {
         Grid grid = new Grid35();
-        Random random = new Random();
-        int clicksCount = 15;
-        short[] clicks = new short[clicksCount];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
+        short[] clicks = generateRandomCombination(15);
 
         long[] initialState = grid.getGridState();
         long[] expectedState = initialState.clone();
         for (short click : clicks) {
             // Manually compute expected state after each click
             short[] affectedCells = Grid.findAdjacents(click);
-            for (short cell : affectedCells) {
-                int longIndex = cell / 64;
-                int bitIndex = cell % 64;
-                expectedState[longIndex] ^= (1L << bitIndex);
-            }
+            long[] clickBitmask = convertToBitmask(affectedCells);
+            expectedState[0] ^= clickBitmask[0];
+            expectedState[1] ^= clickBitmask[1];
         }
         grid.click(clicks);
         assertArrayEquals(expectedState, grid.getGridState(),
@@ -759,8 +703,7 @@ class GridTest {
      */
     @Test
     void testFindFirstTrueAdjacentsIndex() {
-        Grid grid = new Grid13();
-        grid.click(solution13); // Start from a known state.
+        Grid grid = createSolvedGrid13();
 
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
@@ -768,10 +711,7 @@ class GridTest {
         // Test for a first true cell in every possible position
         for (short firstTrueCell = 0; firstTrueCell < Grid.NUM_CELLS; firstTrueCell++) {
             // Set the grid state to have only the firstTrueCell as true
-            long[] gridState = new long[2];
-            int longIndex = firstTrueCell / 64;
-            int bitIndex = firstTrueCell % 64;
-            gridState[longIndex] |= (1L << bitIndex);
+            long[] gridState = convertToBitmask(firstTrueCell);
             grid.click(gridState);
 
             short[] expectedAdjacents = Grid.findAdjacents(firstTrueCell);
@@ -805,15 +745,13 @@ class GridTest {
      * format to ensure it returns correct results after random clicks on the grid.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the
-     * {@link Grid#findFirstTrueCell(Grid.ValueFormat)} and
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods are functioning
-     * correctly.
+     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods, conversions between different
+     * value formats are functioning correctly, and that
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} is functioning correctly.
      */
     @Test
     void testFindFirstTrueAdjacentsPackedInt() {
-        Grid grid = new Grid13();
-        grid.click(solution13); // Start from a known state.
+        Grid grid = createSolvedGrid13();
 
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
@@ -821,14 +759,10 @@ class GridTest {
         // Test for a first true cell in every possible position
         for (short firstTrueCell : validPackedInts) {
             // Set the grid state to have only the firstTrueCell as true
-            long[] gridState = new long[2];
-            short cellIndex = Grid.packedToIndex(firstTrueCell);
-            int longIndex = cellIndex / 64;
-            int bitIndex = cellIndex % 64;
-            gridState[longIndex] |= (1L << bitIndex);
+            long[] gridState = convertToBitmaskPackedInt(firstTrueCell);
             grid.click(gridState);
 
-            short[] expectedAdjacents = Grid.findAdjacents(cellIndex);
+            short[] expectedAdjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
 
             // Test Index output format
             short[] actualAdjacentsIndex = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
@@ -912,13 +846,7 @@ class GridTest {
     @Test
     void testFindFirstTrueAdjacentsAfterIndex() {
         Grid grid = new Grid13();
-        Random random = new Random();
-        int clicksCount = 10;
-        short[] clicks = new short[clicksCount];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
+        short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
         short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
         short[] firstTrueAdjacentsPackedIntOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
@@ -977,13 +905,7 @@ class GridTest {
     @Test
     void testFindFirstTrueAdjacentsAfterPackedInt() {
         Grid grid = new Grid13();
-        Random random = new Random();
-        int clicksCount = 10;
-        short[] clicks = new short[clicksCount];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
+        short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
         short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
         short[] firstTrueAdjacentsPackedIntOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
@@ -1048,13 +970,7 @@ class GridTest {
         assertEquals(initialTrueCells.length, initialCount, "Initial getTrueCount should match findTrueCells length");
 
         // Apply random clicks and verify getTrueCount matches bit-count of getGridState()
-        Random random = new Random();
-        int clicksCount = random.nextInt(1, 10);
-        short[] clicks = new short[clicksCount];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
+        short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
 
         long[] state = grid.getGridState();
@@ -1067,8 +983,7 @@ class GridTest {
         assertEquals(actualTrueCells.length, grid.getTrueCount(), "findTrueCells length should match getTrueCount");
 
         // Verify solved case results in zero true count and no first true cell
-        Grid solvedGrid = new Grid13();
-        solvedGrid.click(solution13);
+        Grid solvedGrid = createSolvedGrid13();
         if (!solvedGrid.isSolved()) {
             return; // This should not happen, but we exit the test if it does (so it is caught by the Grid13 tests)
         }
@@ -1082,13 +997,7 @@ class GridTest {
     @Test
     void testClone() {
         Grid original = new Grid13();
-        Random random = new Random();
-        int clicksCount = 10;
-        short[] clicks = new short[clicksCount];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
+        short[] clicks = generateRandomCombination(10);
 
         original.click(clicks);
 
@@ -1326,14 +1235,8 @@ class GridTest {
     @Test
     void testToString() {
         Grid grid = new Grid13();
-        Random random = new Random();
-        int clicksCount = 15;
 
-        short[] clicks = new short[clicksCount];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
+        short[] clicks = generateRandomCombination(15);
         grid.click(clicks);
 
         String gridString = grid.toString();
@@ -1384,9 +1287,6 @@ class GridTest {
         assertEquals(gridOne, gridTwo, "Two grids with the same initial state should be equal");
         assertNotEquals(gridOne, gridThree, "Grids with different initial states should not be equal");
 
-        short[] solution13 = {48, 50, 52, 54, 56, 58, 60};
-        short[] solution22 = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85, 88, 91};
-
         gridOne.click(solution13);
         gridThree.click(solution22);
 
@@ -1414,9 +1314,6 @@ class GridTest {
         assertNotEquals(gridOne.hashCode(), gridThree.hashCode(),
                 "Hash codes should differ for grids with different initial states");
 
-        short[] solution13 = {48, 50, 52, 54, 56, 58, 60};
-        short[] solution22 = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85, 88, 91};
-
         gridOne.click(solution13);
         gridThree.click(solution22);
 
@@ -1437,8 +1334,7 @@ class GridTest {
      */
     @Test
     void test13IsSolved() {
-        Grid grid = new Grid13();
-        grid.click(solution13);
+        Grid grid = createSolvedGrid13();
         assertTrue(grid.isSolved(), "Grid should be solved after applying a known valid solution");
     }
 
@@ -1474,15 +1370,8 @@ class GridTest {
     @Test
     void test13ClickReversibility() {
         Grid grid = new Grid13();
-        Random random = new Random();
-        int clicksCount = 10;
-        short[] clicks = new short[clicksCount];
-        short[] singleClick = new short[1];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
-        singleClick[0] = clicks[0];
+        short[] clicks = generateRandomCombination(10);
+        short[] singleClick = {clicks[0]};
 
         // Test for a single cell that clicking twice returns to the initial state
         long[] initialState = grid.getGridState();
@@ -1510,22 +1399,9 @@ class GridTest {
     void test13ClickCommutativity() {
         Grid grid1 = new Grid13();
         Grid grid2 = new Grid13();
-        ShortList clickList1 = new ShortArrayList();
-        Random random = new Random();
-        int clicksCount = 10;
 
-        // Generate a random sequence of clicks
-        for (int i = 0; i < clicksCount; i++) {
-            clickList1.add((short) random.nextInt(Grid.NUM_CELLS));
-        }
-
-        // Shuffle the order of the clicks to create a different sequence
-        ShortList clickList2 = new ShortArrayList(clickList1);
-        ShortLists.shuffle(clickList2, random);
-
-        // Convert ShortLists to short arrays
-        short[] clicks1 = clickList1.toShortArray();
-        short[] clicks2 = clickList2.toShortArray();
+        short[] clicks1 = generateRandomCombination(10);
+        short[] clicks2 = shuffleArray(clicks1);
 
         // Apply clicks to separate grids and verify resulting states are equal
         grid1.click(clicks1);
@@ -1583,15 +1459,8 @@ class GridTest {
     @Test
     void test22ClickReversibility() {
         Grid grid = new Grid22();
-        Random random = new Random();
-        int clicksCount = 10;
-        short[] clicks = new short[clicksCount];
-        short[] singleClick = new short[1];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
-        singleClick[0] = clicks[0];
+        short[] clicks = generateRandomCombination(10);
+        short[] singleClick = {clicks[0]};
 
         // Test for a single cell that clicking twice returns to the initial state
         long[] initialState = grid.getGridState();
@@ -1617,21 +1486,9 @@ class GridTest {
     void test22ClickCommutativity() {
         Grid grid1 = new Grid22();
         Grid grid2 = new Grid22();
-        ShortList clickList1 = new ShortArrayList();
-        Random random = new Random();
-        int clicksCount = 10;
-
-        // Generate a random sequence of clicks
-        for (int i = 0; i < clicksCount; i++) {
-            clickList1.add((short) random.nextInt(Grid.NUM_CELLS));
-        }
-
-        // Shuffle the order of the clicks to create a different sequence
-        ShortList clickList2 = ShortLists.shuffle(clickList1, random);
-
-        // Convert ShortLists to short arrays
-        short[] clicks1 = clickList1.toShortArray();
-        short[] clicks2 = clickList2.toShortArray();
+        
+        short[] clicks1 = generateRandomCombination(10);
+        short[] clicks2 = shuffleArray(clicks1);
 
         // Apply clicks to separate grids and verify resulting states are equal
         grid1.click(clicks1);
@@ -1652,12 +1509,7 @@ class GridTest {
     void test35IsNotSolved() {
         Grid grid = new Grid35();
         // An incorrect solution (there is no known 10-click solution)
-        ShortSortedSet incorrectSolutionSet = new ShortAVLTreeSet();
-        Random random = new Random();
-        while (incorrectSolutionSet.size() < 10) {
-            incorrectSolutionSet.add((short) random.nextInt(Grid.NUM_CELLS));
-        }
-        short[] incorrectSolution = incorrectSolutionSet.toShortArray();
+        short[] incorrectSolution = generateRandomCombination(10);
         grid.click(incorrectSolution);
         assertFalse(grid.isSolved(), "Grid should not be solved after applying an incorrect solution");
     }
@@ -1682,15 +1534,8 @@ class GridTest {
     @Test
     void test35ClickReversibility() {
         Grid grid = new Grid35();
-        Random random = new Random();
-        int clicksCount = 10;
-        short[] clicks = new short[clicksCount];
-        short[] singleClick = new short[1];
-        for (int i = 0; i < clicksCount; i++) {
-            clicks[i] = (short) random.nextInt(Grid.NUM_CELLS);
-        }
-        Arrays.sort(clicks);
-        singleClick[0] = clicks[0];
+        short[] clicks = generateRandomCombination(10);
+        short[] singleClick = {clicks[0]};
 
         // Test for a single cell that clicking twice returns to the initial state
         long[] initialState = grid.getGridState();
@@ -1716,21 +1561,9 @@ class GridTest {
     void test35ClickCommutativity() {
         Grid grid1 = new Grid35();
         Grid grid2 = new Grid35();
-        ShortList clickList1 = new ShortArrayList();
-        Random random = new Random();
-        int clicksCount = 10;
-
-        // Generate a random sequence of clicks
-        for (int i = 0; i < clicksCount; i++) {
-            clickList1.add((short) random.nextInt(Grid.NUM_CELLS));
-        }
-
-        // Shuffle the order of the clicks to create a different sequence
-        ShortList clickList2 = ShortLists.shuffle(clickList1, random);
-
-        // Convert ShortLists to short arrays
-        short[] clicks1 = clickList1.toShortArray();
-        short[] clicks2 = clickList2.toShortArray();
+        
+        short[] clicks1 = generateRandomCombination(10);
+        short[] clicks2 = shuffleArray(clicks1);
 
         // Apply clicks to separate grids and verify resulting states are equal
         grid1.click(clicks1);

@@ -1277,11 +1277,14 @@ class GridTest {
      */
     @Test
     void testEquals() {
+        Object object = new Object();
+
         Grid gridOne = new Grid13();
         Grid gridOneReference = gridOne;
         Grid gridTwo = new Grid13();
         Grid gridThree = new Grid22();
 
+        assertNotEquals(gridOne, object, "Grid should not be equal to an object of a different type");
         assertNotEquals(gridOne, null, "Non-null grid should not be equal to null");
         assertEquals(gridOne, gridOneReference, "Grid should be equal to itself");
         assertEquals(gridOne, gridTwo, "Two grids with the same initial state should be equal");

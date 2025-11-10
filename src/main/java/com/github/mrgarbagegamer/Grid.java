@@ -275,8 +275,8 @@ public abstract class Grid {
      * @see #clearBit(int)
      * @see #getBit(int)
      * @see #getGridState()
-     * @see #printGrid()
      * @see #setBit(int)
+     * @see #toString()
      * @since 2025.07 - Bitmasked Grid State
      * @performance {@code O(1)} accesses and modifications using bitwise operations.
      * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads without
@@ -923,7 +923,7 @@ public abstract class Grid {
      *
      * <p>
      * This method is used to determine if a specific cell is {@code true} (on) or {@code false} (off).
-     * It is utilized internally for operations like {@link #printGrid()} or when iterating to find
+     * It is utilized internally for operations like {@link #toString()} or when iterating to find
      * {@code true} cells.
      * </p>
      *
@@ -932,6 +932,8 @@ public abstract class Grid {
      * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
      *                                   {@code long[]} array.
      * @see #clearBit(int)
+     * @see #findTrueCells()
+     * @see #findTrueCells(ValueFormat)
      * @see #setBit(int)
      * @since 2025.07 - Bitmasked {@code Grid} State
      * @performance {@code O(1)} bitwise operation.
@@ -1627,7 +1629,7 @@ public abstract class Grid {
      * @see #gridState
      * @see #recalculationNeeded
      * @see #trueCellsCount
-     * @see java.lang.Class#getDeclaredConstructor()
+     * @see java.lang.Class#getDeclaredConstructor(Class...)
      * @see java.lang.Cloneable
      * @see java.lang.Object#clone()
      * @see java.lang.Object#getClass()

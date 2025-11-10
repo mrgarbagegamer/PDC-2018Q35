@@ -328,6 +328,23 @@ public class CombinationQueueArray {
     }
 
     /**
+     * Resets the singleton instance for testing purposes only.
+     * 
+     * <p>
+     * This method is intended solely for use in unit tests to allow re-initialization of the
+     * singleton instance between tests. It should not be used in production code.
+     * </p>
+     * 
+     * @since 2025.11 - Testability Improvement
+     * @performance {@code O(1)} operation.
+     * @threading Not thread-safe; intended for single-threaded test environments only.
+     * @memory Sets the singleton reference to {@code null}.
+     */
+    static void resetInstance() {
+        instance = null;
+    }
+
+    /**
      * Returns the {@link #workBatchPool central pool} for recycled {@link WorkBatch} objects.
      *
      * <p>
@@ -379,6 +396,21 @@ public class CombinationQueueArray {
      */
     public CombinationQueue[] getAllQueues() { 
         return queues; 
+    }
+
+    /**
+     * Returns the number of {@link CombinationQueue work queues} managed by this instance. This
+     * corresponds to the number of {@link TestClickCombination monkeys} in the system.
+     * 
+     * @return The number of work queues.
+     * @see #CombinationQueueArray(int)
+     * @since 2025.05 - Multiple {@code CombinationQueue}s
+     * @performance {@code O(1)} retrieval.
+     * @threading Thread-safe; returns a reference to an immutable field.
+     * @memory Does not allocate.
+     */
+    public int getNumQueues() {
+        return queues.length;
     }
 
     /**

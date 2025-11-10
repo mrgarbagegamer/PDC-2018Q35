@@ -322,21 +322,22 @@ public class StartYourMonkeys {
         }
 
         short[] winningCombination = queueArray.getWinningCombination();
+        short[] winningCombinationCopy = winningCombination.clone();
 
         // Convert to packed int format and display results
-        for (int i = 0; i < winningCombination.length; i++) 
+        for (int i = 0; i < winningCombinationCopy.length; i++) 
         {
-            winningCombination[i] = (short) Grid.indexToPacked(winningCombination[i]);
+            winningCombinationCopy[i] = (short) Grid.indexToPacked(winningCombinationCopy[i]);
         }
 
         logger.info("{} - Found the solution as the following click combination: {}", 
-                   queueArray.getWinningMonkey(), winningCombination);
+                   queueArray.getWinningMonkey(), winningCombinationCopy);
         logger.info("{} - {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
         // Verify solution
         Grid puzzleGrid = baseGrid.clone();
         puzzleGrid.click(winningCombination);
-        logger.info(puzzleGrid);
+        logGrid(puzzleGrid);
 
         logger.info("\n\n--------------------------------------\n");
         LogManager.shutdown();
@@ -375,5 +376,22 @@ public class StartYourMonkeys {
         sb.append(String.format("%03d", remainingMillis)).append("ms");
         
         return sb.toString();
+    }
+
+    /**
+     * Logs the {@link Grid}'s string representation line-by-line to avoid logging issues.
+     * 
+     * @param grid The {@link Grid} to log.
+     * @since 2025.11 - Grid Logging Utility Introduction
+     * @performance {@code O(NUM_ROWS)} for splitting and logging each line.
+     * @threading Thread-safe; does not modify the {@link Grid}.
+     * @memory Allocates a temporary array of {@link String} lines for logging.
+     */
+    private static void logGrid(Grid grid) {
+        // Break the toString into multiple lines to fix logging issues
+        String[] lines = grid.toString().split("\n");
+        for (String line : lines) {
+            logger.info(line);
+        }
     }
 }

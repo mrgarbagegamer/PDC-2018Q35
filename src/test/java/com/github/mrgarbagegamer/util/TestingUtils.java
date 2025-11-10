@@ -37,26 +37,56 @@ public class TestingUtils {
      * within the grid range.
      * 
      * @param numClicks  The number of unique shorts to generate.
+     * @param lowerBound The inclusive lower bound for the random shorts.
      * @param upperBound The exclusive upper bound for the random shorts.
      * @return An array of unique shorts.
      */
-    public static short[] generateRandomCombination(int numClicks, short upperBound) {
-        if (numClicks > upperBound) {
-            throw new IllegalArgumentException("numClicks cannot be greater than upperBound.");
+    public static short[] generateRandomCombination(int numClicks, short lowerBound, short upperBound) {
+        if (lowerBound < 0) {
+            throw new IllegalArgumentException("lowerBound must be a non-negative integer.");
+        }
+        if (lowerBound >= upperBound) {
+            throw new IllegalArgumentException("lowerBound must be less than upperBound.");
+        }
+        if (numClicks > upperBound - lowerBound) {
+            throw new IllegalArgumentException(
+                    "numClicks cannot be greater than the range defined by lowerBound and upperBound.");
         }
         if (numClicks <= 0) {
             throw new IllegalArgumentException("numClicks must be a positive integer.");
-        }
-        if (upperBound <= 0) {
-            throw new IllegalArgumentException("upperBound must be a positive integer.");
         }
         
         Random random = new Random();
         ShortSortedSet testSet = new ShortAVLTreeSet();
         while (testSet.size() < numClicks) {
-            testSet.add((short) random.nextInt(upperBound));
+            testSet.add((short) random.nextInt(lowerBound, upperBound));
         }
         return testSet.toShortArray();
+    }
+
+    /**
+     * Overload for {@link #generateRandomCombination(int, short, short)} with int bounds (for
+     * convenience).
+     * 
+     * @param numClicks  The number of unique shorts to generate.
+     * @param lowerBound The inclusive lower bound for the random shorts.
+     * @param upperBound The exclusive upper bound for the random shorts.
+     * @return An array of unique shorts.
+     */
+    public static short[] generateRandomCombination(int numClicks, int lowerBound, int upperBound) {
+        return generateRandomCombination(numClicks, (short) lowerBound, (short) upperBound);
+    }
+
+    /**
+     * Overload for {@link #generateRandomCombination(int, short, short)} with a default lower bound
+     * of 0.
+     * 
+     * @param numClicks The number of unique shorts to generate.
+     * @param upperBound The exclusive upper bound for the random shorts.
+     * @return An array of unique shorts.
+     */
+    public static short[] generateRandomCombination(int numClicks, short upperBound) {
+        return generateRandomCombination(numClicks, (short) 0, upperBound);
     }
 
     /**
@@ -73,13 +103,13 @@ public class TestingUtils {
 
     /**
      * Overload for {@link #generateRandomCombination(int, short)} using the default
-     * {@link Grid#NUM_CELLS} as the upper bound.
+     * {@link Grid#NUM_CELLS} + 1 as the upper bound.
      * 
      * @param numClicks The number of unique shorts to generate.
      * @return An array of unique shorts.
      */
     public static short[] generateRandomCombination(int numClicks) {
-        return generateRandomCombination(numClicks, Grid.NUM_CELLS);
+        return generateRandomCombination(numClicks, (short) Grid.NUM_CELLS);
     }
 
     /**

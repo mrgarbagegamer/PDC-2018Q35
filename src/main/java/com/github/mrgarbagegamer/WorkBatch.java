@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import java.util.Arrays;
+
 /**
  * A high-performance, reusable container for batching puzzle combinations
  * 
@@ -85,7 +87,7 @@ public final class WorkBatch {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    private static final int BATCH_SIZE = 8000;
+    public static final int BATCH_SIZE = 8000;
     /**
      * The pre-allocated circular buffer storing the {@code short[]} combinations.
      *
@@ -271,13 +273,35 @@ public final class WorkBatch {
      * </p>
      *
      * @param numClicks The number of elements in each combination array.
+     * @throws IllegalArgumentException if {@code numClicks} is not a positive integer.
      * @since 2025.07 - Pre-allocation of {@code WorkBatch} Buffers
      * @performance {@code O(1)} for field assignment.
      * @threading Not thread-safe (at the moment); must be called once before any instances are created.
      * @memory Does not allocate.
      */
     public static void setNumClicks(int numClicks) {
+        if (numClicks <= 0) {
+            throw new IllegalArgumentException("numClicks must be a positive integer.");
+        }
         WorkBatch.numClicks = numClicks;
+    }
+
+    /**
+     * Resets the {@code static} {@link #numClicks number of clicks} to zero.
+     * 
+     * <p>
+     * This method is intended for testing purposes only. It allows tests to reset the static state of
+     * the {@code WorkBatch} class between test cases.
+     * </p>
+     * 
+     * @see #setNumClicks(int)
+     * @since 2025.11 - Testing Support
+     * @performance {@code O(1)} for field assignment.
+     * @threading Not thread-safe; intended for single-threaded test setups only.
+     * @memory Does not allocate.
+     */
+    static void resetNumClicks() {
+        numClicks = 0;
     }
 
     /**
@@ -533,5 +557,79 @@ public final class WorkBatch {
      */
     public int getCapacity() {
         return capacity;
+    }
+
+    /**
+     * Returns a {@link String} representation of the batch for debugging purposes.
+     * 
+     * @return A string summarizing the batch's state, including its size, capacity, and the first
+     *         combination (if not empty).
+     * @see Arrays#toString(short[])
+     * @since 2025.11 - WorkBatch toString Introduction
+     * @performance {@code O(numClicks)} for converting the first combination to a string.
+     * @threading Not thread-safe; must be accessed by only one thread at a time.
+     * @memory Allocates a small string for the representation.
+     */
+    @Override
+    public String toString() {
+        return "WorkBatch{size=" + size() + ", capacity=" + capacity + ", firstCombo=" + (isEmpty() ? "null" : Arrays.toString(buffer[head])) + "}";
+    }
+
+    /**
+     * Compares this batch to another for equality based on their contents. Two batches are equal if they
+     * have the same size, capacity, and identical combinations in the same order.
+     * 
+     * @param obj The object to compare against.
+     * @return {@code true} if the batches have the same size, capacity, and identical combinations in
+     *         the same order; {@code false} otherwise.
+     * @see Arrays#equals(short[], short[])
+     * @since 2025.11 - WorkBatch equals Implementation
+     * @performance {@code O(n × numClicks)} in the worst case, where {@code n} is the number of
+     *              combinations in the batch.
+     * @threading Not thread-safe; must be accessed by only one thread at a time.
+     * @memory Does not allocate.
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof WorkBatch)) {
+            return false;
+        }
+        WorkBatch other = (WorkBatch) obj;
+        if (this.size() != other.size() || this.capacity != other.capacity) {
+            return false;
+        }
+        for (int i = 0; i < this.size(); i++) {
+            short[] thisCombo = this.buffer[(this.head + i) % this.capacity];
+            short[] otherCombo = other.buffer[(other.head + i) % other.capacity];
+            if (!Arrays.equals(thisCombo, otherCombo)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Computes a hash code for the batch based on its contents, size, and capacity.
+     * 
+     * @return The computed hash code.
+     * @see Arrays#hashCode(short[])
+     * @since 2025.11 - WorkBatch hashcode Implementation
+     * @performance {@code O(n × numClicks)}, where {@code n} is the number of combinations in the
+     *              batch.
+     * @threading Not thread-safe; must be accessed by only one thread at a time.
+     * @memory Does not allocate.
+     */
+    @Override
+    public int hashCode() {
+        int result = Integer.hashCode(size());
+        result = 31 * result + Integer.hashCode(capacity);
+        for (int i = 0; i < size(); i++) {
+            short[] combo = buffer[(head + i) % capacity];
+            result = 31 * result + Arrays.hashCode(combo);
+        }
+        return result;
     }
 }

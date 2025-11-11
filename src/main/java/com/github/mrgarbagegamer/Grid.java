@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.util.Arrays;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
@@ -276,8 +275,8 @@ public abstract class Grid {
      * @see #clearBit(int)
      * @see #getBit(int)
      * @see #getGridState()
-     * @see #printGrid()
      * @see #setBit(int)
+     * @see #toString()
      * @since 2025.07 - Bitmasked Grid State
      * @performance {@code O(1)} accesses and modifications using bitwise operations.
      * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads without
@@ -488,6 +487,7 @@ public abstract class Grid {
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for {@code inputFormat}
      *                                  or {@code outputFormat}, as it is not suitable for single-cell
      *                                  representation.
+     * @throws NullPointerException     if {@code inputFormat} or {@code outputFormat} is {@code null}.
      * @see #findAdjacents(short, ValueFormat, ValueFormat)
      * @see ShortArrayList#ShortArrayList(int)
      * @see ShortList
@@ -510,6 +510,8 @@ public abstract class Grid {
             case PackedInt:
                 // If the cell is in packed int format, we can directly compute adjacents
                 break;
+            case null:
+                throw new NullPointerException("Input format cannot be null.");
         }
 
         int row = cell / 100;
@@ -549,6 +551,8 @@ public abstract class Grid {
             case PackedInt:
                 // Already in packed int format, no conversion needed
                 break;
+            case null:
+                throw new NullPointerException("Output format cannot be null.");
         }
 
         return affectedPieces;
@@ -623,6 +627,8 @@ public abstract class Grid {
      * @return A {@code short[]} of adjacent cells in the specified {@code outputFormat}.
      * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for
      *                                        {@code inputFormat} or {@code outputFormat}.
+     * @throws NullPointerException           if {@code inputFormat} or {@code outputFormat} is
+     *                                        {@code null}.
      * @throws ArrayIndexOutOfBoundsException if the input {@code cell} is out of bounds for the
      *                                        specified {@code inputFormat}.
      * @since 2025.07 - Format Support
@@ -644,8 +650,8 @@ public abstract class Grid {
                 // Already in index format, no conversion needed.
                 result = adjacencyArray[cell];
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + inputFormat);
+            case null:
+                throw new NullPointerException("Input format cannot be null.");
         }
         switch (outputFormat) 
         {
@@ -662,8 +668,8 @@ public abstract class Grid {
                     packedResult[i] = indexToPacked(result[i]);
                 }
                 return packedResult;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + outputFormat);
+            case null:
+                throw new NullPointerException("Output format cannot be null.");
         }
 
         return result;
@@ -802,14 +808,17 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     public final static short indexToPacked(short index) {
+        if (index < 0 || index >= NUM_CELLS) {
+            throw new IllegalArgumentException("Invalid index: " + index);
+        }
+        
         if (index < 16) return  (short) (0 * 100 + index);
         if (index < 31) return  (short) (1 * 100 + (index - 16));
         if (index < 47) return  (short) (2 * 100 + (index - 31));
         if (index < 62) return  (short) (3 * 100 + (index - 47));
         if (index < 78) return  (short) (4 * 100 + (index - 62));
         if (index < 93) return  (short) (5 * 100 + (index - 78));
-        if (index < 109) return (short) (6 * 100 + (index - 93));
-        throw new IllegalArgumentException("Invalid index: " + index);
+        else            return  (short) (6 * 100 + (index - 93));
     }
 
     /**
@@ -914,7 +923,7 @@ public abstract class Grid {
      *
      * <p>
      * This method is used to determine if a specific cell is {@code true} (on) or {@code false} (off).
-     * It is utilized internally for operations like {@link #printGrid()} or when iterating to find
+     * It is utilized internally for operations like {@link #toString()} or when iterating to find
      * {@code true} cells.
      * </p>
      *
@@ -923,6 +932,8 @@ public abstract class Grid {
      * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
      *                                   {@code long[]} array.
      * @see #clearBit(int)
+     * @see #findTrueCells()
+     * @see #findTrueCells(ValueFormat)
      * @see #setBit(int)
      * @since 2025.07 - Bitmasked {@code Grid} State
      * @performance {@code O(1)} bitwise operation.
@@ -967,6 +978,7 @@ public abstract class Grid {
      * @return A {@code short[]} of {@code true} cells in the specified format.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is provided, as it is not
      *                                  suitable for representing individual cells.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #findFirstTrueCell(ValueFormat)
      * @see #getGridState()
      * @since 2025.07 - Format Support
@@ -975,7 +987,7 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result.
      */
     public short[] findTrueCells(ValueFormat format) {
-        short[] trueCellsArray = new short[trueCellsCount];
+        short[] trueCellsArray = new short[getTrueCount()];
         int idx = 0;
         
         // Internally, we iterate over bit indices (0-108)
@@ -998,8 +1010,8 @@ public abstract class Grid {
                     trueCellsArray[i] = (short) indexToPacked(trueCellsArray[i]);
                 }
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
 
         return trueCellsArray;
@@ -1016,13 +1028,14 @@ public abstract class Grid {
      *
      * @return A {@code short[]} of {@code true} cells in {@link ValueFormat#Index} format.
      * @see #findTrueCells(ValueFormat)
+     * @see #getTrueCount()
      * @since 2025.04 - Adjacency Optimizations
      * @performance {@code O(NUM_CELLS)} in the worst case.
      * @threading Not thread-safe; reads mutable state.
      * @memory Allocates a new {@code short[]} for the result.
      */
     public final short[] findTrueCells() {
-        short[] trueCellsArray = new short[trueCellsCount];
+        short[] trueCellsArray = new short[getTrueCount()];
         int idx = 0;
         
         // Internally, we iterate over bit indices (0-108)
@@ -1065,6 +1078,7 @@ public abstract class Grid {
      *         found.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not suitable
      *                                  for single-cell representation.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #click(short[])
      * @see #findTrueCells(ValueFormat)
      * @since 2025.07 - Format Support
@@ -1111,8 +1125,8 @@ public abstract class Grid {
             case PackedInt:
                 // Convert index to packed int format
                 return indexToPacked(firstTrueCell);
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
         return firstTrueCell;
     }
@@ -1198,10 +1212,13 @@ public abstract class Grid {
      *                                        by array accesses).
      * @see #click(short[])
      * @since 2025.07 - Format Support
+     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations. Single-click
+     *             operations are no longer on the hot path.
      * @performance {@code O(1)} complexity due to bitwise operations and pre-computed masks.
      * @threading Not thread-safe; modifies the instance's {@link #gridState}.
      * @memory Does not allocate.
      */
+    @Deprecated
     public void click(short cell, ValueFormat format) {
         switch (format) 
         {
@@ -1219,8 +1236,8 @@ public abstract class Grid {
                 // Mark for recalculation of first true cell
                 recalculationNeeded = true;
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
     }
 
@@ -1260,6 +1277,7 @@ public abstract class Grid {
      * @threading Not thread-safe; modifies the instance's {@link #gridState}.
      * @memory Does not allocate.
      */
+    @Deprecated
     public final void click(short cell) {
         // XOR the grid state with the pre-computed adjacency mask
         gridState[0] ^= ADJACENCY_MASKS[cell][0];
@@ -1284,10 +1302,13 @@ public abstract class Grid {
      *                                        accesses).
      * @see #click(short, ValueFormat)
      * @since 2025.03 - Initial Creation
+     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations. Single-click
+     *             operations are no longer on the hot path.
      * @performance {@code O(1)} complexity.
      * @threading Not thread-safe; modifies the instance's {@link #gridState}.
      * @memory Does not allocate.
      */
+    @Deprecated
     public final void click(short row, short col) {
         // Convert packed int to index format first
         short cell = packedToIndex((short) (row * 100 + col));
@@ -1405,6 +1426,7 @@ public abstract class Grid {
      *         {@code true} cell exists.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not suitable
      *                                  for representing individual cells.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #findAdjacents(short, ValueFormat)
      * @see #findFirstTrueCell()
      * @since 2025.04 - First True Adjacents Method Creation
@@ -1415,6 +1437,9 @@ public abstract class Grid {
     public short[] findFirstTrueAdjacents(ValueFormat format) {
         if (format == ValueFormat.Bitmask) {
             throw new IllegalArgumentException("Bitmask format is not supported for this operation.");
+        }
+        else if (format == null) {
+            throw new NullPointerException("Format cannot be null.");
         }
         
         short firstTrueCell = findFirstTrueCell(format);
@@ -1444,7 +1469,7 @@ public abstract class Grid {
 
     /**
      * Returns an array of adjacent cells to the {@link #findFirstTrueCell() first true cell} that have
-     * an {@link ValueFormat#Index index} greater than the specified {@code cell}.
+     * an index greater than the specified {@code cell}.
      *
      * <p>
      * This method is a specialized pruning helper for the generator. It identifies potential subsequent
@@ -1478,6 +1503,7 @@ public abstract class Grid {
      * @return An array of adjacent cells that appear after the specified {@code cell}, or {@code null}
      *         if no {@code true} cell exists or no such adjacents are found.
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for any format.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #findAdjacents(short)
      * @see #findFirstTrueAdjacents(ValueFormat)
      * @see #findFirstTrueCell()
@@ -1487,22 +1513,14 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result.
      */
     public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat, ValueFormat outputFormat) {
-        short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
-        if (firstTrueAdjacents == null) return null;
-
-        // Convert the input cell to index format if necessary
-        switch (inputFormat)
-        {
-            case Bitmask:
-                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                cell = packedToIndex(cell);
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + inputFormat);
+        if (inputFormat == ValueFormat.Bitmask || outputFormat == ValueFormat.Bitmask) {
+            throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
         }
+        else if (inputFormat == null || outputFormat == null) {
+            throw new NullPointerException("Formats cannot be null.");
+        }
+        short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
+        if (firstTrueAdjacents == null) return null; // TODO: Consider replacing this with an empty array for consistency.
         
         // Binary search to find the index of the first adjacent cell greater than 'cell'
         int index = -1;
@@ -1528,22 +1546,23 @@ public abstract class Grid {
         System.arraycopy(firstTrueAdjacents, index, result, 0, result.length);
 
         // Convert the result to the desired output format
-        switch (outputFormat)
+        if (outputFormat == inputFormat) 
         {
-            case Bitmask:
-                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
-                // Convert index to packed int format
-                for (int i = 0; i < result.length; i++) 
-                {
-                    result[i] = indexToPacked(result[i]);
-                }
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + outputFormat);
+            return result; // No conversion needed
+        } 
+        else if (outputFormat == ValueFormat.PackedInt && inputFormat == ValueFormat.Index) 
+        {
+            for (int i = 0; i < result.length; i++) 
+            {
+                result[i] = indexToPacked(result[i]);
+            }
+        }
+        else if (outputFormat == ValueFormat.Index && inputFormat == ValueFormat.PackedInt) 
+        {
+            for (int i = 0; i < result.length; i++) 
+            {
+                result[i] = packedToIndex(result[i]);
+            }
         }
 
         return result;
@@ -1610,8 +1629,11 @@ public abstract class Grid {
      * @see #gridState
      * @see #recalculationNeeded
      * @see #trueCellsCount
-     * @see java.lang.Object#clone()
+     * @see java.lang.Class#getDeclaredConstructor(Class...)
      * @see java.lang.Cloneable
+     * @see java.lang.Object#clone()
+     * @see java.lang.Object#getClass()
+     * @see java.lang.reflect.Constructor#newInstance(Object...)
      * @since 2025.03 - Cloning Introduction
      * @performance {@code O(1)} complexity (fixed number of field copies).
      * @threading Thread-safe, as it returns a new, independent instance.
@@ -1659,80 +1681,27 @@ public abstract class Grid {
      * @param format        The {@link ValueFormat} of both {@code firstTrueCell} and {@code clickCell}.
      * @return {@code true} if the click can affect or create a new {@code first true cell},
      *         {@code false} otherwise.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for any format.
+     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #areAdjacent(short, short, ValueFormat)
      * @see #findFirstTrueCell(ValueFormat)
      * @since 2025.07 - Format and Adjacency Optimizations
-     * @performance {@code O(1)} complexity due to fixed-size adjacency lookups and binary search on
-     *              small arrays.
+     * @performance {@code O(1)} comparisons and method call.
      * @threading Thread-safe; relies only on immutable static data and input parameters.
      * @memory Does not allocate.
      */
     public static boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell, ValueFormat format) {
+        if (format == ValueFormat.Bitmask) {
+            throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
+        }
+        else if (format == null) {
+            throw new NullPointerException("Format cannot be null.");
+        }
+
         if (firstTrueCell == -1) return true; // No true cells, any click can create one
         if (clickCell <= firstTrueCell) return true; // packed int order: row * 100 + col
 
-        // Convert both cells to index format if necessary
-        switch (format) 
-        {
-            case Bitmask:
-                throw new IllegalArgumentException("Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                firstTrueCell = packedToIndex(firstTrueCell);
-                clickCell = packedToIndex(clickCell);
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
-        }
-        
-        // Edge case: first true cell is top-left (0,0)
-        if (firstTrueCell == 0) 
-        {
-            short[] adj = findAdjacents((short) 0);
-            if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-            
-            // Binary search for the click cell in the adjacents
-            int low = 0, high = adj.length - 1;
-            while (low <= high) 
-            {
-                int mid = (low + high) / 2;
-                if (adj[mid] == clickCell) 
-                {
-                    return true; // Click cell is adjacent to the first true cell
-                } else if (adj[mid] < clickCell) 
-                {
-                    low = mid + 1; // Search right
-                } else 
-                {
-                    high = mid - 1; // Search left
-                }
-            }
-            return false; // Click cell is not adjacent to the first true cell
-        }
-
-        // General case: check adjacency
-        short[] adj = findAdjacents(firstTrueCell);
-        if (adj == null || adj.length == 0) return false; // No adjacents, can't affect
-        
-        // perform binary search to find if clickCell is adjacent
-        int low = 0, high = adj.length - 1;
-        while (low <= high) 
-        {
-            int mid = (low + high) / 2;
-            if (adj[mid] == clickCell) 
-            {
-                return true; // Click cell is adjacent to the first true cell
-            } else if (adj[mid] < clickCell) 
-            {
-                low = mid + 1; // Search right
-            } else 
-            {
-                high = mid - 1; // Search left
-            }
-        }
-        return false; // Click cell is not adjacent to the first true cell
+        return Grid.areAdjacent(firstTrueCell, clickCell, format);
     }
 
     /**
@@ -1757,6 +1726,7 @@ public abstract class Grid {
      *               {@link ValueFormat#PackedInt}).
      * @return {@code true} if the cells are adjacent, {@code false} otherwise.
      * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for any format.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds.
      * @see #areAdjacent(short, short)
      * @see #canAffectFirstTrueCell(short, short, ValueFormat)
@@ -1777,8 +1747,8 @@ public abstract class Grid {
             case Index:
                 // Already in index format, no conversion needed
                 break;
-            default:
-                throw new IllegalArgumentException("Unsupported format: " + format);
+            case null:
+                throw new NullPointerException("Format cannot be null.");
         }
         return ADJACENCY_CACHE[cellA][cellB];
     }
@@ -1822,15 +1792,16 @@ public abstract class Grid {
     }
 
     /**
-     * Prints the current grid state to the {@link LogManager#getLogger() logger} in a human-readable
-     * format.
-     *
+     * Returns a {@link java.lang.String String} representation of the current grid state in a
+     * human-readable format.
+     * 
      * <p>
      * Cells are represented by '1' for {@code true} (on) and '0' for {@code false} (off). Rows are
      * indented to visually reflect the hexagonal layout, matching the format used in the original PDC
      * puzzle description. This method is primarily for debugging and visualization.
      * </p>
-     *
+     * 
+     * @return A string representation of the grid state.
      * @see #EVEN_NUM_COLS
      * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
@@ -1840,24 +1811,72 @@ public abstract class Grid {
      * @see ValueFormat#Index
      * @see ValueFormat#PackedInt
      * @see java.lang.StringBuilder
-     * @see org.apache.logging.log4j.Logger
-     * @see org.apache.logging.log4j.LogManager
-     * @since 2025.03 - Grid Printing Method Creation
+     * @see java.lang.System#lineSeparator()
+     * @since 2025.11 - toString Method Addition
      * @performance {@code O(NUM_CELLS)} due to iteration over all cells. Not performance-critical.
      * @threading Not thread-safe; iterates over the mutable grid state.
-     * @memory Allocates a new {@link StringBuilder} for each row.
+     * @memory Allocates a new {@link StringBuilder} and {@link String} for the grid representation.
      */
-    public void printGrid() {
-        Logger logger = LogManager.getLogger();
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
         for (int row = 0; row < NUM_ROWS; row++) {
-            StringBuilder sb = new StringBuilder();
             if (row % 2 != 0) sb.append(" ");
             int cols = (row % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS;
             for (int col = 0; col < cols; col++) {
                 int bitIdx = packedToIndex((short) (row * 100 + col));
                 sb.append(getBit(bitIdx) ? "1 " : "0 ");
             }
-            logger.info(sb.toString());
+            if (row < NUM_ROWS - 1) sb.append(System.lineSeparator());
         }
+        return sb.toString();
+    }
+
+    /**
+     * Compares this {@code Grid} instance to another object for equality.
+     * 
+     * @param obj The object to compare with this instance.
+     * @return {@code true} if the other object is a {@code Grid} of the same concrete class with an
+     *         identical {@link #gridState grid state}; {@code false} otherwise.
+     * @see java.lang.Object#equals(Object)
+     * @see java.util.Arrays#equals(long[], long[])
+     * @since 2025.11 - equals Method Addition
+     * @performance {@code O(1)} complexity due to fixed-size array comparison.
+     * @threading Not thread-safe; reads the mutable {@link #gridState}.
+     * @memory Does not allocate.
+     */
+    @Override
+    public boolean equals(Object obj) {
+        // Following the Effective Java recipe for equals
+        
+        if (obj == this) return true;
+        if (!(obj instanceof Grid)) return false;
+        Grid other = (Grid) obj;
+
+        // Since firstTrueCell and trueCellsCount are lazily evaluated and derived from gridState, we only
+        // need to compare gridState arrays.
+        return Arrays.equals(other.gridState, this.gridState);
+    }
+
+    /**
+     * Computes the hash code for this {@code Grid} instance, delegating to the
+     * {@link java.util.Arrays#hashCode(long[])} utility method.
+     * 
+     * <p>
+     * This method generates a hash code based on the {@link #gridState grid state}, ignoring the
+     * concrete class type or other, lazily evaluated fields.
+     * </p>
+     * 
+     * @return The hash code for this {@code Grid} instance.
+     * @see #equals(Object)
+     * @see java.lang.Object#hashCode()
+     * @since 2025.11 - hashCode Method Addition
+     * @performance {@code O(1)} complexity due to fixed-size array hashing.
+     * @threading Not thread-safe; reads the mutable {@link #gridState}.
+     * @memory Does not allocate.
+     */
+    @Override
+    public final int hashCode() {
+        return Arrays.hashCode(gridState);
     }
 }

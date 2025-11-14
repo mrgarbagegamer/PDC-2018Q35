@@ -112,7 +112,7 @@ class CombinationQueueArrayTest {
 
         // Add a work item to the batch to make it non-empty
         short[] prefix = generateRandomCombination(numClicks - 1);
-        batch.addWork(prefix, prefix.length, false, 0, 0L);
+        batch.addWork(prefix, prefix.length, false, 0);
 
         assertTrue(queue.add(batch), "Should be able to offer a batch to a queue");
 

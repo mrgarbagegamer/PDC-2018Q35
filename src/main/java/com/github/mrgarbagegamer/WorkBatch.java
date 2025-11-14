@@ -3,6 +3,8 @@ package com.github.mrgarbagegamer;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+// TODO: Update javadoc comments to reflect the changes made in the refactor.
+
 /**
  * A high-performance, reusable, and iterable container for batching puzzle combinations.
  *
@@ -87,10 +89,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      */
     public static class WorkItem {
         private short[] prefix;
-        private int prefixLength;
+        private int prefixLength; // TODO: Consider removing if always numClicks - 1
         private short[] finalClicks;
         private int start;
-        private long prefixAdjacencyMask;
 
         WorkItem() {
             if (numClicks <= 0) {
@@ -104,12 +105,11 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         /**
          * Initializes the WorkItem with its data. The prefix is copied to avoid contamination.
          */
-        void set(short[] prefix, int prefixLength, short[] finalClicks, int start, long prefixAdjacencyMask) {
+        void set(short[] prefix, int prefixLength, short[] finalClicks, int start) {
             System.arraycopy(prefix, 0, this.prefix, 0, prefixLength);
             this.prefixLength = prefixLength;
             this.finalClicks = finalClicks;
             this.start = start;
-            this.prefixAdjacencyMask = prefixAdjacencyMask;
         }
 
         void clear() {
@@ -117,7 +117,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             this.finalClicks = null;
             this.prefixLength = -1;
             this.start = -1;
-            this.prefixAdjacencyMask = 0;
         }
 
         // --- Getters for consumer ---
@@ -125,7 +124,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         public int getPrefixLength() { return prefixLength; }
         public short[] getFinalClicks() { return finalClicks; }
         public int getStart() { return start; }
-        public long getPrefixAdjacencyMask() { return prefixAdjacencyMask; }
     }
 
     /**
@@ -234,13 +232,13 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @return {@code true} if the work item was added, {@code false} if the batch
      *         is full.
      */
-    public boolean addWork(short[] prefix, int prefixLength, boolean prefixParity, int start, long prefixAdjacencyMask) {
+    public boolean addWork(short[] prefix, int prefixLength, boolean prefixParity, int start) {
         if (isFull()) {
             return false;
         }
         WorkItem item = workItems[workItemCount++];
         short[] finalClicks = prefixParity ? EVEN_CLICK_INDICES : ODD_CLICK_INDICES;
-        item.set(prefix, prefixLength, finalClicks, start, prefixAdjacencyMask);
+        item.set(prefix, prefixLength, finalClicks, start);
         return true;
     }
 

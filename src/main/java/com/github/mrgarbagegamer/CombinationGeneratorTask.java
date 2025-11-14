@@ -12,6 +12,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Unbox;
 
+// TODO: Update javadoc comments to reflect the changes made in the refactor.
+
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
  * 
@@ -1041,16 +1043,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
             batch = ctx.resetBatch();
             if (batch == null) return; // Interrupted
         }
-        
-        // 3. Calculate the prefix adjacency mask ONCE.
-        long prefixMask = 0L;
-        final long[] masks = TestClickCombination.getClickToTrueCellMask();
-        for (int i = 0; i < prefixLength; i++) {
-            prefixMask ^= masks[prefix[i]];
-        }
 
         // Add the entire valid range as a single work item.
-        batch.addWork(prefix, prefixLength, parity, startIdx, prefixMask);
+        batch.addWork(prefix, prefixLength, parity, startIdx);
     }
     
     /**

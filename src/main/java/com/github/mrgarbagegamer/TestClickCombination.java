@@ -5,6 +5,7 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+// TODO: Update javadoc comments to reflect the changes made in the refactor.
 /**
  * An optimized worker thread that tests potential puzzle solutions from a shared work queue.
  *
@@ -401,14 +402,14 @@ public class TestClickCombination extends Thread {
             // NEW: Iterate over WorkItems and use pre-computed prefix masks.
             short[] reusableCombination = new short[WorkBatch.getNumClicks()];
             for (WorkBatch.WorkItem item : workBatch) {
-                // TODO: Look at removing the redundant solutionFound check here
                 if (queueArray.isSolutionFound()) break;
 
-                long prefixMask = item.getPrefixAdjacencyMask();
-                short[] finalClicks = item.getFinalClicks();
-                int start = item.getStart();
-                short[] prefix = item.getPrefix();
-                int prefixLength = item.getPrefixLength(); // TODO: Look at removing redundant length field
+                final short[] finalClicks = item.getFinalClicks();
+                final int start = item.getStart();
+                final short[] prefix = item.getPrefix();
+                final int prefixLength = item.getPrefixLength();
+                
+                final long prefixMask = buildParityMask(prefix);
 
                 for (int i = start; i < finalClicks.length; i++) {
                     short finalClick = finalClicks[i];
@@ -417,13 +418,17 @@ public class TestClickCombination extends Thread {
                         System.arraycopy(prefix, 0, reusableCombination, 0, prefixLength);
                         reusableCombination[prefixLength] = finalClick;
 
+                        // TODO: Consider un-deprecating the single-click method and applying the prefix to save Grid
+                        // iteration.
                         puzzleGrid.click(reusableCombination);
 
                         if (puzzleGrid.isSolved()) {
                             short[] winningCombination = reusableCombination.clone();
                             logger.info("Found the solution as the following click combination: {}",
                                        new CombinationMessage(winningCombination, Grid.ValueFormat.Index));
-                            queueArray.solutionFound(this.getName(), reusableCombination.clone()); // Clone a separate copy to keep it in Index format
+                            queueArray.solutionFound(this.getName(), reusableCombination.clone()); // Clone a separate
+                                                                                                   // copy to keep it in
+                                                                                                   // Index format
                             triggerGeneratorShutdown();
                             return;
                         }
@@ -432,7 +437,7 @@ public class TestClickCombination extends Thread {
                         failedCount++;
                         if (failedCount == LOG_EVERY_N_FAILURES) {
                             logger.debug("Tried and failed: {}", new CombinationMessage(reusableCombination.clone(), Grid.ValueFormat.Index));
-                            failedCount = 0; // Reset the count after logging
+                            failedCount = 0;
                         }
                     }
                 }
@@ -600,7 +605,9 @@ public class TestClickCombination extends Thread {
      *            {@link #EXPECTED_MASK}.
      * @memory Does not allocate.
      */
+    @Deprecated
     private final boolean satisfiesOddAdjacency(short[] combination) {
+        // TODO: Remove this deprecated method after updating the java docs for the new method.
         // JIT OPTIMIZATION: Cache array references and length to encourage optimization
         final long[] masks = CLICK_TO_TRUE_CELL_MASK;
         final int combinationLength = combination.length;
@@ -621,6 +628,27 @@ public class TestClickCombination extends Thread {
         
         // JIT OPTIMIZATION: Single comparison instead of two
         return trueCellCounts == expectedMask;
+    }
+
+    private final long buildParityMask(short[] combination) {
+        // JIT OPTIMIZATION: Cache array references and length to encourage optimization
+        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
+        final int combinationLength = combination.length;
+        
+        long trueCellCounts = 0L;
+        
+        // JIT OPTIMIZATION: Use counted loop pattern that JIT prefers for unrolling
+        // The final variables and predictable loop bounds encourage aggressive optimization
+        for (int i = 0; i < combinationLength; i++)
+        {
+            // JIT OPTIMIZATION: Use local variable to avoid repeated array access
+            final int click = combination[i];
+            
+            // JIT OPTIMIZATION: Single XOR operation instead of two
+            trueCellCounts ^= masks[click];
+        }
+        
+        return trueCellCounts;
     }
 
     /**

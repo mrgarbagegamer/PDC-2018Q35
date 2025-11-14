@@ -106,15 +106,15 @@ class WorkBatchTest {
     void testAddWorkWhenFull() {
         WorkBatch batch = new WorkBatch(1);
         short[] prefix = {1};
-        batch.addWork(prefix, 1, true, 0, 0L);
+        batch.addWork(prefix, 1, true, 0);
         assertTrue(batch.isFull());
-        assertFalse(batch.addWork(prefix, 1, true, 0, 0L), "Should not be able to add to a full batch.");
+        assertFalse(batch.addWork(prefix, 1, true, 0), "Should not be able to add to a full batch.");
     }
     
     @Test
     void testClear() {
         WorkBatch batch = new WorkBatch();
-        batch.addWork(new short[]{1}, 1, true, 0, 0L);
+        batch.addWork(new short[]{1}, 1, true, 0);
         assertFalse(batch.isEmpty());
         
         batch.clear();
@@ -127,7 +127,7 @@ class WorkBatchTest {
     @Test
     void testIteratorReuse() {
         WorkBatch batch = new WorkBatch();
-        batch.addWork(new short[]{1}, 1, true, 0, 0L);
+        batch.addWork(new short[]{1}, 1, true, 0);
         
         Iterator<WorkBatch.WorkItem> iter1 = batch.iterator();
         Iterator<WorkBatch.WorkItem> iter2 = batch.iterator();

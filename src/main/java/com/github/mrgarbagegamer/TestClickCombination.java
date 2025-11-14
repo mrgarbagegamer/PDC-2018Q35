@@ -418,8 +418,6 @@ public class TestClickCombination extends Thread {
                         System.arraycopy(prefix, 0, reusableCombination, 0, prefixLength);
                         reusableCombination[prefixLength] = finalClick;
 
-                        // TODO: Consider un-deprecating the single-click method and applying the prefix to save Grid
-                        // iteration.
                         puzzleGrid.click(reusableCombination);
 
                         if (puzzleGrid.isSolved()) {

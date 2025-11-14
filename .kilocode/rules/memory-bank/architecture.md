@@ -41,8 +41,8 @@ The solver is built on a **producer-consumer** architecture to maximize parallel
   - A `java.util.concurrent.RecursiveAction` that runs within a `ForkJoinPool`.
   - Recursively breaks down the problem of finding `k` clicks among `n` cells.
   - Employs significant pruning logic to avoid exploring invalid branches of the search tree.
-  - **Leaf Generation Optimization**: The hot path for leaf-level combination generation is heavily optimized. It uses `Arrays.binarySearch` to instantly find the starting point for valid final clicks and a custom `WorkBatch.addBulk` method to copy combinations into the batch with minimal overhead, avoiding per-element checks and method calls.
-  - Batches combinations into `WorkBatch` objects and submits them to the `CombinationQueueArray`.
+  - **Leaf Generation Optimization**: The hot path for leaf-level combination generation has been redesigned to offload work from the producer to the consumer. Instead of generating and copying millions of individual combinations, the generator now creates a compact {@link com.github.mrgarbagegamer.WorkBatch.WorkItem WorkItem} that describes a *range* of combinations (a common prefix plus a range of final clicks). This drastically reduces the producer's workload.
+  - These {@code WorkItem}s are added to a {@code WorkBatch}, which is then submitted to the {@code CombinationQueueArray}.
 
 ### 4. `TestClickCombination.java`
 
@@ -50,7 +50,9 @@ The solver is built on a **producer-consumer** architecture to maximize parallel
 - **Role**: The "consumer" or "monkey" that validates solutions.
 - **Implementation**:
   - A `Thread` that runs in a loop, pulling `WorkBatch` objects from its dedicated queue in `CombinationQueueArray`.
-  - For each combination in the batch, it clones the base `Grid`, applies the clicks, and checks if the grid is solved.
+  - The `WorkBatch` is now an `Iterable` of `WorkItem`s. The monkey iterates through these `WorkItem`s.
+  - For each `WorkItem`, it calculates the parity mask of the prefix *once* and then iterates through the range of final clicks, performing a cheap, optimized odd-adjacency check for each one.
+  - Only if the cheap check passes does it assemble the full combination and test it against the grid. This avoids millions of expensive grid operations.
   - If a solution is found, it signals the `CombinationQueueArray` to stop the entire process.
 
 ### 5. `CombinationQueue.java`
@@ -78,9 +80,10 @@ The solver is built on a **producer-consumer** architecture to maximize parallel
 - **Path**: `src/main/java/com/github/mrgarbagegamer/WorkBatch.java`
 - **Role**: A reusable container for batching combinations.
 - **Implementation**:
-  - A fixed-size circular buffer that groups thousands of `short[]` combinations into a single object. This is the primary unit of data exchanged between producers and consumers.
-  - Includes a highly-optimized `addBulk` method that allows generators to copy large chunks of combinations into the buffer at once, minimizing method call overhead in the leaf-generation hot path.
-  - Instances are pre-allocated and recycled via a central pool in `CombinationQueueArray` to achieve near-zero GC pressure in the hot path.
+  - A container for {@link com.github.mrgarbagegamer.WorkBatch.WorkItem} objects. Each {@code WorkItem} represents a range of combinations (a shared prefix and a set of final clicks).
+  - Implements the {@link java.lang.Iterable} interface, providing a custom, allocation-free iterator that assembles the final combinations on-the-fly for the consumer.
+  - This design offloads the final enumeration of combinations from the producer to the consumer, significantly reducing the producer's workload.
+  - Instances are pre-allocated and recycled via a central pool in `CombinationQueueArray` to achieve near-zero GC pressure.
   - **Not thread-safe**: Ownership is transferred between threads exclusively via the queue system.
 
 ## Data Flow
@@ -89,7 +92,7 @@ The solver is built on a **producer-consumer** architecture to maximize parallel
 2. `TestClickCombination` threads start and block, waiting for work on their dedicated `CombinationQueue`.
 3. `StartYourMonkeys` submits the root `CombinationGeneratorTask` to the `ForkJoinPool`.
 4. The `CombinationGeneratorTask` recursively forks. Producers poll for an empty `WorkBatch` from the central `workBatchPool`.
-5. Producers fill the batch with combinations and offer it to one of the work queues in `CombinationQueueArray`.
-6. `TestClickCombination` threads wake up, consume the batches, and test each combination within the batch.
+5. Producers fill a `WorkBatch` with `WorkItem` ranges and offer it to one of the work queues.
+6. `TestClickCombination` threads wake up, consume the batches, and use the batch's iterator to efficiently test all logical combinations described by the `WorkItem`s.
 7. After processing, the consumer clears the `WorkBatch` and returns it to the central `workBatchPool` for reuse.
 8. The process continues until a solution is found (and `solutionFound` is flagged) or all combinations have been tested (and `generationComplete` is flagged).

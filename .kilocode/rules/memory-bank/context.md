@@ -1,10 +1,10 @@
 # Context
 
-- **Current Focus**: Performance optimization of the combination generator.
+- **Current Focus**: Finalizing documentation after successful performance optimization.
 - **Recent Changes**:
-  - Refactored the leaf generation logic in `CombinationGeneratorTask.java` to improve performance.
-  - Replaced the iterative, one-by-one combination creation with a bulk-processing approach.
-  - Introduced a `WorkBatch.addBulk()` method to leverage `System.arraycopy()` for faster batch filling.
-  - Implemented `Arrays.binarySearch()` in `computeLeafCombinations` to quickly find the valid range of final clicks, eliminating a linear scan.
-  - Updated `architecture.md` to document the new leaf generation strategy.
-- **Next Steps**: Verify the performance improvements and ensure the solver's correctness has not been affected.
+  - Completely redesigned `WorkBatch.java` to be a container for range-based `WorkItem` objects instead of individual combinations. This offloaded significant work from the producer to the consumer.
+  - The producer (`CombinationGeneratorTask`) now only defines ranges of work, dramatically reducing its CPU load.
+  - The consumer (`TestClickCombination`) now iterates through `WorkItem`s, calculating the prefix parity mask once per item and then performing a hyper-efficient check for each final click.
+  - This architectural change resulted in a significant performance uplift, validating the new design.
+  - Updated `architecture.md` to reflect the new data flow and component roles.
+- **Next Steps**: Final review of documentation and prepare for merge.

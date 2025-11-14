@@ -321,6 +321,16 @@ public class TestClickCombination extends Thread {
     }
 
     /**
+     * Returns the pre-computed lookup table mapping a click to its effect on true cells.
+     * This is required by the {@link CombinationGeneratorTask} to pre-compute prefix adjacency masks.
+     *
+     * @return The click-to-true-cell bitmask array.
+     */
+    public static long[] getClickToTrueCellMask() {
+        return CLICK_TO_TRUE_CELL_MASK;
+    }
+
+    /**
      * The main execution loop for the monkey thread.
      *
      * <p>
@@ -368,25 +378,19 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        while (!queueArray.isSolutionFound())
-        {
+        while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
-            if (workBatch == null)
-            {
+            if (workBatch == null) {
                 // TODO: Look at removing the redundant solutionFound check here.
                 // TODO: Consider adding the isGenerationComplete() check to allQueuesEmpty() to simplify the
                 // method.
-                if (queueArray.isSolutionFound() || (queueArray.isGenerationComplete() && allQueuesEmpty()))
-                {
+                if (queueArray.isSolutionFound() || (queueArray.isGenerationComplete() && allQueuesEmpty())) {
                     break; // Exit if solution found or generation is done and all queues are empty
                 }
-                try
-                {
+                try {
                     Thread.sleep(1);
-                }
-                catch (InterruptedException e)
-                {
+                } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     logger.debug("Thread interrupted while waiting for work");
                     break; // Exit on interruption (from pool shutdown)
@@ -394,42 +398,44 @@ public class TestClickCombination extends Thread {
                 continue; // Retry getting a combination
             }
 
-            // OPTIMIZED: Process entire batch with reduced branching
-            short[] combinationClicks;
-            // TODO: Look at removing the redundant solutionFound check here
-            while ((combinationClicks = workBatch.poll()) != null && !queueArray.isSolutionFound())
-            {
-                if (satisfiesOddAdjacency(combinationClicks))
-                {
-                    puzzleGrid.click(combinationClicks); // Apply the click combination to the grid
+            // NEW: Iterate over WorkItems and use pre-computed prefix masks.
+            short[] reusableCombination = new short[WorkBatch.getNumClicks()];
+            for (WorkBatch.WorkItem item : workBatch) {
+                // TODO: Look at removing the redundant solutionFound check here
+                if (queueArray.isSolutionFound()) break;
 
-                    // TODO: Look at extracting this logic to a separate method
-                    if (puzzleGrid.isSolved())
-                    {
-                        logger.info("Found the solution as the following click combination: {}",
-                                   new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
-                        queueArray.solutionFound(this.getName(), combinationClicks.clone());
+                long prefixMask = item.getPrefixAdjacencyMask();
+                short[] finalClicks = item.getFinalClicks();
+                int start = item.getStart();
+                short[] prefix = item.getPrefix();
+                int prefixLength = item.getPrefixLength(); // TODO: Look at removing redundant length field
 
-                        // Trigger immediate shutdown of generator pool
-                        triggerGeneratorShutdown();
-                        // TODO: Look at finding a way to directly terminate all worker threads as well
+                for (int i = start; i < finalClicks.length; i++) {
+                    short finalClick = finalClicks[i];
+                    if (satisfiesOddAdjacency(prefixMask, finalClick)) {
+                        // Assemble the full combination ONLY if the cheap check passes
+                        System.arraycopy(prefix, 0, reusableCombination, 0, prefixLength);
+                        reusableCombination[prefixLength] = finalClick;
 
-                        // Don't recycle the winning batch
-                        return;
-                    }
+                        puzzleGrid.click(reusableCombination);
 
-                    // reset the grid for the next combination
-                    puzzleGrid.initialize();
+                        if (puzzleGrid.isSolved()) {
+                            short[] winningCombination = reusableCombination.clone();
+                            logger.info("Found the solution as the following click combination: {}",
+                                       new CombinationMessage(winningCombination, Grid.ValueFormat.Index));
+                            queueArray.solutionFound(this.getName(), reusableCombination.clone()); // Clone a separate copy to keep it in Index format
+                            triggerGeneratorShutdown();
+                            return;
+                        }
+                        puzzleGrid.initialize(); // Reset for next test
 
-                    // Increment failed count and log if needed (removed debug check and solution check per feedback)
-                    failedCount++;
-                    if (failedCount == LOG_EVERY_N_FAILURES)
-                    {
-                        logger.debug("Tried and failed: {}", new CombinationMessage(combinationClicks.clone(), Grid.ValueFormat.Index));
-                        failedCount = 0; // Reset the count after logging
+                        failedCount++;
+                        if (failedCount == LOG_EVERY_N_FAILURES) {
+                            logger.debug("Tried and failed: {}", new CombinationMessage(reusableCombination.clone(), Grid.ValueFormat.Index));
+                            failedCount = 0; // Reset the count after logging
+                        }
                     }
                 }
-                // Note: Grid initialization not needed for invalid combinations since grid wasn't modified
             }
 
             // After processing, recycle the batch
@@ -615,5 +621,23 @@ public class TestClickCombination extends Thread {
         
         // JIT OPTIMIZATION: Single comparison instead of two
         return trueCellCounts == expectedMask;
+    }
+
+    /**
+     * An optimized version of the odd adjacency check that uses a pre-computed
+     * prefix mask.
+     *
+     * @param prefixMask The pre-computed XOR sum of the combination's prefix.
+     * @param finalClick The final click to be tested.
+     * @return {@code true} if the full combination is valid, {@code false}
+     *         otherwise.
+     */
+    private final boolean satisfiesOddAdjacency(long prefixMask, short finalClick) {
+        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
+        final long expectedMask = EXPECTED_MASK;
+
+        long finalMask = prefixMask ^ masks[finalClick];
+
+        return finalMask == expectedMask;
     }
 }

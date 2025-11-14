@@ -28,7 +28,7 @@ class CombinationQueueArrayTest {
     void setUp() {
         // Reset singleton for each test
         CombinationQueueArray.resetInstance();
-        WorkBatch.resetNumClicks();
+        WorkBatch.resetForTest();
         random.setSeed(System.currentTimeMillis()); 
         int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
         WorkBatch.setNumClicks(numClicks);
@@ -110,8 +110,9 @@ class CombinationQueueArrayTest {
         WorkBatch batch = queueArray.getWorkBatchPool().poll();
         assertNotNull(batch, "Work batch from pool should not be null");
 
-        short[] combo = generateRandomCombination(numClicks);
-        batch.add(combo);
+        // Add a work item to the batch to make it non-empty
+        short[] prefix = generateRandomCombination(numClicks - 1);
+        batch.addWork(prefix, prefix.length, false, 0, 0L);
 
         assertTrue(queue.add(batch), "Should be able to offer a batch to a queue");
 

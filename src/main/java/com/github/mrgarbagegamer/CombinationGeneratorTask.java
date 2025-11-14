@@ -495,7 +495,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private long cachedAdjacencyState = -1;
     /**
      * A boolean indicating the parity of clicks affecting the first initially {@code true} cell in the
-     * {@link #prefix}.
+     * {@link #prefix}. {@code true} indicates an odd number of toggles, {@code false} indicates even.
      * 
      * <p>
      * Like {@link #cachedAdjacencyState}, this value is incrementally built in the generator threads to
@@ -658,6 +658,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         CombinationGeneratorTask.queueArray = queueArray;
         CombinationGeneratorTask.maxFirstClickIndex = maxFirstClickIndex;
         ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
+        WorkBatch.setNumClicks(numClicks); // Also for WorkBatch
 
         
         // Initialize the instance fields
@@ -677,6 +678,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // OPTIMIZATION: Pre-compute and cache the first true cell mask once per puzzle
         short firstTrueCell = trueCells[0];
         computeAdjacencyMaskFast(firstTrueCell);
+
+        // NEW: Set the static click index arrays in WorkBatch
+        WorkBatch.setClickIndexArrays(ODD_CLICK_INDICES, EVEN_CLICK_INDICES);
     }
 
     /**
@@ -1010,43 +1014,43 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *         {@code WorkBatch} buffer.
      */
     private final void computeLeafCombinations(GeneratorContext ctx) {
-        // ULTRA-OPTIMIZED: Use binary search and bulk-copying to avoid per-element overhead.
-        final int pLen = prefixLength;
-        final short lastPrefixClick = prefix[pLen - 1];
+        // REDESIGNED: Offload combination generation to the WorkBatch iterator.
+        // This method now only defines the *range* of work.
+        final short lastPrefixClick = prefix[prefixLength - 1];
 
-        // Select the correct pre-filtered index array based on the prefix's parity.
-        final short[] validClicks = this.prefixParity ? EVEN_CLICK_INDICES : ODD_CLICK_INDICES;
-        
         // 1. Find the starting index using binary search.
+        final boolean parity = this.prefixParity;
+        final short[] validClicks = parity ? EVEN_CLICK_INDICES : ODD_CLICK_INDICES;
         int startIdx = Arrays.binarySearch(validClicks, (short) (lastPrefixClick + 1));
         if (startIdx < 0) {
             startIdx = -startIdx - 1; // If not found, binarySearch returns (-(insertion point) - 1)
         }
 
+        // If there are no valid clicks left, we're done.
+        if (startIdx >= validClicks.length) {
+            return;
+        }
+
+        // 2. Add the work range to the batch.
         WorkBatch batch = ctx.getOrCreateBatch();
         if (batch == null) return; // Exit if interrupted
 
-        int remainingInSource = validClicks.length - startIdx;
-        int currentOffset = startIdx;
-
-        // 2. Bulk-add combinations in a loop until all are processed.
-        while (remainingInSource > 0) {
-            int spaceInBatch = batch.remainingCapacity();
-            int toAdd = Math.min(remainingInSource, spaceInBatch);
-
-            if (toAdd > 0) { // Potential deoptimization, but necessary safeguard.
-                int added = batch.addBulk(prefix, pLen, validClicks, currentOffset, toAdd);
-                currentOffset += added;
-                remainingInSource -= added;
-            }
-
-            // If batch is full, flush and get a new one.
-            if (remainingInSource > 0 && flushBatchFast(batch)) {
-                batch = ctx.resetBatch();
-                if (batch == null) return; // Exit if interrupted
-            }
-            else return; // Interrupted or done.
+        // If the batch is full, flush it and get a new one.
+        if (batch.isFull()) {
+            if (!flushBatchFast(batch)) return; // Interrupted
+            batch = ctx.resetBatch();
+            if (batch == null) return; // Interrupted
         }
+        
+        // 3. Calculate the prefix adjacency mask ONCE.
+        long prefixMask = 0L;
+        final long[] masks = TestClickCombination.getClickToTrueCellMask();
+        for (int i = 0; i < prefixLength; i++) {
+            prefixMask ^= masks[prefix[i]];
+        }
+
+        // Add the entire valid range as a single work item.
+        batch.addWork(prefix, prefixLength, parity, startIdx, prefixMask);
     }
     
     /**

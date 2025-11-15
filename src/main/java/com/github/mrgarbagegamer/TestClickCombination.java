@@ -379,6 +379,7 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
+        final short[] reusableCombination = new short[WorkBatch.getNumClicks()]; // Reusable array to avoid allocations
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
@@ -400,7 +401,6 @@ public class TestClickCombination extends Thread {
             }
 
             // NEW: Iterate over WorkItems and use pre-computed prefix masks.
-            short[] reusableCombination = new short[WorkBatch.getNumClicks()];
             for (WorkBatch.WorkItem item : workBatch) {
                 if (queueArray.isSolutionFound()) break;
 
@@ -415,6 +415,7 @@ public class TestClickCombination extends Thread {
                     short finalClick = finalClicks[i];
                     if (satisfiesOddAdjacency(prefixMask, finalClick)) {
                         // Assemble the full combination ONLY if the cheap check passes
+                        // TODO: Consider copying only once per WorkItem instead of per valid click.
                         System.arraycopy(prefix, 0, reusableCombination, 0, prefixLength);
                         reusableCombination[prefixLength] = finalClick;
 

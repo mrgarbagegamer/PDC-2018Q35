@@ -379,7 +379,6 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        final short[] reusableCombination = new short[WorkBatch.getNumClicks()]; // Reusable array to avoid allocations
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
@@ -412,22 +411,18 @@ public class TestClickCombination extends Thread {
                 final long prefixMask = buildParityMask(prefix);
 
                 for (int i = start; i < finalClicks.length; i++) {
-                    short finalClick = finalClicks[i];
+                    final short finalClick = finalClicks[i];
                     if (satisfiesOddAdjacency(prefixMask, finalClick)) {
-                        // Assemble the full combination ONLY if the cheap check passes
-                        // TODO: Consider copying only once per WorkItem instead of per valid click.
-                        System.arraycopy(prefix, 0, reusableCombination, 0, prefixLength);
-                        reusableCombination[prefixLength] = finalClick;
-
-                        puzzleGrid.click(reusableCombination);
+                        puzzleGrid.click(prefix, finalClick);
 
                         if (puzzleGrid.isSolved()) {
-                            short[] winningCombination = reusableCombination.clone();
+                            final short[] winningCombination = new short[prefixLength + 1];
+                            System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);
+                            winningCombination[prefixLength] = finalClick;
+                            queueArray.solutionFound(this.getName(), winningCombination);
                             logger.info("Found the solution as the following click combination: {}",
-                                       new CombinationMessage(winningCombination, Grid.ValueFormat.Index));
-                            queueArray.solutionFound(this.getName(), reusableCombination.clone()); // Clone a separate
-                                                                                                   // copy to keep it in
-                                                                                                   // Index format
+                                       new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
+                            
                             triggerGeneratorShutdown();
                             return;
                         }
@@ -435,7 +430,11 @@ public class TestClickCombination extends Thread {
 
                         failedCount++;
                         if (failedCount == LOG_EVERY_N_FAILURES) {
-                            logger.debug("Tried and failed: {}", new CombinationMessage(reusableCombination.clone(), Grid.ValueFormat.Index));
+                            final short[] winningCombination = new short[prefixLength + 1];
+                            System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);
+                            winningCombination[prefixLength] = finalClick;
+
+                            logger.debug("Tried and failed: {}", new CombinationMessage(winningCombination, Grid.ValueFormat.Index));
                             failedCount = 0;
                         }
                     }

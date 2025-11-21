@@ -1,7 +1,11 @@
 package com.github.mrgarbagegamer;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+
+import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
+import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
 
 // TODO: Update javadoc comments to reflect the changes made in the refactor.
 
@@ -81,7 +85,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     private int workItemCount = 0;
     private final BatchIterator iterator = new BatchIterator();
 
-    private static int numClicks;
+    private static int numClicks = -1;
 
     /**
      * A compact representation of a range of combinations sharing a common prefix.
@@ -98,8 +102,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 throw new IllegalStateException("numClicks must be set before creating WorkItem instances.");
             }
             prefix = new short[numClicks - 1];
-            prefixLength = -1;
+            prefixLength = -1; // TODO: Consider changing this to numClicks - 1
             finalClicks = null;
+            start = -1;
         }
 
         /**
@@ -120,10 +125,67 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         }
 
         // --- Getters for consumer ---
-        public short[] getPrefix() { return prefix; }
-        public int getPrefixLength() { return prefixLength; }
-        public short[] getFinalClicks() { return finalClicks; }
-        public int getStart() { return start; }
+        public short[] getPrefix() {
+            return prefix;
+        }
+
+        public int getPrefixLength() {
+            return prefixLength;
+        }
+
+        public short[] getFinalClicks() {
+            return finalClicks;
+        }
+
+        public int getStart() {
+            return start;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("WorkItem{prefix=");
+            sb.append(Arrays.toString(prefix));
+            sb.append(", prefixLength=");
+            sb.append(prefixLength);
+            sb.append(", finalClicks=");
+            
+            // Get the final clicks starting from 'start' to the end
+            if (finalClicks != null) {
+                if (start >= 0 && start < finalClicks.length) {
+                    sb.append(Arrays.toString(Arrays.copyOfRange(finalClicks, start, finalClicks.length)));
+                } else {
+                    sb.append("empty");
+                }
+            } else {
+                sb.append("null");
+            }
+            sb.append("}");
+            return sb.toString();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            // Effective Java recipe for equals
+            if (this == obj) return true;
+            if (obj instanceof WorkItem other) {
+                // Since prefixLength is derived from prefix, we can compare just the arrays and
+                // start
+                return Arrays.equals(this.prefix, other.prefix)
+                        && Arrays.equals(this.finalClicks, other.finalClicks)
+                        && this.start == other.start;
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            // Since prefixLength is derived from prefix, we don't include it in hashCode
+            int result = Arrays.hashCode(prefix);
+            result = 31 * result + Arrays.hashCode(finalClicks);
+            result = 31 * result + start;
+            return result;
+        }
     }
 
     /**
@@ -131,6 +193,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      */
     private class BatchIterator implements Iterator<WorkItem> {
         private int currentWorkItemIndex;
+        private final WorkBatch batch = WorkBatch.this;
 
         BatchIterator() { }
 
@@ -145,10 +208,21 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
 
         @Override
         public WorkItem next() {
+            // TODO: Consider removing the check for performance, assuming correct usage
             if (!hasNext()) {
                 throw new NoSuchElementException("No more work items in this batch.");
             }
             return workItems[currentWorkItemIndex++];
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("Remove operation is not supported.");
+        }
+        
+        @Override
+        public String toString() {
+            return "BatchIterator{currentWorkItemIndex=" + currentWorkItemIndex + ", batch=WorkBatch@" + System.identityHashCode(batch) + "}";
         }
     }
 
@@ -167,7 +241,10 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     public WorkBatch(int capacity) {
         if (numClicks <= 0) {
             throw new IllegalStateException("numClicks must be set before creating WorkBatch instances.");
+        } else if (capacity <= 0) {
+            throw new IllegalArgumentException("capacity must be a positive integer.");
         }
+
         this.capacity = capacity;
         this.workItems = new WorkItem[capacity];
         for (int i = 0; i < capacity; i++) {
@@ -200,8 +277,42 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * clicks. Must be called once at startup.
      */
     public static void setClickIndexArrays(short[] odd, short[] even) {
+        if (numClicks <= 0) {
+            throw new IllegalStateException(
+                    "numClicks must be set before setting click index arrays.");
+        }
+
+        if (odd == null || even == null) {
+            throw new IllegalArgumentException("Click index arrays cannot be null.");
+        } else if (odd.length == 0 || even.length == 0) {
+            throw new IllegalArgumentException("Click index arrays cannot be empty.");
+        } else if (odd.length > 6) {
+            throw new IllegalArgumentException(
+                    "Odd click indices array cannot have more than 6 elements.");
+        } else if (even.length != Grid.NUM_CELLS - odd.length) {
+            throw new IllegalArgumentException(
+                    "Even click indices array length must equal Grid.NUM_CELLS - odd.length.");
+        }
+
+        // Check that the arrays contain unique indices
+        ShortSortedSet indexSet = new ShortAVLTreeSet(odd);
+        for (short key : even) {
+            if (!indexSet.add(key)) {
+                throw new IllegalArgumentException(
+                        "Duplicate found in odd and even click indices: " + key);
+            }
+        }
+
         ODD_CLICK_INDICES = odd;
         EVEN_CLICK_INDICES = even;
+    }
+
+    public static short[] getOddClickIndices() {
+        return ODD_CLICK_INDICES;
+    }
+
+    public static short[] getEvenClickIndices() {
+        return EVEN_CLICK_INDICES;
     }
 
     /**
@@ -215,7 +326,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * Resets static fields for testing purposes.
      */
     static void resetForTest() {
-        numClicks = 0;
+        numClicks = -1;
         ODD_CLICK_INDICES = null;
         EVEN_CLICK_INDICES = null;
     }
@@ -276,6 +387,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * Resets the batch to an empty state, ready for reuse.
      */
     public void clear() {
+        // TODO: Consider removing the loop, since WorkItems will be overwritten on add.
+        
         // Clear the WorkItems to release references, though not strictly necessary
         // with the current pooling model, it's good practice.
         for (int i = 0; i < workItemCount; i++) {

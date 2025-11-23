@@ -304,9 +304,7 @@ public class TestClickCombination extends Thread {
                     long[] lookup = new long[Grid.NUM_CELLS]; // 109 possible clicks, single long
                                                               // for ≤64 bits
 
-                    for (short clickCell = 0; clickCell < 109; clickCell++) // Generate all possible
-                                                                            // clicks in index
-                                                                            // format
+                    for (short clickCell = 0; clickCell < 109; clickCell++) 
                     {
                         for (int i = 0; i < trueCells.length; i++) {
                             if (Grid.areAdjacent(trueCells[i], clickCell, Grid.ValueFormat.Index)) {
@@ -391,7 +389,9 @@ public class TestClickCombination extends Thread {
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
+            // TODO: Consider extracting idle wait logic for easier compiler optimization
             if (workBatch == null) {
+                // TODO: Consider placing the isGenerationComplete() check inside allQueuesEmpty()
                 if (queueArray.isSolutionFound()
                         || (queueArray.isGenerationComplete() && allQueuesEmpty())) {
                     break; // Exit if solution found or generation is done and all queues are empty
@@ -408,13 +408,15 @@ public class TestClickCombination extends Thread {
 
             // NEW: Iterate over WorkItems and use pre-computed prefix masks.
             for (WorkBatch.WorkItem item : workBatch) {
+                // TODO: Look at removing this redundant check
                 if (queueArray.isSolutionFound())
                     break;
 
                 final short[] finalClicks = item.getFinalClicks();
                 final int start = item.getStart();
                 final short[] prefix = item.getPrefix();
-                final int prefixLength = item.getPrefixLength();
+                final int prefixLength = item.getPrefixLength(); // TODO: Consider removing this
+                                                                 // variable for slight optimization
 
                 final long prefixMask = buildParityMask(prefix);
 
@@ -423,6 +425,8 @@ public class TestClickCombination extends Thread {
                     if (satisfiesOddAdjacency(prefixMask, finalClick)) {
                         puzzleGrid.click(prefix, finalClick);
 
+                        // TODO: Consider extracting success handling for easier compiler
+                        // optimizations
                         if (puzzleGrid.isSolved()) {
                             final short[] winningCombination = new short[prefixLength + 1];
                             System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);
@@ -438,6 +442,7 @@ public class TestClickCombination extends Thread {
                         puzzleGrid.initialize(); // Reset for next test
 
                         failedCount++;
+                        // TODO: Consider extracting this logging for easier compiler optimization
                         if (failedCount == LOG_EVERY_N_FAILURES) {
                             final short[] winningCombination = new short[prefixLength + 1];
                             System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);

@@ -13,8 +13,9 @@
  * </p>
  * <ul>
  * <li><b>Generator ({@link com.github.mrgarbagegamer.CombinationGeneratorTask})</b>: A recursive
- * {@link java.util.concurrent.ForkJoinTask} that explores the solution space. It generates
- * permutations of clicks and bundles them into batches for consumers.</li>
+ * {@link java.util.concurrent.ForkJoinTask} that explores the solution space. It now generates
+ * compact {@link com.github.mrgarbagegamer.WorkBatch.WorkItem} ranges, offloading final combination
+ * assembly to the consumer.</li>
  *
  * <li><b>Monkey ({@link com.github.mrgarbagegamer.TestClickCombination})</b>: A worker thread (or
  * "monkey") that receives batches of combinations, applies them to a grid instance, and validates
@@ -30,9 +31,10 @@
  * The solver's performance relies on several key design patterns:
  * </p>
  * <ul>
- * <li><b>Batching System</b>: The {@link com.github.mrgarbagegamer.WorkBatch} class is central to
- * performance. By bundling thousands of combinations into a single batch, it dramatically reduces
- * queue contention and synchronization overhead between producers and consumers.</li>
+ * <li><b>Range-Based Batching</b>: The {@link com.github.mrgarbagegamer.WorkBatch} class is central
+ * to performance. Instead of containing individual combinations, it holds
+ * {@link com.github.mrgarbagegamer.WorkBatch.WorkItem} objects that describe large ranges of
+ * combinations. This dramatically reduces producer overhead and queue contention.</li>
  *
  * <li><b>Centralized Queue</b>: The {@link com.github.mrgarbagegamer.CombinationQueueArray} acts as
  * a high-performance, multi-lane queue that distributes {@code WorkBatch} objects to available

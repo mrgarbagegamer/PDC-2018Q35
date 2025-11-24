@@ -996,10 +996,11 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * </p>
      * 
      * <p>
-     * Since the {@code WorkItem}s will be overwritten on the next
-     * {@link #addWork(short[], int, boolean, int) add}, the loop that clears each item may be
-     * redundant. A future optimization could consider removing this loop, though it has been left
-     * in for safety.
+     * Though the loop to clear each {@code WorkItem} seems unnecessary, since the items will be
+     * overwritten when new work is added, removing it actually worsens performance due to false
+     * sharing. This {@code clear()} operation acts as a memory barrier, ensuring that the CPU cache
+     * lines are correctly synchronized before new data is written. We retain the loop for now, but
+     * this could be revisited in the future if profiling indicates it is a bottleneck.
      * </p>
      * 
      * @since 2025.07 - {@code WorkBatch} Introduction
@@ -1008,7 +1009,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Does not allocate.
      */
     public void clear() {
-        // TODO: Consider removing the loop, since WorkItems will be overwritten on add.
         // This loop is a safeguard but may be unnecessary if the logic guarantees
         // that used WorkItems are always overwritten before being read.
         for (int i = 0; i < workItemCount; i++) {

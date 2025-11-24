@@ -665,6 +665,39 @@ class GridTest {
     }
 
     /**
+     * Tests the {@link Grid#click(short[], short)} method to ensure that clicking prefixes and a
+     * final click correctly updates the grid state. This test performs a series of random prefix
+     * clicks followed by a final click and verifies that the resulting grid state matches the
+     * expected state computed manually.
+     */
+    @Test
+    void testClickPrefixAndFinalClick() {
+        Grid grid = new Grid35();
+        short[] prefixClicks = generateRandomCombination(10);
+        short finalClick = generateRandomCombination(1)[0];
+
+        long[] initialState = grid.getGridState();
+        long[] expectedState = initialState.clone();
+        for (short click : prefixClicks) {
+            // Manually compute expected state after each prefix click
+            short[] affectedCells = Grid.findAdjacents(click);
+            long[] clickBitmask = convertToBitmask(affectedCells);
+            expectedState[0] ^= clickBitmask[0];
+            expectedState[1] ^= clickBitmask[1];
+        }
+        // Final click
+        short[] affectedCellsFinal = Grid.findAdjacents(finalClick);
+        long[] clickBitmaskFinal = convertToBitmask(affectedCellsFinal);
+        expectedState[0] ^= clickBitmaskFinal[0];
+        expectedState[1] ^= clickBitmaskFinal[1];
+
+        grid.click(prefixClicks, finalClick);
+        assertArrayEquals(expectedState, grid.getGridState(),
+                "Grid state should match expected state after prefix clicks and final click (Prefixes: "
+                        + Arrays.toString(prefixClicks) + ", Final: " + finalClick + ")");
+    }
+
+    /**
      * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method to ensure that it throws a
      * NullPointerException when provided with a null format.
      */

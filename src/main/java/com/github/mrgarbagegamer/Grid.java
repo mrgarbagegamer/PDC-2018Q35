@@ -1396,6 +1396,54 @@ public abstract class Grid {
     }
 
     /**
+     * Simulates clicks on multiple cells in the {@code Grid}, with a distinct final click.
+     * 
+     * <p>
+     * This method extends the bulk click functionality by allowing a separate final click to be
+     * applied after processing a sequence of prefix clicks. This is particularly useful in
+     * scenarios where a {@link WorkBatch.WorkItem WorkItem} is tested, and a final click needs to
+     * be applied to complete the combination.
+     * </p>
+     * 
+     * <p>
+     * The {@link #recalculationNeeded} flag is set to {@code true} once after all clicks are
+     * applied, ensuring lazy recomputation of {@link #firstTrueCell} and {@link #trueCellsCount}.
+     * </p>
+     * 
+     * <h3>Performance Considerations</h3>
+     * <p>
+     * This method is a hot-path operation with {@code O(prefix.length + 1)} complexity. It is
+     * declared {@code final} to encourage JIT inlining and assumes valid input to minimize
+     * branching and checks within the loop. We avoid unrolling the loop to delegate the
+     * responsibility to the JIT compiler. Vectorization is also not applicable here, due to the
+     * non-predictable array accesses.
+     * </p>
+     * 
+     * @param prefix     An array of cells (in {@link ValueFormat#Index} format) to click before the
+     *                   final click.
+     * @param finalClick The final cell (in {@link ValueFormat#Index} format) to click after the
+     *                   {@code prefix}.
+     * @throws ArrayIndexOutOfBoundsException if any {@code cell} in the array or the {@code finalClick}
+     *                                        is out of bounds.
+     * @throws NullPointerException           if the {@code prefix} array is {@code null}.
+     * @see #click(short)
+     * @see #click(short[])
+     * @since 2025.11 - Avoid Arraycopy in WorkItem Processing
+     * @performance {@code O(prefix.length + 1)} for iterating over {@code prefix} and applying the final click.
+     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @memory Does not allocate.
+     */
+    public final void click(short[] prefix, short finalClick) {
+        for (short cell : prefix) {
+            gridState[0] ^= ADJACENCY_MASKS[cell][0];
+            gridState[1] ^= ADJACENCY_MASKS[cell][1];
+        }
+        gridState[0] ^= ADJACENCY_MASKS[finalClick][0];
+        gridState[1] ^= ADJACENCY_MASKS[finalClick][1];
+        recalculationNeeded = true;
+    }
+
+    /**
      * Returns an array of adjacent cells to the {@link #findFirstTrueCell() first true cell} in the
      * requested {@link ValueFormat format}.
      *

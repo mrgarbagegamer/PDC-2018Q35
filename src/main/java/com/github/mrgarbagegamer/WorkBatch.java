@@ -1,282 +1,763 @@
 package com.github.mrgarbagegamer;
 
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
+import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
 
 /**
- * A high-performance, reusable container for batching puzzle combinations
- * 
+ * A high-performance, reusable, and iterable container for batching puzzle combinations.
+ *
  * <p>
- * This class is a cornerstone for the solver's performance architecture. It functions as a custom,
- * fixed-size circular buffer that groups thousands of individual {@code short[]} puzzle
- * combinations into a single object. This batching strategy is crucial for reducing contention on
- * {@link CombinationQueue combination queues} and minimizing synchronization overhead between
- * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}.
+ * This class is a cornerstone of the solver's performance architecture. It has been redesigned to
+ * represent work not as individual combinations, but as compact {@link WorkItem} objects that
+ * define a common prefix and a range of final clicks. This "range-based" approach dramatically
+ * reduces the amount of data that {@link CombinationGeneratorTask generators} need to create,
+ * shifting the final combination assembly to the {@link TestClickCombination monkeys} via a highly
+ * optimized, allocation-free iterator.
  * </p>
- * 
- * <h2>Architecture Role and Performance Impact</h2>
+ *
+ * <h2>Architectural Role and Performance Impact</h2>
  * <p>
- * In high-performance computing, frequent queue operations can become a major bottleneck. This was
- * the case in earlier versions of this solver, where generators enqueued millions of individual
- * combinations, consuming 30-40% of CPU time in queue management alone.
+ * This class solves two major performance problems:
+ * <ol>
+ * <li><b>Queue Contention:</b> By batching thousands of logical combinations into a single object
+ * transfer, it reduces the number of high-contention queue operations by orders of magnitude.</li>
+ * <li><b>Generator Overhead:</b> With this range-based design, a {@code generator} no longer
+ * creates millions of individual {@code short[]} arrays. Instead, it creates a handful of
+ * {@code WorkItem} objects that describe vast ranges of combinations. This significantly reduces
+ * the CPU load on the already-bottlenecked generator threads.</li>
+ * </ol>
  * </p>
- * 
+ *
+ * <h2>Memory Management and Iteration</h2>
  * <p>
- * {@code WorkBatch} fundamentally solves this problem by changing the unit of work transfer.
- * Instead of individual arrays, generators now fill a {@code WorkBatch} and enqueue it once.
- * Monkeys dequeue the entire batch and process its contents. This approach reduces the number of
- * queue operations by several orders of magnitude (from millions to hundreds), effectively
- * eliminating the queue as a bottleneck and dramatically improving cache locality.
+ * To achieve near-zero garbage collection pressure, this class employs a multi-layered pooling
+ * strategy:
+ * <ul>
+ * <li>The {@code WorkBatch} instance itself is recycled via a central pool in
+ * {@link CombinationQueueArray}.</li>
+ * <li>It contains a pre-allocated internal pool of {@link WorkItem} objects, which are reused for
+ * each batch.</li>
+ * <li>It implements {@link Iterable Iterable<WorkItem>}, providing a single, reusable
+ * {@link BatchIterator} that returns {@code WorkItem} instances without allocation.</li>
+ * </ul>
+ * This means that for an entire batch of thousands of combinations, there are <strong>zero heap
+ * allocations</strong> during iteration by a monkey.
  * </p>
- * 
- * <h2>Memory Management</h2>
- * <p>
- * To achieve near-zero garbage collection pressure in the hot-path, {@code WorkBatch} instances are
- * designed to be reusable. The internal {@link #buffer} is pre-allocated once at construction.
- * After a monkey finishes processing a batch, the batch object is returned to the a central pool
- * managed by {@link CombinationQueueArray}, making it available for generators to use again. This
- * pooling strategy, combined with the pre-allocated buffer, nearly eliminates runtime memory
- * allocation for combination data.
- * </p>
- * 
+ *
  * <h2>Thread Safety</h2>
  * <p>
  * This class is <strong>not</strong> thread-safe. An instance of {@code WorkBatch} must only be
  * accessed by a single thread at a time. The architecture enforces this by design: a generator
- * thread owns a batch while filling it, and a monkey owns it after dequeuing it. Queues are the
- * sole mechanism for safely transferring ownership between threads.
+ * thread owns a batch while filling it, and a monkey thread owns it after dequeuing it.
  * </p>
- * 
- * @see ArrayPool
- * @see TaskPool
- * @since 2025.07 - {@code WorkBatch} Introduction
- * @performance {@code O(1)} for poll operations and simple state checks, {@code O(numClicks)} for
- *              add operations due to array copying.
- * @memory Fixed memory usage based on the {@link #capacity capacity} and {@link #numClicks number
- *         of clicks}, minimizing dynamic allocations.
- * @threading This class is <b>not</b> thread-safe, as each instance of {@code WorkBatch} is
- *            intended to be used by one thread at a time. Queues should be the only point of
- *            inter-thread communication.
+ *
+ * @see CombinationGeneratorTask
+ * @see CombinationQueueArray
+ * @see TestClickCombination
+ * @since 2025.11 - Range-Based WorkItem Refactor
+ * @performance {@code O(numClicks - 1)} for adding work ranges due to array copying; iteration is
+ *              {@code O(1)} per {@code WorkItem}.
+ * @memory Fixed memory usage; all internal structures are pre-allocated.
+ * @threading Not thread-safe; ownership is transferred via queues.
  */
-public final class WorkBatch {
+public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     /**
-     * The default {@link #capacity} for a batch. This serves as the target number of combinations to
-     * store in a batch before flushing it to a {@link CombinationQueue}. This field has been moved from
-     * {@link CombinationGeneratorTask} to here to centralize configuration related to batching.
-     * 
+     * The default number of {@link WorkItem}s a single {@code WorkBatch} can hold, used in the
+     * {@link #WorkBatch() no-argument constructor}. Unlike the previous {@code BATCH_SIZE}
+     * constant, this refers to the number of logical work items, not individual combinations.
+     *
      * <p>
-     * Batching is a critical optimization that amortizes the high cost of concurrent queue operations.
-     * Instead of enqueuing millions of individual combinations, generators group them into large
-     * batches, reducing queue contention by several orders of magnitude.
+     * This value is a critical tuning parameter. A larger batch size reduces the frequency of queue
+     * operations but increases the memory footprint and may introduce latency if batches take too
+     * long to fill. A smaller size has the opposite effect. The chosen default of {@value} is
+     * selected to balance these trade-offs and maximize throughput.
      * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The batch size is a trade-off:
-     * <ul>
-     * <li><b>Larger batches:</b> Reduce queue-related overhead and improve throughput by allowing
-     * generators and {@link TestClickCombination monkeys} to work uninterrupted for longer. However,
-     * they increase memory footprint and can lead to work-distribution latency.</li>
-     * <li><b>Smaller batches:</b> Provide a more even flow of work to monkeys, but increase the
-     * frequency of high-contention queue operations, which can become a bottleneck.</li>
-     * </ul>
-     * A value of {@value} was found to be a good balance for the development system.
-     * </p>
-     * 
-     * @since 2025.10 - Reorganize Constants for Clarity
+     *
+     * @see #capacity
+     * @since 2025.11 - Range-Based WorkItem Refactor
      * @performance {@code O(1)} access time.
      * @threading Thread-safe as a {@code static final} constant.
-     * @memory Minimal memory footprint of 4 bytes as an {@code int}.
+     * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
      */
-    public static final int BATCH_SIZE = 8000;
+    public static final int BATCH_SIZE = 256;
+
     /**
-     * The pre-allocated circular buffer storing the {@code short[]} combinations.
+     * A pre-computed array of cell indices that
+     * {@link Grid#areAdjacent(short, short, Grid.ValueFormat) are adjacent} to the
+     * {@link Grid#findFirstTrueCell(Grid.ValueFormat) first true cell} in the {@link Grid grid}.
      *
      * <p>
-     * This buffer is the core of the {@code WorkBatch}. It is allocated once at construction and
-     * continuously reused to store combination data. This strategy is fundamental to the solver's
-     * low-allocation approach, as it avoids the immense garbage collection pressure that would result
-     * from creating new arrays for billions of combinations.
+     * This array, along with {@link #EVEN_CLICK_INDICES}, is fundamental to the "odd-adjacency"
+     * pruning optimization. Monkeys use these arrays to select the correct set of final clicks
+     * based on the parity of the combination {@link WorkItem#prefix prefix}, drastically reducing
+     * the search space.
      * </p>
      * 
-     * @see #WorkBatch(int)
-     * @see #add(short[])
-     * @see #poll()
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} for {@code poll} operations, {@code O(numClicks)} for {@code add}
-     *              operations due to array copying.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Fixed memory footprint of ~{@code capacity × numClicks × 2} bytes as a {@code short[][]}.
+     * <p>
+     * It is initialized once at startup by {@link #setClickIndexArrays(short[], short[])}, and is
+     * immutable thereafter. As such, it is a candidate for the
+     * {@code StableValue}/{@code LazyConstant} API defined in
+     * <a href="https://openjdk.org/jeps/502">JEP 502</a> and
+     * <a href="https://openjdk.org/jeps/526">JEP 526</a>.
+     * </p>
+     *
+     * @see #addWork(short[], int, boolean, int)
+     * @see #getOddClickIndices()
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Immutable after single initialization at startup.
+     * @memory Fixed memory footprint of ~4-12 bytes, depending on the number of adjacents to the
+     *         first {@code true} cell.
      */
-    private final short[][] buffer;
+    private static short[] ODD_CLICK_INDICES;
     /**
-     * The maximum number of combinations this batch can hold.
+     * A pre-computed array of cell indices that are not adjacent to the
+     * {@link Grid#findFirstTrueCell(Grid.ValueFormat) first true cell} in the {@link Grid grid}.
      *
      * <p>
-     * Batch capacity is a critical tuning parameter. A larger capacity reduces the frequency of
-     * expensive queue operations but increases memory footprint and may introduce latency if batches
-     * take too long to fill. A smaller capacity has the opposite effect. The optimal value balances
-     * these trade-offs to maximize throughput.
+     * This array complements {@link #ODD_CLICK_INDICES} and serves the same "odd-adjacency" pruning
+     * optimization.
      * </p>
      * 
-     * @see #buffer
+     * <p>
+     * It is initialized once at startup by {@link #setClickIndexArrays(short[], short[])}, and is
+     * immutable thereafter. As such, it is a candidate for the
+     * {@code StableValue}/{@code LazyConstant} API defined in
+     * <a href="https://openjdk.org/jeps/502">JEP 502</a> and
+     * <a href="https://openjdk.org/jeps/526">JEP 526</a>.
+     * </p>
+     *
+     * @see #addWork(short[], int, boolean, int)
+     * @see #getEvenClickIndices()
+     * @see Grid#areAdjacent(short, short, Grid.ValueFormat)
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Immutable after single initialization at startup.
+     * @memory Fixed memory footprint of ~206-214 bytes, depending on the number of non-adjacents to
+     *         the first {@code true} cell.
+     */
+    private static short[] EVEN_CLICK_INDICES;
+
+    /**
+     * The internal, pre-allocated pool of {@link WorkItem} objects.
+     *
+     * <p>
+     * This array holds the {@code WorkItem} instances that are reused with every batch to eliminate
+     * allocations and reduce GC pressure.
+     * </p>
+     *
      * @see #BATCH_SIZE
+     * @see #capacity
      * @see #WorkBatch(int)
-     * @see #add(short[])
-     * @see #isFull()
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} field access.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Fixed memory footprint of 4 bytes as an {@code int}.
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Not thread-safe. Access must be synchronized externally.
+     * @memory Fixed memory footprint of {@code capacity * sizeof(WorkItem)}, determined at
+     *         construction.
+     */
+    private final WorkItem[] workItems;
+    /**
+     * The maximum number of {@link WorkItem}s this batch can hold. This value is fixed at
+     * {@link #WorkBatch(int) construction}, with a default value determined by {@link #BATCH_SIZE}.
+     *
+     * @see #getCapacity()
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe as a {@code final} primitive.
+     * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
      */
     private final int capacity;
     /**
-     * The number of clicks (elements) in each combination array.
+     * The current number of {@link WorkItem}s stored in the batch.
      *
      * <p>
-     * This {@code static} value determines the size of the inner arrays within the {@link #buffer}. It
-     * must be configured via {@link #setNumClicks(int)} once at application startup before any
-     * {@code WorkBatch} instances are created. This ensures that all pre-allocated buffers have the
-     * correct dimensions for the target puzzle.
-     * </p>
-     * 
-     * @see #buffer
-     * @see #add(short[], int, short)
-     * @see #setNumClicks(int)
-     * @since 2025.07 - NPE in {@code WorkBatch} Operations Fix
-     * @performance {@code O(1)} for access.
-     * @threading Thread-safe after initialization.
-     * @memory Fixed memory footprint of 4 bytes as an {@code int}.
-     */
-    private static int numClicks;
-    /**
-     * The index of the next combination to be read from the circular {@link #buffer}.
-     *
-     * <p>
-     * This pointer advances when {@link #poll()} is called and wraps around the buffer, enabling
-     * efficient, continuous reads without reallocating memory. Using separate {@code head} and
-     * {@link #tail} integer pointers is a deliberate choice for performance, as it avoids the
-     * arithmetic overhead that a single-pointer implementation would require on every
-     * {@code add}/{@code poll} operation.
+     * This counter tracks the fill level of the {@link #workItems} array. It is incremented by
+     * {@link #addWork(short[], int, boolean, int)} and reset to zero by {@link #clear()}.
      * </p>
      *
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} for {@code poll} operations.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Fixed memory footprint of 4 bytes as an {@code int}.
-     */
-    private int head = 0;
-    /**
-     * The index of the next available slot for writing into the circular {@link #buffer}.
-     *
-     * <p>
-     * This pointer advances when an item is added via {@link #add(short[])} or
-     * {@link #add(short[], int, short)} and wraps around the buffer. Using an {@code int} instead of a
-     * {@code short} avoids potential overflow issues and unusual JVM arithmetic handling for shorts,
-     * while the use of a separate tail pointer (from {@link #head}) minimizes computational overhead in
-     * the hot path.
-     * </p>
-     *
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} for {@code add} operations.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Fixed memory footprint of 4 bytes as an {@code int}.
-     */
-    private int tail = 0;
-    /**
-     * Tracks the number of available slots in the batch.
-     *
-     * <p>
-     * This counter is used instead of a traditional {@code size} field. Checking against remaining
-     * capacity (e.g., {@code remainingCapacity == 0}) is often more favorable to JIT compiler
-     * optimizations and branch prediction than checking a variable size. It decrements on
-     * {@link #add(short[], int, short) add} and increments on {@link #poll() poll}.
-     * </p>
-     * 
      * @see #capacity
-     * @see #add(short[])
-     * @see #poll()
-     * @since 2025.07 - Remaining Capacity Tracking
-     * @performance {@code O(1)} updates and comparisons.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Fixed memory footprint of 4 bytes as an {@code int}.
+     * @see #workItems
+     * @see #WorkBatch(int)
+     * @see #isEmpty()
+     * @see #isFull()
+     * @see #size()
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Not thread-safe.
+     * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
      */
-    private int remainingCapacity; // Replacement for size to avoid deoptimizations
+    private int workItemCount = 0;
+    /**
+     * A single, reusable {@link BatchIterator iterator} to avoid allocation during iteration.
+     *
+     * <p>
+     * By reusing this single iterator instance for every traversal of the batch, we completely
+     * avoid heap allocations that would otherwise occur with anonymous or newly allocated
+     * iterators, which is critical for performance in the hot path of the
+     * {@link TestClickCombination monkeys}.
+     * </p>
+     *
+     * @see #iterator()
+     * @see Iterable
+     * @see Iterator
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Not thread-safe.
+     * @memory Fixed memory footprint for a single {@code BatchIterator} instance.
+     */
+    private final BatchIterator iterator = new BatchIterator();
 
     /**
-     * Constructs a new {@code WorkBatch} with a pre-allocated {@link #buffer internal buffer}. Uses the
-     * default {@link #BATCH_SIZE} as the {@link #capacity}.
+     * The total number of clicks that constitute a valid combination for the puzzle being solved.
      *
      * <p>
-     * The {@code buffer} size is determined by the specified {@code BATCH_SIZE} and the {@code static}
-     * {@link #numClicks} value, which must be set via {@link #setNumClicks(int)} before calling this
-     * constructor.
+     * This {@code static} value must be configured once at application startup via
+     * {@link #setNumClicks(int)}. It determines the size of internal arrays within {@link WorkItem}
+     * instances and is fundamental to the logic of both {@link CombinationGeneratorTask generators}
+     * and {@link TestClickCombination monkeys}.
      * </p>
      * 
-     * @throws IllegalStateException if {@link #numClicks} has not been set to a positive value.
-     * @see #WorkBatch(int)
-     * @since 2025.10 - Reorganize Constants for Clarity
-     * @performance {@code O(BATCH_SIZE × numClicks)} for initial buffer allocation, {@code O(1)} for
-     *              construction.
-     * @threading Thread-safe during construction; the resulting instance is not thread-safe.
-     * @memory Allocates a {@code short[BATCH_SIZE][numClicks]}.
+     * <p>
+     * Once set, this value is immutable for the lifetime of the application. As such, we could
+     * consider work-arounds to make this a {@code final} constant based on user-input, though that
+     * could add some complexity to initialization. We could also explore using the
+     * {@code StableValue}/{@code LazyConstant} API defined in
+     * <a href="https://openjdk.org/jeps/502">JEP 502</a> and
+     * <a href="https://openjdk.org/jeps/526">JEP 526</a>, though the boxing overhead may not be
+     * worth it.
+     * </p>
+     *
+     * @see #getNumClicks()
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe after its single initialization at startup.
+     * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
      */
-    public WorkBatch() {
-        if (numClicks <= 0) {
-            throw new IllegalStateException("numClicks must be set to a positive value before creating WorkBatch instances.");
+    private static int numClicks = -1;
+
+    /**
+     * A compact, reusable representation of a range of combinations that share a common prefix.
+     *
+     * <p>
+     * This is the fundamental unit of work within a {@link WorkBatch}. Instead of storing millions
+     * of complete combinations, a {@code WorkItem} describes a set of combinations by storing a
+     * shared {@link #prefix} and a reference to an array of possible {@link #finalClicks}. The
+     * {@link TestClickCombination monkey} can then iterate through the final clicks efficiently.
+     * </p>
+     *
+     * <h2>Object Lifecycle</h2>
+     * <p>
+     * {@code WorkItem} instances are {@link WorkBatch#WorkBatch(int) pre-allocated} within a
+     * {@code WorkBatch} and are reused to eliminate GC pressure. A {@link CombinationGeneratorTask
+     * generator} calls {@link #set(short[], int, short[], int)} to populate a recycled item, and
+     * {@link #clear()} is called when the {@code WorkBatch} itself is recycled.
+     * </p>
+     *
+     * @see WorkBatch#addWork(short[], int, boolean, int)
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance Accessors are {@code O(1)}. No performance-critical methods.
+     * @memory The object contains references to a prefix array and a final clicks array but does
+     *         not own the latter. Minimal, fixed overhead per instance.
+     * @threading Not thread-safe. Instances are owned and operated on by a single thread at a time.
+     */
+    public static class WorkItem {
+        /**
+         * The shared prefix of the combinations, with a fixed length of {@link #prefixLength}. The
+         * contents of this array are copied from the input provided by
+         * {@link #set(short[], int, short[], int)}, ensuring that external modifications do not
+         * affect this work item.
+         * 
+         * <p>
+         * For better performance, this field could be made {@code final} and initialized in the
+         * {@link #WorkItem() constructor}.
+         * </p>
+         *
+         * @see #getPrefix()
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(prefixLength)} iteration, {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Fixed memory footprint of {@code 2 * (numClicks - 1)} bytes for the
+         *         {@code short[]} array.
+         */
+        private short[] prefix; // TODO: Consider making this final.
+        /**
+         * The actual length of the content in the {@link #prefix} array. Since the array is always
+         * of size {@code numClicks - 1}, this field could be removed to save memory.
+         *
+         * @see #numClicks
+         * @see #getPrefixLength()
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
+         */
+        private int prefixLength; // TODO: Consider removing if always numClicks - 1
+        /**
+         * A reference to either {@link WorkBatch#ODD_CLICK_INDICES} or
+         * {@link WorkBatch#EVEN_CLICK_INDICES}, representing the set of valid final clicks for this
+         * work item. The {@link TestClickCombination monkey} uses this array to complete the
+         * combinations, starting from the {@link #start} index.
+         * 
+         * <p>
+         * This field does not own the array; it merely holds a reference to one of the
+         * {@code static} arrays in {@link WorkBatch}. It may be worth considering turning this into
+         * an {@code enum} or a {@code boolean} flag to reduce memory usage, though there could be
+         * concerns regarding memory locality.
+         * </p>
+         *
+         * @see #getFinalClicks()
+         * @see WorkBatch#setClickIndexArrays(short[], short[])
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Fixed memory footprint of 4 bytes as a reference.
+         */
+        private short[] finalClicks;
+        /**
+         * The starting index within {@link #finalClicks} from which the {@link TestClickCombination
+         * monkey} should begin testing. This allows a {@link CombinationGeneratorTask generator} to
+         * create a {@code WorkItem} that represents a sub-range of the final clicks.
+         *
+         * @see #getStart()
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
+         */
+        private int start;
+
+        /**
+         * Constructs a new {@code WorkItem}, pre-allocating its internal {@link #prefix} array
+         * based on the static {@link WorkBatch#numClicks} value.
+         *
+         * @throws IllegalStateException if {@code numClicks} has not been set.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(numClicks - 1)} allocation for the prefix array.
+         * @threading Not thread-safe.
+         * @memory Allocates memory for the {@code prefix} array.
+         */
+        WorkItem() {
+            if (numClicks <= 0) {
+                throw new IllegalStateException(
+                        "numClicks must be set before creating WorkItem instances.");
+            }
+            prefix = new short[numClicks - 1];
+            prefixLength = -1; // TODO: Consider changing this to numClicks - 1
+            finalClicks = null;
+            start = -1;
         }
 
-        this.capacity = BATCH_SIZE;
-        this.remainingCapacity = capacity;
-        this.buffer = new short[BATCH_SIZE][numClicks];
+        /**
+         * Initializes or re-initializes the {@code WorkItem} with its data.
+         *
+         * <p>
+         * This method is internally called by {@link WorkBatch#addWork(short[], int, boolean, int)}
+         * to fill a recycled {@code WorkItem} with the necessary data. The provided {@code prefix}
+         * is {@link System#arraycopy(Object, int, Object, int, int) copied} into the {@link #prefix
+         * internal array} to prevent external modifications from affecting this item.
+         * </p>
+         *
+         * @param prefix       The common prefix for this range of combinations.
+         * @param prefixLength The length of the prefix.
+         * @param finalClicks  The array of possible final clicks (either
+         *                     {@link WorkBatch#ODD_CLICK_INDICES} or
+         *                     {@link WorkBatch#EVEN_CLICK_INDICES}).
+         * @param start        The starting index in the {@code finalClicks} array.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(prefixLength)} for array copy; {@code O(1)} for field assignments.
+         * @threading Not thread-safe.
+         * @memory Does not allocate; reuses internal arrays.
+         */
+        void set(short[] prefix, int prefixLength, short[] finalClicks, int start) {
+            System.arraycopy(prefix, 0, this.prefix, 0, prefixLength);
+            this.prefixLength = prefixLength;
+            this.finalClicks = finalClicks;
+            this.start = start;
+        }
+
+        /**
+         * Resets the {@code WorkItem} to a clean state, ready for reuse.
+         *
+         * <p>
+         * This is called when the parent {@link WorkBatch} is {@link WorkBatch#clear() cleared}. It
+         * clears references to external arrays but does not null out the internal {@link #prefix}
+         * array, allowing it to be recycled without a new allocation.
+         * </p>
+         *
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} for field assignments.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        void clear() {
+            // Avoid nulling the prefix reference to allow reuse
+            this.finalClicks = null;
+            this.prefixLength = -1;
+            this.start = -1;
+        }
+
+        /**
+         * Returns the shared combination {@link #prefix} for this work item.
+         *
+         * @return The prefix array.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Does not allocate; returns reference to existing array.
+         */
+        public short[] getPrefix() {
+            return prefix;
+        }
+
+        /**
+         * Returns the {@link #prefixLength length} of the shared combination {@link #prefix}.
+         *
+         * @return The prefix length, or -1 if not set.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        public int getPrefixLength() {
+            return prefixLength;
+        }
+
+        /**
+         * Returns {@link #finalClicks the array} of possible final clicks for this work range. This
+         * will be a reference to either {@link WorkBatch#ODD_CLICK_INDICES} or
+         * {@link WorkBatch#EVEN_CLICK_INDICES}.
+         *
+         * @return The array of final clicks, or {@code null} if not set.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Does not allocate; returns reference to existing array.
+         */
+        public short[] getFinalClicks() {
+            return finalClicks;
+        }
+
+        /**
+         * Returns the {@link #start starting index} within the {@link #finalClicks final clicks
+         * array} from which a {@link TestClickCombination monkey} should begin processing.
+         *
+         * @return The start index.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access time.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        public int getStart() {
+            return start;
+        }
+
+        /**
+         * Returns a {@link String} representation of the {@code WorkItem}, useful for debugging.
+         *
+         * <p>
+         * The format is {@code WorkItem{prefix=[...], prefixLength=..., finalClicks=[...]}}. The
+         * {@link #finalClicks} portion only includes the elements from the {@link #start} index to
+         * the end of the array.
+         * </p>
+         *
+         * @return A {@code String} representation of the object.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(prefixLength + finalClicks.length)}.
+         * @threading Not thread-safe.
+         * @memory Allocates a new {@link StringBuilder} and a new {@link String}, with indirect
+         *         allocations from {@link Arrays#copyOfRange(short[], int, int)} and
+         *         {@link Arrays#toString(short[])}.
+         */
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append("WorkItem{prefix=");
+            sb.append(Arrays.toString(prefix));
+            sb.append(", prefixLength=");
+            sb.append(prefixLength);
+            sb.append(", finalClicks=");
+
+            // Get the final clicks starting from 'start' to the end
+            if (finalClicks != null) {
+                if (start >= 0 && start < finalClicks.length) {
+                    sb.append(Arrays
+                            .toString(Arrays.copyOfRange(finalClicks, start, finalClicks.length)));
+                } else {
+                    sb.append("empty");
+                }
+            } else {
+                sb.append("null");
+            }
+            sb.append("}");
+            return sb.toString();
+        }
+
+        /**
+         * Compares this {@code WorkItem} to another object for equality.
+         *
+         * <p>
+         * Two {@code WorkItem}s are considered equal if their {@link #prefix},
+         * {@link #finalClicks}, and {@link #start} fields are all equal. The {@link #prefixLength}
+         * is not compared as it is derived from the {@code prefix} array.
+         * </p>
+         *
+         * @param obj The {@code Object} to compare with.
+         * @return {@code true} if the objects are equal, {@code false} otherwise.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(prefixLength + finalClicks.length)} in the worst case due to array
+         *              comparisons.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        @Override
+        public boolean equals(Object obj) {
+            // Effective Java recipe for equals
+            if (this == obj)
+                return true;
+            if (obj instanceof WorkItem other) {
+                // Since prefixLength is derived from prefix, we can compare just the arrays and
+                // start
+                return Arrays.equals(this.prefix, other.prefix)
+                        && Arrays.equals(this.finalClicks, other.finalClicks)
+                        && this.start == other.start;
+            }
+            return false;
+        }
+
+        /**
+         * Returns a hash code value for the object.
+         *
+         * <p>
+         * The hash code is calculated based on the contents of the {@link #prefix} and
+         * {@link #finalClicks} arrays, as well as the {@link #start} index.
+         * </p>
+         *
+         * @return A hash code value for this object.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(prefixLength + finalClicks.length)} due to array hash code
+         *              computations.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        @Override
+        public int hashCode() {
+            // Since prefixLength is derived from prefix, we don't include it in hashCode
+            int result = Arrays.hashCode(prefix);
+            result = 31 * result + Arrays.hashCode(finalClicks);
+            result = 31 * result + start;
+            return result;
+        }
     }
 
     /**
-     * Constructs a new {@code WorkBatch} with a pre-allocated {@link #buffer internal buffer}, using
-     * the inputted {@code capacity}.
+     * A reusable, allocation-free {@link Iterator iterator} that returns {@link WorkItem}s from the
+     * batch.
      *
      * <p>
-     * The {@code buffer} size is determined by the specified {@code capacity} and the {@code static}
-     * {@link #numClicks} value, which must be set via {@link #setNumClicks(int)} before calling this
-     * constructor.
+     * This iterator is a critical component of the zero-allocation strategy. A single instance is
+     * created per {@link WorkBatch} and reset for each iteration by {@link WorkBatch#iterator()},
+     * avoiding the overhead of creating new iterator objects in the hot path.
      * </p>
      *
-     * @param capacity The maximum number of combinations the batch can hold.
+     * @see Iterable
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} for all operations.
+     * @threading Not thread-safe. Designed to be used by a single {@link TestClickCombination
+     *            monkey} thread at a time.
+     * @memory Minimal and fixed memory footprint for the instance itself.
+     */
+    private class BatchIterator implements Iterator<WorkItem> {
+        /**
+         * The index of the next {@link WorkItem} to be returned by {@link #next()}. It is
+         * incremented on each call to {@code next} and reset to 0 by {@link #reset()}.
+         *
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access.
+         * @threading Not thread-safe.
+         * @memory 4 bytes for the primitive {@code int}.
+         */
+        private int currentWorkItemIndex;
+        /**
+         * A final reference to the enclosing {@link WorkBatch} instance, primarily used for
+         * debugging in the {@link #toString()} method.
+         *
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} access.
+         * @threading Not thread-safe.
+         * @memory Fixed memory footprint of 4 bytes as a reference.
+         */
+        private final WorkBatch batch = WorkBatch.this;
+
+        /**
+         * Constructs the iterator.
+         *
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} construction.
+         * @threading Not thread-safe.
+         * @memory Does not allocate, apart from the instance itself.
+         */
+        BatchIterator() {}
+
+        /**
+         * Resets the iterator to the beginning of the batch, allowing it to be reused. This is
+         * called by {@link WorkBatch#iterator()} before the iterator is returned to the caller.
+         *
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} assignment.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        void reset() {
+            this.currentWorkItemIndex = 0;
+        }
+
+        /**
+         * Checks if there are more {@link WorkItem}s in the batch to iterate over.
+         *
+         * @return {@code true} if the iteration has more elements.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} comparison.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        @Override
+        public boolean hasNext() {
+            return currentWorkItemIndex < workItemCount;
+        }
+
+        /**
+         * Returns the next {@link WorkItem} in the iteration. If there are no more elements, a
+         * {@link NoSuchElementException} is thrown.
+         * 
+         * <p>
+         * Though a check for {@link #hasNext()} is performed, removal could be considered for added
+         * performance, provided that correct usage is ensured.
+         *
+         * @return The next {@code WorkItem}.
+         * @throws NoSuchElementException if the iteration has no more elements.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} array access and increment.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        @Override
+        public WorkItem next() {
+            // TODO: Consider removing the check for performance, assuming correct usage
+            if (!hasNext()) {
+                throw new NoSuchElementException("No more work items in this batch.");
+            }
+            return workItems[currentWorkItemIndex++];
+        }
+
+        /**
+         * The remove operation is not supported by this iterator, as modifying the underlying
+         * {@link WorkBatch} during iteration is not a required feature and would add complexity.
+         *
+         * @throws UnsupportedOperationException always.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)} throw.
+         * @threading Not thread-safe.
+         * @memory Does not allocate.
+         */
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException("Remove operation is not supported.");
+        }
+
+        /**
+         * Returns a {@link String} representation of the iterator's current state, primarily for
+         * debugging. The format is {@code BatchIterator{currentWorkItemIndex=...,
+         * batch=WorkBatch@...}}, with the {@link System#identityHashCode(Object) identity hash
+         * code} of the enclosing batch.
+         *
+         * @return A {@code String} representation of the object.
+         * @since 2025.11 - Range-Based WorkItem Refactor
+         * @performance {@code O(1)}.
+         * @threading Not thread-safe.
+         * @memory Allocates a new {@link String} and {@link StringBuilder}.
+         */
+        @Override
+        public String toString() {
+            return "BatchIterator{currentWorkItemIndex=" + currentWorkItemIndex
+                    + ", batch=WorkBatch@" + System.identityHashCode(batch) + "}";
+        }
+    }
+
+    /**
+     * Constructs a new {@code WorkBatch} with the default capacity of {@link #BATCH_SIZE}.
+     *
+     * @see #WorkBatch(int)
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(BATCH_SIZE)} due to delegation and {@code WorkItem} pre-allocation.
+     * @threading Not thread-safe.
+     * @memory Allocates a {@code WorkItem} array of size {@code BATCH_SIZE}.
+     */
+    public WorkBatch() {
+        this(BATCH_SIZE);
+    }
+
+    /**
+     * Constructs a new {@code WorkBatch} with a specific capacity, pre-allocating the
+     * {@link #workItems internal WorkItem pool}.
+     *
+     * @param capacity The maximum number of {@link WorkItem}s the batch can hold.
+     * @throws IllegalStateException    if {@link #numClicks} has not been set prior to
+     *                                  construction.
      * @throws IllegalArgumentException if capacity is not a positive integer.
-     * @throws IllegalStateException    if {@link #numClicks} has not been set to a positive value.
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(capacity × numClicks)} for initial buffer allocation, {@code O(1)} for
-     *              construction.
-     * @threading Thread-safe during construction; the resulting instance is not thread-safe.
-     * @memory Allocates a {@code short[capacity][numClicks]}.
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(capacity)} due to the loop for pre-allocating {@code WorkItem}
+     *              instances.
+     * @threading Thread-safe by nature of construction.
+     * @memory Allocates the {@code workItems} array and all {@code WorkItem} instances within it.
      */
     public WorkBatch(int capacity) {
         if (numClicks <= 0) {
-            throw new IllegalStateException("numClicks must be set to a positive value before creating WorkBatch instances.");
-        }
-
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("Capacity must be a positive integer.");
+            throw new IllegalStateException(
+                    "numClicks must be set before creating WorkBatch instances.");
+        } else if (capacity <= 0) {
+            throw new IllegalArgumentException("capacity must be a positive integer.");
         }
 
         this.capacity = capacity;
-        this.remainingCapacity = capacity;
-        this.buffer = new short[capacity][numClicks];
+        this.workItems = new WorkItem[capacity];
+        for (int i = 0; i < capacity; i++) {
+            this.workItems[i] = new WorkItem();
+        }
     }
 
     /**
-     * Sets the {@code static} {@link #numClicks number of clicks} for all {@code WorkBatch} instances.
+     * Gets the configured {@link #capacity} of this batch. Under most circumstances, this will be
+     * equal to {@link #BATCH_SIZE}.
      *
+     * @return The capacity of the batch.
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} field access.
+     * @threading Thread-safe, as it accesses a constant field.
+     * @memory Does not allocate.
+     */
+    public int getCapacity() {
+        return capacity;
+    }
+
+    /**
+     * Sets the static {@link #numClicks} value for all {@code WorkBatch} and {@link WorkItem}
+     * instances. This must be called once at application startup before any instances are created.
+     * 
      * <p>
-     * This method must be called once during application initialization before any batches are created.
-     * It ensures all {@link #WorkBatch(int) pre-allocated} {@link #buffer buffers} have the correct
-     * dimensions for the puzzle being solved.
+     * Since this method is meant to be called only once at startup by a single thread, we could
+     * synchronize the method or use other concurrency controls to enforce single-threaded access if
+     * needed, though we avoid doing so here for simplicity.
      * </p>
      *
-     * @param numClicks The number of elements in each combination array.
+     * @param numClicks The number of clicks in a full combination.
      * @throws IllegalArgumentException if {@code numClicks} is not a positive integer.
-     * @since 2025.07 - Pre-allocation of {@code WorkBatch} Buffers
-     * @performance {@code O(1)} for field assignment.
-     * @threading Not thread-safe (at the moment); must be called once before any instances are created.
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} assignment.
+     * @threading Not thread-safe. Must be called from a single thread during initialization.
      * @memory Does not allocate.
      */
     public static void setNumClicks(int numClicks) {
@@ -287,349 +768,253 @@ public final class WorkBatch {
     }
 
     /**
-     * Resets the {@code static} {@link #numClicks number of clicks} to zero.
+     * Provides the class with the pre-computed arrays of {@link #ODD_CLICK_INDICES odd} and
+     * {@link #EVEN_CLICK_INDICES even} final click indices. This must be called once at startup
+     * after {@link #setNumClicks(int)}.
+     *
+     * @param odd  The array of indices adjacent to the first {@code true} cell.
+     * @param even The array of indices not adjacent to the first {@code true} cell.
+     * @throws IllegalStateException    if {@link #numClicks} has not been set.
+     * @throws IllegalArgumentException if arrays are {@code null}, empty, or have invalid lengths.
+     * @see #getEvenClickIndices()
+     * @see #getOddClickIndices()
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(even.length)} to check for uniqueness.
+     * @threading Not thread-safe. Must be called from a single thread during initialization.
+     * @memory Allocates a {@link ShortAVLTreeSet} for the uniqueness check.
+     */
+    public static void setClickIndexArrays(short[] odd, short[] even) {
+        if (numClicks <= 0) {
+            throw new IllegalStateException(
+                    "numClicks must be set before setting click index arrays.");
+        }
+
+        if (odd == null || even == null) {
+            throw new IllegalArgumentException("Click index arrays cannot be null.");
+        } else if (odd.length == 0 || even.length == 0) {
+            throw new IllegalArgumentException("Click index arrays cannot be empty.");
+        } else if (odd.length > 6) {
+            throw new IllegalArgumentException(
+                    "Odd click indices array cannot have more than 6 elements.");
+        } else if (even.length != Grid.NUM_CELLS - odd.length) {
+            throw new IllegalArgumentException(
+                    "Even click indices array length must equal Grid.NUM_CELLS - odd.length.");
+        }
+
+        // Check that the arrays contain unique indices
+        ShortSortedSet indexSet = new ShortAVLTreeSet(odd);
+        for (short key : even) {
+            if (!indexSet.add(key)) {
+                throw new IllegalArgumentException(
+                        "Duplicate found in odd and even click indices: " + key);
+            }
+        }
+
+        ODD_CLICK_INDICES = odd;
+        EVEN_CLICK_INDICES = even;
+    }
+
+    /**
+     * Returns the {@code static} array of odd-adjacency click indices.
      * 
-     * <p>
-     * This method is intended for testing purposes only. It allows tests to reset the static state of
-     * the {@code WorkBatch} class between test cases.
-     * </p>
-     * 
-     * @see #setNumClicks(int)
-     * @since 2025.11 - Testing Support
-     * @performance {@code O(1)} for field assignment.
-     * @threading Not thread-safe; intended for single-threaded test setups only.
+     * @return The {@link #ODD_CLICK_INDICES} array, or {@code null} if not initialized.
+     * @see #getEvenClickIndices()
+     * @see #setClickIndexArrays(short[], short[])
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} field access.
+     * @threading Thread-safe after initialization.
      * @memory Does not allocate.
      */
-    static void resetNumClicks() {
-        numClicks = 0;
+    public static short[] getOddClickIndices() {
+        return ODD_CLICK_INDICES;
     }
 
     /**
-     * Adds a combination to the batch by {@link System#arraycopy(Object, int, Object, int, int)
-     * copying} it into the {@link #buffer internal buffer}.
-     *
-     * <p>
-     * This method is a hot path, optimized to be allocation-free. It uses {@code System.arraycopy()} to
-     * transfer the combination data into the {@link #WorkBatch(int) pre-allocated} {@code buffer},
-     * avoiding the overhead of creating new array objects.
-     * </p>
-     *
-     * @param source The combination array to add. The caller must ensure this is not {@code null}.
-     * @return {@code true} if the combination was added, or {@code false} if the batch is full.
-     * @see #isFull()
-     * @see #setNumClicks(int)
-     * @see CombinationGeneratorTask
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(numClicks)} array copying, {@code O(1)} capacity checks and pointer
-     *              updates.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate; reuses the pre-allocated arrays in {@code buffer}.
+     * Returns the {@code static} array of even-adjacency click indices.
+     * 
+     * @return The {@link #EVEN_CLICK_INDICES} array, or {@code null} if not initialized.
+     * @see #getOddClickIndices()
+     * @see #setClickIndexArrays(short[], short[])
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} field access.
+     * @threading Thread-safe after initialization.
+     * @memory Does not allocate.
      */
-    public boolean add(short[] source) {
-        if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
-        {
-            return false;
-        }
-        System.arraycopy(source, 0, buffer[tail], 0, source.length);
-        tail = (tail + 1) % capacity;
-        remainingCapacity--;
-        return true;
+    public static short[] getEvenClickIndices() {
+        return EVEN_CLICK_INDICES;
     }
 
     /**
-     * Adds a combination by assembling it directly into the {@link #buffer internal buffer} from a
-     * {@code prefix} and a final element.
-     *
+     * Gets the {@code static} {@link #numClicks} value.
+     * 
+     * @return The number of clicks per combination.
+     * @see #setNumClicks(int)
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)} field access.
+     * @threading Thread-safe after initialization.
+     * @memory Does not allocate.
+     */
+    public static int getNumClicks() {
+        return numClicks;
+    }
+
+    /**
+     * Resets {@code static} fields to their default values. This method is intended strictly for
+     * testing purposes to ensure test isolation.
+     * 
+     * <p>
+     * Since this method modifies {@code static} state, it should only be called in single-threaded
+     * test setups to avoid concurrency issues. We could consider adding synchronization or other
+     * concurrency controls if needed, but for simplicity, we leave it as is.
+     * </p>
+     * 
+     * @see #getEvenClickIndices()
+     * @see #getOddClickIndices()
+     * @see #getNumClicks()
+     * @see #setClickIndexArrays(short[], short[])
+     * @see #setNumClicks(int)
+     * @since 2025.11 - WorkBatchTest Refactor
+     * @performance {@code O(1)} assignments.
+     * @threading Not thread-safe. Should only be called in single-threaded test setups.
+     * @memory Does not allocate.
+     */
+    static void resetForTest() {
+        numClicks = -1;
+        ODD_CLICK_INDICES = null;
+        EVEN_CLICK_INDICES = null;
+    }
+
+    /**
+     * Adds a new work range to the batch.
+     * 
      * <p>
      * This highly optimized method is a critical performance enhancement for the
-     * {@link CombinationGeneratorTask}. It allows the generator to construct the final combination at
-     * the leaf nodes of its recursion tree without allocating a temporary array. Instead, the
-     * {@code prefix} is {@link System#arraycopy(Object, int, Object, int, int) copied} and the last
-     * element is appended directly into the target slot in the {@code buffer}, eliminating an
-     * intermediate array copy and allocation.
+     * {@link CombinationGeneratorTask generator} threads. It checks if the batch {@link #isFull()
+     * is full} and, if not, retrieves the next available {@link WorkItem} from the pre-allocated
+     * pool. It then initializes the item using the provided {@code prefix}, {@code prefixLength},
+     * {@code prefixParity}, and {@code start} parameters. Since the range of combinations needs to
+     * toggle the first {@code true} cell an odd number of times, the method selects the opposite
+     * click indices array based on the {@code prefixParity}. All of this is done without any memory
+     * allocations, ensuring minimal GC pressure in the hot path.
      * </p>
      *
-     * @param prefix       The prefix of the combination. The caller must ensure this is not
-     *                     {@code null}.
-     * @param prefixLength The length of the prefix to copy.
-     * @param lastElement  The final element to append to the combination.
-     * @return {@code true} if the combination was added, or {@code false} if the batch is full.
-     * @see #isFull()
-     * @see #setNumClicks(int)
-     * @see CombinationGeneratorTask
-     * @since 2025.07 - Assembling Combinations in the {@code WorkBatch}
-     * @performance {@code O(1)} array access in {@link #buffer}, {@code O(prefixLength)} array copy.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate; reuses the pre-allocated arrays in {@code buffer}.
+     * @param prefix       The common combination prefix.
+     * @param prefixLength The length of the prefix.
+     * @param prefixParity {@code true} if the prefix has odd parity, determining which final click
+     *                     array to use ({@link #EVEN_CLICK_INDICES} for odd parity,
+     *                     {@link #ODD_CLICK_INDICES} for even).
+     * @param start        The starting index within the final click array.
+     * @return {@code true} if the work item was added, {@code false} if the batch is full.
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(prefixLength)} due to the
+     *              {@link System#arraycopy(Object, int, Object, int, int) array copy} in
+     *              {@link WorkItem#set(short[], int, short[], int)}.
+     * @threading Not thread-safe.
+     * @memory Does not allocate.
      */
-    public final boolean add(short[] prefix, int prefixLength, short lastElement) {
-        if (remainingCapacity == 0) // Check remaining capacity instead of size to avoid deoptimizations
-        {
+    public boolean addWork(short[] prefix, int prefixLength, boolean prefixParity, int start) {
+        if (isFull()) {
             return false;
         }
-        final short[] dest = buffer[tail];
-
-        // OPTIMIZATION: Removed null check - pre-allocation ensures dest is never null
-        // Use native System.arraycopy for optimal performance
-        System.arraycopy(prefix, 0, dest, 0, prefixLength);
-        dest[prefixLength] = lastElement;
-
-        tail = (tail + 1) % capacity;
-        remainingCapacity--;
+        WorkItem item = workItems[workItemCount++];
+        short[] finalClicks = prefixParity ? EVEN_CLICK_INDICES : ODD_CLICK_INDICES;
+        item.set(prefix, prefixLength, finalClicks, start);
         return true;
     }
 
     /**
-     * Adds a bulk of combinations to the batch from a source array of final clicks.
+     * Returns the reusable, allocation-free iterator over the {@link WorkItem}s in this batch.
      *
-     * <p>
-     * This is a high-performance method designed for the leaf-generation hot path. It takes a common
-     * {@code prefix} and a source array of {@code lastElements} and copies them into the internal
-     * buffer in a tight loop. This is significantly faster than adding them one by one, as it avoids
-     * repeated capacity checks and method call overhead.
-     * </p>
-     *
-     * @param prefix The common prefix for all combinations.
-     * @param prefixLength The length of the prefix.
-     * @param lastElements The array of final clicks to append.
-     * @param offset The starting offset in the {@code lastElements} array.
-     * @param count The number of combinations to add, never less than 1.
-     * @return The number of combinations successfully added.
-     * @since 2025.10 - Bulk Add Optimization
-     * @performance {@code O(count × prefixLength)} for array copying, {@code O(1)} for capacity checks
-     *              outside the loop.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate; reuses the pre-allocated arrays in {@code buffer}.
+     * @return The single {@link BatchIterator} for this instance.
+     * @since 2025.11 - Range-Based WorkItem Refactor
+     * @performance {@code O(1)}.
+     * @threading Not thread-safe.
+     * @memory Does not allocate.
      */
-    public int addBulk(short[] prefix, int prefixLength, short[] lastElements, int offset, int count) {
-        int added = 0;
-        for (int i = 0; i < count; i++) {
-            // Optimization: Remove the capacity check from inside the loop to prevent de-optimizations
-            final short[] dest = buffer[tail];
-            System.arraycopy(prefix, 0, dest, 0, prefixLength);
-            dest[prefixLength] = lastElements[offset + i];
-            tail = (tail + 1) % capacity;
-            remainingCapacity--;
-            added++;
-        }
-        return added;
+    @Override
+    public Iterator<WorkItem> iterator() {
+        iterator.reset();
+        return iterator;
     }
 
     /**
-     * Retrieves the next combination from the batch without allocating a new array.
-     *
-     * <p>
-     * This method returns a direct reference to the array within the internal {@link #buffer}. The
-     * returned array is not {@code null}ed out in the buffer and will be overwritten by subsequent
-     * {@link #add(short[], int, short) add} operations once the circular buffer wraps around. This is a
-     * key performance feature, but it means the caller must process the returned array before it is
-     * overwritten.
-     * </p>
-     *
-     * @return The next combination array, or {@code null} if the batch is empty.
-     * @see #buffer
-     * @see #add(short[], int, short)
-     * @see #clear()
-     * @see #isEmpty()
-     * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} for polling operations.
-     * @threading This method is <b>not</b> thread-safe, as each instance of WorkBatch is intended to be
-     *            used by one thread at a time.
-     * @memory The memory footprint is fixed based on the capacity and {@link #numClicks}, minimizing
-     *         dynamic allocations. The method does not allocate any new arrays, instead reusing the
-     *         pre-allocated arrays in {@link #buffer}.
-     */
-    public short[] poll() {
-        if (remainingCapacity == capacity) // Check remaining capacity instead of size to avoid deoptimizations
-        {
-            return null;
-        }
-
-        short[] result = buffer[head];
-        head = (head + 1) % capacity;
-        remainingCapacity++;
-        return result;
-    }
-
-    /**
-     * Checks if the batch contains no combinations.
-     *
+     * Checks if the batch is empty (contains no {@link WorkItem}s).
+     * 
      * @return {@code true} if the batch is empty, {@code false} otherwise.
-     * @see #capacity
-     * @see #remainingCapacity
+     * @see #workItemCount
      * @see #isFull()
      * @see #size()
      * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} retrievals and comparison.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
+     * @performance {@code O(1)} retrieval.
+     * @threading Not thread-safe.
      * @memory Does not allocate.
      */
     public boolean isEmpty() {
-        return remainingCapacity == capacity;
+        return workItemCount == 0;
     }
 
     /**
-     * Returns the number of combinations currently stored in the batch.
-     *
-     * <p>
-     * This is calculated from the {@link #capacity} and {@link #remainingCapacity} to avoid the
-     * potential for JIT deoptimizations associated with a separate, mutable {@code size} field.
-     * </p>
-     *
-     * @return The number of combinations in the batch.
+     * Checks if the batch is full (can hold no more {@link WorkItem}s).
+     * 
+     * @return {@code true} if the batch is full, {@code false} otherwise.
+     * @see #capacity
+     * @see #workItemCount
+     * @see #isEmpty()
+     * @since 2025.07 - Remaining Capacity Tracking
+     * @performance {@code O(1)} retrievals and comparison.
+     * @threading Not thread-safe.
+     * @memory Does not allocate.
+     */
+    public boolean isFull() {
+        return workItemCount == capacity;
+    }
+
+    /**
+     * Returns the number of {@link WorkItem}s currently in the batch.
+     * 
+     * @return The current number of items in the batch.
+     * @since 2025.07 - Remaining Capacity Tracking
+     * @see #workItemCount
      * @see #isEmpty()
      * @see #isFull()
-     * @since 2025.07 - Remaining Capacity Tracking
-     * @performance {@code O(1)} calculation.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
+     * @performance {@code O(1)} retrieval.
+     * @threading Not thread-safe.
      * @memory Does not allocate.
      */
     public int size() {
-        return capacity - remainingCapacity; // Calculate size based on remaining capacity
-    }
-
-    /**
-     * Returns the number of additional combinations that can be added to the batch before it is
-     * {@link #isFull() full}.
-     * 
-     * @return The {@link #remainingCapacity remaining capacity} of the batch.
-     * @see #capacity
-     * @see #isEmpty()
-     * @since 2025.10 - Bulk Add Optimization
-     * @performance {@code O(1)} field access.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate.
-     */
-    public int remainingCapacity() {
-        return remainingCapacity;
+        return workItemCount;
     }
 
     /**
      * Resets the batch to an empty state, making it ready for reuse.
      *
      * <p>
-     * This {@code O(1)} operation simply resets the internal pointers and counters. It does not modify
-     * the underlying {@link #buffer} array, allowing the batch to be efficiently recycled without any
-     * deallocation or reallocation.
+     * This method is called by a {@link TestClickCombination monkey} after it has finished
+     * processing a batch. It iterates through the active {@link WorkItem}s and
+     * {@link WorkItem#clear() clears} them, then resets the {@link #workItemCount} and the
+     * {@link #iterator}.
      * </p>
      * 
-     * @see #WorkBatch(int)
+     * <p>
+     * Since the {@code WorkItem}s will be overwritten on the next
+     * {@link #addWork(short[], int, boolean, int) add}, the loop that clears each item may be
+     * redundant. A future optimization could consider removing this loop, though it has been left
+     * in for safety.
+     * </p>
+     * 
      * @since 2025.07 - {@code WorkBatch} Introduction
-     * @performance {@code O(1)} resets.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate or deallocate.
+     * @performance {@code O(workItemCount)} iteration to clear items.
+     * @threading Not thread-safe.
+     * @memory Does not allocate.
      */
     public void clear() {
-        head = 0;
-        tail = 0;
-        remainingCapacity = capacity; // Reset remaining capacity to full
-    }
-
-    /**
-     * Checks if the batch has reached its {@link #capacity maximum capacity}.
-     *
-     * @return {@code true} if the batch is full, {@code false} otherwise.
-     * @see #capacity
-     * @see #isEmpty()
-     * @see #size()
-     * @since 2025.07 - Remaining Capacity Tracking
-     * @performance {@code O(1)} retrievals and comparison.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate.
-     */
-    public boolean isFull() {
-        return remainingCapacity == 0;
-    }
-
-    /**
-     * Returns the {@link #capacity maximum number of combinations} this batch can hold. Often, this is
-     * the same as {@link #BATCH_SIZE the batch size}.
-     * 
-     * @return The batch capacity.
-     * @see #WorkBatch(int)
-     * @see #isEmpty()
-     * @see #isFull()
-     * @see #size()
-     * @since 2025.10 - Reorganize Constants for Clarity
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe; returns a {@code final} field.
-     * @memory Does not allocate.
-     */
-    public int getCapacity() {
-        return capacity;
-    }
-
-    /**
-     * Returns a {@link String} representation of the batch for debugging purposes.
-     * 
-     * @return A string summarizing the batch's state, including its size, capacity, and the first
-     *         combination (if not empty).
-     * @see Arrays#toString(short[])
-     * @since 2025.11 - WorkBatch toString Introduction
-     * @performance {@code O(numClicks)} for converting the first combination to a string.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Allocates a small string for the representation.
-     */
-    @Override
-    public String toString() {
-        return "WorkBatch{size=" + size() + ", capacity=" + capacity + ", firstCombo=" + (isEmpty() ? "null" : Arrays.toString(buffer[head])) + "}";
-    }
-
-    /**
-     * Compares this batch to another for equality based on their contents. Two batches are equal if they
-     * have the same size, capacity, and identical combinations in the same order.
-     * 
-     * @param obj The object to compare against.
-     * @return {@code true} if the batches have the same size, capacity, and identical combinations in
-     *         the same order; {@code false} otherwise.
-     * @see Arrays#equals(short[], short[])
-     * @since 2025.11 - WorkBatch equals Implementation
-     * @performance {@code O(n × numClicks)} in the worst case, where {@code n} is the number of
-     *              combinations in the batch.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate.
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
+        // TODO: Consider removing the loop, since WorkItems will be overwritten on add.
+        // This loop is a safeguard but may be unnecessary if the logic guarantees
+        // that used WorkItems are always overwritten before being read.
+        for (int i = 0; i < workItemCount; i++) {
+            workItems[i].clear();
         }
-        if (!(obj instanceof WorkBatch)) {
-            return false;
-        }
-        WorkBatch other = (WorkBatch) obj;
-        if (this.size() != other.size() || this.capacity != other.capacity) {
-            return false;
-        }
-        for (int i = 0; i < this.size(); i++) {
-            short[] thisCombo = this.buffer[(this.head + i) % this.capacity];
-            short[] otherCombo = other.buffer[(other.head + i) % other.capacity];
-            if (!Arrays.equals(thisCombo, otherCombo)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Computes a hash code for the batch based on its contents, size, and capacity.
-     * 
-     * @return The computed hash code.
-     * @see Arrays#hashCode(short[])
-     * @since 2025.11 - WorkBatch hashcode Implementation
-     * @performance {@code O(n × numClicks)}, where {@code n} is the number of combinations in the
-     *              batch.
-     * @threading Not thread-safe; must be accessed by only one thread at a time.
-     * @memory Does not allocate.
-     */
-    @Override
-    public int hashCode() {
-        int result = Integer.hashCode(size());
-        result = 31 * result + Integer.hashCode(capacity);
-        for (int i = 0; i < size(); i++) {
-            short[] combo = buffer[(head + i) % capacity];
-            result = 31 * result + Arrays.hashCode(combo);
-        }
-        return result;
+        workItemCount = 0;
+        iterator.reset();
     }
 }

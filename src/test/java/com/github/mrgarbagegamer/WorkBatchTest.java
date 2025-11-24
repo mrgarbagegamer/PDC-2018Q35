@@ -1,33 +1,43 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.TestingUtils.generateClickIndices;
+import static com.github.mrgarbagegamer.util.TestingUtils.generateEvenClickIndices;
+import static com.github.mrgarbagegamer.util.TestingUtils.generateOddClickIndices;
 import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomCombination;
+import static com.github.mrgarbagegamer.util.TestingUtils.getFinalClicks;
+import static com.github.mrgarbagegamer.util.TestingUtils.getPrefixParity;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Random;
+
+import com.github.mrgarbagegamer.WorkBatch.WorkItem;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
-import java.util.Random;
-
 class WorkBatchTest {
 
     static final Random random = new Random();
-    
+
     /**
      * Resets the state after each test to ensure independence between tests and between runs.
      */
     @AfterEach
     void resetState() {
         // Reset numClicks to default after each test
-        WorkBatch.resetNumClicks();
+        WorkBatch.resetForTest();
 
         // Reset random seed
         random.setSeed(System.currentTimeMillis());
@@ -35,707 +45,1213 @@ class WorkBatchTest {
 
     /**
      * Tests the {@link WorkBatch#setNumClicks(int)} method to ensure it throws an
-     * IllegalArgumentException when provided with invalid input (non-positive integers).
+     * IllegalArgumentException when provided with a negative input.
      */
     @Test
-    void testSetNumClicksInvalidInput() {
+    void testSetNumClicksNegativeInput() {
         assertThrows(IllegalArgumentException.class, () -> {
             WorkBatch.setNumClicks(-1);
         }, "Expected IllegalArgumentException when setting numClicks to negative number.");
-        assertThrows(IllegalArgumentException.class, () -> {
-            WorkBatch.setNumClicks(0);
-        }, "Expected IllegalArgumentException when setting numClicks to zero.");
+        assertEquals(-1, WorkBatch.getNumClicks(),
+                "numClicks should remain unchanged after exception.");
     }
 
     /**
-     * Tests the {@link WorkBatch#setNumClicks(int)} method to ensure it accepts valid positive integer
-     * input without throwing exceptions and correctly sets the numClicks field.
-     * 
-     * This method assumes that the {@link WorkBatch#setNumClicks(int)}, {@link WorkBatch#isFull()},
-     * {@link WorkBatch#add(short[])}, and {@link WorkBatch#poll()} methods are functioning correctly.
+     * Tests the {@link WorkBatch#setNumClicks(int)} method to ensure it throws an
+     * IllegalArgumentException when provided with a zero input.
      */
     @Test
-    void testSetNumClicks() {
-        final int positiveNumClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
+    void testSetNumClicksZeroInput() {
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setNumClicks(0);
+        }, "Expected IllegalArgumentException when setting numClicks to zero.");
+        assertEquals(-1, WorkBatch.getNumClicks(),
+                "numClicks should remain unchanged after exception.");
+    }
 
+    /**
+     * Tests the {@link WorkBatch#setNumClicks(int)} method to ensure it correctly sets numClicks
+     * when provided with a valid positive input.
+     * 
+     * This test assumes that the {@link WorkBatch#getNumClicks()} method is functioning correctly.
+     */
+    @Test
+    void testSetNumClicksValidInput() {
+        final int validNumClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
+        WorkBatch.setNumClicks(validNumClicks);
+        assertEquals(validNumClicks, WorkBatch.getNumClicks(),
+                "numClicks should be set to the valid input value.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalStateException when numClicks has not been set prior to calling it.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysUnsetNumClicks() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] odd = {0, 1, 2};
+        final short[] even = {3, 4, 5};
+
+        assertThrows(IllegalStateException.class, () -> {
+            WorkBatch.setClickIndexArrays(odd, even);
+        }, "Expected IllegalStateException when setting click index arrays before numClicks is set.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalArgumentException when the odd click indices array is null.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysNullOddIndices() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] even = {0, 1, 2};
+        WorkBatch.setNumClicks(3);
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setClickIndexArrays(null, even);
+        }, "Expected IllegalArgumentException when odd click indices array is null.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalArgumentException when the even click indices array is null.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysNullEvenIndices() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] odd = {0, 1, 2};
+        WorkBatch.setNumClicks(3);
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setClickIndexArrays(odd, null);
+        }, "Expected IllegalArgumentException when even click indices array is null.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalArgumentException when the odd click indices array is empty.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysEmptyOddIndices() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] odd = {};
+        final short[] even = {0, 1, 2};
+        WorkBatch.setNumClicks(3);
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setClickIndexArrays(odd, even);
+        }, "Expected IllegalArgumentException when odd click indices array is empty.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalArgumentException when the even click indices array is empty.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysEmptyEvenIndices() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] odd = {0, 1, 2};
+        final short[] even = {};
+        WorkBatch.setNumClicks(3);
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setClickIndexArrays(odd, even);
+        }, "Expected IllegalArgumentException when even click indices array is empty.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalArgumentException when the odd click indices array has more than 6 elements.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysTooManyOddIndices() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] odd = {0, 1, 2, 3, 4, 5, 6};
+        final short[] even = {7, 8, 9};
+        WorkBatch.setNumClicks(10);
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setClickIndexArrays(odd, even);
+        }, "Expected IllegalArgumentException when odd.length > 6.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalArgumentException when the even click indices array length does not equal
+     * Grid.NUM_CELLS - odd.length.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysEvenLengthMismatch() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] odd = {0, 1, 2};
+        final short[] even = {3, 4};
+        WorkBatch.setNumClicks(6);
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setClickIndexArrays(odd, even);
+        }, "Expected IllegalArgumentException when even.length != Grid.NUM_CELLS - odd.length.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it throws
+     * an IllegalArgumentException when the odd click indices array is null.
+     */
+    @Test
+    void testSetClickIndexArraysDuplicateIndices() {
+        final short[] previousOdd = WorkBatch.getOddClickIndices();
+        final short[] previousEven = WorkBatch.getEvenClickIndices();
+
+        final short[] odd = {0, 1, 2};
+        // This array must contain at least one duplicate with the odd array ()
+        final short[] even = generateRandomCombination(Grid.NUM_CELLS - odd.length, 2,
+                Grid.NUM_CELLS - 1);
+        WorkBatch.setNumClicks(6);
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            WorkBatch.setClickIndexArrays(odd, even);
+        }, "Expected IllegalArgumentException when there are duplicate indices between odd and even arrays.");
+
+        // Ensure the odd and even click indices remain the same.
+        assertEquals(previousOdd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should remain unchanged after exception.");
+        assertEquals(previousEven, WorkBatch.getEvenClickIndices(),
+                "Even click indices should remain unchanged after exception.");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#setClickIndexArrays(short[], short[])} method to ensure it
+     * correctly sets the odd and even click index arrays when provided with valid inputs.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#getOddClickIndices()}, and {@link WorkBatch#getEvenClickIndices()} methods
+     * are functioning correctly.
+     */
+    @Test
+    void testSetClickIndexArraysValidInput() {
+        final short cell = (short) random.nextInt(0, Grid.NUM_CELLS);
+        final short[] odd = generateOddClickIndices(cell);
+
+        // Generate even indices as all the non-adjacent cells to ensure no duplicates
+        final short[] even = generateEvenClickIndices(cell);
+
+        WorkBatch.setNumClicks(3); // This doesn't matter
         assertDoesNotThrow(() -> {
-            WorkBatch.setNumClicks(positiveNumClicks);
-        }, "Did not expect exception when setting numClicks to positive number.");
+            WorkBatch.setClickIndexArrays(odd, even);
+        }, "Setting valid click index arrays should not throw an exception.");
 
-        // Verify that numClicks is set correctly by creating a WorkBatch and checking its behavior
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch batch = new WorkBatch(capacity);
-
-        short[] testCombination = generateRandomCombination(positiveNumClicks);
-        batch.add(testCombination);
-
-        short[] polledCombination = batch.poll();
-        assertEquals(positiveNumClicks, polledCombination.length,
-            "Polled combination should have length equal to the set numClicks.");
+        assertArrayEquals(odd, WorkBatch.getOddClickIndices(),
+                "Odd click indices should match the set array.");
+        assertArrayEquals(even, WorkBatch.getEvenClickIndices(),
+                "Even click indices should match the set array.");
     }
 
     /**
      * Tests the {@link WorkBatch#WorkBatch(int) single-argument} and {@link WorkBatch#WorkBatch()
-     * no-argument} constructors to ensure they throws an IllegalStateException if numClicks is not
-     * initialized before creating a WorkBatch instance.
+     * no-argument} constructors to ensure they throw IllegalStateException when numClicks has not
+     * been initialized.
      */
     @Test
     void testConstructorNumClicksNotInitialized() {
         assertThrows(IllegalStateException.class, () -> {
             new WorkBatch(10);
-        }, "Expected IllegalStateException from single-argument constructor when numClicks is not initialized.");
+        }, "Single-arg constructor should throw IllegalStateException if numClicks is not initialized");
         assertThrows(IllegalStateException.class, () -> {
             new WorkBatch();
-        }, "Expected IllegalStateException from no-argument constructor when numClicks is not initialized.");
+        }, "No-arg constructor should throw IllegalStateException if numClicks is not initialized");
     }
 
     /**
-     * Tests the {@link WorkBatch#WorkBatch(int)} constructor to ensure it throws an
-     * IllegalArgumentException when provided with invalid capacity (zero or negative).
+     * Tests the {@link WorkBatch#WorkBatch(int) single-argument} constructor to ensure it throws
+     * IllegalArgumentException when provided with a non-positive capacity.
      * 
-     * This method assumes that {@link WorkBatch#setNumClicks(int)} is functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
      */
     @Test
     void testConstructorInvalidCapacity() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        WorkBatch.setNumClicks(numClicks);
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            new WorkBatch(0);
-        }, "Expected IllegalArgumentException when initializing WorkBatch with zero capacity.");
+        WorkBatch.setNumClicks(4);
         assertThrows(IllegalArgumentException.class, () -> {
             new WorkBatch(-5);
-        }, "Expected IllegalArgumentException when initializing WorkBatch with negative capacity.");
+        }, "Single-arg constructor should throw IllegalArgumentException if capacity is negative");
+        assertThrows(IllegalArgumentException.class, () -> {
+            new WorkBatch(0);
+        }, "Single-arg constructor should throw IllegalArgumentException if capacity is zero");
     }
 
     /**
      * Tests the {@link WorkBatch#WorkBatch(int) single-argument} and {@link WorkBatch#WorkBatch()
-     * no-argument} constructors to ensure they correctly initialize WorkBatch instances when provided
-     * with valid input.
+     * no-argument} constructors to ensure they correctly create WorkBatch instances when provided
+     * with valid inputs.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#getCapacity()}, {@link WorkBatch#size()}, {@link WorkBatch#isEmpty()},
-     * {@link WorkBatch#isFull()}, {@link WorkBatch#add(short[])}, and {@link WorkBatch#poll()} are
-     * functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#setClickIndexArrays(short[], short[])}, {@link WorkBatch#getCapacity()},
+     * {@link WorkBatch#size()}, {@link WorkBatch#isEmpty()}, and {@link WorkBatch#isFull()} methods
+     * are functioning correctly.
      */
     @Test
-    void testConstructor() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 1000);
+    void testConstructorValidInputs() {
+        WorkBatch.setNumClicks(4);
 
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batchSingleArg = assertDoesNotThrow(() -> new WorkBatch(capacity),
-            "Did not expect exception when initializing WorkBatch with valid capacity and numClicks.");
-        WorkBatch batchNoArg = assertDoesNotThrow(() -> new WorkBatch(),
-            "Did not expect exception when initializing WorkBatch with no-argument constructor after setting numClicks.");
+        final short[][] clickIndices = generateClickIndices();
+        WorkBatch.setClickIndexArrays(clickIndices[0], clickIndices[1]);
+
+        final WorkBatch batchSingleArg = assertDoesNotThrow(() -> {
+            return new WorkBatch(10);
+        }, "Single-arg constructor should not throw when numClicks and arrays are initialized and capacity is valid");
+        final WorkBatch batchNoArg = assertDoesNotThrow(() -> {
+            return new WorkBatch();
+        }, "No-arg constructor should not throw when numClicks and arrays are initialized");
 
         // Test the capacity of the batches
-        assertEquals(capacity, batchSingleArg.getCapacity(),
-            "Batch capacity should match the provided capacity when created with the single-argument constructor.");
+        assertEquals(10, batchSingleArg.getCapacity(),
+                "Batch capacity should match the provided value when created with single-arg constructor");
         assertEquals(WorkBatch.BATCH_SIZE, batchNoArg.getCapacity(),
-            "Batch capacity should match the default BATCH_SIZE when created with the no-argument constructor.");
+                "Batch capacity should match the default value when created with no-arg constructor");
 
         // Test the internal state of the batches
         assertEquals(0, batchSingleArg.size(),
-            "Newly created WorkBatch (single-argument) should have size 0.");
+                "Newly created batch from single-arg constructor should have size 0");
         assertEquals(0, batchNoArg.size(),
-            "Newly created WorkBatch (no-argument) should have size 0.");
+                "Newly created batch from no-arg constructor should have size 0");
 
-        assertEquals(capacity, batchSingleArg.remainingCapacity(),
-            "Remaining capacity of newly created WorkBatch (single-argument) should equal its capacity.");
-        assertEquals(WorkBatch.BATCH_SIZE, batchNoArg.remainingCapacity(),
-            "Remaining capacity of newly created WorkBatch (no-argument) should equal its capacity.");
+        assertTrue(batchSingleArg.isEmpty(),
+                "Newly created batch from single-arg constructor should be empty");
+        assertTrue(batchNoArg.isEmpty(),
+                "Newly created batch from no-arg constructor should be empty");
 
         assertFalse(batchSingleArg.isFull(),
-            "Newly created WorkBatch (single-argument) should not be full.");
+                "Newly created batch from single-arg constructor should not be full");
         assertFalse(batchNoArg.isFull(),
-            "Newly created WorkBatch (no-argument) should not be full.");
+                "Newly created batch from no-arg constructor should not be full");
     }
 
     /**
-     * Tests the {@link WorkBatch#add(short[])} method to ensure it returns false when attempting to add
-     * a combination to a full WorkBatch.
+     * Tests the {@link WorkBatch#addWork(short[], int, boolean, int)} method to ensure it returns
+     * false when attempting to add work to a full WorkBatch.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)} and
-     * {@link WorkBatch#isFull()} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkBatch#setClickIndexArrays(short[], short[])}, and {@link WorkBatch#isFull()}
+     * methods are functioning correctly, and that
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} correctly adds work when the batch is
+     * not full.
      */
     @Test
-    void testAddShortArrayWhenFull() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
+    void testAddWorkWhenFull() {
+        final Random random = new Random();
+        WorkBatch.setNumClicks(4);
+
+        final short[][] clickIndices = generateClickIndices();
+        WorkBatch.setClickIndexArrays(clickIndices[0], clickIndices[1]);
+
+        final WorkBatch batch = new WorkBatch(2);
+
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
 
         // Fill the batch to capacity
         while (!batch.isFull()) {
-            short[] testCombination = generateRandomCombination(numClicks);
-            assertTrue(batch.add(testCombination), "Adding to a non-full WorkBatch should return true.");
+            final short[] prefix = generateRandomCombination(3);
+            final boolean parity = getPrefixParity(prefix, firstTrueCell);
+            final int start = prefix[prefix.length - 1] + 1;
+            assertTrue(batch.addWork(prefix, prefix.length, parity, start),
+                    "Should be able to add work item when batch is not full");
         }
 
-        // Now the batch is full, adding another combination should return false
-        short[] extraCombination = generateRandomCombination(numClicks);
+        // Now that the batch is full, adding another work item should fail
+        final short[] extraPrefix = generateRandomCombination(3);
+        final boolean extraParity = getPrefixParity(extraPrefix, firstTrueCell);
+        final int start = extraPrefix[extraPrefix.length - 1] + 1;
 
-        assertFalse(batch.add(extraCombination), "Adding to a full WorkBatch should return false.");
+        assertFalse(batch.addWork(extraPrefix, extraPrefix.length, extraParity, start),
+                "Should not be able to add work item when batch is full");
     }
 
     /**
-     * Tests the {@link WorkBatch#add(short[])} method to ensure it correctly adds a combination to a
-     * non-full WorkBatch.
-     * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)} and
-     * {@link WorkBatch#isFull()} are functioning correctly.
+     * Tests the {@link WorkItem#WorkItem() no-argument} constructor to ensure it throws
+     * IllegalStateException when numClicks has not been initialized.
      */
     @Test
-    void testAddShortArray() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
-
-        short[] testCombination = generateRandomCombination(numClicks);
-        assertTrue(batch.add(testCombination), "Adding to a non-full WorkBatch should return true.");
+    void testWorkItemConstructorUnsetNumClicks() {
+        assertThrows(IllegalStateException.class, () -> {
+            new WorkItem();
+        }, "WorkItem constructor should throw IllegalStateException if numClicks is not initialized");
     }
 
     /**
-     * Tests the {@link WorkBatch#add(short[], int, short)} method to ensure it returns false when
-     * attempting to add a combination to a full WorkBatch.
+     * Tests the {@link WorkItem#WorkItem() no-argument} constructor to ensure it correctly
+     * initializes a WorkItem instance when numClicks has been set.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)} and
-     * {@link WorkBatch#isFull()} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#getNumClicks()}, {@link WorkItem#getPrefix()},
+     * {@link WorkItem#getPrefixLength()}, {@link WorkItem#getFinalClicks()}, and
+     * {@link WorkItem#getStart()} methods are functioning correctly.
      */
     @Test
-    void testAddPrefixAndLastElementWhenFull() {
-        final int numClicks = random.nextInt(2, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
+    void testWorkItemConstructorSetNumClicks() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = assertDoesNotThrow(() -> {
+            return new WorkItem();
+        }, "WorkItem constructor should not throw when numClicks is initialized");
 
-        while (!batch.isFull()) {
-            short[] prefix = generateRandomCombination(numClicks - 1, Grid.NUM_CELLS - 1);
-            short lastElement = (short) random.nextInt(prefix[numClicks - 2] + 1, Grid.NUM_CELLS);
-            assertTrue(batch.add(prefix, prefix.length, lastElement), "Adding to a non-full WorkBatch should return true.");
+        assertArrayEquals(new short[2], item.getPrefix(),
+                "Newly created WorkItem should have empty prefix array");
+        assertEquals(-1, item.getPrefixLength(),
+                "Newly created WorkItem should have prefix length -1");
+        assertNull(item.getFinalClicks(),
+                "Newly created WorkItem should have null finalClicks array");
+        assertEquals(-1, item.getStart(), "Newly created WorkItem should have start index -1");
+    }
+
+    /**
+     * Tests the {@link WorkItem#set(short[], int, short[], int)} method to ensure it throws
+     * NullPointerException when provided with a null prefix array.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)}, {@link WorkItem#getPrefix()},
+     * {@link WorkItem#getPrefixLength()}, {@link WorkItem#getFinalClicks()}, and
+     * {@link WorkItem#getStart()} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemSetNullPrefix() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        assertThrows(NullPointerException.class, () -> {
+            item.set(null, 2, new short[0], 0);
+        }, "setPrefix should throw NullPointerException when prefix array is null");
+        assertArrayEquals(new short[2], item.getPrefix(),
+                "Prefix should remain unchanged after exception");
+        assertEquals(-1, item.getPrefixLength(),
+                "Prefix length should remain unchanged after exception");
+        assertNull(item.getFinalClicks(), "Final clicks should remain unchanged after exception");
+        assertEquals(-1, item.getStart(), "Start index should remain unchanged after exception");
+    }
+
+    /**
+     * Tests the {@link WorkItem#set(short[], int, short[], int)} method to ensure it throws
+     * IndexOutOfBoundsException when provided with a negative prefix length.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)}, {@link WorkItem#getPrefix()},
+     * {@link WorkItem#getPrefixLength()}, {@link WorkItem#getFinalClicks()}, and
+     * {@link WorkItem#getStart()} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemSetNegativePrefixLength() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1, 2};
+        assertThrows(IndexOutOfBoundsException.class, () -> {
+            item.set(prefix, -1, new short[0], 0);
+        }, "setPrefix should throw IndexOutOfBoundsException when prefix length is negative");
+        assertArrayEquals(new short[2], item.getPrefix(),
+                "Prefix should remain unchanged after exception");
+        assertEquals(-1, item.getPrefixLength(),
+                "Prefix length should remain unchanged after exception");
+        assertNull(item.getFinalClicks(), "Final clicks should remain unchanged after exception");
+        assertEquals(-1, item.getStart(), "Start index should remain unchanged after exception");
+    }
+
+    /**
+     * Tests the {@link WorkItem#set(short[], int, short[], int)} method to ensure it throws
+     * IndexOutOfBoundsException when provided with a prefix length that exceeds the prefix array
+     * length.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)}, {@link WorkItem#getPrefix()},
+     * {@link WorkItem#getPrefixLength()}, {@link WorkItem#getFinalClicks()}, and
+     * {@link WorkItem#getStart()} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemSetOversizedPrefixLength() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1, 2};
+        assertThrows(IndexOutOfBoundsException.class, () -> {
+            item.set(prefix, 5, new short[0], 0);
+        }, "setPrefix should throw IndexOutOfBoundsException when prefix length exceeds array length");
+        assertArrayEquals(new short[2], item.getPrefix(),
+                "Prefix should remain unchanged after exception");
+        assertEquals(-1, item.getPrefixLength(),
+                "Prefix length should remain unchanged after exception");
+        assertNull(item.getFinalClicks(), "Final clicks should remain unchanged after exception");
+        assertEquals(-1, item.getStart(), "Start index should remain unchanged after exception");
+    }
+
+    /**
+     * Tests the {@link WorkItem#set(short[], int, short[], int)} method to ensure it correctly sets
+     * the WorkItem fields when provided with valid inputs.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)}, {@link WorkItem#getPrefix()},
+     * {@link WorkItem#getPrefixLength()}, {@link WorkItem#getFinalClicks()}, and
+     * {@link WorkItem#getStart()} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemSetValidInputs() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks = {2, 3, 4};
+        final int start = 1;
+
+        assertDoesNotThrow(() -> {
+            item.set(prefix, prefix.length, finalClicks, start);
+        }, "setPrefix should not throw when provided with valid inputs");
+
+        assertArrayEquals(prefix, item.getPrefix(), "Prefix should match the set array");
+        assertEquals(prefix.length, item.getPrefixLength(),
+                "Prefix length should match the set value");
+        assertSame(finalClicks, item.getFinalClicks(),
+                "Final clicks should be the same instance as the set array");
+        assertEquals(start, item.getStart(), "Start index should match the set value");
+    }
+
+    /**
+     * Tests the {@link WorkItem#clear()} method to ensure it correctly resets the WorkItem fields.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)},
+     * {@link WorkItem#set(short[], int, short[], int)}, {@link WorkItem#getPrefix()},
+     * {@link WorkItem#getPrefixLength()}, {@link WorkItem#getFinalClicks()}, and
+     * {@link WorkItem#getStart()} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemClear() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks = {2, 3, 4};
+        final int start = 3;
+
+        item.set(prefix, prefix.length, finalClicks, start);
+
+        final short[] prefixPreClear = item.getPrefix();
+
+        item.clear();
+
+        // Check that the prefix reference is unchanged (but its contents are not relevant after
+        // clear)
+        assertSame(prefixPreClear, item.getPrefix(),
+                "Prefix reference should remain unchanged after clear");
+        assertEquals(-1, item.getPrefixLength(), "Prefix length should be -1 after clear");
+        assertNull(item.getFinalClicks(), "Final clicks should be null after clear");
+        assertEquals(-1, item.getStart(), "Start index should be -1 after clear");
+    }
+
+    /**
+     * Tests the {@link WorkItem#toString()} method to ensure it handles null finalClicks array
+     * correctly.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemToStringNullFinalClicks() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        item.set(prefix, prefix.length, null, 2);
+
+        final String str = assertDoesNotThrow(() -> {
+            return item.toString();
+        }, "toString should not throw even when finalClicks is null");
+
+        assertTrue(str.contains("finalClicks=null"),
+                "toString output should indicate that finalClicks is null");
+    }
+
+    /**
+     * Tests the {@link WorkItem#toString()} method to ensure it handles negative start index
+     * correctly.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemToStringNegativeStart() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks = {2, 3, 4};
+        item.set(prefix, prefix.length, finalClicks, -5);
+
+        final String str = assertDoesNotThrow(() -> {
+            return item.toString();
+        }, "toString should not throw even when start index is invalid");
+
+        assertTrue(str.contains("finalClicks=empty"),
+                "toString output should indicate that finalClicks is empty when start index is invalid");
+    }
+
+    /**
+     * Tests the {@link WorkItem#toString()} method to ensure it handles no valid final clicks
+     * correctly.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly
+     */
+    @Test
+    void testWorkItemToStringNoValidFinalClicks() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks = {2, 3, 4};
+        item.set(prefix, prefix.length, finalClicks, finalClicks.length);
+
+        final String str = assertDoesNotThrow(() -> {
+            return item.toString();
+        }, "toString should not throw even when there are no valid final clicks");
+
+        assertTrue(str.contains("finalClicks=empty"),
+                "toString output should indicate that finalClicks is empty when there are no valid final clicks");
+    }
+
+    /**
+     * Tests the {@link WorkItem#toString()} method to ensure it correctly represents the WorkItem
+     * state when all fields are valid.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemToStringValidState() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks = {2, 3, 4};
+        final int start = 1;
+        item.set(prefix, prefix.length, finalClicks, start);
+
+        final String str = assertDoesNotThrow(() -> {
+            return item.toString();
+        }, "toString should not throw when WorkItem is in a valid state");
+
+        assertTrue(str.contains("prefix=[0, 1]"),
+                "toString output should correctly represent the prefix array");
+        assertTrue(str.contains("prefixLength=2"),
+                "toString output should correctly represent the prefix length");
+        assertTrue(str.contains("finalClicks=[3, 4]"),
+                "toString output should correctly represent the valid final clicks");
+    }
+
+    /**
+     * Tests the {@link WorkItem#equals(Object)} method to ensure it returns false when compared to
+     * an object of a different type.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
+     */
+    @Test
+    void testWorkItemEqualsDifferentType() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        String other = "Not a WorkItem";
+        assertNotEquals(item, other,
+                "WorkItem should not be equal to an object of a different type");
+    }
+
+    /**
+     * Tests the {@link WorkItem#equals(Object)} method to ensure it returns false when compared to
+     * null.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
+     */
+    @Test
+    void testWorkItemEqualsNull() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        assertNotEquals(item, null, "WorkItem should not be equal to null");
+    }
+
+    /**
+     * Tests the {@link WorkItem#equals(Object)} method to ensure it returns true when compared to
+     * itself.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
+     */
+    @Test
+    void testWorkItemEqualsItself() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item = new WorkItem();
+
+        assertEquals(item, item, "WorkItem should be equal to itself");
+
+        final WorkItem anotherRef = item;
+        assertEquals(item, anotherRef, "WorkItem should be equal to another reference of itself");
+    }
+
+    /**
+     * Tests the {@link WorkItem#equals(Object)} method to ensure it returns false when compared to
+     * another WorkItem with a different prefix.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemEqualsDifferentPrefix() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item1 = new WorkItem();
+        final WorkItem item2 = new WorkItem();
+
+        final short[] prefix1 = {0, 1};
+        final short[] prefix2 = {0, 2};
+        item1.set(prefix1, prefix1.length, new short[0], 0);
+        item2.set(prefix2, prefix2.length, new short[0], 0);
+
+        assertNotEquals(item1, item2, "WorkItems with different prefixes should not be equal");
+    }
+
+    /**
+     * Tests the {@link WorkItem#equals(Object)} method to ensure it returns false when compared to
+     * another WorkItem with different final clicks.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemEqualsDifferentFinalClicks() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item1 = new WorkItem();
+        final WorkItem item2 = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks1 = {2, 3};
+        final short[] finalClicks2 = {2, 4};
+        item1.set(prefix, prefix.length, finalClicks1, 0);
+        item2.set(prefix, prefix.length, finalClicks2, 0);
+
+        assertNotEquals(item1, item2, "WorkItems with different final clicks should not be equal");
+    }
+
+    /**
+     * Tests the {@link WorkItem#equals(Object)} method to ensure it returns false when compared to
+     * another WorkItem with a different start index.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemEqualsDifferentStart() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item1 = new WorkItem();
+        final WorkItem item2 = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks = {2, 3};
+        item1.set(prefix, prefix.length, finalClicks, 0);
+        item2.set(prefix, prefix.length, finalClicks, 1);
+
+        assertNotEquals(item1, item2, "WorkItems with different start indices should not be equal");
+    }
+
+    /**
+     * Tests the {@link WorkItem#equals(Object)} method to ensure it returns true when compared to
+     * another WorkItem with identical state.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemEqualsIdenticalState() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item1 = new WorkItem();
+        final WorkItem item2 = new WorkItem();
+
+        final short[] prefix = {0, 1};
+        final short[] finalClicks = {2, 3};
+        final int start = 1;
+        item1.set(prefix, prefix.length, finalClicks, start);
+        item2.set(prefix, prefix.length, finalClicks, start);
+
+        assertEquals(item1, item2, "WorkItems with identical state should be equal");
+    }
+
+    /**
+     * Tests the {@link WorkItem#hashCode()} method to ensure it produces different hash codes for
+     * WorkItems with different prefixes.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
+     */
+    @Test
+    void testWorkItemHashCodeDifferentPrefix() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item1 = new WorkItem();
+        final WorkItem item2 = new WorkItem();
+
+        final short[] prefix1 = generateRandomCombination(2, Grid.NUM_CELLS - 1);
+        while (true) {
+            final short[] prefix2 = generateRandomCombination(2, Grid.NUM_CELLS - 1);
+            if (!Arrays.equals(prefix1, prefix2)) {
+                item1.set(prefix1, prefix1.length, new short[0], 0);
+                item2.set(prefix2, prefix2.length, new short[0], 0);
+                break;
+            }
         }
 
-        short[] extraPrefix = generateRandomCombination(numClicks - 1, Grid.NUM_CELLS - 1);
-        short lastElement = (short) random.nextInt(extraPrefix[numClicks - 2] + 1, Grid.NUM_CELLS);
-        assertFalse(batch.add(extraPrefix, extraPrefix.length, lastElement), "Adding to a full WorkBatch should return false.");
+        assertNotEquals(item1.hashCode(), item2.hashCode(),
+                "WorkItems with different prefixes should have different hash codes");
     }
 
     /**
-     * Tests the {@link WorkBatch#add(short[], int, short)} method to ensure it correctly adds a
-     * combination to a non-full WorkBatch and constructs the combination properly.
+     * Tests the {@link WorkItem#hashCode()} method to ensure it produces different hash codes for
+     * WorkItems with different final clicks.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#isFull()}, and {@link WorkBatch#poll()} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
      */
     @Test
-    void testAddPrefixAndLastElement() {
-        final int numClicks = random.nextInt(2, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
+    void testWorkItemHashCodeDifferentFinalClicks() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item1 = new WorkItem();
+        final WorkItem item2 = new WorkItem();
 
-        short[] prefix = generateRandomCombination(numClicks - 1, Grid.NUM_CELLS - 1);
-        short lastElement = (short) random.nextInt(prefix[numClicks - 2] + 1, Grid.NUM_CELLS);
-        assertTrue(batch.add(prefix, prefix.length, lastElement), "Adding to a non-full WorkBatch should return true.");
-
-        short[] polledCombination = batch.poll();
-        if (polledCombination == null) {
-            return; // If there's a null combination being polled, let it be caught by other tests
+        final short firstTrueCell1 = (short) random.nextInt(0, Grid.NUM_CELLS);
+        final short firstTrueCell2;
+        while (true) {
+            short temp = (short) random.nextInt(0, Grid.NUM_CELLS);
+            if (temp != firstTrueCell1) {
+                firstTrueCell2 = temp;
+                break;
+            }
         }
-
-        assertEquals(numClicks, polledCombination.length,
-            "Polled combination should have length equal to numClicks.");
-        
-        short[] expectedCombination = new short[numClicks];
-        System.arraycopy(prefix, 0, expectedCombination, 0, prefix.length);
-        expectedCombination[numClicks - 1] = lastElement;
-
-        assertArrayEquals(expectedCombination, polledCombination,
-                "Polled combination should have a correctly formed combination from prefix and last element.");
+        final short[] prefix = generateRandomCombination(2);
+        final short[] finalClicks1 = getFinalClicks(prefix, firstTrueCell1);
+        final short[] finalClicks2 = getFinalClicks(prefix, firstTrueCell2);
+        item1.set(prefix, prefix.length, finalClicks1, 0);
+        item2.set(prefix, prefix.length, finalClicks2, 0);
+        assertNotEquals(item1.hashCode(), item2.hashCode(),
+                "WorkItems with different final clicks should have different hash codes");
     }
 
     /**
-     * Tests the {@link WorkBatch#addBulk(short[], int, short[], int, int)} method to ensure it
-     * correctly adds multiple combinations to a WorkBatch and constructs them properly.
+     * Tests the {@link WorkItem#hashCode()} method to ensure it produces different hash codes for
+     * WorkItems with different start indices.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#isFull()}, and {@link WorkBatch#poll()} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
      */
     @Test
-    void testAddBulk() {
-        final int numClicks = random.nextInt(2, Grid.NUM_CELLS - 1); // Ensure at least 2 clicks for prefix + nextClicks
-        final int capacity = random.nextInt(1, Grid.NUM_CELLS - numClicks + 1); // Ensure capacity fits within grid limits
+    void testWorkItemHashCodeDifferentStart() {
+        WorkBatch.setNumClicks(3);
+        final WorkItem item1 = new WorkItem();
+        final WorkItem item2 = new WorkItem();
 
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
 
-        // Generate a prefix of combinations to add, making sure that the last element allows for an array
-        // of next clicks
-        short[] prefix = generateRandomCombination(numClicks - 1, Grid.NUM_CELLS - capacity);
-        short[] nextClicks = generateRandomCombination(capacity, prefix[numClicks - 2] + 1, Grid.NUM_CELLS + 1);
+        final short[] prefix = generateRandomCombination(2);
+        final short[] finalClicks = getFinalClicks(prefix, firstTrueCell);
+        item1.set(prefix, prefix.length, finalClicks, 0);
+        item2.set(prefix, prefix.length, finalClicks, 1);
 
-        int added = batch.addBulk(prefix, prefix.length, nextClicks, 0, nextClicks.length);
-        assertEquals(capacity, added, "Should add all combinations from nextClicks to the WorkBatch.");
-
-        short[] polledCombination = batch.poll();
-        if (polledCombination == null) {
-            return; // If there's a null combination being polled, let it be caught by other tests
-        }
-
-        assertEquals(numClicks, polledCombination.length,
-            "Polled combination should have length equal to numClicks.");
-
-        short[] expectedPrefix = new short[numClicks - 1];
-        System.arraycopy(polledCombination, 0, expectedPrefix, 0, numClicks - 1);
-
-        assertArrayEquals(prefix, expectedPrefix, "Polled combination should have the correct prefix.");
+        assertNotEquals(item1.hashCode(), item2.hashCode(),
+                "WorkItems with different start indices should have different hash codes");
     }
 
     /**
-     * Tests the {@link WorkBatch#poll()} method to ensure it returns null when polling from an empty
-     * WorkBatch.
+     * Tests the {@link WorkItem#hashCode()} method to ensure it produces the same hash code for
+     * WorkItems with identical state.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)} and
-     * {@link WorkBatch#isEmpty()} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
      */
     @Test
-    void testPollWhenEmpty() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch();
+    void testIteratorHasNextEmptyBatch() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(5);
 
-        if (!batch.isEmpty()) {
-            return; // If the batch is not empty, let it be caught by other tests
-        }
-
-        assertNull(batch.poll(), "Polling from an empty WorkBatch should return null.");
+        final Iterator<WorkItem> iterator = batch.iterator();
+        assertFalse(iterator.hasNext(), "Iterator should have no next element for an empty batch");
     }
 
     /**
-     * Tests the {@link WorkBatch#poll()} method to ensure it correctly retrieves and removes
-     * combinations from a non-empty WorkBatch.
+     * Tests the {@link WorkBatch#iterator()} method to ensure the iterator's next() method throws
+     * NoSuchElementException when called on an empty WorkBatch.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#add(short[])}, and {@link WorkBatch#isEmpty()} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
      */
     @Test
-    void testPoll() {        
-        // Setup
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
+    void testIteratorNextEmptyBatch() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(5);
 
-        // Test for a single addition and poll
-        short[] testCombination = generateRandomCombination(numClicks);
-        batch.add(testCombination);
-        short[] polledCombination = batch.poll();
-        assertNotNull(polledCombination, "Polled combination should not be null after adding a combination.");
-        assertArrayEquals(testCombination, polledCombination, "Polled combination should match the added combination.");
+        final Iterator<WorkItem> iterator = batch.iterator();
 
-        // Test for multiple additions and polls
-        short[] combo1 = generateRandomCombination(numClicks);
-        short[] combo2 = generateRandomCombination(numClicks);
-        batch.add(combo1);
-        batch.add(combo2);
-
-        if (batch.isEmpty()) {
-            return; // If the batch is empty, let it be caught by other tests
+        if (iterator.hasNext()) {
+            return; // Prevent false positive if hasNext is incorrectly implemented
         }
 
-        short[] polledCombo1 = batch.poll();
-        assertNotNull(polledCombo1, "First polled combination should not be null.");
-        assertArrayEquals(polledCombo1, combo1, "First polled combination should match the first added combination.");
-
-        short[] polledCombo2 = batch.poll();
-        assertNotNull(polledCombo2, "Second polled combination should not be null.");
-        assertArrayEquals(polledCombo2, combo2, "Second polled combination should match the second added combination.");
+        assertThrows(NoSuchElementException.class, () -> {
+            iterator.next();
+        }, "Iterator next() should throw NoSuchElementException for an empty batch");
     }
 
     /**
-     * Tests the {@link WorkBatch#isEmpty()} method to ensure it accurately reflects the empty state of
-     * the WorkBatch.
+     * Tests the {@link WorkBatch#iterator()} method to ensure the iterator's hasNext() method
+     * returns false after iterating beyond the last WorkItem.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#add(short[])}, and {@link WorkBatch#poll()} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} methods are functioning correctly.
+     */
+    @Test
+    void testIteratorHasNextBeyondEnd() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(2);
+
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
+
+        // Add a single work item
+        final short[] prefix = generateRandomCombination(2);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final int start = prefix[prefix.length - 1] + 1;
+        batch.addWork(prefix, prefix.length, parity, start);
+
+        final Iterator<WorkItem> iterator = batch.iterator();
+
+        // Advance to the end
+        if (iterator.hasNext()) {
+            iterator.next();
+        }
+
+        assertFalse(iterator.hasNext(),
+                "Iterator should have no next element after reaching the end");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#iterator()} method to ensure the iterator's next() method throws
+     * NoSuchElementException when called after iterating beyond the last WorkItem.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} methods are functioning correctly.
+     */
+    @Test
+    void testIteratorNextBeyondEnd() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(2);
+
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
+
+        // Add a single work item
+        final short[] prefix = generateRandomCombination(2);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final int start = prefix[prefix.length - 1] + 1;
+        batch.addWork(prefix, prefix.length, parity, start);
+
+        final Iterator<WorkItem> iterator = batch.iterator();
+
+        // Advance to the end
+        if (iterator.hasNext()) {
+            iterator.next();
+        }
+
+        if (iterator.hasNext()) {
+            return; // Prevent false positive if hasNext is incorrectly implemented
+        }
+
+        assertThrows(NoSuchElementException.class, () -> {
+            iterator.next();
+        }, "Iterator next() should throw NoSuchElementException after reaching the end");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#iterator()} method to ensure the iterator's next() method
+     * correctly retrieves WorkItems when the WorkBatch contains multiple items.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} methods are functioning correctly.
+     */
+    @Test
+    void testIteratorNextValid() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(3);
+
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
+
+        // Add multiple work items
+        final short[] prefix1 = generateRandomCombination(2);
+        final boolean parity1 = getPrefixParity(prefix1, firstTrueCell);
+        final int start1 = prefix1[prefix1.length - 1] + 1;
+        batch.addWork(prefix1, prefix1.length, parity1, start1);
+
+        final short[] prefix2 = generateRandomCombination(2);
+        final boolean parity2 = getPrefixParity(prefix2, firstTrueCell);
+        final int start2 = prefix2[prefix2.length - 1] + 1;
+        batch.addWork(prefix2, prefix2.length, parity2, start2);
+
+        final Iterator<WorkItem> iterator = batch.iterator();
+
+        // Retrieve first work item
+        assertTrue(iterator.hasNext(), "Iterator should have next element for the first work item");
+        final WorkItem item1 = iterator.next();
+        assertArrayEquals(prefix1, Arrays.copyOf(item1.getPrefix(), item1.getPrefixLength()),
+                "First work item prefix should match the added prefix");
+
+        // Retrieve second work item
+        assertTrue(iterator.hasNext(),
+                "Iterator should have next element for the second work item");
+        final WorkItem item2 = iterator.next();
+        assertArrayEquals(prefix2, Arrays.copyOf(item2.getPrefix(), item2.getPrefixLength()),
+                "Second work item prefix should match the added prefix");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#iterator()} method to ensure the iterator's remove() method throws
+     * UnsupportedOperationException.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
+     */
+    @Test
+    void testIteratorRemove() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(2);
+
+        final Iterator<WorkItem> iterator = batch.iterator();
+
+        assertThrows(UnsupportedOperationException.class, () -> {
+            iterator.remove();
+        }, "Iterator remove() should throw UnsupportedOperationException");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#iterator()} method to ensure the iterator's toString() method
+     * produces a non-null string representation.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
+     */
+    @Test
+    void testIteratorToString() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(2);
+
+        final Iterator<WorkItem> iterator = batch.iterator();
+
+        final String str = assertDoesNotThrow(() -> {
+            return iterator.toString();
+        }, "Iterator toString() should not throw an exception");
+
+        assertTrue(str.contains("currentWorkItemIndex="),
+                "Iterator toString() output should contain currentWorkItemIndex");
+        assertTrue(str.contains("batch="),
+                "Iterator toString() output should contain batch reference");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#iterator()} method to ensure that iterators from the same
+     * WorkBatch instance are identical, while iterators from different WorkBatch instances are
+     * distinct.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning
+     * correctly.
+     */
+    @Test
+    void testWorkBatchIterator() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batchOne = new WorkBatch(2);
+        final WorkBatch batchTwo = new WorkBatch(2);
+
+        final Iterator<WorkItem> iteratorOne = batchOne.iterator();
+        final Iterator<WorkItem> iteratorOneRef = batchOne.iterator();
+        final Iterator<WorkItem> iteratorTwo = batchTwo.iterator();
+
+        assertSame(iteratorOne, iteratorOneRef, "Iterators from the same batch should be the same");
+        assertNotSame(iteratorOne, iteratorTwo,
+                "Iterators from different batches should not be the same");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#isEmpty()} method to ensure it correctly identifies empty and
+     * non-empty states.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} methods are functioning correctly.
      */
     @Test
     void testIsEmpty() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(2);
 
-        assertTrue(batch.isEmpty(), "Newly created WorkBatch should be empty.");
-        short[] testCombination = generateRandomCombination(numClicks);
-        batch.add(testCombination);
-        assertFalse(batch.isEmpty(), "WorkBatch should not be empty after adding a combination.");
-        batch.poll();
-        assertTrue(batch.isEmpty(), "WorkBatch should be empty after polling the last combination.");
+        assertTrue(batch.isEmpty(), "Newly created batch should be empty");
+
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
+
+        // Add a work item
+        final short[] prefix = generateRandomCombination(2);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final int start = prefix[prefix.length - 1] + 1;
+        batch.addWork(prefix, prefix.length, parity, start);
+
+        assertFalse(batch.isEmpty(), "Batch should not be empty after adding a work item");
     }
 
     /**
-     * Tests the {@link WorkBatch#size()} method to ensure it accurately reflects the number of
-     * combinations stored in the WorkBatch.
+     * Tests the {@link WorkBatch#isFull()} method to ensure it correctly identifies full and
+     * non-full states.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#add(short[])}, and {@link WorkBatch#poll()} are functioning correctly.
-     */
-    @Test
-    void testSize() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
-
-        assertEquals(0, batch.size(), "Newly created WorkBatch should have size 0.");
-        short[] testCombination = generateRandomCombination(numClicks);
-        batch.add(testCombination);
-        assertEquals(1, batch.size(), "WorkBatch should have size 1 after adding a combination.");
-        batch.poll();
-        assertEquals(0, batch.size(), "WorkBatch should have size 0 after polling the last combination.");
-    }
-
-    /**
-     * Tests the {@link WorkBatch#remainingCapacity()} method to ensure it accurately reflects the
-     * remaining capacity of the WorkBatch.
-     * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#add(short[])}, and {@link WorkBatch#poll()} are functioning correctly.
-     */
-    @Test
-    void testRemainingCapacity() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
-
-        assertEquals(capacity, batch.remainingCapacity(),
-            "Newly created WorkBatch should have remaining capacity equal to its capacity.");
-        short[] testCombination = generateRandomCombination(numClicks);
-        batch.add(testCombination);
-        assertEquals(capacity - 1, batch.remainingCapacity(),
-            "WorkBatch should have remaining capacity decreased by 1 after adding a combination.");
-        batch.poll();
-        assertEquals(capacity, batch.remainingCapacity(),
-                "WorkBatch should have remaining capacity equal to its capacity after polling the last combination.");
-    }
-
-    /**
-     * Tests the {@link WorkBatch#clear()} method to ensure it correctly resets the WorkBatch to an
-     * empty state.
-     * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#add(short[])}, {@link WorkBatch#size()}, {@link WorkBatch#isEmpty()},
-     * {@link WorkBatch#isFull()}, and {@link WorkBatch#poll()} are functioning correctly.
-     */
-    @Test
-    void testClear() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        
-        // Fill and clear to test state
-        WorkBatch batch = new WorkBatch(capacity);
-        short[] testCombination = generateRandomCombination(numClicks);
-        batch.add(testCombination);
-        batch.clear();
-
-        assertEquals(0, batch.size(), "WorkBatch should have size 0 after clearing.");
-        assertEquals(capacity, batch.remainingCapacity(),
-            "WorkBatch should have remaining capacity equal to its capacity after clearing.");
-        assertTrue(batch.isEmpty(), "WorkBatch should be empty after clearing.");
-        assertFalse(batch.isFull(), "WorkBatch should not be full after clearing.");
-        assertNull(batch.poll(), "Polling from a cleared WorkBatch should return null.");
-    }
-
-    /**
-     * Tests the {@link WorkBatch#isFull()} method to ensure it accurately reflects the full state of
-     * the WorkBatch.
-     * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)} and
-     * {@link WorkBatch#add(short[])} are functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} methods are functioning correctly.
      */
     @Test
     void testIsFull() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(2, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(1);
 
-        assertFalse(batch.isFull(), "Newly created WorkBatch should not be full.");
-        short[] testCombination = generateRandomCombination(numClicks);
-        batch.add(testCombination);
-        assertFalse(batch.isFull(), "WorkBatch should not be full after adding one combination (unless the size is 1).");
+        assertFalse(batch.isFull(), "Newly created batch should not be full");
 
-        // Fill the batch to capacity
-        while (!batch.isFull()) {
-            short[] combo = generateRandomCombination(numClicks);
-            batch.add(combo);
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
+
+        // Add a work item to fill the batch
+        final short[] prefix = generateRandomCombination(2);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final int start = prefix[prefix.length - 1] + 1;
+        batch.addWork(prefix, prefix.length, parity, start);
+
+        assertTrue(batch.isFull(), "Batch should be full after adding work item to reach capacity");
+    }
+
+    /**
+     * Tests the {@link WorkBatch#size()} method to ensure it correctly reports the number of work
+     * items in the batch.
+     * 
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} methods are functioning correctly.
+     */
+    @Test
+    void testSize() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(3);
+
+        assertEquals(0, batch.size(), "Newly created batch should have size 0");
+
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
+
+        // Add work items and check size incrementally
+        for (int i = 1; i <= 3; i++) {
+            final short[] prefix = generateRandomCombination(2);
+            final boolean parity = getPrefixParity(prefix, firstTrueCell);
+            final int start = prefix[prefix.length - 1] + 1;
+            batch.addWork(prefix, prefix.length, parity, start);
+
+            assertEquals(i, batch.size(),
+                    "Batch size should be " + i + " after adding " + i + " work item(s)");
         }
-        assertTrue(batch.isFull(), "WorkBatch should be full after adding combinations up to its capacity.");
     }
 
     /**
-     * Tests the {@link WorkBatch#getCapacity()} method to ensure it accurately reflects the capacity of
-     * the WorkBatch, and that the capacity remains unchanged after various operations.
+     * Tests the {@link WorkBatch#clear()} method to ensure it correctly resets the batch state.
      * 
-     * This method assumes that the methods {@link WorkBatch#setNumClicks(int)},
-     * {@link WorkBatch#add(short[])}, {@link WorkBatch#poll()}, and {@link WorkBatch#clear()} are
-     * functioning correctly.
+     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
+     * {@link WorkBatch#addWork(short[], int, boolean, int)} methods are functioning correctly.
      */
     @Test
-    void testGetCapacity() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batchSingleArg = new WorkBatch(capacity);
-        WorkBatch batchNoArg = new WorkBatch();
+    void testClear() {
+        WorkBatch.setNumClicks(3);
+        final WorkBatch batch = new WorkBatch(2);
 
-        assertEquals(capacity, batchSingleArg.getCapacity(),
-            "Batch capacity should match the provided capacity when created with the single-argument constructor.");
-        assertEquals(WorkBatch.BATCH_SIZE, batchNoArg.getCapacity(),
-            "Batch capacity should match the default BATCH_SIZE when created with the no-argument constructor.");
-        
-        // Ensure that capacity does not change after additions
-        short[] testCombination = generateRandomCombination(numClicks);
-        batchSingleArg.add(testCombination);
-        assertEquals(capacity, batchSingleArg.getCapacity(),
-            "Batch capacity should remain unchanged after additions.");
-        batchNoArg.add(testCombination);
-        assertEquals(WorkBatch.BATCH_SIZE, batchNoArg.getCapacity(),
-            "Batch capacity should remain unchanged after additions.");
+        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
 
-        // Ensure that capacity does not change after polling
-        batchSingleArg.poll();
-        assertEquals(capacity, batchSingleArg.getCapacity(),
-            "Batch capacity should remain unchanged after polling.");
-        batchNoArg.poll();
-        assertEquals(WorkBatch.BATCH_SIZE, batchNoArg.getCapacity(),
-            "Batch capacity should remain unchanged after polling.");
-        
-        // Ensure that capacity does not change after clearing
-        batchSingleArg.clear();
-        assertEquals(capacity, batchSingleArg.getCapacity(),
-            "Batch capacity should remain unchanged after clearing.");
-        batchNoArg.clear();
-        assertEquals(WorkBatch.BATCH_SIZE, batchNoArg.getCapacity(),
-            "Batch capacity should remain unchanged after clearing.");
-    }
+        // Add a work item
+        final short[] prefix = generateRandomCombination(2);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final int start = prefix[prefix.length - 1] + 1;
+        batch.addWork(prefix, prefix.length, parity, start);
 
-    /**
-     * Tests the {@link WorkBatch#toString()} method to ensure it returns the correct string
-     * representation for an empty WorkBatch.
-     * 
-     * This method assumes that the {@link WorkBatch#setNumClicks(int)} method is functioning correctly.
-     */
-    @Test
-    void testToStringEmptyBatch() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batchSingleArg = new WorkBatch(capacity);
-        WorkBatch batchNoArg = new WorkBatch();
+        if (batch.isEmpty() || !batch.isFull())
+            return; // Prevent false positives if isEmpty or isFull are incorrectly implemented
 
-        String expectedString = "WorkBatch{size=0, capacity=" + capacity + ", firstCombo=null}";
-        assertEquals(expectedString, batchSingleArg.toString(),
-                "String representation of an empty WorkBatch (single-argument) is incorrect.");
-        String expectedStringNoArg = "WorkBatch{size=0, capacity=" + WorkBatch.BATCH_SIZE + ", firstCombo=null}";
-        assertEquals(expectedStringNoArg, batchNoArg.toString(),
-                "String representation of an empty WorkBatch (no-argument) is incorrect.");
-    }
+        batch.clear();
 
-    /**
-     * Tests the {@link WorkBatch#toString()} method to ensure it returns the correct string
-     * representation for a non-empty WorkBatch, and that the first combination does not change
-     * after additions.
-     * 
-     * This method assumes that the {@link WorkBatch#setNumClicks(int)} and
-     * {@link WorkBatch#add(short[])} methods are functioning correctly.
-     */
-    @Test
-    void testToStringNonEmptyBatch() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        final int capacity = random.nextInt(1, 100);
-        WorkBatch.setNumClicks(numClicks);
-        WorkBatch batch = new WorkBatch(capacity);
-
-        short[] testCombination = generateRandomCombination(numClicks);
-        batch.add(testCombination);
-        String expectedString = "WorkBatch{size=1, capacity=" + capacity + ", firstCombo="
-                + Arrays.toString(testCombination) + "}";
-        assertEquals(expectedString, batch.toString(),
-                "String representation of a non-empty WorkBatch with size 1 is incorrect.");
-        
-        batch.add(generateRandomCombination(numClicks));
-        expectedString = "WorkBatch{size=2, capacity=" + capacity + ", firstCombo="
-                + Arrays.toString(testCombination) + "}";
-        assertEquals(expectedString, batch.toString(),
-                "String representation of a non-empty WorkBatch with size 2 is incorrect.");
-    }
-
-    /**
-     * Tests the {@link WorkBatch#equals(Object)} method to ensure it correctly determines equality
-     * between WorkBatch instances under various scenarios.
-     * 
-     * This method assumes that the {@link WorkBatch#setNumClicks(int)}, {@link WorkBatch#add(short[])},
-     * and {@link WorkBatch#poll()}, and {@link WorkBatch#clear()} methods are functioning correctly.
-     */
-    @Test
-    void testEquals() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        WorkBatch.setNumClicks(numClicks);
-
-        Object object = new Object();
-
-        WorkBatch batchOne = new WorkBatch(10);
-        WorkBatch batchOneReference = batchOne;
-        WorkBatch batchTwo = new WorkBatch(10);
-        WorkBatch batchThree = new WorkBatch(20);
-
-        assertNotEquals(batchOne, object, "WorkBatch should not be equal to an object of a different type");
-        assertNotEquals(batchOne, null, "Non-null WorkBatch should not be equal to null");
-        assertEquals(batchOne, batchOneReference, "WorkBatch should be equal to itself");
-        assertEquals(batchOne, batchTwo, "Two empty WorkBatches with the same capacity should be equal");
-        assertNotEquals(batchOne, batchThree, "Two WorkBatches with different capacities should not be equal");
-
-        // Ensure that adding combinations affects equality
-        short[] combinationOne = generateRandomCombination(numClicks);
-        batchOne.add(combinationOne);
-        assertNotEquals(batchOne, batchTwo, "WorkBatches with different sizes should not be equal");
-
-        short[] combinationTwo = combinationOne.clone();
-        batchTwo.add(combinationTwo);
-        assertEquals(batchOne, batchTwo, "WorkBatches with the same contents should be equal");
-
-        short[] combinationThree = combinationTwo.clone();
-        batchThree.add(combinationThree);
-        assertNotEquals(batchTwo, batchThree, "WorkBatches with the same contents but different capacities should not be equal");
-        
-        short[] combinationFour = generateRandomCombination(numClicks);
-        batchOne.add(combinationFour);
-
-        short[] combinationFive = generateRandomCombination(numClicks);
-        // Ensure combinationFive is different from combinationFour
-        while (Arrays.equals(combinationFour, combinationFive)) {
-            combinationFive = generateRandomCombination(numClicks);
-        }
-        batchTwo.add(combinationFive);
-        assertNotEquals(batchOne, batchTwo,
-                "WorkBatches with the same size but different contents should not be equal");
-
-        // Ensure that clearing affects equality
-        batchOne.clear();
-        assertNotEquals(batchOne, batchTwo, "Cleared WorkBatch should not be equal to non-cleared WorkBatch");
-        batchTwo.clear();
-        assertEquals(batchOne, batchTwo, "Two cleared WorkBatches with the same capacity should be equal");
-
-        batchThree.clear();
-        assertNotEquals(batchOne, batchThree, "Cleared WorkBatches with different capacities should not be equal");
-
-        // Ensure that the pointer order doesn't matter for equality (head and tail don't matter)
-        WorkBatch batchFour = new WorkBatch(10);
-        WorkBatch batchFive = new WorkBatch(10);
-
-        short[] comboA = generateRandomCombination(numClicks);
-        short[] comboB = generateRandomCombination(numClicks);
-        short[] comboC = generateRandomCombination(numClicks);
-
-        batchFour.add(comboA);
-        batchFour.add(comboB);
-        batchFour.poll(); // Remove comboA
-        batchFour.add(comboC);
-
-        batchFive.add(comboB);
-        batchFive.add(comboC);
-
-        assertEquals(batchFour, batchFive,
-                "WorkBatches with the same contents but different internal order should be equal");
-
-        
-    }
-
-    /**
-     * Tests the {@link WorkBatch#hashCode()} method to ensure it produces consistent hash codes for
-     * equal WorkBatch instances and different hash codes for non-equal instances. This test uses the
-     * same test cases as the {@link #testEquals()} method to verify the contract between equals and
-     * hashCode.
-     */
-    @Test
-    void testHashCode() {
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        WorkBatch.setNumClicks(numClicks);
-
-        WorkBatch batchOne = new WorkBatch(10);
-        WorkBatch batchOneReference = batchOne;
-        WorkBatch batchTwo = new WorkBatch(10);
-        WorkBatch batchThree = new WorkBatch(20);
-
-        assertEquals(batchOne.hashCode(), batchOneReference.hashCode(),
-                "Hash codes should be equal for the same WorkBatch instance");
-        assertEquals(batchOne.hashCode(), batchTwo.hashCode(),
-                "Hash codes should be equal for two empty WorkBatches with the same capacity");
-        assertNotEquals(batchOne.hashCode(), batchThree.hashCode(),
-                "Hash codes should be different for WorkBatches with different capacities");
-
-        // Ensure that adding combinations affects hash code
-        short[] combinationOne = generateRandomCombination(numClicks);
-        batchOne.add(combinationOne);
-        assertNotEquals(batchOne.hashCode(), batchTwo.hashCode(),
-                "Hash codes should be different for WorkBatches with different sizes");
-
-        short[] combinationTwo = combinationOne.clone();
-        batchTwo.add(combinationTwo);
-        assertEquals(batchOne.hashCode(), batchTwo.hashCode(),
-                "Hash codes should be equal for WorkBatches with the same contents");
-
-        short[] combinationThree = combinationTwo.clone();
-        batchThree.add(combinationThree);
-        assertNotEquals(batchTwo.hashCode(), batchThree.hashCode(),
-                "Hash codes should be different for WorkBatches with the same contents but different capacities");
-
-        short[] combinationFour = generateRandomCombination(numClicks);
-        batchOne.add(combinationFour);
-
-        short[] combinationFive = generateRandomCombination(numClicks);
-        // Ensure combinationFive is different from combinationFour
-        while (Arrays.equals(combinationFour, combinationFive)) {
-            combinationFive = generateRandomCombination(numClicks);
-        }
-        batchTwo.add(combinationFive);
-        assertNotEquals(batchOne.hashCode(), batchTwo.hashCode(),
-                "Hash codes should be different for WorkBatches with the same size but different contents");
-
-        // Ensure that clearing affects hash code
-        batchOne.clear();
-        assertNotEquals(batchOne.hashCode(), batchTwo.hashCode(),
-                "Hash codes should be different for cleared and non-cleared WorkBatches");
-        batchTwo.clear();
-        assertEquals(batchOne.hashCode(), batchTwo.hashCode(),
-                "Hash codes should be equal for two cleared WorkBatches with the same capacity");
-
-        batchThree.clear();
-        assertNotEquals(batchOne.hashCode(), batchThree.hashCode(),
-                "Hash codes should be different for cleared WorkBatches with different capacities");
-
-        // Ensure that the pointer order doesn't matter for hash code (head and tail don't matter)
-        WorkBatch batchFour = new WorkBatch(10);
-        WorkBatch batchFive = new WorkBatch(10);
-
-        short[] comboA = generateRandomCombination(numClicks);
-        short[] comboB = generateRandomCombination(numClicks);
-        short[] comboC = generateRandomCombination(numClicks);
-
-        batchFour.add(comboA);
-        batchFour.add(comboB);
-        batchFour.poll(); // Remove comboA
-        batchFour.add(comboC);
-
-        batchFive.add(comboB);
-        batchFive.add(comboC);
-
-        assertEquals(batchFour.hashCode(), batchFive.hashCode(),
-                "Hash codes should be equal for WorkBatches with the same contents but different internal order");
+        assertTrue(batch.isEmpty(), "Batch should be empty after calling clear()");
+        assertEquals(0, batch.size(), "Batch size should be 0 after calling clear()");
+        assertFalse(batch.isFull(), "Batch should not be full after calling clear()");
     }
 }

@@ -140,30 +140,29 @@ public class TaskPool {
      * The current number of tasks available in the pool.
      * 
      * <p>
-     * The {@code size} field tracks how many tasks are currently stored in the pool. It is incremented
-     * each time a task is returned to the pool via {@link #put(CombinationGeneratorTask) put} and
-     * decremented each time a task is obtained from the pool via {@link #get() get}. This field is
-     * crucial for ensuring that we do not exceed the pool's {@link #capacity} and for determining if
-     * the pool is empty.
+     * The {@code size} field tracks how many tasks are currently stored in the pool. It is
+     * incremented each time a task is returned to the pool via
+     * {@link #put(CombinationGeneratorTask) put} and decremented each time a task is obtained from
+     * the pool via {@link #get() get}. This field is crucial for ensuring that we do not exceed the
+     * pool's {@link #capacity} and for determining if the pool is empty.
      * </p>
      * 
      * <h3>Performance Considerations</h3>
      * <p>
-     * The {@code size} field is updated in constant time during both {@code put} and get operations,
-     * ensuring that these operations remain efficient. It is also used to quickly check if the pool is
-     * empty (via {@link #isEmpty()}).
+     * The {@code size} field is updated in constant time during both {@code put} and get
+     * operations, ensuring that these operations remain efficient. It is also used to quickly check
+     * if the pool is empty (via {@link #isEmpty()}).
      * </p>
      * 
      * <p>
      * We could use a {@code short} for the {@code size} to save a few bytes of memory, but the
-     * performance difference is negligible and using an {@code int} avoids potential overflow issues in
-     * long-running applications (plus, Java treats arithmetic with {@code short} values weirdly). We
-     * could avoid the {@code size} field entirely by using the {@link #head} and {@link #tail} indices
-     * to calculate the size on-the-fly (or by taking a {@link WorkBatch#remainingCapacity} approach and
-     * storing the remaining capacity), but that would complicate the logic and add extra arithmetic
-     * operations to the hot path of both {@code put} and {@code get} operations, which could impact
-     * performance. We also don't anticipate the {@code size} coming down to 0, so the deoptimization
-     * risk is minimal.
+     * performance difference is negligible and using an {@code int} avoids potential overflow
+     * issues in long-running applications (plus, Java treats arithmetic with {@code short} values
+     * weirdly). We could avoid the {@code size} field entirely by using the {@link #head} and
+     * {@link #tail} indices to calculate the size on-the-fly (or by storing the remaining
+     * capacity), but that would complicate the logic and add extra arithmetic operations to the hot
+     * path of both {@code put} and {@code get} operations, which could impact performance. We also
+     * don't anticipate the {@code size} coming down to 0, so the deoptimization risk is minimal.
      * </p>
      * 
      * @since 2025.07 - Custom Generator Pools

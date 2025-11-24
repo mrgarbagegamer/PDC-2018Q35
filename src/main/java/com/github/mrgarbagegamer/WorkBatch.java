@@ -634,8 +634,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * {@link NoSuchElementException} is thrown.
          * 
          * <p>
-         * Though a check for {@link #hasNext()} is performed, removal could be considered for added
-         * performance, provided that correct usage is ensured.
+         * While the {@link #hasNext()} call in this method seems to introduce a minor overhead, it is
+         * typically inlined and optimized away by the JVM. As such, we leave it for safety and clarity.
+         * </p>
          *
          * @return The next {@code WorkItem}.
          * @throws NoSuchElementException if the iteration has no more elements.
@@ -646,7 +647,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         @Override
         public WorkItem next() {
-            // TODO: Consider removing the check for performance, assuming correct usage
             if (!hasNext()) {
                 throw new NoSuchElementException("No more work items in this batch.");
             }

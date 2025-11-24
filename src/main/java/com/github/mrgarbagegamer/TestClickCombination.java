@@ -424,18 +424,8 @@ public class TestClickCombination extends Thread {
                     if (satisfiesOddAdjacency(prefixMask, finalClick)) {
                         puzzleGrid.click(prefix, finalClick);
 
-                        // TODO: Consider extracting success handling for easier compiler
-                        // optimizations
                         if (puzzleGrid.isSolved()) {
-                            final short[] winningCombination = new short[prefixLength + 1];
-                            System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);
-                            winningCombination[prefixLength] = finalClick;
-                            queueArray.solutionFound(this.getName(), winningCombination);
-                            logger.info("Found the solution as the following click combination: {}",
-                                    new CombinationMessage(winningCombination.clone(),
-                                            Grid.ValueFormat.Index));
-
-                            triggerGeneratorShutdown();
+                            handleSuccess(prefix, prefixLength, finalClick);
                             return;
                         }
                         puzzleGrid.initialize(); // Reset for next test
@@ -458,6 +448,33 @@ public class TestClickCombination extends Thread {
             // After processing, recycle the batch
             queueArray.getWorkBatchPool().offer(workBatch);
         }
+    }
+
+    /**
+     * Handles the successful discovery of a solution, logging it and
+     * {@link #triggerGeneratorShutdown() triggering a shutdown}. By extracting this logic from the
+     * {@link #run()} method, we improve JIT optimization opportunities in the hot loop.
+     * 
+     * @param prefix The combination prefix leading up to the final click.
+     * @param prefixLength The length of the prefix.
+     * @param finalClick The final click that completes the solution.
+     * @see CombinationQueueArray#solutionFound(String, short[])
+     * @see System#arraycopy(Object, int, Object, int, int)
+     * @since 2025.11 - Success Handling Extraction
+     * @performance {@code O(prefixLength)} for array copy.
+     * 
+     */
+    private void handleSuccess(final short[] prefix, final int prefixLength,
+            final short finalClick) {
+        final short[] winningCombination = new short[prefixLength + 1];
+        System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);
+        winningCombination[prefixLength] = finalClick;
+        queueArray.solutionFound(this.getName(), winningCombination);
+        logger.info("Found the solution as the following click combination: {}",
+                new CombinationMessage(winningCombination.clone(),
+                        Grid.ValueFormat.Index));
+
+        triggerGeneratorShutdown();
     }
 
     /**

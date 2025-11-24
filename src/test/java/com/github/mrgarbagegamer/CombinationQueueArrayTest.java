@@ -29,7 +29,7 @@ class CombinationQueueArrayTest {
         // Reset singleton for each test
         CombinationQueueArray.resetInstance();
         WorkBatch.resetForTest();
-        random.setSeed(System.currentTimeMillis()); 
+        random.setSeed(System.currentTimeMillis());
         int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
         WorkBatch.setNumClicks(numClicks);
     }
@@ -42,7 +42,8 @@ class CombinationQueueArrayTest {
     void testSingletonInstance() {
         CombinationQueueArray instance1 = CombinationQueueArray.getInstance(4);
         CombinationQueueArray instance2 = CombinationQueueArray.getInstance(5);
-        assertSame(instance1, instance2, "getInstance should always return the same singleton instance");
+        assertSame(instance1, instance2,
+                "getInstance should always return the same singleton instance");
     }
 
     /**
@@ -53,11 +54,14 @@ class CombinationQueueArrayTest {
         queueArray = CombinationQueueArray.getInstance(4);
         assertNotNull(queueArray, "Singleton instance should not be null");
         assertFalse(queueArray.isSolutionFound(), "solutionFound should be false initially");
-        assertFalse(queueArray.isGenerationComplete(), "generationComplete should be false initially");
-        assertEquals(4, queueArray.getNumQueues(), "Number of queues should match the initialization parameter");
+        assertFalse(queueArray.isGenerationComplete(),
+                "generationComplete should be false initially");
+        assertEquals(4, queueArray.getNumQueues(),
+                "Number of queues should match the initialization parameter");
 
         long currentTimeMillis = System.currentTimeMillis();
-        assertTrue(queueArray.getStartTime() <= currentTimeMillis, "startTime should be set to a time before or equal to current time");
+        assertTrue(queueArray.getStartTime() <= currentTimeMillis,
+                "startTime should be set to a time before or equal to current time");
 
         assertEquals(-1L, queueArray.getEndTime(), "endTime should be -1 initially");
 
@@ -68,7 +72,8 @@ class CombinationQueueArrayTest {
             queueArray.getWinningCombination();
         }, "getWinningCombination should throw IllegalStateException if no solution found");
 
-        assertFalse(queueArray.isGenerationComplete(), "generationComplete should be false initially");
+        assertFalse(queueArray.isGenerationComplete(),
+                "generationComplete should be false initially");
         assertFalse(queueArray.isSolutionFound(), "solutionFound should be false initially");
     }
 
@@ -80,8 +85,10 @@ class CombinationQueueArrayTest {
         queueArray.solutionFound("Tester", solution);
         long timeAfter = System.currentTimeMillis();
         assertTrue(queueArray.isSolutionFound(), "solutionFound should be true after signaling");
-        assertArrayEquals(solution, queueArray.getWinningCombination(), "Stored solution should match the signaled one");
-        assertEquals("Tester", queueArray.getWinningMonkey(), "Stored solver name should match the signaled one");
+        assertArrayEquals(solution, queueArray.getWinningCombination(),
+                "Stored solution should match the signaled one");
+        assertEquals("Tester", queueArray.getWinningMonkey(),
+                "Stored solver name should match the signaled one");
         assertTrue(queueArray.getEndTime() >= timeBefore && queueArray.getEndTime() <= timeAfter,
                 "endTime should be set to a time between signaling and now");
     }
@@ -94,7 +101,8 @@ class CombinationQueueArrayTest {
         queueArray.generationComplete();
         long timeAfter = System.currentTimeMillis();
 
-        assertTrue(queueArray.isGenerationComplete(), "generationComplete should be true after signaling");
+        assertTrue(queueArray.isGenerationComplete(),
+                "generationComplete should be true after signaling");
         assertTrue(queueArray.getEndTime() >= timeBefore && queueArray.getEndTime() <= timeAfter,
                 "endTime should be set to a time between signaling and now");
     }
@@ -119,7 +127,8 @@ class CombinationQueueArrayTest {
         WorkBatch polledBatch = queue.getWorkBatch();
 
         assertNotNull(polledBatch, "Should be able to poll a batch from the queue");
-        assertSame(batch, polledBatch, "Polled batch should be the same instance as the one offered");
+        assertSame(batch, polledBatch,
+                "Polled batch should be the same instance as the one offered");
 
         // We don't need to verify the contents, as WorkBatch's internal logic is tested elsewhere
     }
@@ -128,7 +137,7 @@ class CombinationQueueArrayTest {
     void testPollEmptyQueue() {
         final int idx = random.nextInt(4);
         queueArray = CombinationQueueArray.getInstance(4);
-        
+
         CombinationQueue queue = queueArray.getQueue(idx);
         assertNull(queue.getWorkBatch(), "Polling from an empty queue should return null");
     }

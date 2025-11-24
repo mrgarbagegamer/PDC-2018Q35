@@ -55,7 +55,7 @@ public class Grid13 extends Grid {
      */
     void initialize() {
         // Initialize for Q13/Kermit
-        
+
         // set all cells to their initial state
         gridState[0] = -6917317925703516160L;
         gridState[1] = 8191L;

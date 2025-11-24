@@ -81,19 +81,19 @@ public class TaskPool {
      * 
      * <h3>Performance Considerations</h3>
      * <p>
-     * Using a circular buffer allows for efficient use of the pre-allocated tasks, minimizing memory
-     * usage while still allowing for fast {@link #put(CombinationGeneratorTask) put()} and
-     * {@code get()} operations. The head index is updated in constant time, ensuring that {@code get}
-     * operations remain efficient even as the pool fills up and empties out.
+     * Using a circular buffer allows for efficient use of the pre-allocated tasks, minimizing
+     * memory usage while still allowing for fast {@link #put(CombinationGeneratorTask) put()} and
+     * {@code get()} operations. The head index is updated in constant time, ensuring that
+     * {@code get} operations remain efficient even as the pool fills up and empties out.
      * </p>
      * 
      * <p>
-     * We could use a {@code short} for the indices to save a few bytes of memory, but the performance
-     * difference is negligible and using an {@code int} avoids potential overflow issues in
-     * long-running applications (plus, Java treats arithmetic with {@code short} values weirdly). We
-     * could also use a single pointer for both {@code head} and {@link #tail}, but that would
-     * complicate the logic and force an extra arithmetic operation on each operation, which could
-     * impact performance.
+     * We could use a {@code short} for the indices to save a few bytes of memory, but the
+     * performance difference is negligible and using an {@code int} avoids potential overflow
+     * issues in long-running applications (plus, Java treats arithmetic with {@code short} values
+     * weirdly). We could also use a single pointer for both {@code head} and {@link #tail}, but
+     * that would complicate the logic and force an extra arithmetic operation on each operation,
+     * which could impact performance.
      * </p>
      * 
      * @see #capacity
@@ -108,25 +108,26 @@ public class TaskPool {
      * 
      * <p>
      * The tail index tracks where the next returned array should be placed in the circular
-     * {@link #arrays buffer}. It is incremented each time an array is returned to the pool, wrapping
-     * around to the start of the buffer when it reaches the end, implementing a circular buffer
-     * mechanism.
+     * {@link #arrays buffer}. It is incremented each time an array is returned to the pool,
+     * wrapping around to the start of the buffer when it reaches the end, implementing a circular
+     * buffer mechanism.
      * </p>
      * 
      * <h3>Performance Considerations</h3>
      * <p>
-     * Using a circular buffer allows for efficient use of the pre-allocated array, minimizing memory
-     * usage while still allowing for fast {@code put} and {@link #get() get} operations. The tail index
-     * is updated in constant time, ensuring that {@code put} operations remain efficient even as the
-     * pool fills up and empties out.
+     * Using a circular buffer allows for efficient use of the pre-allocated array, minimizing
+     * memory usage while still allowing for fast {@code put} and {@link #get() get} operations. The
+     * tail index is updated in constant time, ensuring that {@code put} operations remain efficient
+     * even as the pool fills up and empties out.
      * </p>
      * 
      * <p>
-     * We could use a {@code short} for the indices to save a few bytes of memory, but the performance
-     * difference is negligible and using an {@code int} avoids potential overflow issues in
-     * long-running applications (plus, Java treats arithmetic with {@code short} values weirdly). We
-     * could also use a single pointer for both {@link #head} and tail, but that would complicate the
-     * logic and force an extra arithmetic operation on each operation, which could impact performance.
+     * We could use a {@code short} for the indices to save a few bytes of memory, but the
+     * performance difference is negligible and using an {@code int} avoids potential overflow
+     * issues in long-running applications (plus, Java treats arithmetic with {@code short} values
+     * weirdly). We could also use a single pointer for both {@link #head} and tail, but that would
+     * complicate the logic and force an extra arithmetic operation on each operation, which could
+     * impact performance.
      * </p>
      * 
      * @see #capacity
@@ -190,12 +191,12 @@ public class TaskPool {
         }
         this.capacity = capacity;
         this.arrays = new CombinationGeneratorTask[capacity];
-        
+
         // Pre-allocate all tasks
         for (int i = 0; i < capacity; i++) {
             this.arrays[i] = new CombinationGeneratorTask();
         }
-        
+
         this.size = capacity;
     }
 
@@ -203,19 +204,19 @@ public class TaskPool {
      * Retrieves a task from the pool.
      * 
      * <p>
-     * If the pool is empty, a new {@link CombinationGeneratorTask} is created to prevent stalls rather
-     * than returning {@code null}. This fallback allocation is a performance anti-pattern and indicates
-     * that the pool may be undersized for the current workload.
+     * If the pool is empty, a new {@link CombinationGeneratorTask} is created to prevent stalls
+     * rather than returning {@code null}. This fallback allocation is a performance anti-pattern
+     * and indicates that the pool may be undersized for the current workload.
      * </p>
      *
      * <h3>Performance Considerations</h3>
      * <p>
      * This operation is on the hot path of combination generation and must be extremely fast. The
-     * implementation uses a circular buffer for {@code O(1)} complexity. A {@code null} check on the
-     * retrieved task is avoided, as the pool should never contain {@code null}s if used correctly. The
-     * initial {@code size} check provides a fast path for the empty-pool case. Removing it could risk
-     * {@code size} becoming negative and returning a {@code null} task, so it is kept as a safety
-     * measure.
+     * implementation uses a circular buffer for {@code O(1)} complexity. A {@code null} check on
+     * the retrieved task is avoided, as the pool should never contain {@code null}s if used
+     * correctly. The initial {@code size} check provides a fast path for the empty-pool case.
+     * Removing it could risk {@code size} becoming negative and returning a {@code null} task, so
+     * it is kept as a safety measure.
      * </p>
      *
      * @return A recycled or newly created {@link CombinationGeneratorTask}.
@@ -227,8 +228,7 @@ public class TaskPool {
      * @memory Only allocates if the pool is empty, otherwise reuses existing tasks.
      */
     public CombinationGeneratorTask get() {
-        if (size == 0)
-        {
+        if (size == 0) {
             return new CombinationGeneratorTask(); // Return a new task if the pool is empty
         }
 
@@ -243,16 +243,16 @@ public class TaskPool {
      * Returns a task to the pool for recycling.
      * 
      * <p>
-     * If the pool is full, the task is discarded and will be garbage collected. This indicates that the
-     * pool may be oversized.
+     * If the pool is full, the task is discarded and will be garbage collected. This indicates that
+     * the pool may be oversized.
      * </p>
      *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This operation is also on the hot path. A {@code null} check is performed as a safeguard against
-     * programming errors, though it could be removed in trusted-caller scenarios for a marginal speed
-     * gain. The check against {@code capacity} is essential to prevent overwriting tasks in the
-     * circular buffer, which could lead to corruption.
+     * This operation is also on the hot path. A {@code null} check is performed as a safeguard
+     * against programming errors, though it could be removed in trusted-caller scenarios for a
+     * marginal speed gain. The check against {@code capacity} is essential to prevent overwriting
+     * tasks in the circular buffer, which could lead to corruption.
      * </p>
      *
      * @param task The {@link CombinationGeneratorTask} to return to the pool.
@@ -264,8 +264,7 @@ public class TaskPool {
      * @memory Does not allocate.
      */
     public void put(CombinationGeneratorTask task) {
-        if (task == null || size >= capacity)
-        {
+        if (task == null || size >= capacity) {
             return;
         }
 

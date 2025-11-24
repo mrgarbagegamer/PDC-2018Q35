@@ -53,16 +53,17 @@ import org.apache.logging.log4j.util.Unbox;
  * @memory Pre-allocation of shared resources to minimize runtime overhead.
  */
 public class StartYourMonkeys {
-    
+
     /**
-     * The primary logger for the application, configured for high-performance, asynchronous logging.
+     * The primary logger for the application, configured for high-performance, asynchronous
+     * logging.
      *
      * <p>
      * In a highly concurrent application, standard synchronous logging (like
-     * {@link java.io.PrintStream#println(String) System.out.println}) can become a major bottleneck. To
-     * avoid this, we use Log4j2 with an asynchronous configuration. This allows application threads to
-     * offload log messages to a background thread with minimal blocking, preventing logging from
-     * impacting the performance of the core solving algorithm.
+     * {@link java.io.PrintStream#println(String) System.out.println}) can become a major
+     * bottleneck. To avoid this, we use Log4j2 with an asynchronous configuration. This allows
+     * application threads to offload log messages to a background thread with minimal blocking,
+     * preventing logging from impacting the performance of the core solving algorithm.
      * </p>
      *
      * @see CombinationMessage
@@ -86,8 +87,8 @@ public class StartYourMonkeys {
      * The default number of clicks to test for a solution.
      *
      * <p>
-     * Based on prior analysis, no solution with 16 or fewer clicks exists for the primary target, Q35.
-     * This default is set to the next logical step in the brute-force search.
+     * Based on prior analysis, no solution with 16 or fewer clicks exists for the primary target,
+     * Q35. This default is set to the next logical step in the brute-force search.
      * </p>
      * 
      * @see #main(String[])
@@ -103,8 +104,8 @@ public class StartYourMonkeys {
      * <p>
      * This value is tuned for a high-core-count development machine (16+ cores). The application
      * allocates half of these threads to the {@link ForkJoinPool} for the
-     * {@link CombinationGeneratorTask generators} and the other half to the {@link TestClickCombination
-     * monkeys}.
+     * {@link CombinationGeneratorTask generators} and the other half to the
+     * {@link TestClickCombination monkeys}.
      * </p>
      * 
      * @see #main(String[])
@@ -128,8 +129,8 @@ public class StartYourMonkeys {
      * The main entry point for the solver application.
      *
      * <p>
-     * This method orchestrates the entire solving process, from initialization to shutdown. It follows
-     * a structured sequence:
+     * This method orchestrates the entire solving process, from initialization to shutdown. It
+     * follows a structured sequence:
      * </p>
      * <ol>
      * <li><b>Argument Parsing:</b> Reads {@code numClicks}, {@code numThreads}, and
@@ -140,28 +141,28 @@ public class StartYourMonkeys {
      * immediately begin waiting for work.</li>
      * <li><b>Generator Execution:</b> Creates a {@link ForkJoinPool} and submits a root
      * {@link CombinationGeneratorTask}. The main thread blocks using
-     * {@link ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask) invoke(CombinationGeneratorTask)},
-     * waiting for the entire generation process (including all forked subtasks) to complete or for a
-     * solution to be found.</li>
+     * {@link ForkJoinPool#invoke(java.util.concurrent.ForkJoinTask)
+     * invoke(CombinationGeneratorTask)}, waiting for the entire generation process (including all
+     * forked subtasks) to complete or for a solution to be found.</li>
      * <li><b>Graceful Shutdown:</b> Once generation finishes, it
      * {@link CombinationGeneratorTask#flushAllPendingBatches() flushes any remaining work} from
      * generator-local batches, {@link CombinationQueueArray#generationComplete() signals} to the
      * workers that no more work is coming, and waits for them to terminate using
      * {@link Thread#join()}.</li>
-     * <li><b>Result Reporting:</b> Reports the outcome ({@link CombinationQueueArray#isSolutionFound()
-     * solution found or not found}), verifies the solution if one exists, and
-     * {@link #formatElapsedTime(long) logs the total elapsed time} before {@link LogManager#shutdown()
-     * shutting down} the {@link #logger}.</li>
+     * <li><b>Result Reporting:</b> Reports the outcome
+     * ({@link CombinationQueueArray#isSolutionFound() solution found or not found}), verifies the
+     * solution if one exists, and {@link #formatElapsedTime(long) logs the total elapsed time}
+     * before {@link LogManager#shutdown() shutting down} the {@link #logger}.</li>
      * </ol>
      *
      * <h3>ForkJoinPool Behavior</h3>
      * <p>
      * A key decision was to use {@code invoke()} to block the main thread. Early prototypes using
      * non-blocking approaches with
-     * {@link ForkJoinPool#awaitQuiescence(long, java.util.concurrent.TimeUnit)} proved unreliable, as
-     * {@code awaitQuiescence} did not consistently wait for dynamically forked subtasks to complete.
-     * The current blocking approach provides a robust and predictable mechanism for managing the
-     * generator lifecycle.
+     * {@link ForkJoinPool#awaitQuiescence(long, java.util.concurrent.TimeUnit)} proved unreliable,
+     * as {@code awaitQuiescence} did not consistently wait for dynamically forked subtasks to
+     * complete. The current blocking approach provides a robust and predictable mechanism for
+     * managing the generator lifecycle.
      * </p>
      *
      * @param args Command-line arguments:
@@ -177,33 +178,31 @@ public class StartYourMonkeys {
      * @memory Pre-allocates several shared resources to minimize runtime overhead.
      */
     public static void main(String[] args) {
-        int parsedNumClicks  = DEFAULT_NUM_CLICKS;
+        int parsedNumClicks = DEFAULT_NUM_CLICKS;
         int parsedNumThreads = DEFAULT_NUM_THREADS;
         int parsedQuestionNumber = DEFAULT_QUESTION_NUMBER;
 
         // retrieve the arguments if any or set a default value
-        try 
-        {
-            parsedNumClicks  = Integer.parseInt(args[0]);
+        try {
+            parsedNumClicks = Integer.parseInt(args[0]);
             parsedNumThreads = Integer.parseInt(args[1]);
             parsedQuestionNumber = Integer.parseInt(args[2]);
-        } catch (Exception e) 
-        {
+        } catch (Exception e) {
             // Keep defaults
         }
 
         // Exception handling for invalid arguments
-        if (parsedNumClicks < 1 || parsedNumClicks > 109) 
-        {
-            throw new IllegalArgumentException("Number of clicks must be between 1 and 109 (inclusive).");
+        if (parsedNumClicks < 1 || parsedNumClicks > 109) {
+            throw new IllegalArgumentException(
+                    "Number of clicks must be between 1 and 109 (inclusive).");
         }
-        if (parsedNumThreads < 1) 
-        {
+        if (parsedNumThreads < 1) {
             throw new IllegalArgumentException("Number of threads must be greater than 0.");
         }
-        if (parsedQuestionNumber != 13 && parsedQuestionNumber != 22 && parsedQuestionNumber != 35) 
-        {
-            throw new IllegalArgumentException("Invalid question number. Must be one of: 13, 22, or 35.");
+        if (parsedQuestionNumber != 13 && parsedQuestionNumber != 22
+                && parsedQuestionNumber != 35) {
+            throw new IllegalArgumentException(
+                    "Invalid question number. Must be one of: 13, 22, or 35.");
         }
 
         final int numClicks = parsedNumClicks;
@@ -212,28 +211,25 @@ public class StartYourMonkeys {
 
         // start generating different click combinations
         Grid baseGrid;
-        
-        if (questionNumber == 35) 
-        {
+
+        if (questionNumber == 35) {
             baseGrid = new Grid35();
-        }
-        else if (questionNumber == 13)
-        {
+        } else if (questionNumber == 13) {
             baseGrid = new Grid13();
-        }
-        else 
-        {
+        } else {
             baseGrid = new Grid22();
         }
 
-        short[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the first true adjacents in index format
+        short[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the
+                                                                                         // first
+                                                                                         // true
+                                                                                         // adjacents
+                                                                                         // in index
+                                                                                         // format
         int finalFirstTrueAdjacent = -1;
-        if (trueAdjacents != null) 
-        {
-            for (int adjacent : trueAdjacents) 
-            {
-                if (adjacent > finalFirstTrueAdjacent) 
-                {
+        if (trueAdjacents != null) {
+            for (int adjacent : trueAdjacents) {
+                if (adjacent > finalFirstTrueAdjacent) {
                     finalFirstTrueAdjacent = adjacent;
                 }
             }
@@ -241,80 +237,73 @@ public class StartYourMonkeys {
 
         final int numGeneratorThreads = numThreads / 2; // Rounds down in the case of odd numbers
 
-        // Tell the queue how many generators we have on startup (since we will be using ForkJoinPool, there is effectively only one thread generating combinations)
+        // Tell the queue how many generators we have on startup (since we will be using
+        // ForkJoinPool, there is effectively only one thread generating combinations)
         WorkBatch.setNumClicks(numClicks);
-        CombinationQueueArray queueArray = CombinationQueueArray.getInstance(numThreads - numGeneratorThreads); // One queue per worker thread
+        CombinationQueueArray queueArray = CombinationQueueArray
+                .getInstance(numThreads - numGeneratorThreads); // One queue per worker thread
         short[] trueCells = baseGrid.findTrueCells();
 
         // Start consumer threads BEFORE generation
         TestClickCombination[] monkeys = new TestClickCombination[numThreads - numGeneratorThreads];
-        for(int i = 0; i < numGeneratorThreads; i++)
-        {
+        for (int i = 0; i < numGeneratorThreads; i++) {
             String threadName = String.format("Monkey-%d", i);
-            monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray, baseGrid.clone());
+            monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray,
+                    baseGrid.clone());
             monkeys[i].start();
         }
 
         // Create generator pool and submit root task
         ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads);
         CombinationGeneratorTask.setForkJoinPool(generatorPool);
-        
-        try 
-        {
+
+        try {
             // Invoke root task - no need to keep reference since we use awaitQuiescence
-            generatorPool.invoke(new CombinationGeneratorTask(
-                numClicks, queueArray, trueCells, finalFirstTrueAdjacent));
-        } 
-        finally 
-        {
+            generatorPool.invoke(new CombinationGeneratorTask(numClicks, queueArray, trueCells,
+                    finalFirstTrueAdjacent));
+        } finally {
             // Flush any remaining batches only if no solution found
-            if (!queueArray.isSolutionFound()) 
-            {
+            if (!queueArray.isSolutionFound()) {
                 CombinationGeneratorTask.flushAllPendingBatches();
             }
-            
+
             // Mark generation complete
             queueArray.generationComplete();
-            
+
             // Wait for worker threads to finish
-            for (TestClickCombination worker : monkeys) 
-            {
-                try 
-                {
+            for (TestClickCombination worker : monkeys) {
+                try {
                     worker.join();
-                } catch (InterruptedException e) 
-                {
+                } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     break;
                 }
             }
-            
+
             // Shutdown generator pool
             generatorPool.shutdown();
         }
-        
+
         // Process results
         long runtimeMillis = queueArray.getEndTime() - queueArray.getStartTime();
-        if (runtimeMillis <= 0)
-        {
-            throw new IllegalStateException("Program marked as complete but recorded non-positive runtime.");
+        if (runtimeMillis <= 0) {
+            throw new IllegalStateException(
+                    "Program marked as complete but recorded non-positive runtime.");
         }
         String elapsedFormatted = formatElapsedTime(runtimeMillis);
 
         // Sleep for logger flush
-        try 
-        {
+        try {
             Thread.sleep(1000);
-        } catch (InterruptedException e) 
-        {
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
         logger.info("\n\n--------------------------------------\n");
 
-        if (!queueArray.isSolutionFound()) 
-        {
-            logger.info("No solution to Q{} in {} clicks was found.", Unbox.box(questionNumber), Unbox.box(numClicks));
+        if (!queueArray.isSolutionFound()) {
+            logger.info("No solution to Q{} in {} clicks was found.", Unbox.box(questionNumber),
+                    Unbox.box(numClicks));
             logger.info(elapsedFormatted);
             logger.info("\n\n--------------------------------------\n");
             LogManager.shutdown();
@@ -325,13 +314,12 @@ public class StartYourMonkeys {
         short[] winningCombinationCopy = winningCombination.clone();
 
         // Convert to packed int format and display results
-        for (int i = 0; i < winningCombinationCopy.length; i++) 
-        {
+        for (int i = 0; i < winningCombinationCopy.length; i++) {
             winningCombinationCopy[i] = (short) Grid.indexToPacked(winningCombinationCopy[i]);
         }
 
-        logger.info("{} - Found the solution as the following click combination: {}", 
-                   queueArray.getWinningMonkey(), winningCombinationCopy);
+        logger.info("{} - Found the solution as the following click combination: {}",
+                queueArray.getWinningMonkey(), winningCombinationCopy);
         logger.info("{} - {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
         // Verify solution
@@ -362,7 +350,7 @@ public class StartYourMonkeys {
         long seconds = millis / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;
-        
+
         // Calculate remainder values
         long remainingMillis = millis % 1000;
         seconds = seconds % 60;
@@ -370,11 +358,13 @@ public class StartYourMonkeys {
 
         StringBuilder sb = new StringBuilder();
         sb.append("Elapsed time: ");
-        if (hours > 0) sb.append(hours).append("h ");
-        if (minutes > 0 || hours > 0) sb.append(minutes).append("m ");
+        if (hours > 0)
+            sb.append(hours).append("h ");
+        if (minutes > 0 || hours > 0)
+            sb.append(minutes).append("m ");
         sb.append(seconds).append("s ");
         sb.append(String.format("%03d", remainingMillis)).append("ms");
-        
+
         return sb.toString();
     }
 

@@ -52,9 +52,9 @@ public class CombinationQueueArray {
      * The singleton instance of this class.
      *
      * <p>
-     * This field ensures that only one instance of {@code CombinationQueueArray} exists throughout the
-     * application's lifecycle. It is initialized lazily via {@link #getInstance(int)} to allow proper
-     * configuration with the number of consumers.
+     * This field ensures that only one instance of {@code CombinationQueueArray} exists throughout
+     * the application's lifecycle. It is initialized lazily via {@link #getInstance(int)} to allow
+     * proper configuration with the number of consumers.
      * </p>
      *
      * @since 2025.10 - Singleton Enforcement
@@ -77,8 +77,8 @@ public class CombinationQueueArray {
      * @see #getQueue(int)
      * @see #getAllQueues()
      * @since 2025.05 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(1)} access of an individual queue, {@code O(queues.length)} for iterating
-     *              through all queues.
+     * @performance {@code O(1)} access of an individual queue, {@code O(queues.length)} for
+     *              iterating through all queues.
      * @threading Thread-safe; immutable for read operations after construction.
      * @memory Minimal overhead of {@code queues.length * 4} bytes as an array of references.
      */
@@ -113,12 +113,13 @@ public class CombinationQueueArray {
      * @see #getWorkBatchPool()
      * @see MpmcArrayQueue
      * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} for both offer and poll operations, {@code O(workBatchPool.capacity())}
-     *              for {@link MpmcArrayQueue#size() size()}.
+     * @performance {@code O(1)} for both offer and poll operations,
+     *              {@code O(workBatchPool.capacity())} for {@link MpmcArrayQueue#size() size()}.
      * @threading Thread-safe through JCTools wizardry
      * @memory Fixed memory footprint after initialization
      */
-    private final MpmcArrayQueue<WorkBatch> workBatchPool; // TODO: Consider wrapping this in CombinationQueue for
+    private final MpmcArrayQueue<WorkBatch> workBatchPool; // TODO: Consider wrapping this in
+                                                           // CombinationQueue for
                                                            // better encapsulation.
     /**
      * The start time of the program's operation, used for logging purposes. This timestamp is
@@ -134,13 +135,14 @@ public class CombinationQueueArray {
      */
     private final long startTime;
     /**
-     * The end time of the program's operation, used for logging purposes. This timestamp is set when a
-     * {@link #solutionFound solution is found} or generation is {@link #generationComplete() marked} as
-     * {@link #generationComplete complete}, otherwise remains {@code -1}.
+     * The end time of the program's operation, used for logging purposes. This timestamp is set
+     * when a {@link #solutionFound solution is found} or generation is {@link #generationComplete()
+     * marked} as {@link #generationComplete complete}, otherwise remains {@code -1}.
      * 
      * <p>
      * This field piggybacks on the volatile writes to {@code solutionFound} and
-     * {@code generationComplete} for visibility, saving the overhead of an additional volatile write.
+     * {@code generationComplete} for visibility, saving the overhead of an additional volatile
+     * write.
      * </p>
      * 
      * @see #startTime
@@ -153,8 +155,8 @@ public class CombinationQueueArray {
      */
     private long endTime = -1L;
     /**
-     * The name of the {@link TestClickCombination monkey} that found the solution. Written once when
-     * {@link #solutionFound} is set.
+     * The name of the {@link TestClickCombination monkey} that found the solution. Written once
+     * when {@link #solutionFound} is set.
      *
      * <h3>Performance Considerations</h3>
      * <p>
@@ -172,7 +174,8 @@ public class CombinationQueueArray {
      */
     private String winningMonkey = null;
     /**
-     * The click combination that solves the puzzle. Written once when {@link #solutionFound} is set.
+     * The click combination that solves the puzzle. Written once when {@link #solutionFound} is
+     * set.
      *
      * <h3>Performance Considerations</h3>
      * <p>
@@ -195,16 +198,16 @@ public class CombinationQueueArray {
      *
      * <h3>Performance Considerations</h3>
      * <p>
-     * A {@code volatile boolean} is used instead of an {@code AtomicBoolean} because it provides the
-     * necessary visibility guarantees for a single-writer/multi-reader scenario with less overhead. It
-     * is read frequently in the hot path.
+     * A {@code volatile boolean} is used instead of an {@code AtomicBoolean} because it provides
+     * the necessary visibility guarantees for a single-writer/multi-reader scenario with less
+     * overhead. It is read frequently in the hot path.
      * </p>
      *
      * <p>
      * While generators now rely on the {@link java.util.concurrent.ForkJoinPool ForkJoinPool}'s
      * cancellation mechanism, the monkeys still poll this flag to terminate work. A future
-     * implementation could potentially unify this under a single cancellation mechanism, but this flag
-     * remains a simple and effective solution.
+     * implementation could potentially unify this under a single cancellation mechanism, but this
+     * flag remains a simple and effective solution.
      * </p>
      *
      * @see #getWinningCombination()
@@ -217,19 +220,21 @@ public class CombinationQueueArray {
      */
     private volatile boolean solutionFound = false;
     /**
-     * A volatile flag indicating that all {@link CombinationGeneratorTask producers} have completed.
+     * A volatile flag indicating that all {@link CombinationGeneratorTask producers} have
+     * completed.
      *
      * <p>
-     * This is set to {@code true} when {@link #generationComplete() all generators have finished}. It
-     * signals to {@link TestClickCombination monkeys} that no new work will be added to the queues. A
-     * monkey can safely terminate when this flag is {@code true} and all work queues are empty.
+     * This is set to {@code true} when {@link #generationComplete() all generators have finished}.
+     * It signals to {@link TestClickCombination monkeys} that no new work will be added to the
+     * queues. A monkey can safely terminate when this flag is {@code true} and all work queues are
+     * empty.
      * </p>
      *
      * <h3>Performance Considerations</h3>
      * <p>
-     * A {@code volatile boolean} is used instead of an {@code AtomicBoolean} because it provides the
-     * necessary visibility guarantees for a single-writer/multi-reader scenario with less overhead. It
-     * is read frequently by monkeys to determine when to stop work.
+     * A {@code volatile boolean} is used instead of an {@code AtomicBoolean} because it provides
+     * the necessary visibility guarantees for a single-writer/multi-reader scenario with less
+     * overhead. It is read frequently by monkeys to determine when to stop work.
      * </p>
      *
      * @see TestClickCombination#allQueuesEmpty()
@@ -247,18 +252,18 @@ public class CombinationQueueArray {
      *
      * <p>
      * This constructor initializes the entire communication and resource-sharing infrastructure. It
-     * creates the array of work {@link CombinationQueue queues} and pre-allocates {@link #workBatchPool
-     * the central} {@link WorkBatch} pool. The pool is sized to match the total
-     * {@link CombinationQueue#getCapacity() capacity} of all work queues combined, which is a critical
-     * invariant to ensure the recycling mechanism never fails. Finally, it starts the timer for program
-     * execution by initializing the {@link #startTime} field.
+     * creates the array of work {@link CombinationQueue queues} and pre-allocates
+     * {@link #workBatchPool the central} {@link WorkBatch} pool. The pool is sized to match the
+     * total {@link CombinationQueue#getCapacity() capacity} of all work queues combined, which is a
+     * critical invariant to ensure the recycling mechanism never fails. Finally, it starts the
+     * timer for program execution by initializing the {@link #startTime} field.
      * </p>
      *
      * @param numConsumers The number of {@link TestClickCombination monkeys}. This determines the
      *                     number of work queues to create.
      * @throws IllegalArgumentException if {@code numConsumers} is not positive.
-     * @throws IllegalStateException    if the pre-allocation of the {@link #workBatchPool pool} fails,
-     *                                  indicating a configuration issue.
+     * @throws IllegalStateException    if the pre-allocation of the {@link #workBatchPool pool}
+     *                                  fails, indicating a configuration issue.
      * @since 2025.05 - Multiple {@code CombinationQueue}s
      * @performance {@code O(numConsumers)} queue initialization +
      *              {@code O(numConsumers * CombinationQueue.QUEUE_SIZE)} pool pre-allocation =
@@ -270,25 +275,25 @@ public class CombinationQueueArray {
         if (numConsumers <= 0) {
             throw new IllegalArgumentException("Number of consumers must be positive.");
         }
-        
+
         this.queues = new CombinationQueue[numConsumers];
 
         // The total number of batches that can be in-flight is the sum of all queue capacities
         // The pool must be at least this large to guarantee a recycled batch is never discarded
         int totalWorkQueueCapacity = 0;
-        for (int i = 0; i < numConsumers; i++)
-        {
+        for (int i = 0; i < numConsumers; i++) {
             queues[i] = new CombinationQueue();
             totalWorkQueueCapacity += queues[i].getCapacity();
         }
         // Set the recycle pool size to match the total work queue capacity
         this.workBatchPool = new MpmcArrayQueue<>(totalWorkQueueCapacity);
 
-        // OPTIMIZATION: Pre-allocate the entire WorkBatch pool to prevent allocation in the hot path.
-        for (int i = 0; i < totalWorkQueueCapacity; i++)
-        {
+        // OPTIMIZATION: Pre-allocate the entire WorkBatch pool to prevent allocation in the hot
+        // path.
+        for (int i = 0; i < totalWorkQueueCapacity; i++) {
             if (!workBatchPool.offer(new WorkBatch())) {
-                throw new IllegalStateException("Failed to pre-allocate the WorkBatch pool. Reconfiguration is required.");
+                throw new IllegalStateException(
+                        "Failed to pre-allocate the WorkBatch pool. Reconfiguration is required.");
             }
         }
         this.startTime = System.currentTimeMillis();
@@ -301,16 +306,17 @@ public class CombinationQueueArray {
      * <p>
      * This method enforces the singleton pattern, ensuring that only one instance exists. If the
      * instance has already been initialized, subsequent calls will return the existing instance
-     * regardless of the {@code numConsumers} parameter. This allows the instance to be configured once
-     * at application startup.
+     * regardless of the {@code numConsumers} parameter. This allows the instance to be configured
+     * once at application startup.
      * </p>
      *
      * @param numConsumers The number of {@link TestClickCombination monkeys}. Used only for
      *                     initialization if the instance does not yet exist.
      * @return The singleton instance of {@code CombinationQueueArray}.
-     * @throws IllegalArgumentException if {@code numConsumers} is not positive (only on first call).
-     * @throws IllegalStateException    if the pre-allocation of the {@link #workBatchPool pool} fails
-     *                                  (only on first call).
+     * @throws IllegalArgumentException if {@code numConsumers} is not positive (only on first
+     *                                  call).
+     * @throws IllegalStateException    if the pre-allocation of the {@link #workBatchPool pool}
+     *                                  fails (only on first call).
      * @since 2025.10 - Singleton Enforcement
      * @performance {@code O(1)} for subsequent calls; {@code O(numConsumers)} for initialization.
      * @threading Thread-safe; uses double-checked locking for lazy initialization.
@@ -349,12 +355,12 @@ public class CombinationQueueArray {
      *
      * <p>
      * Both {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} use
-     * this method to access the pool. Generators poll from it to get empty batches, and monkeys offer
-     * to it to return processed batches.
+     * this method to access the pool. Generators poll from it to get empty batches, and monkeys
+     * offer to it to return processed batches.
      * </p>
      *
-     * @return The thread-safe, multi-producer/multi-consumer queue used for pooling {@code WorkBatch}
-     *         instances.
+     * @return The thread-safe, multi-producer/multi-consumer queue used for pooling
+     *         {@code WorkBatch} instances.
      * @see #workBatchPool
      * @see #CombinationQueueArray(int)
      * @see MpmcArrayQueue
@@ -376,16 +382,16 @@ public class CombinationQueueArray {
      * @performance {@code O(1)} access.
      * @threading Thread-safe; returns a reference to an immutable field.
      */
-    public CombinationQueue getQueue(int idx) { 
-        return queues[idx]; 
+    public CombinationQueue getQueue(int idx) {
+        return queues[idx];
     }
 
     /**
      * Returns the {@link #queues entire array} of work queues.
      *
      * <p>
-     * This is primarily used to enable work-stealing, where a {@link TestClickCombination monkey} can
-     * iterate through other queues to find work if its own queue is empty.
+     * This is primarily used to enable work-stealing, where a {@link TestClickCombination monkey}
+     * can iterate through other queues to find work if its own queue is empty.
      * </p>
      *
      * @return The array of all {@link CombinationQueue}s.
@@ -394,8 +400,8 @@ public class CombinationQueueArray {
      * @performance {@code O(1)} access.
      * @threading Thread-safe; returns a reference to an immutable field.
      */
-    public CombinationQueue[] getAllQueues() { 
-        return queues; 
+    public CombinationQueue[] getAllQueues() {
+        return queues;
     }
 
     /**
@@ -414,9 +420,9 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Marks the completion of the {@link CombinationGeneratorTask generators}. This method is called by
-     * the system when the last generator finishes its work, marking the {@link #generationComplete
-     * completion} flag as {@code true}.
+     * Marks the completion of the {@link CombinationGeneratorTask generators}. This method is
+     * called by the system when the last generator finishes its work, marking the
+     * {@link #generationComplete completion} flag as {@code true}.
      *
      * @see StartYourMonkeys#main(String[])
      * @since 2025.05 - Multiple {@code CombinationQueue}s
@@ -442,17 +448,17 @@ public class CombinationQueueArray {
      * <p>
      * This method sets the {@link #solutionFound} flag to {@code true} and records the winning
      * combination, the name of the thread that found it, and the {@link System#currentTimeMillis()
-     * current time}. It is designed to be called by any {@link TestClickCombination monkey}. A check
-     * ensures that only the first-found solution is recorded.
+     * current time}. It is designed to be called by any {@link TestClickCombination monkey}. A
+     * check ensures that only the first-found solution is recorded.
      * </p>
      *
      * <h3>Performance Considerations</h3>
      * <p>
-     * This method is called only once. A simple check on the {@code solutionFound} flag prevents a race
-     * condition where multiple monkeys find a solution simultaneously. A {@code volatile
+     * This method is called only once. A simple check on the {@code solutionFound} flag prevents a
+     * race condition where multiple monkeys find a solution simultaneously. A {@code volatile
      * boolean} is used for the flag over an {@code AtomicBoolean} to reduce overhead, as the
-     * single-write nature of the event does not require atomic compare-and-set operations. The other
-     * fields could piggyback on this write for visibility.
+     * single-write nature of the event does not require atomic compare-and-set operations. The
+     * other fields could piggyback on this write for visibility.
      * </p>
      *
      * @param monkeyName         The name of the monkey that found the solution.
@@ -478,8 +484,8 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Returns the {@link #winningMonkey name} of the {@link TestClickCombination monkey} that solved
-     * the puzzle, or throws if {@link #isSolutionFound() no solution has been found yet}.
+     * Returns the {@link #winningMonkey name} of the {@link TestClickCombination monkey} that
+     * solved the puzzle, or throws if {@link #isSolutionFound() no solution has been found yet}.
      *
      * @return The winning monkey's name.
      * @throws IllegalStateException if no solution has been found yet.
@@ -493,14 +499,15 @@ public class CombinationQueueArray {
      */
     public String getWinningMonkey() {
         if (!solutionFound) {
-            throw new IllegalStateException("A solution has not been found yet. Cannot get winning monkey.");
+            throw new IllegalStateException(
+                    "A solution has not been found yet. Cannot get winning monkey.");
         }
         return winningMonkey;
     }
-    
+
     /**
-     * Returns a {@link Object#clone() clone} of the {@link #winningCombination combination that solves
-     * the puzzle}, or throws if {@link #isSolutionFound() no solution has been found yet}.
+     * Returns a {@link Object#clone() clone} of the {@link #winningCombination combination that
+     * solves the puzzle}, or throws if {@link #isSolutionFound() no solution has been found yet}.
      *
      * @return A clone of the winning combination array.
      * @throws IllegalStateException if no solution has been found yet.
@@ -511,19 +518,21 @@ public class CombinationQueueArray {
      * @performance {@code O(1)} retrieval.
      * @threading Thread-safe; piggybacks on the {@code volatile} write to {@code solutionFound} for
      *            visibility.
-     * @memory Allocates an exception if called before a solution is found, and allocates a clone of the
-     *         array when returning.
+     * @memory Allocates an exception if called before a solution is found, and allocates a clone of
+     *         the array when returning.
      */
     public short[] getWinningCombination() {
         if (!solutionFound) {
-            throw new IllegalStateException("A solution has not been found yet. Cannot get winning combination.");
+            throw new IllegalStateException(
+                    "A solution has not been found yet. Cannot get winning combination.");
         }
         return winningCombination.clone();
     }
 
     /**
-     * Returns the {@link #startTime start time} of the program's operation, used for logging purposes.
-     * This timestamp is initialized during {@link #CombinationQueueArray(int) construction}.
+     * Returns the {@link #startTime start time} of the program's operation, used for logging
+     * purposes. This timestamp is initialized during {@link #CombinationQueueArray(int)
+     * construction}.
      * 
      * @return The start time in milliseconds since the epoch.
      * @see #endTime
@@ -539,10 +548,10 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Returns the {@link #endTime end time} of the program's operation, used for logging purposes. This
-     * timestamp is set when a {@link #solutionFound(String, short[]) solution is found} or generation
-     * is {@link #generationComplete() marked} as {@link #generationComplete complete}. Otherwise, it
-     * remains {@code -1}.
+     * Returns the {@link #endTime end time} of the program's operation, used for logging purposes.
+     * This timestamp is set when a {@link #solutionFound(String, short[]) solution is found} or
+     * generation is {@link #generationComplete() marked} as {@link #generationComplete complete}.
+     * Otherwise, it remains {@code -1}.
      * 
      * @return The end time in milliseconds since the epoch, or {@code -1} if not finished.
      * @see #startTime
@@ -558,8 +567,8 @@ public class CombinationQueueArray {
     }
 
     /**
-     * An accessor for the {@link #generationComplete} flag, giving external classes read access to the
-     * flag without direct exposure.
+     * An accessor for the {@link #generationComplete} flag, giving external classes read access to
+     * the flag without direct exposure.
      * 
      * @return The current state of the {@code generationComplete} flag.
      * @see #generationComplete()
@@ -575,8 +584,8 @@ public class CombinationQueueArray {
     }
 
     /**
-     * An accessor for the {@link #solutionFound} flag, giving external classes read access to the flag
-     * without direct exposure.
+     * An accessor for the {@link #solutionFound} flag, giving external classes read access to the
+     * flag without direct exposure.
      * 
      * @return The current state of the {@code solutionFound} flag.
      * @see #solutionFound(String, short[])

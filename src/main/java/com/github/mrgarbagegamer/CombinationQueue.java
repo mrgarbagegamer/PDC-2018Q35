@@ -51,13 +51,13 @@ public class CombinationQueue {
      * {@link TestClickCombination monkeys} becoming starved for work if generators are temporarily
      * blocked.</li>
      * </ul>
-     * A small size is chosen because the queue holds large {@link WorkBatch} objects, making memory a
-     * primary consideration.
+     * A small size is chosen because the queue holds large {@link WorkBatch} objects, making memory
+     * a primary consideration.
      * </p>
      * 
      * <p>
-     * Note that, per {@link MpmcArrayQueue#MpmcArrayQueue(int)}, the capacity will be rounded up to the
-     * next power of two if it is not already.
+     * Note that, per {@link MpmcArrayQueue#MpmcArrayQueue(int)}, the capacity will be rounded up to
+     * the next power of two if it is not already.
      * </p>
      * 
      * @see MpmcArrayQueue#capacity()
@@ -71,8 +71,8 @@ public class CombinationQueue {
      * The underlying {@link MpmcArrayQueue JCTools queue} that holds {@link WorkBatch} objects.
      * 
      * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} amortized for enqueue/dequeue operations, {@code O(1)} capacity access,
-     *              and {@code O(QUEUE_SIZE)} size access.
+     * @performance {@code O(1)} amortized for enqueue/dequeue operations, {@code O(1)} capacity
+     *              access, and {@code O(QUEUE_SIZE)} size access.
      * @threading Thread-safe via JCTools "magic".
      * @memory Fixed memory overhead for the queue structure.
      */
@@ -110,8 +110,8 @@ public class CombinationQueue {
      * Offers a {@link WorkBatch} to the queue using a non-blocking, relaxed operation.
      *
      * <p>
-     * This method may occasionally fail (return {@code false}) even if the queue is not full, which is
-     * an acceptable trade-off for higher throughput.
+     * This method may occasionally fail (return {@code false}) even if the queue is not full, which
+     * is an acceptable trade-off for higher throughput.
      * </p>
      *
      * @param workBatch the batch to add.
@@ -130,8 +130,8 @@ public class CombinationQueue {
      * Retrieves a {@link WorkBatch} from the queue using a non-blocking, relaxed operation.
      *
      * <p>
-     * This method may occasionally fail (return {@code null}) even if the queue is not empty, which is
-     * an acceptable trade-off for higher throughput.
+     * This method may occasionally fail (return {@code null}) even if the queue is not empty, which
+     * is an acceptable trade-off for higher throughput.
      * </p>
      *
      * @return a {@link WorkBatch} if one was available, or {@code null} otherwise.
@@ -149,8 +149,8 @@ public class CombinationQueue {
      * Checks if the queue is empty.
      *
      * <p>
-     * Note: In a concurrent environment, the result of this call is only a snapshot in time and may be
-     * immediately outdated.
+     * Note: In a concurrent environment, the result of this call is only a snapshot in time and may
+     * be immediately outdated.
      * </p>
      *
      * @return {@code true} if the queue was empty at the time of the call, {@code false} otherwise.

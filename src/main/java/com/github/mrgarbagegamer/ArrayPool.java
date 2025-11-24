@@ -43,10 +43,11 @@ public final class ArrayPool {
      *
      * <p>
      * This field <strong>must</strong> be set via {@link #setNumClicks(int)} before any
-     * {@code ArrayPool} is {@link #ArrayPool(int) instantiated}. It is {@code static} to ensure that
-     * all generated combination arrays are of a consistent, predictable size, which is essential for
-     * the pre-allocation strategy. Making it non-{@code final} (but settable only once) was a design
-     * trade-off to avoid dependencies on configuration files or system properties for initialization.
+     * {@code ArrayPool} is {@link #ArrayPool(int) instantiated}. It is {@code static} to ensure
+     * that all generated combination arrays are of a consistent, predictable size, which is
+     * essential for the pre-allocation strategy. Making it non-{@code final} (but settable only
+     * once) was a design trade-off to avoid dependencies on configuration files or system
+     * properties for initialization.
      * </p>
      *
      * @see #ArrayPool(int)
@@ -61,8 +62,8 @@ public final class ArrayPool {
      *
      * <p>
      * This 2D array acts as the backing store for the circular buffer. It is allocated once at
-     * construction with a fixed {@link #capacity}, and its arrays are recycled via the {@link #head}
-     * and {@link #tail} pointers.
+     * construction with a fixed {@link #capacity}, and its arrays are recycled via the
+     * {@link #head} and {@link #tail} pointers.
      * </p>
      *
      * @see #capacity
@@ -71,7 +72,8 @@ public final class ArrayPool {
      * @since 2025.07 - Custom Generator Pools
      * @performance {@code O(1)} access for {@link #get() get}/{@link #put(short[]) put} operations.
      * @threading Not thread-safe; must be confined to a single thread.
-     * @memory Fixed memory footprint of ~{@code capacity * numClicks * 2} bytes as a {@code short[][]}.
+     * @memory Fixed memory footprint of ~{@code capacity * numClicks * 2} bytes as a
+     *         {@code short[][]}.
      */
     private final short[][] arrays;
     /**
@@ -79,9 +81,10 @@ public final class ArrayPool {
      *
      * <p>
      * The {@code capacity} is set at {@link #ArrayPool(int) construction} and determines the
-     * {@link #arrays buffer}'s memory footprint. A larger {@code capacity} reduces the chance of the
-     * pool running out of arrays (which would return {@code null}), but increases initial memory usage.
-     * The optimal size depends on the workload and the expected depth of the recursive tasks.
+     * {@link #arrays buffer}'s memory footprint. A larger {@code capacity} reduces the chance of
+     * the pool running out of arrays (which would return {@code null}), but increases initial
+     * memory usage. The optimal size depends on the workload and the expected depth of the
+     * recursive tasks.
      * </p>
      *
      * @since 2025.07 - Custom Generator Pools
@@ -110,9 +113,10 @@ public final class ArrayPool {
      * The index where the next recycled array will be placed by {@link #put(short[])}.
      *
      * <p>
-     * This pointer advances through the {@link #arrays circular buffer} as arrays are returned. Using
-     * separate {@link #head} and {@code tail} pointers was chosen over a single-pointer-with-size
-     * design to remove arithmetic from the hot path of {@link #get()}/{@code put} operations.
+     * This pointer advances through the {@link #arrays circular buffer} as arrays are returned.
+     * Using separate {@link #head} and {@code tail} pointers was chosen over a
+     * single-pointer-with-size design to remove arithmetic from the hot path of
+     * {@link #get()}/{@code put} operations.
      * </p>
      *
      * @since 2025.07 - Custom Generator Pools
@@ -125,10 +129,10 @@ public final class ArrayPool {
      * The current number of arrays available in the pool.
      *
      * <p>
-     * This value is decremented by {@link #get()} and incremented by {@link #put(short[])}. It is used
-     * to check if the pool {@link #isEmpty() is empty} or full. While the size could be calculated from
-     * the {@link #head} and {@link #tail} pointers, storing it explicitly makes the checks trivial and
-     * avoids arithmetic in the hot path.
+     * This value is decremented by {@link #get()} and incremented by {@link #put(short[])}. It is
+     * used to check if the pool {@link #isEmpty() is empty} or full. While the size could be
+     * calculated from the {@link #head} and {@link #tail} pointers, storing it explicitly makes the
+     * checks trivial and avoids arithmetic in the hot path.
      * </p>
      *
      * @since 2025.07 - Custom Generator Pools
@@ -142,14 +146,14 @@ public final class ArrayPool {
      * Constructs a new {@code ArrayPool} and pre-allocates its internal array buffer.
      *
      * <p>
-     * All arrays are allocated upfront to prevent runtime allocation overhead. This constructor will
-     * fail if {@link #numClicks} has not been set, ensuring a fail-fast approach to configuration
-     * errors.
+     * All arrays are allocated upfront to prevent runtime allocation overhead. This constructor
+     * will fail if {@link #numClicks} has not been set, ensuring a fail-fast approach to
+     * configuration errors.
      * </p>
      *
      * @param capacity The maximum number of arrays the pool can hold. Must be positive.
-     * @throws IllegalArgumentException if {@code capacity} is not positive or if {@link #numClicks} has
-     *                                  not been set.
+     * @throws IllegalArgumentException if {@code capacity} is not positive or if {@link #numClicks}
+     *                                  has not been set.
      * @see #arrays
      * @see #setNumClicks(int)
      * @since 2025.07 - Custom Generator Pools
@@ -162,7 +166,7 @@ public final class ArrayPool {
         } else if (capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be greater than 0.");
         }
-        
+
         this.capacity = capacity;
         this.arrays = new short[capacity][numClicks];
         // Pre-allocated arrays are immediately available
@@ -170,11 +174,12 @@ public final class ArrayPool {
     }
 
     /**
-     * Sets the {@code static} size for all arrays that will be managed by {@code ArrayPool} instances.
+     * Sets the {@code static} size for all arrays that will be managed by {@code ArrayPool}
+     * instances.
      *
      * <p>
-     * This method is not thread-safe and must be called exactly once during application initialization,
-     * before any threads begin creating or using pools.
+     * This method is not thread-safe and must be called exactly once during application
+     * initialization, before any threads begin creating or using pools.
      * </p>
      *
      * @param numClicks The size of each array in the pool. Must be positive.
@@ -197,10 +202,10 @@ public final class ArrayPool {
      * Retrieves an array from the pool.
      *
      * <p>
-     * This is an {@code O(1)} operation. To improve performance on the hot path, this method assumes
-     * the caller will handle a {@code null} return gracefully. The slot previously holding the array is
-     * {@code null}ed out to assist the garbage collector, a micro-optimization that can be beneficial
-     * in long-running, high-allocation scenarios.
+     * This is an {@code O(1)} operation. To improve performance on the hot path, this method
+     * assumes the caller will handle a {@code null} return gracefully. The slot previously holding
+     * the array is {@code null}ed out to assist the garbage collector, a micro-optimization that
+     * can be beneficial in long-running, high-allocation scenarios.
      * </p>
      *
      * @return A pre-allocated {@code short[]} array, or {@code null} if the pool is empty.
@@ -212,8 +217,7 @@ public final class ArrayPool {
      * @memory Does not allocate.
      */
     public short[] get() {
-        if (size == 0)
-        {
+        if (size == 0) {
             return null;
         }
 
@@ -228,9 +232,9 @@ public final class ArrayPool {
      * Returns an array to the pool, making it available for reuse.
      *
      * <p>
-     * This is an {@code O(1)} operation. If the pool is already at full capacity, this method returns
-     * immediately and the given array is effectively dropped. This can happen if arrays are generated
-     * faster than they are consumed, but a properly sized pool should prevent this.
+     * This is an {@code O(1)} operation. If the pool is already at full capacity, this method
+     * returns immediately and the given array is effectively dropped. This can happen if arrays are
+     * generated faster than they are consumed, but a properly sized pool should prevent this.
      * </p>
      *
      * @param array The {@code short[]} array to return to the pool. It is assumed to be
@@ -244,8 +248,7 @@ public final class ArrayPool {
      * @memory Does not allocate.
      */
     public void put(short[] array) {
-        if (size >= capacity)
-        {
+        if (size >= capacity) {
             // This should not happen if the pool is sized correctly, but as a safeguard:
             // Log a warning or handle the error appropriately.
             return;

@@ -32,7 +32,7 @@ package com.github.mrgarbagegamer;
  * @memory No allocations after initialization (except for methods that explicitly create new
  *         objects).
  */
-public class Grid35 extends Grid {   
+public class Grid35 extends Grid {
     /**
      * Loads the pre-computed state for the Q35 puzzle.
      *

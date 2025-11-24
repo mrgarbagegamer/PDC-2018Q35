@@ -304,8 +304,7 @@ public class TestClickCombination extends Thread {
                     long[] lookup = new long[Grid.NUM_CELLS]; // 109 possible clicks, single long
                                                               // for ≤64 bits
 
-                    for (short clickCell = 0; clickCell < 109; clickCell++) 
-                    {
+                    for (short clickCell = 0; clickCell < 109; clickCell++) {
                         for (int i = 0; i < trueCells.length; i++) {
                             if (Grid.areAdjacent(trueCells[i], clickCell, Grid.ValueFormat.Index)) {
                                 lookup[clickCell] |= (1L << i);

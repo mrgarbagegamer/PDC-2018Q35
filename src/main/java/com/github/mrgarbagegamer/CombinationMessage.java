@@ -68,8 +68,7 @@ import org.apache.logging.log4j.util.StringBuilderFormattable;
  *         {@link #getFormattedMessage()} is called.
  */
 @AsynchronouslyFormattable
-public class CombinationMessage implements Message, StringBuilderFormattable 
-{
+public class CombinationMessage implements Message, StringBuilderFormattable {
     /**
      * The combination data. The interpretation of this data depends on the {@link #format} field.
      * 
@@ -104,13 +103,14 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      *         passed {@code list}.
      */
     public CombinationMessage(short[] list, Grid.ValueFormat format) {
-        // TODO: Consider adding the success/failure status to the message so it can be passed directly.
+        // TODO: Consider adding the status to the message so it can be passed directly.
         if (format == Grid.ValueFormat.Bitmask) {
-            throw new IllegalArgumentException("Cannot create CombinationMessage with Bitmask format at the moment. Use Index or PackedInt instead.");
+            throw new IllegalArgumentException(
+                    "Cannot create CombinationMessage with Bitmask format at the moment. Use Index or PackedInt instead.");
         }
         this.list = list;
         this.format = format;
-        
+
     }
 
     /**
@@ -118,13 +118,14 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      *
      * <p>
      * This method performs an in-place conversion to avoid memory allocation, giving it an
-     * {@code O(list.length)} time complexity. For greater efficiency, specialized conversion methods
-     * (e.g., a dedicated {@code indexToPackedInt()}) could be created to minimize conditional checks,
-     * though this would increase code complexity.
+     * {@code O(list.length)} time complexity. For greater efficiency, specialized conversion
+     * methods (e.g., a dedicated {@code indexToPackedInt()}) could be created to minimize
+     * conditional checks, though this would increase code complexity.
      * </p>
      *
      * @param outputFormat The target {@link Grid.ValueFormat} for the conversion.
-     * @throws IllegalArgumentException if conversion to {@link Grid.ValueFormat#Bitmask} is attempted.
+     * @throws IllegalArgumentException if conversion to {@link Grid.ValueFormat#Bitmask} is
+     *                                  attempted.
      * @see Grid#indexToPacked(short)
      * @see Grid#packedToIndex(short)
      * @since 2025.07 - Cell Format Support
@@ -140,24 +141,25 @@ public class CombinationMessage implements Message, StringBuilderFormattable
         }
 
         switch (outputFormat) {
-            case Index:
-                if (format == Grid.ValueFormat.PackedInt) {
-                    for (int i = 0; i < list.length; i++) {
-                        list[i] = Grid.packedToIndex(list[i]); // Convert packed int to index format
-                    }
-                    format = Grid.ValueFormat.Index; // Update format to index
+        case Index:
+            if (format == Grid.ValueFormat.PackedInt) {
+                for (int i = 0; i < list.length; i++) {
+                    list[i] = Grid.packedToIndex(list[i]); // Convert packed int to index format
                 }
-                break;
-            case PackedInt:
-                if (format == Grid.ValueFormat.Index) {
-                    for (int i = 0; i < list.length; i++) {
-                        list[i] = (short) Grid.indexToPacked(list[i]); // Convert index to packed int format
-                    }
-                    format = Grid.ValueFormat.PackedInt; // Update format to packed int
+                format = Grid.ValueFormat.Index; // Update format to index
+            }
+            break;
+        case PackedInt:
+            if (format == Grid.ValueFormat.Index) {
+                for (int i = 0; i < list.length; i++) {
+                    list[i] = (short) Grid.indexToPacked(list[i]); // Convert index to packed int
+                                                                   // format
                 }
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported output format: " + outputFormat);
+                format = Grid.ValueFormat.PackedInt; // Update format to packed int
+            }
+            break;
+        default:
+            throw new IllegalArgumentException("Unsupported output format: " + outputFormat);
         }
     }
 
@@ -166,8 +168,8 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      *
      * <p>
      * This is the core method for garbage-free logging. It ensures the combination is in a readable
-     * {@link Grid.ValueFormat#PackedInt} format and appends it to the buffer. Values are zero-padded
-     * for better readability.
+     * {@link Grid.ValueFormat#PackedInt} format and appends it to the buffer. Values are
+     * zero-padded for better readability.
      * </p>
      *
      * @param buffer The {@code StringBuilder} to which the formatted message will be appended.
@@ -182,7 +184,8 @@ public class CombinationMessage implements Message, StringBuilderFormattable
     @Override
     public void formatTo(StringBuilder buffer) {
         if (format != Grid.ValueFormat.PackedInt) {
-            convertTo(Grid.ValueFormat.PackedInt); // Ensure the format is PackedInt for human-readable output 
+            convertTo(Grid.ValueFormat.PackedInt); // Ensure the format is PackedInt for
+                                                   // human-readable output
         }
         buffer.append('[');
         for (int i = 0, size = list.length; i < size; i++) {
@@ -193,8 +196,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable
             if (list[i] < 10) { // Leading zeros for better alignment
                 buffer.append('0');
                 buffer.append('0');
-            }
-            else if (list[i] < 100) { // Leading zero for better alignment
+            } else if (list[i] < 100) { // Leading zero for better alignment
                 buffer.append('0');
             }
             buffer.append(list[i]);
@@ -206,8 +208,9 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      * Returns the formatted message as a {@link String}.
      *
      * <p>
-     * This method serves as a fallback and is not typically called by Log4j2's asynchronous appenders.
-     * It necessarily allocates a new {@link String}, defeating the purpose of a garbage-free message.
+     * This method serves as a fallback and is not typically called by Log4j2's asynchronous
+     * appenders. It necessarily allocates a new {@link String}, defeating the purpose of a
+     * garbage-free message.
      * </p>
      *
      * @return The formatted message as a new {@code String}.
@@ -237,7 +240,8 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      *
      * @param outputFormat The desired {@link Grid.ValueFormat} for the returned array.
      * @return The {@code short[]} combination in the specified format.
-     * @throws IllegalArgumentException if conversion to {@link Grid.ValueFormat#Bitmask} is attempted.
+     * @throws IllegalArgumentException if conversion to {@link Grid.ValueFormat#Bitmask} is
+     *                                  attempted.
      * @since 2025.05 - CombinationMessage Introduction
      * @performance {@code O(list.length)} if conversion is needed; {@code O(1)} otherwise.
      * @threading Thread-safe, unless conversion is triggered.
@@ -245,7 +249,8 @@ public class CombinationMessage implements Message, StringBuilderFormattable
      */
     public short[] getCombination(Grid.ValueFormat outputFormat) {
         if (outputFormat == Grid.ValueFormat.Bitmask) {
-            // TODO: Look at making this possible, either by using an array of int bitmasks or making the return type a long[]
+            // TODO: Look at making this possible, either by using an array of int bitmasks or
+            // making the return type a long[]
             throw new IllegalArgumentException("Cannot convert to Bitmask format.");
         } else if (outputFormat != format) {
             convertTo(outputFormat); // Convert to the requested format if needed

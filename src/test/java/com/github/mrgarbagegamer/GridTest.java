@@ -33,11 +33,12 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  */
 class GridTest {
     // =================================================================================
-    // |                                 Grid Tests                                    |
+    // | Grid Tests |
     // =================================================================================
 
     private static final short[] solution13 = {48, 50, 52, 54, 56, 58, 60};
-    private static final short[] solution22 = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85, 88, 91};
+    private static final short[] solution22 = {17, 20, 23, 26, 29, 48, 51, 54, 57, 60, 79, 82, 85,
+            88, 91};
 
     /**
      * Creates and returns a solved Grid13 instance for testing purposes.
@@ -51,8 +52,8 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#packedToIndex(short)} method to ensure it throws an exception if provided
-     * with an invalid packed value.
+     * Tests the {@link Grid#packedToIndex(short)} method to ensure it throws an exception if
+     * provided with an invalid packed value.
      */
     @Test
     void testPackedToIndexInvalid() {
@@ -66,8 +67,8 @@ class GridTest {
 
     /**
      * Tests the {@link Grid#packedToIndex(short)} method for all valid packed integer inputs. Each
-     * packed integer is converted to its corresponding index, and the result is verified against the
-     * expected index value.
+     * packed integer is converted to its corresponding index, and the result is verified against
+     * the expected index value.
      */
     @Test
     void testPackedToIndex() {
@@ -75,13 +76,14 @@ class GridTest {
             short packed = validPackedInts[idx];
             short expectedIndex = (short) idx;
             short actualIndex = Grid.packedToIndex(packed);
-            assertEquals(expectedIndex, actualIndex, "Packed to Index conversion failed for packed value: " + packed);
+            assertEquals(expectedIndex, actualIndex,
+                    "Packed to Index conversion failed for packed value: " + packed);
         }
     }
 
     /**
-     * Tests the {@link Grid#indexToPacked(short)} method to ensure it throws an exception if provided
-     * with an invalid index.
+     * Tests the {@link Grid#indexToPacked(short)} method to ensure it throws an exception if
+     * provided with an invalid index.
      */
     @Test
     void testIndexToPackedInvalid() {
@@ -95,8 +97,8 @@ class GridTest {
 
     /**
      * Tests the {@link Grid#indexToPacked(short)} method for all valid index inputs. Each Index is
-     * converted to its corresponding PackedInt value, and the result is verified against the expected
-     * PackedInt value.
+     * converted to its corresponding PackedInt value, and the result is verified against the
+     * expected PackedInt value.
      */
     @Test
     void testIndexToPacked() {
@@ -104,7 +106,8 @@ class GridTest {
             short expectedPacked = validPackedInts[idx];
             short index = (short) idx;
             short actualPacked = Grid.indexToPacked(index);
-            assertEquals(expectedPacked, actualPacked, "Index to Packed conversion failed for index: " + index);
+            assertEquals(expectedPacked, actualPacked,
+                    "Index to Packed conversion failed for index: " + index);
         }
     }
 
@@ -116,14 +119,15 @@ class GridTest {
     void testConversionRoundtrip() {
         for (short index = 0; index < Grid.NUM_CELLS; index++) {
             assertEquals(index, Grid.packedToIndex(Grid.indexToPacked(index)),
-                    "Conversion from index to packed and back for index " + index + "should yield the original index");
+                    "Conversion from index to packed and back for index " + index
+                            + "should yield the original index");
         }
     }
 
     /**
      * Tests the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that
-     * they throw a NullPointerException when provided with null formats.
+     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure
+     * that they throw a NullPointerException when provided with null formats.
      */
     @Test
     void testComputeAdjacentsNull() {
@@ -146,10 +150,10 @@ class GridTest {
 
     /**
      * Tests the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that
-     * they throw the appropriate exceptions for invalid Bitmask input & output formats. If, in the
-     * future, we modify the methods to accept Bitmask as an output format, these tests should be
-     * updated accordingly.
+     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure
+     * that they throw the appropriate exceptions for invalid Bitmask input & output formats. If, in
+     * the future, we modify the methods to accept Bitmask as an output format, these tests should
+     * be updated accordingly.
      */
     @Test
     void testComputeAdjacentsBitmask() {
@@ -179,25 +183,29 @@ class GridTest {
     /**
      * Tests the {@link Grid#computeAdjacents(short)},
      * {@link Grid#computeAdjacents(short, Grid.ValueFormat)}, and
-     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with an Index
-     * input format to ensure they return consistent results.
+     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with an
+     * Index input format to ensure they return consistent results.
      */
     @Test
     void testComputeAdjacentsIndex() {
         // Index output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
-            short[] adjacentsArray = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index)
+            short[] adjacentsArray = Grid
+                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index)
                     .toShortArray();
 
             short[] dualFormatAdjacentsArray = Grid
-                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index).toShortArray();
-            assertArrayEquals(adjacentsArray, dualFormatAdjacentsArray, "Adjacents mismatch for cell index " + cellIndex
-                    + " using dual format overload with Index and Index");
-
-            short[] singleFormatAdjacentsArray = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index)
+                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index)
                     .toShortArray();
+            assertArrayEquals(adjacentsArray, dualFormatAdjacentsArray,
+                    "Adjacents mismatch for cell index " + cellIndex
+                            + " using dual format overload with Index and Index");
+
+            short[] singleFormatAdjacentsArray = Grid
+                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index).toShortArray();
             assertArrayEquals(adjacentsArray, singleFormatAdjacentsArray,
-                    "Adjacents mismatch for cell index " + cellIndex + " using single format overload with Index");
+                    "Adjacents mismatch for cell index " + cellIndex
+                            + " using single format overload with Index");
 
             short[] noFormatAdjacentsArray = Grid.computeAdjacents(cellIndex).toShortArray();
             assertArrayEquals(adjacentsArray, noFormatAdjacentsArray,
@@ -206,54 +214,58 @@ class GridTest {
         // PackedInt output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
             short[] adjacentsArray = Grid
-                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt).toShortArray();
+                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt)
+                    .toShortArray();
 
             short[] dualFormatAdjacentsArray = Grid
-                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt).toShortArray();
-            assertArrayEquals(adjacentsArray, dualFormatAdjacentsArray, "Adjacents mismatch for cell index " + cellIndex
-                    + " using dual format overload with Index and PackedInt");
+                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt)
+                    .toShortArray();
+            assertArrayEquals(adjacentsArray, dualFormatAdjacentsArray,
+                    "Adjacents mismatch for cell index " + cellIndex
+                            + " using dual format overload with Index and PackedInt");
         }
     }
 
     /**
      * Tests the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with a PackedInt
-     * input format to ensure they return consistent results.
+     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with a
+     * PackedInt input format to ensure they return consistent results.
      */
     @Test
     void testComputeAdjacentsPackedInt() {
         // Index output format
         for (short packedInput : validPackedInts) {
-            short[] adjacentsArrayIndex = Grid
-                    .computeAdjacents(packedInput, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index).toShortArray();
-            short[] dualFormatAdjacentsIndex = Grid
-                    .computeAdjacents(packedInput, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index).toShortArray();
+            short[] adjacentsArrayIndex = Grid.computeAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index).toShortArray();
+            short[] dualFormatAdjacentsIndex = Grid.computeAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index).toShortArray();
 
-            assertArrayEquals(adjacentsArrayIndex, dualFormatAdjacentsIndex, "Adjacents mismatch for packed input "
-                    + packedInput + " using dual format overload with PackedInt and Index");
+            assertArrayEquals(adjacentsArrayIndex, dualFormatAdjacentsIndex,
+                    "Adjacents mismatch for packed input " + packedInput
+                            + " using dual format overload with PackedInt and Index");
         }
         // PackedInt output format
         for (short packedInput : validPackedInts) {
-            short[] adjacentsArrayPacked = Grid
-                    .computeAdjacents(packedInput, Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt)
-                    .toShortArray();
-            short[] dualFormatAdjacentsPacked = Grid
-                    .computeAdjacents(packedInput, Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt)
-                    .toShortArray();
-            short[] singleFormatAdjacentsPacked = Grid.computeAdjacents(packedInput, Grid.ValueFormat.PackedInt)
-                    .toShortArray();
+            short[] adjacentsArrayPacked = Grid.computeAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt).toShortArray();
+            short[] dualFormatAdjacentsPacked = Grid.computeAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt).toShortArray();
+            short[] singleFormatAdjacentsPacked = Grid
+                    .computeAdjacents(packedInput, Grid.ValueFormat.PackedInt).toShortArray();
 
-            assertArrayEquals(adjacentsArrayPacked, dualFormatAdjacentsPacked, "Adjacents mismatch for packed input "
-                    + packedInput + " using dual format overload with PackedInt and PackedInt");
-            assertArrayEquals(adjacentsArrayPacked, singleFormatAdjacentsPacked, "Adjacents mismatch for packed input "
-                    + packedInput + " using single format overload with PackedInt");
+            assertArrayEquals(adjacentsArrayPacked, dualFormatAdjacentsPacked,
+                    "Adjacents mismatch for packed input " + packedInput
+                            + " using dual format overload with PackedInt and PackedInt");
+            assertArrayEquals(adjacentsArrayPacked, singleFormatAdjacentsPacked,
+                    "Adjacents mismatch for packed input " + packedInput
+                            + " using single format overload with PackedInt");
         }
     }
 
     /**
      * Tests the {@link Grid#findAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that they
-     * throw a NullPointerException when provided with null formats.
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that
+     * they throw a NullPointerException when provided with null formats.
      */
     @Test
     void testFindAdjacentsNull() {
@@ -276,10 +288,10 @@ class GridTest {
 
     /**
      * Tests the {@link Grid#findAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that they
-     * throw the appropriate exceptions for invalid Bitmask input & output formats. If, in the future,
-     * we modify the methods to accept Bitmask as an output format, these tests should be updated
-     * accordingly.
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that
+     * they throw the appropriate exceptions for invalid Bitmask input & output formats. If, in the
+     * future, we modify the methods to accept Bitmask as an output format, these tests should be
+     * updated accordingly.
      */
     @Test
     void testFindAdjacentsBitmask() {
@@ -307,28 +319,33 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findAdjacents(short)}, {@link Grid#findAdjacents(short, Grid.ValueFormat)},
-     * and {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with an Index
+     * Tests the {@link Grid#findAdjacents(short)},
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat)}, and
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with an Index
      * input format to ensure they return correct results.
      * 
      * This method assumes that the
-     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} method is functioning
-     * correctly and uses it to generate expected results for comparison.
+     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} method is
+     * functioning correctly and uses it to generate expected results for comparison.
      */
     @Test
     void testFindAdjacentsIndex() {
         // Index output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
-            ShortList adjacentsList = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index);
+            ShortList adjacentsList = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index,
+                    Grid.ValueFormat.Index);
             short[] adjacentsArray = adjacentsList.toShortArray();
 
-            short[] dualFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.Index);
-            assertArrayEquals(adjacentsArray, dualFormatAdjacents, "Adjacents mismatch for cell index " + cellIndex
-                    + " using dual format overload with Index and Index");
+            short[] dualFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index,
+                    Grid.ValueFormat.Index);
+            assertArrayEquals(adjacentsArray, dualFormatAdjacents,
+                    "Adjacents mismatch for cell index " + cellIndex
+                            + " using dual format overload with Index and Index");
 
             short[] singleFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index);
             assertArrayEquals(adjacentsArray, singleFormatAdjacents,
-                    "Adjacents mismatch for cell index " + cellIndex + " using single format overload with Index");
+                    "Adjacents mismatch for cell index " + cellIndex
+                            + " using single format overload with Index");
 
             short[] noFormatAdjacents = Grid.findAdjacents(cellIndex);
             assertArrayEquals(adjacentsArray, noFormatAdjacents,
@@ -337,50 +354,55 @@ class GridTest {
         // PackedInt output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
             short[] adjacentsArray = Grid
-                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt).toShortArray();
+                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt)
+                    .toShortArray();
 
             short[] dualFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index,
                     Grid.ValueFormat.PackedInt);
-            assertArrayEquals(adjacentsArray, dualFormatAdjacents, "Adjacents mismatch for cell index " + cellIndex
-                    + " using dual format overload with Index and PackedInt");
+            assertArrayEquals(adjacentsArray, dualFormatAdjacents,
+                    "Adjacents mismatch for cell index " + cellIndex
+                            + " using dual format overload with Index and PackedInt");
         }
     }
 
     /**
      * Tests the {@link Grid#findAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with a PackedInt
-     * input format to ensure they return correct results.
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with a
+     * PackedInt input format to ensure they return correct results.
      * 
      * This method assumes that the
-     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} method is functioning
-     * correctly and uses it to generate expected results for comparison.
+     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} method is
+     * functioning correctly and uses it to generate expected results for comparison.
      */
     @Test
     void testFindAdjacentsPackedInt() {
         // Index output format
         for (short packedInput : validPackedInts) {
-            short[] adjacentsArrayIndex = Grid
-                    .computeAdjacents(packedInput, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index).toShortArray();
-            short[] dualFormatAdjacentsIndex = Grid.findAdjacents(packedInput, Grid.ValueFormat.PackedInt,
-                    Grid.ValueFormat.Index);
+            short[] adjacentsArrayIndex = Grid.computeAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index).toShortArray();
+            short[] dualFormatAdjacentsIndex = Grid.findAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
 
-            assertArrayEquals(adjacentsArrayIndex, dualFormatAdjacentsIndex, "Adjacents mismatch for packed input "
-                    + packedInput + " using dual format overload with PackedInt and Index");
+            assertArrayEquals(adjacentsArrayIndex, dualFormatAdjacentsIndex,
+                    "Adjacents mismatch for packed input " + packedInput
+                            + " using dual format overload with PackedInt and Index");
         }
 
         // PackedInt output format
         for (short packedInput : validPackedInts) {
-            short[] adjacentsArrayPacked = Grid
-                    .computeAdjacents(packedInput, Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt)
-                    .toShortArray();
-            short[] dualFormatAdjacentsPacked = Grid.findAdjacents(packedInput, Grid.ValueFormat.PackedInt,
+            short[] adjacentsArrayPacked = Grid.computeAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt).toShortArray();
+            short[] dualFormatAdjacentsPacked = Grid.findAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
+            short[] singleFormatAdjacentsPacked = Grid.findAdjacents(packedInput,
                     Grid.ValueFormat.PackedInt);
-            short[] singleFormatAdjacentsPacked = Grid.findAdjacents(packedInput, Grid.ValueFormat.PackedInt);
 
-            assertArrayEquals(adjacentsArrayPacked, dualFormatAdjacentsPacked, "Adjacents mismatch for packed input "
-                    + packedInput + " using dual format overload with PackedInt and PackedInt");
-            assertArrayEquals(adjacentsArrayPacked, singleFormatAdjacentsPacked, "Adjacents mismatch for packed input "
-                    + packedInput + " using single format overload with PackedInt");
+            assertArrayEquals(adjacentsArrayPacked, dualFormatAdjacentsPacked,
+                    "Adjacents mismatch for packed input " + packedInput
+                            + " using dual format overload with PackedInt and PackedInt");
+            assertArrayEquals(adjacentsArrayPacked, singleFormatAdjacentsPacked,
+                    "Adjacents mismatch for packed input " + packedInput
+                            + " using single format overload with PackedInt");
         }
     }
 
@@ -409,11 +431,11 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} and {@link Grid#findTrueCells()} methods
-     * with an Index output format to ensure they return correct results after random clicks on the
-     * grid. This test iterates through all possible counts of true cells from 0 to NUM_CELLS,
-     * generating unique random clicks for each count and verifying that the methods return the expected
-     * true cells.
+     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} and {@link Grid#findTrueCells()}
+     * methods with an Index output format to ensure they return correct results after random clicks
+     * on the grid. This test iterates through all possible counts of true cells from 0 to
+     * NUM_CELLS, generating unique random clicks for each count and verifying that the methods
+     * return the expected true cells.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
      * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
@@ -424,7 +446,7 @@ class GridTest {
         // We need to be able to test the index format specifically, handling true cell counts from
         // 1 to NUM_CELLS
         Grid grid = createSolvedGrid13();
-        
+
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
 
@@ -463,10 +485,10 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} method with a PackedInt output format to
-     * ensure it returns correct results after random clicks on the grid. This test iterates through all
-     * possible counts of true cells from 0 to NUM_CELLS, generating unique random clicks for each count
-     * and verifying that the method returns the expected true cells.
+     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} method with a PackedInt output format
+     * to ensure it returns correct results after random clicks on the grid. This test iterates
+     * through all possible counts of true cells from 0 to NUM_CELLS, generating unique random
+     * clicks for each count and verifying that the method returns the expected true cells.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
      * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
@@ -529,11 +551,11 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} and {@link Grid#findFirstTrueCell()}
-     * methods with an Index output format to ensure they return correct results after random clicks on
-     * the grid. This test iterates through all possible counts of true cells from 0 to NUM_CELLS,
-     * generating unique random clicks for each count and verifying that the methods return the expected
-     * first true cell.
+     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} and
+     * {@link Grid#findFirstTrueCell()} methods with an Index output format to ensure they return
+     * correct results after random clicks on the grid. This test iterates through all possible
+     * counts of true cells from 0 to NUM_CELLS, generating unique random clicks for each count and
+     * verifying that the methods return the expected first true cell.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
      * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
@@ -577,10 +599,10 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} method to ensure it returns correct
-     * results after random clicks on the grid. This test iterates through all possible counts of true
-     * cells from 0 to NUM_CELLS, generating unique random clicks for each count and verifying that the
-     * method returns the expected first true cell in PackedInt format.
+     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} method to ensure it returns
+     * correct results after random clicks on the grid. This test iterates through all possible
+     * counts of true cells from 0 to NUM_CELLS, generating unique random clicks for each count and
+     * verifying that the method returns the expected first true cell in PackedInt format.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
      * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
@@ -616,8 +638,8 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#click(long[])} method to ensure that clicking cells correctly updates the
-     * grid state.
+     * Tests the {@link Grid#click(long[])} method to ensure that clicking cells correctly updates
+     * the grid state.
      */
     @Test
     void testClickBitmask() {
@@ -632,18 +654,20 @@ class GridTest {
 
         short[] combination = generateRandomCombination(15);
         long[] clickBitmask = convertToBitmask(combination);
-        
+
         long[] initialState = grid.getGridState();
-        long[] expectedState = {initialState[0] ^ clickBitmask[0], initialState[1] ^ clickBitmask[1]};
+        long[] expectedState = {initialState[0] ^ clickBitmask[0],
+                initialState[1] ^ clickBitmask[1]};
         grid.click(clickBitmask);
         assertArrayEquals(expectedState, grid.getGridState(),
-                "Grid state should match expected state after clicks (Bitmask: " + Arrays.toString(clickBitmask) + ")");
+                "Grid state should match expected state after clicks (Bitmask: "
+                        + Arrays.toString(clickBitmask) + ")");
     }
 
     /**
-     * Tests the {@link Grid#click(short[])} method to ensure that clicking cells correctly updates the
-     * grid state. This test performs a series of random clicks and verifies that the resulting grid
-     * state matches the expected state computed manually.
+     * Tests the {@link Grid#click(short[])} method to ensure that clicking cells correctly updates
+     * the grid state. This test performs a series of random clicks and verifies that the resulting
+     * grid state matches the expected state computed manually.
      */
     @Test
     void testClickShortArray() {
@@ -661,7 +685,8 @@ class GridTest {
         }
         grid.click(clicks);
         assertArrayEquals(expectedState, grid.getGridState(),
-                "Grid state should match expected state after clicks (Combination: " + Arrays.toString(clicks) + ")");
+                "Grid state should match expected state after clicks (Combination: "
+                        + Arrays.toString(clicks) + ")");
     }
 
     /**
@@ -698,8 +723,8 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method to ensure that it throws a
-     * NullPointerException when provided with a null format.
+     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method to ensure that it
+     * throws a NullPointerException when provided with a null format.
      */
     @Test
     void testFindFirstTrueAdjacentsNull() {
@@ -711,8 +736,8 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method to ensure that it throws
-     * an IllegalArgumentException when provided with an invalid Bitmask format.
+     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method to ensure that it
+     * throws an IllegalArgumentException when provided with an invalid Bitmask format.
      */
     @Test
     void testFindFirstTrueAdjacentsBitmask() {
@@ -756,14 +781,16 @@ class GridTest {
                             + firstTrueCell);
             short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents();
             assertArrayEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
-                    "The no format overload should match Index format for first true cell " + firstTrueCell);
+                    "The no format overload should match Index format for first true cell "
+                            + firstTrueCell);
 
             // Test PackedInt output format
             short[] expectedPackedAdjacents = new short[expectedAdjacents.length];
             for (int i = 0; i < expectedAdjacents.length; i++) {
                 expectedPackedAdjacents[i] = Grid.indexToPacked(expectedAdjacents[i]);
             }
-            short[] actualAdjacentsPackedInt = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
+            short[] actualAdjacentsPackedInt = grid
+                    .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
             assertArrayEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
                     "First true adjacents in PackedInt format should match expected values for first true cell "
                             + firstTrueCell);
@@ -774,13 +801,14 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method with a PackedInt output
-     * format to ensure it returns correct results after random clicks on the grid.
+     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method with a PackedInt
+     * output format to ensure it returns correct results after random clicks on the grid.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods, conversions between different
-     * value formats are functioning correctly, and that
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} is functioning correctly.
+     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods, conversions between
+     * different value formats are functioning correctly, and that
+     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} is functioning
+     * correctly.
      */
     @Test
     void testFindFirstTrueAdjacentsPackedInt() {
@@ -795,7 +823,8 @@ class GridTest {
             long[] gridState = convertToBitmaskPackedInt(firstTrueCell);
             grid.click(gridState);
 
-            short[] expectedAdjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
+            short[] expectedAdjacents = Grid.findAdjacents(firstTrueCell,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
 
             // Test Index output format
             short[] actualAdjacentsIndex = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
@@ -804,14 +833,16 @@ class GridTest {
                             + firstTrueCell);
             short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents();
             assertArrayEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
-                    "The no format overload should match Index format for first true packed cell " + firstTrueCell);
+                    "The no format overload should match Index format for first true packed cell "
+                            + firstTrueCell);
 
             // Test PackedInt output format
             short[] expectedPackedAdjacents = new short[expectedAdjacents.length];
             for (int i = 0; i < expectedAdjacents.length; i++) {
                 expectedPackedAdjacents[i] = Grid.indexToPacked(expectedAdjacents[i]);
             }
-            short[] actualAdjacentsPackedInt = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
+            short[] actualAdjacentsPackedInt = grid
+                    .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
             assertArrayEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
                     "First true adjacents in PackedInt format should match expected values for first true packed cell "
                             + firstTrueCell);
@@ -842,39 +873,44 @@ class GridTest {
 
     /**
      * Tests the {@link Grid#findFirstTrueAdjacentsAfter(short, Grid.ValueFormat, Grid.ValueFormat)}
-     * method to ensure that it throws the appropriate exceptions for invalid Bitmask input or output
-     * formats. If, in the future, we modify the method to accept Bitmask as an input or output format,
-     * these tests should be updated accordingly.
+     * method to ensure that it throws the appropriate exceptions for invalid Bitmask input or
+     * output formats. If, in the future, we modify the method to accept Bitmask as an input or
+     * output format, these tests should be updated accordingly.
      */
     void testFindFirstTrueAdjacentsAfterBitmask() {
         Grid grid = new Grid13();
 
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Index, Grid.ValueFormat.Bitmask);
+            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Index,
+                    Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Index input and Bitmask output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Bitmask);
+            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.PackedInt,
+                    Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with PackedInt input and Bitmask output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.Index);
+            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
+                    Grid.ValueFormat.Index);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and Index output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.PackedInt);
+            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
+                    Grid.ValueFormat.PackedInt);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and PackedInt output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.Bitmask);
+            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
+                    Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and Bitmask output");
     }
 
     /**
      * Tests the {@link Grid#findFirstTrueAdjacentsAfter(short, Grid.ValueFormat, Grid.ValueFormat)}
-     * method with an Index input format to ensure it returns correct results after random clicks on the
-     * grid.
+     * method with an Index input format to ensure it returns correct results after random clicks on
+     * the grid.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} method, conversions between different value formats are functioning
-     * correctly, and that the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method is
-     * functioning correctly.
+     * {@link Grid#click(short[])} method, conversions between different value formats are
+     * functioning correctly, and that the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)}
+     * method is functioning correctly.
      */
     @Test
     void testFindFirstTrueAdjacentsAfterIndex() {
@@ -882,10 +918,12 @@ class GridTest {
         short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
         short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
-        short[] firstTrueAdjacentsPackedIntOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
+        short[] firstTrueAdjacentsPackedIntOutput = grid
+                .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
 
         ShortList adjacencyListIndexOutput = new ShortArrayList(firstTrueAdjacentsIndexOutput);
-        ShortList adjacencyListPackedIntOutput = new ShortArrayList(firstTrueAdjacentsPackedIntOutput);
+        ShortList adjacencyListPackedIntOutput = new ShortArrayList(
+                firstTrueAdjacentsPackedIntOutput);
 
         for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
             // Test for each combination of input and output formats
@@ -898,11 +936,11 @@ class GridTest {
             adjacencyListPackedIntOutput.removeIf(adjacent -> adjacent <= cellPackedInt);
             short[] expectedAdjacentsPackedIntOutput = adjacencyListPackedIntOutput.toShortArray();
 
-            short[] actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cell, Grid.ValueFormat.Index,
-                    Grid.ValueFormat.Index);
+            short[] actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cell,
+                    Grid.ValueFormat.Index, Grid.ValueFormat.Index);
 
-            short[] actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(cell, Grid.ValueFormat.Index,
-                    Grid.ValueFormat.PackedInt);
+            short[] actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(cell,
+                    Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt);
 
             if (expectedAdjacentsIndexOutput.length == 0) {
                 assertNull(actualAdjacentsIndexOutput, "First true adjacents after " + cell
@@ -927,13 +965,13 @@ class GridTest {
 
     /**
      * Tests the {@link Grid#findFirstTrueAdjacentsAfter(short, Grid.ValueFormat, Grid.ValueFormat)}
-     * method with a PackedInt input format to ensure it returns correct results after random clicks on
-     * the grid.
+     * method with a PackedInt input format to ensure it returns correct results after random clicks
+     * on the grid.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} method, conversions between different value formats are functioning
-     * correctly, and that the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method is
-     * functioning correctly.
+     * {@link Grid#click(short[])} method, conversions between different value formats are
+     * functioning correctly, and that the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)}
+     * method is functioning correctly.
      */
     @Test
     void testFindFirstTrueAdjacentsAfterPackedInt() {
@@ -941,10 +979,12 @@ class GridTest {
         short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
         short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
-        short[] firstTrueAdjacentsPackedIntOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
+        short[] firstTrueAdjacentsPackedIntOutput = grid
+                .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
 
         ShortList adjacencyListIndexOutput = new ShortArrayList(firstTrueAdjacentsIndexOutput);
-        ShortList adjacencyListPackedIntOutput = new ShortArrayList(firstTrueAdjacentsPackedIntOutput);
+        ShortList adjacencyListPackedIntOutput = new ShortArrayList(
+                firstTrueAdjacentsPackedIntOutput);
 
         for (short cell : validPackedInts) {
             // Test for each combination of input and output formats
@@ -966,7 +1006,8 @@ class GridTest {
                 assertNull(actualAdjacentsIndexOutput, "First true adjacents after " + cellPackedInt
                         + " for PackedInt input & Index output should be null when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
-                assertNull(actualAdjacentsPackedIntOutput, "First true adjacents after " + cellPackedInt
+                assertNull(actualAdjacentsPackedIntOutput, "First true adjacents after "
+                        + cellPackedInt
                         + " for PackedInt input & PackedInt output should be null when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
                 break; // No further cells will have adjacents
@@ -984,9 +1025,9 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#getTrueCount()} method to ensure it accurately reflects the number of true
-     * cells in the grid after various operations, including random clicks and solving the grid. This
-     * test also verifies consistency between {@link Grid#getTrueCount()} and
+     * Tests the {@link Grid#getTrueCount()} method to ensure it accurately reflects the number of
+     * true cells in the grid after various operations, including random clicks and solving the
+     * grid. This test also verifies consistency between {@link Grid#getTrueCount()} and
      * {@link Grid#findTrueCells()}.
      * 
      * This method assumes that the grid's internal state is correctly updated by the
@@ -1000,7 +1041,8 @@ class GridTest {
         Grid grid = new Grid13();
         int initialCount = grid.getTrueCount();
         short[] initialTrueCells = grid.findTrueCells();
-        assertEquals(initialTrueCells.length, initialCount, "Initial getTrueCount should match findTrueCells length");
+        assertEquals(initialTrueCells.length, initialCount,
+                "Initial getTrueCount should match findTrueCells length");
 
         // Apply random clicks and verify getTrueCount matches bit-count of getGridState()
         short[] clicks = generateRandomCombination(10);
@@ -1013,12 +1055,14 @@ class GridTest {
 
         // Ensure findTrueCells() reflects the same count
         short[] actualTrueCells = grid.findTrueCells();
-        assertEquals(actualTrueCells.length, grid.getTrueCount(), "findTrueCells length should match getTrueCount");
+        assertEquals(actualTrueCells.length, grid.getTrueCount(),
+                "findTrueCells length should match getTrueCount");
 
         // Verify solved case results in zero true count and no first true cell
         Grid solvedGrid = createSolvedGrid13();
         if (!solvedGrid.isSolved()) {
-            return; // This should not happen, but we exit the test if it does (so it is caught by the Grid13 tests)
+            return; // This should not happen, but we exit the test if it does (so it is caught by
+                    // the Grid13 tests)
         }
         assertEquals(0, solvedGrid.getTrueCount(), "Solved grid should have zero true cells");
     }
@@ -1039,7 +1083,8 @@ class GridTest {
         // Verify that the clone has the same state as the original
         assertArrayEquals(original.getGridState(), clone.getGridState(),
                 "Cloned grid state should match the original's state");
-        assertEquals(original.getTrueCount(), clone.getTrueCount(), "Cloned grid true count should match");
+        assertEquals(original.getTrueCount(), clone.getTrueCount(),
+                "Cloned grid true count should match");
         assertEquals(original.findFirstTrueCell(), clone.findFirstTrueCell(),
                 "Cloned grid first true cell should match the original's");
 
@@ -1051,8 +1096,8 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method to ensure it
-     * throws the appropriate exception for null input format.
+     * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method to
+     * ensure it throws the appropriate exception for null input format.
      */
     @Test
     void testCanAffectFirstTrueCellNull() {
@@ -1062,9 +1107,10 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method to ensure it
-     * throws the appropriate exception for invalid Bitmask input format. If, in the future, we modify
-     * the method to accept Bitmask as an input format, this test should be updated accordingly.
+     * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method to
+     * ensure it throws the appropriate exception for invalid Bitmask input format. If, in the
+     * future, we modify the method to accept Bitmask as an input format, this test should be
+     * updated accordingly.
      */
     @Test
     void testCanAffectFirstTrueCellBitmask() {
@@ -1075,9 +1121,9 @@ class GridTest {
 
     /**
      * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method with an
-     * Index input format to ensure it correctly determines whether a click can affect the first true
-     * cell based on various scenarios. This test covers edge cases, including the absence of true cells
-     * and different positions of the click relative to the first true cell.
+     * Index input format to ensure it correctly determines whether a click can affect the first
+     * true cell based on various scenarios. This test covers edge cases, including the absence of
+     * true cells and different positions of the click relative to the first true cell.
      * 
      * This method assumes that the {@link Grid#findAdjacents(short, Grid.ValueFormat)} method is
      * functioning correctly.
@@ -1087,14 +1133,17 @@ class GridTest {
         // If there are no true cells (firstTrueCell == -1), the method must return true.
         for (short click = 0; click < Grid.NUM_CELLS; click++) {
             assertTrue(Grid.canAffectFirstTrueCell((short) -1, click, Grid.ValueFormat.Index),
-                    "Click " + click + " should be able to affect first true cell when there are no true cells");
+                    "Click " + click
+                            + " should be able to affect first true cell when there are no true cells");
         }
 
         // If the click is at or before the firstTrueCell, it is capable of affecting it.
         for (short firstTrueCell = 0; firstTrueCell < Grid.NUM_CELLS; firstTrueCell++) {
             for (short click = 0; click <= firstTrueCell; click++) {
-                assertTrue(Grid.canAffectFirstTrueCell(firstTrueCell, click, Grid.ValueFormat.Index),
-                        "Click " + click + " should be able to affect first true cell at " + firstTrueCell);
+                assertTrue(
+                        Grid.canAffectFirstTrueCell(firstTrueCell, click, Grid.ValueFormat.Index),
+                        "Click " + click + " should be able to affect first true cell at "
+                                + firstTrueCell);
             }
         }
 
@@ -1102,8 +1151,11 @@ class GridTest {
         for (short firstTrueCell = 0; firstTrueCell < Grid.NUM_CELLS; firstTrueCell++) {
             short[] adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.Index);
             for (short adjacent : adjacents) {
-                assertTrue(Grid.canAffectFirstTrueCell(firstTrueCell, adjacent, Grid.ValueFormat.Index), "Click "
-                        + adjacent + " should be able to affect first true cell at " + firstTrueCell + " (adjacent)");
+                assertTrue(
+                        Grid.canAffectFirstTrueCell(firstTrueCell, adjacent,
+                                Grid.ValueFormat.Index),
+                        "Click " + adjacent + " should be able to affect first true cell at "
+                                + firstTrueCell + " (adjacent)");
             }
         }
 
@@ -1128,8 +1180,10 @@ class GridTest {
 
             while (iterator.hasNext()) {
                 short click = iterator.nextShort();
-                assertFalse(Grid.canAffectFirstTrueCell(firstTrueCell, click, Grid.ValueFormat.Index),
-                        "Click " + click + " should NOT be able to affect first true cell at " + firstTrueCell);
+                assertFalse(
+                        Grid.canAffectFirstTrueCell(firstTrueCell, click, Grid.ValueFormat.Index),
+                        "Click " + click + " should NOT be able to affect first true cell at "
+                                + firstTrueCell);
             }
         }
     }
@@ -1137,8 +1191,8 @@ class GridTest {
     /**
      * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method with a
      * PackedInt input format to ensure it correctly determines whether a click can affect the first
-     * true cell based on various scenarios. This test covers edge cases, including the absence of true
-     * cells and different positions of the click relative to the first true cell.
+     * true cell based on various scenarios. This test covers edge cases, including the absence of
+     * true cells and different positions of the click relative to the first true cell.
      * 
      * This method assumes that the {@link Grid#findAdjacents(short, Grid.ValueFormat)} method is
      * functioning correctly.
@@ -1148,15 +1202,19 @@ class GridTest {
         // If there are no true cells (firstTrueCell == -1), the method must return true.
         for (short click : validPackedInts) {
             assertTrue(Grid.canAffectFirstTrueCell((short) -1, click, Grid.ValueFormat.PackedInt),
-                    "Click " + click + " should be able to affect first true cell when there are no true cells");
+                    "Click " + click
+                            + " should be able to affect first true cell when there are no true cells");
         }
 
         // If the click is at or before the firstTrueCell, it is capable of affecting it.
         for (short firstTrueCell : validPackedInts) {
             for (short click : validPackedInts) {
                 if (click <= firstTrueCell) {
-                    assertTrue(Grid.canAffectFirstTrueCell(firstTrueCell, click, Grid.ValueFormat.PackedInt),
-                            "Click " + click + " should be able to affect first true cell at " + firstTrueCell);
+                    assertTrue(
+                            Grid.canAffectFirstTrueCell(firstTrueCell, click,
+                                    Grid.ValueFormat.PackedInt),
+                            "Click " + click + " should be able to affect first true cell at "
+                                    + firstTrueCell);
                 }
             }
         }
@@ -1165,13 +1223,17 @@ class GridTest {
         for (short firstTrueCell : validPackedInts) {
             short[] adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.PackedInt);
             for (short adjacent : adjacents) {
-                assertTrue(Grid.canAffectFirstTrueCell(firstTrueCell, adjacent, Grid.ValueFormat.PackedInt), "Click "
-                        + adjacent + " should be able to affect first true cell at " + firstTrueCell + " (adjacent)");
+                assertTrue(
+                        Grid.canAffectFirstTrueCell(firstTrueCell, adjacent,
+                                Grid.ValueFormat.PackedInt),
+                        "Click " + adjacent + " should be able to affect first true cell at "
+                                + firstTrueCell + " (adjacent)");
             }
         }
 
         // Otherwise, it cannot affect the firstTrueCell.
-        ShortSortedSet allClicksSet = new ShortAVLTreeSet(validPackedInts); // Ensure the backing array is a copy
+        ShortSortedSet allClicksSet = new ShortAVLTreeSet(validPackedInts); // Ensure the backing
+                                                                            // array is a copy
         for (short firstTrueCell : validPackedInts) {
             // Remove the clicks before the firstTrueCell
             final short ftc = firstTrueCell;
@@ -1188,15 +1250,18 @@ class GridTest {
 
             while (iterator.hasNext()) {
                 short click = iterator.nextShort();
-                assertFalse(Grid.canAffectFirstTrueCell(firstTrueCell, click, Grid.ValueFormat.PackedInt),
-                        "Click " + click + " should NOT be able to affect first true cell at " + firstTrueCell);
+                assertFalse(
+                        Grid.canAffectFirstTrueCell(firstTrueCell, click,
+                                Grid.ValueFormat.PackedInt),
+                        "Click " + click + " should NOT be able to affect first true cell at "
+                                + firstTrueCell);
             }
         }
     }
 
     /**
-     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method to ensure it throws the
-     * appropriate exception for null input format.
+     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method to ensure it throws
+     * the appropriate exception for null input format.
      */
     @Test
     void testAreAdjacentNull() {
@@ -1206,9 +1271,9 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method to ensure it throws the
-     * appropriate exception for invalid Bitmask input format. If, in the future, we modify the method
-     * to accept Bitmask as an input format, this test should be updated accordingly.
+     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method to ensure it throws
+     * the appropriate exception for invalid Bitmask input format. If, in the future, we modify the
+     * method to accept Bitmask as an input format, this test should be updated accordingly.
      */
     @Test
     void testAreAdjacentBitmask() {
@@ -1234,14 +1299,16 @@ class GridTest {
                         "Adjacency mismatch for cells " + cellA + " and " + cellB
                                 + " using format overload with Index");
                 assertEquals(expected, Grid.areAdjacent(cellA, cellB),
-                        "Adjacency mismatch for cells " + cellA + " and " + cellB + " using no format overload");
+                        "Adjacency mismatch for cells " + cellA + " and " + cellB
+                                + " using no format overload");
             }
         }
     }
 
     /**
-     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method with a PackedInt input
-     * format to ensure it correctly determines adjacency between all pairs of cells in the grid.
+     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method with a PackedInt
+     * input format to ensure it correctly determines adjacency between all pairs of cells in the
+     * grid.
      * 
      * This method assumes that the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} method is
      * functioning correctly and uses it to generate expected results for comparison.
@@ -1260,10 +1327,10 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#toString()} method to ensure it produces a correct string representation of
-     * the grid's current state. This test performs random clicks on the grid and verifies that the
-     * resulting string representation matches the expected format and accurately reflects the grid's
-     * state.
+     * Tests the {@link Grid#toString()} method to ensure it produces a correct string
+     * representation of the grid's current state. This test performs random clicks on the grid and
+     * verifies that the resulting string representation matches the expected format and accurately
+     * reflects the grid's state.
      */
     @Test
     void testToString() {
@@ -1274,14 +1341,15 @@ class GridTest {
 
         String gridString = grid.toString();
         String[] rows = gridString.split(System.lineSeparator());
-        assertEquals(Grid.NUM_ROWS, rows.length, "Grid string representation should have correct number of rows");
+        assertEquals(Grid.NUM_ROWS, rows.length,
+                "Grid string representation should have correct number of rows");
 
         // Ensure that each row has the correct number of columns
         for (int row = 0; row < Grid.NUM_ROWS; row++) {
             String[] cols = rows[row].trim().split(" ");
             int expectedCols = (row % 2 == 0) ? Grid.EVEN_NUM_COLS : Grid.ODD_NUM_COLS;
-            assertEquals(expectedCols, cols.length,
-                    "Row " + row + " should have correct number of columns in string representation");
+            assertEquals(expectedCols, cols.length, "Row " + row
+                    + " should have correct number of columns in string representation");
         }
 
         // Verify that the string representation matches the grid state by turning the strings into
@@ -1304,9 +1372,10 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#equals(Object)} method to ensure it correctly determines equality between
-     * different grid instances based on their states. This test creates multiple grid instances,
-     * performs clicks to change their states, and verifies equality and inequality as appropriate.
+     * Tests the {@link Grid#equals(Object)} method to ensure it correctly determines equality
+     * between different grid instances based on their states. This test creates multiple grid
+     * instances, performs clicks to change their states, and verifies equality and inequality as
+     * appropriate.
      */
     @Test
     void testEquals() {
@@ -1317,24 +1386,27 @@ class GridTest {
         Grid gridTwo = new Grid13();
         Grid gridThree = new Grid22();
 
-        assertNotEquals(gridOne, object, "Grid should not be equal to an object of a different type");
+        assertNotEquals(gridOne, object,
+                "Grid should not be equal to an object of a different type");
         assertNotEquals(gridOne, null, "Non-null grid should not be equal to null");
         assertEquals(gridOne, gridOneReference, "Grid should be equal to itself");
         assertEquals(gridOne, gridTwo, "Two grids with the same initial state should be equal");
-        assertNotEquals(gridOne, gridThree, "Grids with different initial states should not be equal");
+        assertNotEquals(gridOne, gridThree,
+                "Grids with different initial states should not be equal");
 
         gridOne.click(solution13);
         gridThree.click(solution22);
 
         if (gridOne.isSolved() && gridThree.isSolved()) {
-            assertEquals(gridOne, gridThree, "Two grids solved with the same solution should be equal");
+            assertEquals(gridOne, gridThree,
+                    "Two grids solved with the same solution should be equal");
         }
     }
 
     /**
-     * Tests the {@link Grid#hashCode()} method to ensure it produces consistent hash codes for equal
-     * grid instances and different hash codes for unequal instances. This test uses the same test cases
-     * as the {@link #testEquals()} method to verify hash code behavior.
+     * Tests the {@link Grid#hashCode()} method to ensure it produces consistent hash codes for
+     * equal grid instances and different hash codes for unequal instances. This test uses the same
+     * test cases as the {@link #testEquals()} method to verify hash code behavior.
      */
     @Test
     void testHashCode() {
@@ -1360,13 +1432,13 @@ class GridTest {
     }
 
     // =================================================================================
-    // |                                 Grid13 Tests                                  |
+    // | Grid13 Tests |
     // =================================================================================
 
     /**
      * Tests the {@link Grid#click(int)} and {@link Grid#isSolved()} methods on the {@link Grid13}
-     * implementation. This test simulates a known minimal solution for the default Grid13 puzzle and
-     * asserts that the grid is reported as solved.
+     * implementation. This test simulates a known minimal solution for the default Grid13 puzzle
+     * and asserts that the grid is reported as solved.
      */
     @Test
     void test13IsSolved() {
@@ -1375,7 +1447,8 @@ class GridTest {
     }
 
     /**
-     * Tests that an incorrect series of clicks on a {@link Grid13} does not result in a solved state.
+     * Tests that an incorrect series of clicks on a {@link Grid13} does not result in a solved
+     * state.
      */
     @Test
     void test13IsNotSolved() {
@@ -1383,7 +1456,8 @@ class GridTest {
         // An incorrect solution
         short[] incorrectSolution = {0, 1, 2, 3, 4, 5, 6};
         grid.click(incorrectSolution);
-        assertFalse(grid.isSolved(), "Grid should not be solved after applying an incorrect solution");
+        assertFalse(grid.isSolved(),
+                "Grid should not be solved after applying an incorrect solution");
     }
 
     /**
@@ -1447,13 +1521,13 @@ class GridTest {
     }
 
     // =================================================================================
-    // |                                 Grid22 Tests                                  |
+    // | Grid22 Tests |
     // =================================================================================
 
     /**
      * Tests the {@link Grid#click(int)} and {@link Grid#isSolved()} methods on the {@link Grid22}
-     * implementation. This test simulates a known minimal solution for the default Grid22 puzzle and
-     * asserts that the grid is reported as solved.
+     * implementation. This test simulates a known minimal solution for the default Grid22 puzzle
+     * and asserts that the grid is reported as solved.
      */
     @Test
     void test22IsSolved() {
@@ -1464,7 +1538,8 @@ class GridTest {
     }
 
     /**
-     * Tests that an arbitrary series of clicks on a {@link Grid22} does not result in a solved state.
+     * Tests that an arbitrary series of clicks on a {@link Grid22} does not result in a solved
+     * state.
      */
     @Test
     void test22IsNotSolved() {
@@ -1472,7 +1547,8 @@ class GridTest {
         // An incorrect solution
         short[] incorrectSolution = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14};
         grid.click(incorrectSolution);
-        assertFalse(grid.isSolved(), "Grid should not be solved after applying an incorrect solution");
+        assertFalse(grid.isSolved(),
+                "Grid should not be solved after applying an incorrect solution");
     }
 
     /**
@@ -1522,7 +1598,7 @@ class GridTest {
     void test22ClickCommutativity() {
         Grid grid1 = new Grid22();
         Grid grid2 = new Grid22();
-        
+
         short[] clicks1 = generateRandomCombination(10);
         short[] clicks2 = shuffleArray(clicks1);
 
@@ -1534,12 +1610,12 @@ class GridTest {
     }
 
     // =================================================================================
-    // |                                 Grid35 Tests                                  |
+    // | Grid35 Tests |
     // =================================================================================
 
     /**
-     * Tests that an arbitrary series of clicks on a {@link Grid35} does not result in a solved state.
-     * This is the main puzzle (Q35) for which the solution is unknown.
+     * Tests that an arbitrary series of clicks on a {@link Grid35} does not result in a solved
+     * state. This is the main puzzle (Q35) for which the solution is unknown.
      */
     @Test
     void test35IsNotSolved() {
@@ -1547,7 +1623,8 @@ class GridTest {
         // An incorrect solution (there is no known 10-click solution)
         short[] incorrectSolution = generateRandomCombination(10);
         grid.click(incorrectSolution);
-        assertFalse(grid.isSolved(), "Grid should not be solved after applying an incorrect solution");
+        assertFalse(grid.isSolved(),
+                "Grid should not be solved after applying an incorrect solution");
     }
 
     /**
@@ -1597,7 +1674,7 @@ class GridTest {
     void test35ClickCommutativity() {
         Grid grid1 = new Grid35();
         Grid grid2 = new Grid35();
-        
+
         short[] clicks1 = generateRandomCombination(10);
         short[] clicks2 = shuffleArray(clicks1);
 

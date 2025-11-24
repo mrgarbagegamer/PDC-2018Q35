@@ -286,7 +286,8 @@ public class TestingUtils {
      * @return An array of even click indices.
      */
     public static short[] generateEvenClickIndices(short firstTrueCell) {
-        ShortSortedSet oddClickIndices = new ShortAVLTreeSet(generateOddClickIndices(firstTrueCell));
+        ShortSortedSet oddClickIndices = new ShortAVLTreeSet(
+                generateOddClickIndices(firstTrueCell));
         ShortSortedSet evenClickSet = new ShortAVLTreeSet();
         for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
             if (!oddClickIndices.contains(cell)) {
@@ -369,7 +370,6 @@ public class TestingUtils {
     public static boolean getPrefixParity(short[] prefix, int firstTrueCell) {
         return getPrefixParity(prefix, (short) firstTrueCell);
     }
-
 
     /**
      * Generates the final clicks based on the parity of the given prefix with respect to a first

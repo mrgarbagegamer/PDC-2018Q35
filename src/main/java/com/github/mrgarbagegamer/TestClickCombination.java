@@ -385,6 +385,7 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
+        final int prefixLength = WorkBatch.getNumClicks() - 1; // Constant prefix length for all items
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
@@ -414,8 +415,6 @@ public class TestClickCombination extends Thread {
                 final short[] finalClicks = item.getFinalClicks();
                 final int start = item.getStart();
                 final short[] prefix = item.getPrefix();
-                final int prefixLength = item.getPrefixLength(); // TODO: Consider removing this
-                                                                 // variable for slight optimization
 
                 final long prefixMask = buildParityMask(prefix);
 

@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
@@ -31,6 +32,7 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  * testing the core logic of grid state manipulation, including clicking cells and checking for a
  * solved state.
  */
+@Disabled("Disabled to avoid duplicate execution by test runners; tests are run in order via OrderedJupiterTests")
 class GridTest {
     // =================================================================================
     // | Grid Tests |

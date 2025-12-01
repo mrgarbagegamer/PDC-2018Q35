@@ -681,7 +681,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
         CombinationGeneratorTask.queueArray = queueArray;
         CombinationGeneratorTask.maxFirstClickIndex = maxFirstClickIndex;
         ArrayPool.setNumClicks(numClicks); // Set the number of clicks for the array pool
-        WorkBatch.setNumClicks(numClicks); // Also for WorkBatch
 
         // Initialize the instance fields
         this.prefix = context.get().prefixArrayPool.get(); // FIX: Get the initial empty prefix from
@@ -1066,7 +1065,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
 
         // Add the entire valid range as a single work item.
-        batch.addWork(prefix, prefixLength, parity, startIdx);
+        batch.addWork(prefix, parity, startIdx);
     }
 
     /**

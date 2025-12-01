@@ -113,7 +113,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Fixed memory footprint of ~4-12 bytes, depending on the number of adjacents to the
      *         first {@code true} cell.
      */
-    private static short[] ODD_CLICK_INDICES;
+    private static final StableValue<short[]> ODD_CLICK_INDICES = StableValue.of();
     /**
      * A pre-computed array of cell indices that are not adjacent to the
      * {@link Grid#findFirstTrueCell(Grid.ValueFormat) first true cell} in the {@link Grid grid}.
@@ -140,7 +140,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Fixed memory footprint of ~206-214 bytes, depending on the number of non-adjacents to
      *         the first {@code true} cell.
      */
-    private static short[] EVEN_CLICK_INDICES;
+    private static final StableValue<short[]> EVEN_CLICK_INDICES = StableValue.of();
 
     /**
      * The internal, pre-allocated pool of {@link WorkItem} objects.
@@ -237,7 +237,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Thread-safe after its single initialization at startup.
      * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
      */
-    private static int numClicks = -1;
+    private static final StableValue<Integer> NUM_CLICKS = StableValue.of();
 
     /**
      * A compact, reusable representation of a range of combinations that share a common prefix.
@@ -285,18 +285,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         private short[] prefix; // TODO: Consider making this final.
         /**
-         * The actual length of the content in the {@link #prefix} array. Since the array is always
-         * of size {@code numClicks - 1}, this field could be removed to save memory.
-         *
-         * @see #numClicks
-         * @see #getPrefixLength()
-         * @since 2025.11 - Range-Based WorkItem Refactor
-         * @performance {@code O(1)} access time.
-         * @threading Not thread-safe.
-         * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
-         */
-        private int prefixLength; // TODO: Consider removing if always numClicks - 1
-        /**
          * A reference to either {@link WorkBatch#ODD_CLICK_INDICES} or
          * {@link WorkBatch#EVEN_CLICK_INDICES}, representing the set of valid final clicks for this
          * work item. The {@link TestClickCombination monkey} uses this array to complete the
@@ -341,12 +329,11 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory Allocates memory for the {@code prefix} array.
          */
         WorkItem() {
-            if (numClicks <= 0) {
+            if (!NUM_CLICKS.isSet()) {
                 throw new IllegalStateException(
                         "numClicks must be set before creating WorkItem instances.");
             }
-            prefix = new short[numClicks - 1];
-            prefixLength = -1; // TODO: Consider changing this to numClicks - 1
+            prefix = new short[NUM_CLICKS.orElseThrow() - 1];
             finalClicks = null;
             start = -1;
         }
@@ -361,20 +348,23 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * internal array} to prevent external modifications from affecting this item.
          * </p>
          *
-         * @param prefix       The common prefix for this range of combinations.
-         * @param prefixLength The length of the prefix.
-         * @param finalClicks  The array of possible final clicks (either
-         *                     {@link WorkBatch#ODD_CLICK_INDICES} or
-         *                     {@link WorkBatch#EVEN_CLICK_INDICES}).
-         * @param start        The starting index in the {@code finalClicks} array.
+         * @param prefix      The common prefix for this range of combinations.
+         * @param finalClicks The array of possible final clicks (either
+         *                    {@link WorkBatch#ODD_CLICK_INDICES} or
+         *                    {@link WorkBatch#EVEN_CLICK_INDICES}).
+         * @param start       The starting index in the {@code finalClicks} array.
          * @since 2025.11 - Range-Based WorkItem Refactor
          * @performance {@code O(prefixLength)} for array copy; {@code O(1)} for field assignments.
          * @threading Not thread-safe.
          * @memory Does not allocate; reuses internal arrays.
          */
-        void set(short[] prefix, int prefixLength, short[] finalClicks, int start) {
-            System.arraycopy(prefix, 0, this.prefix, 0, prefixLength);
-            this.prefixLength = prefixLength;
+        void set(short[] prefix, short[] finalClicks, int start) {
+            System.arraycopy(prefix, 0, this.prefix, 0, this.prefix.length); // TODO: Consider
+                                                                             // changing
+                                                                             // this.prefix.length
+                                                                             // to
+                                                                             // NUM_CLICKS.orElseThrow()
+                                                                             // - 1
             this.finalClicks = finalClicks;
             this.start = start;
         }
@@ -396,7 +386,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         void clear() {
             // Avoid nulling the prefix reference to allow reuse
             this.finalClicks = null;
-            this.prefixLength = -1;
             this.start = -1;
         }
 
@@ -423,7 +412,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory Does not allocate.
          */
         public int getPrefixLength() {
-            return prefixLength;
+            return prefix.length;
         }
 
         /**
@@ -478,7 +467,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             sb.append("WorkItem{prefix=");
             sb.append(Arrays.toString(prefix));
             sb.append(", prefixLength=");
-            sb.append(prefixLength);
+            sb.append(prefix.length);
             sb.append(", finalClicks=");
 
             // Get the final clicks starting from 'start' to the end
@@ -715,7 +704,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Allocates the {@code workItems} array and all {@code WorkItem} instances within it.
      */
     public WorkBatch(int capacity) {
-        if (numClicks <= 0) {
+        if (!NUM_CLICKS.isSet()) {
             throw new IllegalStateException(
                     "numClicks must be set before creating WorkBatch instances.");
         } else if (capacity <= 0) {
@@ -760,11 +749,11 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Not thread-safe. Must be called from a single thread during initialization.
      * @memory Does not allocate.
      */
-    public static void setNumClicks(int numClicks) {
-        if (numClicks <= 0) {
+    public static void setNumClicks(int val) {
+        if (val <= 0) {
             throw new IllegalArgumentException("numClicks must be a positive integer.");
         }
-        WorkBatch.numClicks = numClicks;
+        NUM_CLICKS.setOrThrow(val);
     }
 
     /**
@@ -784,11 +773,11 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Allocates a {@link ShortAVLTreeSet} for the uniqueness check.
      */
     public static void setClickIndexArrays(short[] odd, short[] even) {
-        if (numClicks <= 0) {
+        if (!NUM_CLICKS.isSet()) {
             throw new IllegalStateException(
                     "numClicks must be set before setting click index arrays.");
         }
-
+    
         if (odd == null || even == null) {
             throw new IllegalArgumentException("Click index arrays cannot be null.");
         } else if (odd.length == 0 || even.length == 0) {
@@ -810,8 +799,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             }
         }
 
-        ODD_CLICK_INDICES = odd;
-        EVEN_CLICK_INDICES = even;
+        ODD_CLICK_INDICES.setOrThrow(odd);
+        EVEN_CLICK_INDICES.setOrThrow(even);
     }
 
     /**
@@ -826,7 +815,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Does not allocate.
      */
     public static short[] getOddClickIndices() {
-        return ODD_CLICK_INDICES;
+        return ODD_CLICK_INDICES.orElseThrow();
     }
 
     /**
@@ -841,7 +830,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Does not allocate.
      */
     public static short[] getEvenClickIndices() {
-        return EVEN_CLICK_INDICES;
+        return EVEN_CLICK_INDICES.orElseThrow();
     }
 
     /**
@@ -855,34 +844,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Does not allocate.
      */
     public static int getNumClicks() {
-        return numClicks;
+        return NUM_CLICKS.orElseThrow();
     }
 
-    /**
-     * Resets {@code static} fields to their default values. This method is intended strictly for
-     * testing purposes to ensure test isolation.
-     * 
-     * <p>
-     * Since this method modifies {@code static} state, it should only be called in single-threaded
-     * test setups to avoid concurrency issues. We could consider adding synchronization or other
-     * concurrency controls if needed, but for simplicity, we leave it as is.
-     * </p>
-     * 
-     * @see #getEvenClickIndices()
-     * @see #getOddClickIndices()
-     * @see #getNumClicks()
-     * @see #setClickIndexArrays(short[], short[])
-     * @see #setNumClicks(int)
-     * @since 2025.11 - WorkBatchTest Refactor
-     * @performance {@code O(1)} assignments.
-     * @threading Not thread-safe. Should only be called in single-threaded test setups.
-     * @memory Does not allocate.
-     */
-    static void resetForTest() {
-        numClicks = -1;
-        ODD_CLICK_INDICES = null;
-        EVEN_CLICK_INDICES = null;
-    }
 
     /**
      * Adds a new work range to the batch.
@@ -891,15 +855,14 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * This highly optimized method is a critical performance enhancement for the
      * {@link CombinationGeneratorTask generator} threads. It checks if the batch {@link #isFull()
      * is full} and, if not, retrieves the next available {@link WorkItem} from the pre-allocated
-     * pool. It then initializes the item using the provided {@code prefix}, {@code prefixLength},
-     * {@code prefixParity}, and {@code start} parameters. Since the range of combinations needs to
-     * toggle the first {@code true} cell an odd number of times, the method selects the opposite
-     * click indices array based on the {@code prefixParity}. All of this is done without any memory
-     * allocations, ensuring minimal GC pressure in the hot path.
+     * pool. It then initializes the item using the provided {@code prefix}, {@code prefixParity},
+     * and {@code start} parameters. Since the range of combinations needs to toggle the first
+     * {@code true} cell an odd number of times, the method selects the opposite click indices array
+     * based on the {@code prefixParity}. All of this is done without any memory allocations,
+     * ensuring minimal GC pressure in the hot path.
      * </p>
      *
      * @param prefix       The common combination prefix.
-     * @param prefixLength The length of the prefix.
      * @param prefixParity {@code true} if the prefix has odd parity, determining which final click
      *                     array to use ({@link #EVEN_CLICK_INDICES} for odd parity,
      *                     {@link #ODD_CLICK_INDICES} for even).
@@ -912,13 +875,13 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Not thread-safe.
      * @memory Does not allocate.
      */
-    public boolean addWork(short[] prefix, int prefixLength, boolean prefixParity, int start) {
+    public boolean addWork(short[] prefix, boolean prefixParity, int start) {
         if (isFull()) {
             return false;
         }
         WorkItem item = workItems[workItemCount++];
-        short[] finalClicks = prefixParity ? EVEN_CLICK_INDICES : ODD_CLICK_INDICES;
-        item.set(prefix, prefixLength, finalClicks, start);
+        short[] finalClicks = prefixParity ? EVEN_CLICK_INDICES.orElseThrow() : ODD_CLICK_INDICES.orElseThrow();
+        item.set(prefix, finalClicks, start);
         return true;
     }
 

@@ -13,13 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Random;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled("Disabled to avoid duplicate execution by test runners; tests are run in order via OrderedJupiterTests")
 class CombinationQueueArrayTest {
 
     private CombinationQueueArray queueArray;
-    private final Random random = new Random();
-    private int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
+    private static final Random random = new Random();
+    private static int numClicks;
 
     /**
      * Sets up a fresh CombinationQueueArray instance before each test.
@@ -28,10 +30,10 @@ class CombinationQueueArrayTest {
     void setUp() {
         // Reset singleton for each test
         CombinationQueueArray.resetInstance();
-        WorkBatch.resetForTest();
         random.setSeed(System.currentTimeMillis());
-        int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        WorkBatch.setNumClicks(numClicks);
+
+        // Get numClicks from WorkBatch after it has been initialized by WorkBatchTest
+        numClicks = WorkBatch.getNumClicks();
     }
 
     /**
@@ -110,8 +112,6 @@ class CombinationQueueArrayTest {
     @Test
     void testOfferAndPoll() {
         final int idx = random.nextInt(4);
-        final int numClicks = random.nextInt(1, Grid.NUM_CELLS + 1);
-        WorkBatch.setNumClicks(numClicks);
         queueArray = CombinationQueueArray.getInstance(4);
 
         CombinationQueue queue = queueArray.getQueue(idx);
@@ -120,7 +120,7 @@ class CombinationQueueArrayTest {
 
         // Add a work item to the batch to make it non-empty
         short[] prefix = generateRandomCombination(numClicks - 1);
-        batch.addWork(prefix, prefix.length, false, 0);
+        batch.addWork(prefix, false, 0);
 
         assertTrue(queue.add(batch), "Should be able to offer a batch to a queue");
 

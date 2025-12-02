@@ -19,6 +19,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
+import com.github.mrgarbagegamer.WorkBatch.Parity;
 import com.github.mrgarbagegamer.WorkBatch.WorkItem;
 
 import org.junit.jupiter.api.Disabled;
@@ -32,6 +33,8 @@ import org.junit.jupiter.api.TestMethodOrder;
 class WorkBatchTest {
 
     static final Random random = new Random();
+
+    static final StableValue<Short> FIRST_TRUE_CELL = StableValue.of();
 
     /**
      * Tests the {@link WorkBatch#setNumClicks(int)} method to ensure it throws an
@@ -240,6 +243,8 @@ class WorkBatchTest {
     @Order(4)
     void testSetClickIndexArraysValidInputs() {
         final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
+        FIRST_TRUE_CELL.setOrThrow(firstTrueCell);
+
         final short[][] clickIndices = generateClickIndices(firstTrueCell);
 
         assertDoesNotThrow(() -> {
@@ -315,12 +320,11 @@ class WorkBatchTest {
     @Order(5)
     void testAddWorkWhenFull() {
         final WorkBatch batch = new WorkBatch(2);
-        final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
 
         // Fill the batch to capacity
         while (!batch.isFull()) {
             final short[] prefix = generateRandomCombination(3);
-            final boolean parity = getPrefixParity(prefix, firstTrueCell);
+            final boolean parity = getPrefixParity(prefix, FIRST_TRUE_CELL).isOdd();
             final int start = prefix[prefix.length - 1] + 1;
             assertTrue(batch.addWork(prefix, parity, start),
                     "Should be able to add work item when batch is not full");
@@ -328,7 +332,7 @@ class WorkBatchTest {
 
         // Now that the batch is full, adding another work item should fail
         final short[] extraPrefix = generateRandomCombination(3);
-        final boolean extraParity = getPrefixParity(extraPrefix, firstTrueCell);
+        final boolean extraParity = getPrefixParity(extraPrefix, FIRST_TRUE_CELL).isOdd();
         final int start = extraPrefix[extraPrefix.length - 1] + 1;
 
         assertFalse(batch.addWork(extraPrefix, extraParity, start),
@@ -351,7 +355,7 @@ class WorkBatchTest {
     void testWorkItemSetNullPrefix() {
         final WorkItem item = new WorkItem();
         assertThrows(NullPointerException.class, () -> {
-            item.set(null, new short[0], 0);
+            item.set(null, Parity.EVEN, 0);
         }, "set() should throw NullPointerException when prefix array is null");
     }
 
@@ -360,16 +364,16 @@ class WorkBatchTest {
     void testWorkItemSetValidInputs() {
         final WorkItem item = new WorkItem();
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4, 5};
+        final Parity parity = getPrefixParity(prefix, FIRST_TRUE_CELL);
         final int start = 1;
 
         assertDoesNotThrow(() -> {
-            item.set(prefix, finalClicks, start);
+            item.set(prefix, parity, start);
         }, "set() should not throw when provided with valid inputs");
 
         assertArrayEquals(prefix, item.getPrefix(), "Prefix should match the set array");
         assertEquals(prefix.length, item.getPrefixLength());
-        assertSame(finalClicks, item.getFinalClicks());
+        assertSame(parity.getFinalClicks(), item.getFinalClicks());
         assertEquals(start, item.getStart());
     }
 
@@ -386,9 +390,9 @@ class WorkBatchTest {
     void testWorkItemClear() {
         final WorkItem item = new WorkItem();
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4, 5};
+        final Parity parity = getPrefixParity(prefix, FIRST_TRUE_CELL);
         final int start = 1;
-        item.set(prefix, finalClicks, start);
+        item.set(prefix, parity, start);
 
         final short[] prefixPreClear = item.getPrefix();
         item.clear();
@@ -399,29 +403,6 @@ class WorkBatchTest {
                 "Prefix length should remain unchanged after clear");
         assertNull(item.getFinalClicks(), "Final clicks should be null after clear");
         assertEquals(-1, item.getStart(), "Start index should be -1 after clear");
-    }
-
-    /**
-     * Tests the {@link WorkItem#toString()} method to ensure it handles null finalClicks array
-     * correctly.
-     * 
-     * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
-     * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
-     */
-    @Test
-    @Order(5)
-    void testWorkItemToStringNullFinalClicks() {
-        final WorkItem item = new WorkItem();
-
-        final short[] prefix = {0, 1, 2};
-        item.set(prefix, null, 2);
-
-        final String str = assertDoesNotThrow(() -> {
-            return item.toString();
-        }, "toString should not throw even when finalClicks is null");
-
-        assertTrue(str.contains("finalClicks=null"),
-                "toString output should indicate that finalClicks is null");
     }
 
     /**
@@ -437,8 +418,8 @@ class WorkBatchTest {
         final WorkItem item = new WorkItem();
 
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4};
-        item.set(prefix, finalClicks, -5);
+        final Parity parity = getPrefixParity(prefix, FIRST_TRUE_CELL);
+        item.set(prefix, parity, -5);
 
         final String str = assertDoesNotThrow(() -> {
             return item.toString();
@@ -461,8 +442,9 @@ class WorkBatchTest {
         final WorkItem item = new WorkItem();
 
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4};
-        item.set(prefix, finalClicks, finalClicks.length);
+        final Parity parity = getPrefixParity(prefix, FIRST_TRUE_CELL);
+        final short[] finalClicks = parity.getFinalClicks();
+        item.set(prefix, parity, finalClicks.length);
 
         final String str = assertDoesNotThrow(() -> {
             return item.toString();
@@ -485,9 +467,12 @@ class WorkBatchTest {
         final WorkItem item = new WorkItem();
 
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4};
+        final Parity parity = getPrefixParity(prefix, FIRST_TRUE_CELL);
         final int start = 1;
-        item.set(prefix, finalClicks, start);
+        item.set(prefix, Parity.EVEN, start);
+
+        final short[] finalClicks = parity.getFinalClicks();
+        final short[] validFinalClicks = Arrays.copyOfRange(finalClicks, start, finalClicks.length);
 
         final String str = assertDoesNotThrow(() -> {
             return item.toString();
@@ -497,7 +482,7 @@ class WorkBatchTest {
                 "toString output should correctly represent the prefix array");
         assertTrue(str.contains("prefixLength=3"),
                 "toString output should correctly represent the prefix length");
-        assertTrue(str.contains("finalClicks=[4]"),
+        assertTrue(str.contains("finalClicks=" + Arrays.toString(validFinalClicks)),
                 "toString output should correctly represent the valid final clicks");
     }
 
@@ -562,29 +547,30 @@ class WorkBatchTest {
         final WorkItem item2 = new WorkItem();
         final short[] prefix1 = {0, 1, 2};
         final short[] prefix2 = {0, 1, 3};
-        item1.set(prefix1, new short[0], 0);
-        item2.set(prefix2, new short[0], 0);
+        final Parity parity1 = getPrefixParity(prefix1, FIRST_TRUE_CELL);
+        final Parity parity2 = getPrefixParity(prefix2, FIRST_TRUE_CELL);
+
+        item1.set(prefix1, parity1, 0);
+        item2.set(prefix2, parity2, 0);
 
         assertNotEquals(item1, item2, "WorkItems with different prefixes should not be equal");
     }
 
     /**
      * Tests the {@link WorkItem#equals(Object)} method to ensure it returns false when compared to
-     * another WorkItem with different final clicks.
+     * another WorkItem with a different parity.
      * 
      * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
      * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
      */
     @Test
     @Order(5)
-    void testWorkItemEqualsDifferentFinalClicks() {
+    void testWorkItemEqualsDifferentParity() {
         final WorkItem item1 = new WorkItem();
         final WorkItem item2 = new WorkItem();
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks1 = {3, 4};
-        final short[] finalClicks2 = {3, 5};
-        item1.set(prefix, finalClicks1, 0);
-        item2.set(prefix, finalClicks2, 0);
+        item1.set(prefix, Parity.EVEN, 0);
+        item2.set(prefix, Parity.ODD, 0);
 
         assertNotEquals(item1, item2, "WorkItems with different final clicks should not be equal");
     }
@@ -602,9 +588,8 @@ class WorkBatchTest {
         final WorkItem item1 = new WorkItem();
         final WorkItem item2 = new WorkItem();
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4};
-        item1.set(prefix, finalClicks, 0);
-        item2.set(prefix, finalClicks, 1);
+        item1.set(prefix, Parity.EVEN, 0);
+        item2.set(prefix, Parity.EVEN, 1);
 
         assertNotEquals(item1, item2, "WorkItems with different start indices should not be equal");
     }
@@ -622,10 +607,9 @@ class WorkBatchTest {
         final WorkItem item1 = new WorkItem();
         final WorkItem item2 = new WorkItem();
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4};
         final int start = 1;
-        item1.set(prefix, finalClicks, start);
-        item2.set(prefix, finalClicks, start);
+        item1.set(prefix, Parity.ODD, start);
+        item2.set(prefix, Parity.ODD, start);
 
         assertEquals(item1, item2, "WorkItems with identical state should be equal");
     }
@@ -644,8 +628,8 @@ class WorkBatchTest {
         final WorkItem item2 = new WorkItem();
         final short[] prefix1 = {0, 1, 2};
         final short[] prefix2 = {0, 1, 3};
-        item1.set(prefix1, new short[0], 0);
-        item2.set(prefix2, new short[0], 0);
+        item1.set(prefix1, Parity.EVEN, 0);
+        item2.set(prefix2, Parity.EVEN, 0);
 
         assertNotEquals(item1.hashCode(), item2.hashCode(),
                 "WorkItems with different prefixes should have different hash codes");
@@ -653,21 +637,19 @@ class WorkBatchTest {
 
     /**
      * Tests the {@link WorkItem#hashCode()} method to ensure it produces different hash codes for
-     * WorkItems with different final clicks.
+     * WorkItems with different parities.
      * 
      * This test assumes that the {@link WorkBatch#setNumClicks(int)} and
      * {@link WorkItem#set(short[], int, short[], int)} methods are functioning correctly.
      */
     @Test
     @Order(5)
-    void testWorkItemHashCodeDifferentFinalClicks() {
+    void testWorkItemHashCodeDifferentParity() {
         final WorkItem item1 = new WorkItem();
         final WorkItem item2 = new WorkItem();
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks1 = {3, 4};
-        final short[] finalClicks2 = {3, 5};
-        item1.set(prefix, finalClicks1, 0);
-        item2.set(prefix, finalClicks2, 0);
+        item1.set(prefix, Parity.EVEN, 0);
+        item2.set(prefix, Parity.ODD, 0);
 
         assertNotEquals(item1.hashCode(), item2.hashCode(),
                 "WorkItems with different final clicks should have different hash codes");
@@ -686,9 +668,8 @@ class WorkBatchTest {
         final WorkItem item1 = new WorkItem();
         final WorkItem item2 = new WorkItem();
         final short[] prefix = {0, 1, 2};
-        final short[] finalClicks = {3, 4};
-        item1.set(prefix, finalClicks, 0);
-        item2.set(prefix, finalClicks, 1);
+        item1.set(prefix, Parity.EVEN, 0);
+        item2.set(prefix, Parity.EVEN, 1);
 
         assertNotEquals(item1.hashCode(), item2.hashCode(),
                 "WorkItems with different start indices should have different hash codes");
@@ -741,7 +722,7 @@ class WorkBatchTest {
         final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
 
         final short[] prefix = generateRandomCombination(3);
-        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell).isOdd();
         final int start = prefix[prefix.length - 1] + 1;
         batch.addWork(prefix, parity, start);
 
@@ -766,7 +747,7 @@ class WorkBatchTest {
         final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
 
         final short[] prefix = generateRandomCombination(3);
-        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell).isOdd();
         final int start = prefix[prefix.length - 1] + 1;
         batch.addWork(prefix, parity, start);
 
@@ -793,12 +774,12 @@ class WorkBatchTest {
 
         // Add multiple work items
         final short[] prefix1 = generateRandomCombination(3);
-        final boolean parity1 = getPrefixParity(prefix1, firstTrueCell);
+        final boolean parity1 = getPrefixParity(prefix1, firstTrueCell).isOdd();
         final int start1 = prefix1[prefix1.length - 1] + 1;
         batch.addWork(prefix1, parity1, start1);
 
         final short[] prefix2 = generateRandomCombination(3);
-        final boolean parity2 = getPrefixParity(prefix2, firstTrueCell);
+        final boolean parity2 = getPrefixParity(prefix2, firstTrueCell).isOdd();
         final int start2 = prefix2[prefix2.length - 1] + 1;
         batch.addWork(prefix2, parity2, start2);
 
@@ -893,7 +874,7 @@ class WorkBatchTest {
 
         final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
         final short[] prefix = generateRandomCombination(3);
-        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell).isOdd();
         final int start = prefix[prefix.length - 1] + 1;
         batch.addWork(prefix, parity, start);
 
@@ -915,7 +896,7 @@ class WorkBatchTest {
 
         final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
         final short[] prefix = generateRandomCombination(3);
-        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell).isOdd();
         final int start = prefix[prefix.length - 1] + 1;
         batch.addWork(prefix, parity, start);
 
@@ -938,7 +919,7 @@ class WorkBatchTest {
         final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
         for (int i = 1; i <= 3; i++) {
             final short[] prefix = generateRandomCombination(3);
-            final boolean parity = getPrefixParity(prefix, firstTrueCell);
+            final boolean parity = getPrefixParity(prefix, firstTrueCell).isOdd();
             final int start = prefix[prefix.length - 1] + 1;
             batch.addWork(prefix, parity, start);
             assertEquals(i, batch.size(),
@@ -959,7 +940,7 @@ class WorkBatchTest {
         final short firstTrueCell = (short) random.nextInt(0, Grid.NUM_CELLS);
 
         final short[] prefix = generateRandomCombination(3);
-        final boolean parity = getPrefixParity(prefix, firstTrueCell);
+        final boolean parity = getPrefixParity(prefix, firstTrueCell).isOdd();
         final int start = prefix[prefix.length - 1] + 1;
         batch.addWork(prefix, parity, start);
 

@@ -56,7 +56,9 @@ public final class ArrayPool {
      * @threading Thread-safe; effectively immutable after being set once.
      * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
-    private static int numClicks = -1;
+    private static int numClicks = -1; // TODO: Consider extracting this into a public StableValue
+                                       // for global config and setting it to the combination length
+                                       // - 1 rather than the full length.
     /**
      * The internal buffer storing the pre-allocated {@code short[]} arrays.
      *

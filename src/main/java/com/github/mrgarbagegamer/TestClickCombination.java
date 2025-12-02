@@ -149,7 +149,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe through use of {@code volatile} flags and concurrent queues.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private final CombinationQueueArray queueArray;
+    private final CombinationQueueArray queueArray; // TODO: Consider making this into a static StableValue.
     /**
      * The monkey's dedicated {@link Grid} instance for testing combinations.
      *
@@ -194,7 +194,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe via double-checked locking during initialization.
      * @memory Fixed memory footprint of ~{@code 8 × Grid.NUM_CELLS} bytes (872 bytes).
      */
-    private static volatile long[] CLICK_TO_TRUE_CELL_MASK = null;
+    private static volatile long[] CLICK_TO_TRUE_CELL_MASK = null; // TODO: Consider making this into a StableValue.
     /**
      * The target {@link Grid.ValueFormat#Bitmask bitmask} for a valid combination, where all bits
      * corresponding to {@code true} cells are 1.
@@ -217,7 +217,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe via double-checked locking during initialization.
      * @memory Fixed memory footprint of 8 bytes as a primitive {@code long}.
      */
-    private static volatile long EXPECTED_MASK = 0L;
+    private static volatile long EXPECTED_MASK = 0L; // TODO: Consider making this into a StableValue.
 
     /**
      * Constructs a monkey thread.

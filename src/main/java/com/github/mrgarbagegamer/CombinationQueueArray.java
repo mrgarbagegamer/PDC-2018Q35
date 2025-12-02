@@ -62,7 +62,7 @@ public class CombinationQueueArray {
      * @threading Thread-safe; uses {@code volatile} for safe publication.
      * @memory Minimal footprint of 4 bytes as a reference.
      */
-    private static volatile CombinationQueueArray instance = null;
+    private static volatile CombinationQueueArray instance = null; // TODO: Consider using the StableValue pattern for this singleton.
 
     /**
      * An array of {@link CombinationQueue work queues}, with each queue dedicated to a specific

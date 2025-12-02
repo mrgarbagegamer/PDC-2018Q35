@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
@@ -390,7 +391,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    private static int numClicks;
+    private static int numClicks; // TODO: Consider extracting this into a public StableValue for
+                                  // global config.
     /**
      * The {@link CombinationQueueArray array of queues} used to distribute {@link WorkBatch}
      * objects to {@link TestClickCombination monkeys}.
@@ -407,7 +409,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 4 bytes as a reference.
      */
-    private static CombinationQueueArray queueArray;
+    private static CombinationQueueArray queueArray; // TODO: Consider making this into a
+                                                     // StableValue or referencing the singleton
+                                                     // directly.
     /**
      * The maximum index allowed for the first click in any combination.
      * 
@@ -426,7 +430,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    private static int maxFirstClickIndex;
+    private static int maxFirstClickIndex; // TODO: Consider making this into a StableValue.
 
     // Cached data between tasks
     /**
@@ -569,7 +573,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 8 bytes as a {@code long}.
      */
-    private static long targetMask;
+    private static long targetMask; // TODO: Consider making this into a StableValue.
 
     /**
      * The {@link ForkJoinPool} that executes the generator tasks.
@@ -586,7 +590,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to the use of a {@code static volatile} field.
      * @memory Minimal memory footprint of 4 bytes as a reference.
      */
-    private static volatile ForkJoinPool generatorPool;
+    private static volatile ForkJoinPool generatorPool; // TODO: Consider making this into a
+                                                        // StableValue.
 
     /**
      * Sets the {@link ForkJoinPool} used to execute generator tasks.
@@ -735,7 +740,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of ~16 bytes as two {@code long}s.
      */
-    private static long[] FIRST_TRUE_ADJACENTS;
+    private static long[] FIRST_TRUE_ADJACENTS; // TODO: Consider making this into a StableValue.
     /**
      * An array of {@link #computeAdjacencyMaskFast(short) pre-computed} indices of all clicks with
      * odd {@link #prefixParity parity}.
@@ -747,7 +752,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint proportional to the number of odd parity clicks.
      */
-    private static short[] ODD_CLICK_INDICES;
+    private static short[] ODD_CLICK_INDICES; // TODO: Consider making this into a StableValue.
     /**
      * An array of {@link #computeAdjacencyMaskFast(short) pre-computed} indices of all clicks with
      * even {@link #prefixParity parity}.
@@ -759,7 +764,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint proportional to the number of even parity clicks.
      */
-    private static short[] EVEN_CLICK_INDICES;
+    private static short[] EVEN_CLICK_INDICES; // TODO: Consider making this into a StableValue.
 
     /**
      * Computes and caches bitmasks and index arrays for parity checks.
@@ -1358,7 +1363,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])}
      * @memory Fixed memory footprint of ~{@code 8 * Grid.NUM_CELLS} bytes as a {@code long} array.
      */
-    private static long[] TRUE_CELL_ADJACENCY_MASKS = null;
+    private static long[] TRUE_CELL_ADJACENCY_MASKS = null; // TODO: Consider making this into a
+                                                            // StableValue.
     /**
      * An array of pre-computed "suffix OR" bitmasks for {@code O(1)} constraint checking.
      * 
@@ -1383,7 +1389,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            effectively {@code final} thereafter.
      * @memory Fixed memory footprint of ~{@code 8 * Grid.NUM_CELLS} bytes as a {@code long} array.
      */
-    private static long[] SUFFIX_OR_MASKS = null;
+    private static long[] SUFFIX_OR_MASKS = null; // TODO: Consider making this into a StableValue.
     /**
      * A static adjacency matrix used to initialize {@link #TRUE_CELL_ADJACENCY_MASKS}.
      * 
@@ -1403,7 +1409,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Fixed memory footprint of ~<code>{@value Grid#NUM_CELLS}²</code> bytes as a
      *         {@code boolean} matrix.
      */
-    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix();
+    private static final boolean[][] CLICK_ADJACENCY_MATRIX = initClickAdjacencyMatrix(); // TODO:
+                                                                                          // Consider
+                                                                                          // removing
+                                                                                          // this
+                                                                                          // field
+                                                                                          // entirely.
 
     /**
      * Initializes the {@code static} {@link #CLICK_ADJACENCY_MATRIX} upon class loading.

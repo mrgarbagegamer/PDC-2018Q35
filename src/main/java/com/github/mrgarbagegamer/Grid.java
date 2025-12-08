@@ -1863,6 +1863,18 @@ public abstract class Grid {
         return gridState.clone();
     }
 
+    // TODO: Add documentation and unit tests for this method.
+    public static short[] invertCombination(short[] clicks) {
+        final ShortArrayList combination = ShortArrayList.wrap(clicks);
+        final ShortArrayList inverted = new ShortArrayList(NUM_CELLS - combination.size());
+        for (short click = 0; click < NUM_CELLS; click++) {
+            if (!combination.contains(click)) {
+                combination.add(click);
+            }
+        }
+        return inverted.toShortArray();
+    }
+
     /**
      * Returns a {@link java.lang.String String} representation of the current grid state in a
      * human-readable format.

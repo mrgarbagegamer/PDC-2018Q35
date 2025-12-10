@@ -1,6 +1,8 @@
 package com.github.mrgarbagegamer;
 
+import java.lang.StableValue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -220,37 +222,20 @@ public class StartYourMonkeys {
             baseGrid = new Grid22();
         }
 
-        WorkBatch.setNumClicks(numClicks);
-
-        short[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the
-                                                                                         // first
-                                                                                         // true
-                                                                                         // adjacents
-                                                                                         // in index
-                                                                                         // format
-        int finalFirstTrueAdjacent = -1;
-        if (trueAdjacents != null) {
-            for (int adjacent : trueAdjacents) {
-                if (adjacent > finalFirstTrueAdjacent) {
-                    finalFirstTrueAdjacent = adjacent;
-                }
-            }
-        }
+        // Initialize the global configuration values.
+        GlobalConfig.initialize(numClicks, numThreads, baseGrid);
 
         final int numGeneratorThreads = numThreads / 2; // Rounds down in the case of odd numbers
 
         // Tell the queue how many generators we have on startup (since we will be using
         // ForkJoinPool, there is effectively only one thread generating combinations)
-        CombinationQueueArray queueArray = CombinationQueueArray
-                .getInstance(numThreads - numGeneratorThreads); // One queue per worker thread
-        short[] trueCells = baseGrid.findTrueCells();
+        final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
 
         // Start consumer threads BEFORE generation
-        TestClickCombination[] monkeys = new TestClickCombination[numThreads - numGeneratorThreads];
-        for (int i = 0; i < numGeneratorThreads; i++) {
-            String threadName = String.format("Monkey-%d", i);
-            monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray,
-                    baseGrid.clone());
+        final TestClickCombination[] monkeys =
+                new TestClickCombination[numThreads - numGeneratorThreads];
+        for (int i = 0; i < monkeys.length; i++) {
+            monkeys[i] = new TestClickCombination("Monkey-" + i, queueArray.getQueue(i));
             monkeys[i].start();
         }
 
@@ -260,8 +245,7 @@ public class StartYourMonkeys {
 
         try {
             // Invoke root task - no need to keep reference since we use awaitQuiescence
-            generatorPool.invoke(new CombinationGeneratorTask(numClicks, queueArray, trueCells,
-                    finalFirstTrueAdjacent));
+            generatorPool.invoke(CombinationGeneratorTask.createRootTask());
         } finally {
             // Flush any remaining batches only if no solution found
             if (!queueArray.isSolutionFound()) {
@@ -383,6 +367,122 @@ public class StartYourMonkeys {
         String[] lines = grid.toString().split("\n");
         for (String line : lines) {
             logger.info(line);
+        }
+    }
+
+    /**
+     * A centralized, immutable holder for all once-per-run configuration settings.
+     *
+     * <p>This class uses {@link StableValue} to ensure that configuration values are set exactly
+     * once during application startup and remain constant thereafter. This provides a safe and
+     * predictable way for any component to access core settings without the risk of them being
+     * modified after initialization.</p>
+     *
+     * @since 2025.12 - Global Configuration Refactor
+     * @threading Thread-safe after initialization.
+     */
+    public static final class GlobalConfig {
+
+        private static final StableValue<Integer> NUM_CLICKS = StableValue.of();
+        private static final StableValue<Integer> NUM_THREADS = StableValue.of();
+        private static final StableValue<Grid> BASE_GRID = StableValue.of();
+
+        public static final Supplier<short[]> TRUE_CELLS =
+                StableValue.supplier(() -> getBaseGrid().findTrueCells());
+
+        public static final Supplier<long[]> CLICK_TO_TRUE_CELL_MASK =
+                StableValue.supplier(() -> computeClickToTrueCellMask());
+
+        public static final Supplier<Long> EXPECTED_MASK =
+                StableValue.supplier(() -> (1L << TRUE_CELLS.get().length) - 1);
+
+        public static final Supplier<short[]> ODD_CLICK_INDICES = StableValue
+                .supplier(() -> BASE_GRID.orElseThrow().findFirstTrueAdjacents());
+
+        public static final Supplier<short[]> EVEN_CLICK_INDICES =
+                StableValue.supplier(() -> Grid.invertCombination(ODD_CLICK_INDICES.get()));
+
+        public static final Supplier<long[]> SUFFIX_OR_MASKS = StableValue
+                .supplier(() -> computeSuffixOrMasks());
+
+        /**
+         * Private constructor to prevent instantiation.
+         */
+        private GlobalConfig() {}
+
+        public static boolean isInitialized() {
+            return NUM_CLICKS.isSet() && NUM_THREADS.isSet() && BASE_GRID.isSet();
+        }
+
+        public static boolean isNumClicksSet() {
+            return NUM_CLICKS.isSet();
+        }
+
+        public static boolean isNumThreadsSet() {
+            return NUM_THREADS.isSet();
+        }
+
+        public static boolean isBaseGridSet() {
+            return BASE_GRID.isSet();
+        }
+
+        /**
+         * Initializes the global configuration values. This method is designed to be called once
+         * from the main thread at startup.
+         *
+         * @param numClicks  The number of clicks to test.
+         * @param numThreads The total number of threads to use.
+         * @param baseGrid   The initial grid instance for the puzzle.
+         */
+        static void initialize(int numClicks, int numThreads, Grid baseGrid) {
+            if (numClicks < 1 || numThreads < 1 || baseGrid == null) {
+                throw new IllegalArgumentException(
+                        "Invalid arguments to initialize GlobalConfig.");
+            }
+
+            NUM_CLICKS.setOrThrow(numClicks);
+            NUM_THREADS.setOrThrow(numThreads);
+            BASE_GRID.setOrThrow(baseGrid);
+        }
+
+        public static int getNumClicks() {
+            return NUM_CLICKS.orElseThrow();
+        }
+
+        public static int getNumThreads() {
+            return NUM_THREADS.orElseThrow();
+        }
+
+        public static Grid getBaseGrid() {
+            return BASE_GRID.orElseThrow();
+        }
+
+        private static long[] computeClickToTrueCellMask() {
+            final short[] trueCells = TRUE_CELLS.get();
+            final long[] masks = new long[Grid.NUM_CELLS]; // Use Grid.NUM_CELLS
+            for (short i = 0; i < Grid.NUM_CELLS; i++) { // Use Grid.NUM_CELLS
+                long mask = 0;
+                for (int j = 0; j < trueCells.length; j++) {
+                    if (Grid.areAdjacent(i, trueCells[j])) {
+                        mask |= (1L << j);
+                    }
+                }
+                masks[i] = mask;
+            }
+            return masks;
+        }
+
+        private static long[] computeSuffixOrMasks() {
+            final long[] cellMasks = CLICK_TO_TRUE_CELL_MASK.get();
+            final long[] orMasks = new long[Grid.NUM_CELLS + 1];
+
+            long cumulativeMask = 0;
+            for (int i = Grid.NUM_CELLS - 1; i >= 0; i--) {
+                cumulativeMask |= cellMasks[i];
+                orMasks[i] = cumulativeMask;
+            }
+
+            return orMasks;
         }
     }
 }

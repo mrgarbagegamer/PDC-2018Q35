@@ -1869,7 +1869,7 @@ public abstract class Grid {
         final ShortArrayList inverted = new ShortArrayList(NUM_CELLS - combination.size());
         for (short click = 0; click < NUM_CELLS; click++) {
             if (!combination.contains(click)) {
-                combination.add(click);
+                inverted.add(click);
             }
         }
         return inverted.toShortArray();

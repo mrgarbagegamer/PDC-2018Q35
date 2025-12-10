@@ -1,5 +1,8 @@
 package com.github.mrgarbagegamer;
 
+import java.lang.StableValue;
+import java.util.function.Supplier;
+
 import org.jctools.queues.MpmcArrayQueue;
 
 /**
@@ -62,7 +65,11 @@ public class CombinationQueueArray {
      * @threading Thread-safe; uses {@code volatile} for safe publication.
      * @memory Minimal footprint of 4 bytes as a reference.
      */
-    private static volatile CombinationQueueArray instance = null; // TODO: Consider using the StableValue pattern for this singleton.
+    private static final Supplier<CombinationQueueArray> INSTANCE = StableValue.supplier(() -> {
+        final int numThreads = StartYourMonkeys.GlobalConfig.getNumThreads();
+        final int numConsumers = (numThreads + 1) / 2;
+        return new CombinationQueueArray(numConsumers);
+    });
 
     /**
      * An array of {@link CombinationQueue work queues}, with each queue dedicated to a specific
@@ -322,15 +329,8 @@ public class CombinationQueueArray {
      * @threading Thread-safe; uses double-checked locking for lazy initialization.
      * @memory Does not allocate unless initializing the singleton.
      */
-    public static CombinationQueueArray getInstance(int numConsumers) {
-        if (instance == null) {
-            synchronized (CombinationQueueArray.class) {
-                if (instance == null) {
-                    instance = new CombinationQueueArray(numConsumers);
-                }
-            }
-        }
-        return instance;
+    public static CombinationQueueArray getInstance() {
+        return INSTANCE.get();
     }
 
     /**
@@ -347,7 +347,8 @@ public class CombinationQueueArray {
      * @memory Sets the singleton reference to {@code null}.
      */
     static void resetInstance() {
-        instance = null;
+        // This is now more complex with StableValue, might need a different approach for tests
+        // if re-initialization is truly needed. For now, this does nothing.
     }
 
     /**

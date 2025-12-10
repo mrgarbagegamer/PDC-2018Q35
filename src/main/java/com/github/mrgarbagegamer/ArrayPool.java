@@ -38,28 +38,6 @@ package com.github.mrgarbagegamer;
  */
 public final class ArrayPool {
     /**
-     * The required size for all arrays managed by the pool. This value is shared across all
-     * {@code ArrayPool} instances.
-     *
-     * <p>
-     * This field <strong>must</strong> be set via {@link #setNumClicks(int)} before any
-     * {@code ArrayPool} is {@link #ArrayPool(int) instantiated}. It is {@code static} to ensure
-     * that all generated combination arrays are of a consistent, predictable size, which is
-     * essential for the pre-allocation strategy. Making it non-{@code final} (but settable only
-     * once) was a design trade-off to avoid dependencies on configuration files or system
-     * properties for initialization.
-     * </p>
-     *
-     * @see #ArrayPool(int)
-     * @since 2025.07 - {@code ArrayPool} Pre-allocation
-     * @performance {@code O(1)} access.
-     * @threading Thread-safe; effectively immutable after being set once.
-     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
-     */
-    private static int numClicks = -1; // TODO: Consider extracting this into a public StableValue
-                                       // for global config and setting it to the combination length
-                                       // - 1 rather than the full length.
-    /**
      * The internal buffer storing the pre-allocated {@code short[]} arrays.
      *
      * <p>
@@ -163,41 +141,15 @@ public final class ArrayPool {
      * @memory Allocates a {@code short[capacity][numClicks]} and an {@code ArrayPool} instance.
      */
     public ArrayPool(int capacity) {
-        if (numClicks <= 0) {
-            throw new IllegalArgumentException("numClicks must be set before using ArrayPool.");
-        } else if (capacity <= 0) {
+        if (capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be greater than 0.");
         }
 
         this.capacity = capacity;
-        this.arrays = new short[capacity][numClicks];
+        final int numClicks = StartYourMonkeys.GlobalConfig.getNumClicks();
+        this.arrays = new short[capacity][numClicks - 1];
         // Pre-allocated arrays are immediately available
         this.size = capacity;
-    }
-
-    /**
-     * Sets the {@code static} size for all arrays that will be managed by {@code ArrayPool}
-     * instances.
-     *
-     * <p>
-     * This method is not thread-safe and must be called exactly once during application
-     * initialization, before any threads begin creating or using pools.
-     * </p>
-     *
-     * @param numClicks The size of each array in the pool. Must be positive.
-     * @throws IllegalArgumentException if {@code numClicks} is not positive.
-     * @see #numClicks
-     * @see #ArrayPool(int)
-     * @since 2025.07 - {@code ArrayPool} Pre-allocation
-     * @performance {@code O(1)} assignment.
-     * @threading Not thread-safe; must be called during single-threaded initialization.
-     * @memory Does not allocate.
-     */
-    public static void setNumClicks(int numClicks) {
-        if (numClicks <= 0) {
-            throw new IllegalArgumentException("numClicks must be greater than 0.");
-        }
-        ArrayPool.numClicks = numClicks;
     }
 
     /**

@@ -149,7 +149,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe through use of {@code volatile} flags and concurrent queues.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private final CombinationQueueArray queueArray; // TODO: Consider making this into a static StableValue.
+    private static final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
     /**
      * The monkey's dedicated {@link Grid} instance for testing combinations.
      *
@@ -167,57 +167,9 @@ public class TestClickCombination extends Thread {
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
     private final Grid puzzleGrid;
-
-    /**
-     * A pre-computed lookup table mapping a cell click to its effect on the puzzle's {@code true}
-     * cells.
-     *
-     * <p>
-     * This table is the core of the {@link #buildParityMask(short[]) parity mask creation} and
-     * {@link #satisfiesOddAdjacency(long, short) odd adjacency checks}. Each index corresponds to a
-     * cell on the grid (0-108). The {@code long} value at that index is a
-     * {@link Grid.ValueFormat#Bitmask bitmask} where the Nth bit is 1 if clicking that cell toggles
-     * the Nth {@code true} cell of the puzzle.
-     * </p>
-     *
-     * <p>
-     * This table is initialized once per puzzle via {@link #initializeLookupTable(short[])} using
-     * double-checked locking for thread-safety. All monkey threads share this single {@code static}
-     * instance. Since all puzzles have fewer than 64 {@code true} cells, a single {@code long} is
-     * sufficient for the bitmask.
-     * </p>
-     *
-     * @see #EXPECTED_MASK
-     * @since 2025.06 - Bitmask Pre-computations
-     * @performance {@code O(NUM_CELLS)} initialization cost amortized across threads; {@code O(1)}
-     *              lookups during checks.
-     * @threading Thread-safe via double-checked locking during initialization.
-     * @memory Fixed memory footprint of ~{@code 8 × Grid.NUM_CELLS} bytes (872 bytes).
-     */
-    private static volatile long[] CLICK_TO_TRUE_CELL_MASK = null; // TODO: Consider making this into a StableValue.
-    /**
-     * The target {@link Grid.ValueFormat#Bitmask bitmask} for a valid combination, where all bits
-     * corresponding to {@code true} cells are 1.
-     *
-     * <p>
-     * A combination is valid under the odd adjacency rule if the final result of XORing the
-     * {@link #CLICK_TO_TRUE_CELL_MASK} for each click equals this expected mask. This means every
-     * true cell was toggled an odd number of times.
-     * </p>
-     *
-     * <p>
-     * Like the lookup table, this value is computed once per puzzle via
-     * {@link #initializeLookupTable(short[])} and shared {@code static}ally.
-     * </p>
-     *
-     * @see #CLICK_TO_TRUE_CELL_MASK
-     * @see #satisfiesOddAdjacency(long, short)
-     * @since 2025.06 - Bitmask Pre-computations
-     * @performance {@code O(1)} lookups.
-     * @threading Thread-safe via double-checked locking during initialization.
-     * @memory Fixed memory footprint of 8 bytes as a primitive {@code long}.
-     */
-    private static volatile long EXPECTED_MASK = 0L; // TODO: Consider making this into a StableValue.
+    private static final long[] MASKS =
+            StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
+    private static final long EXPECTED = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
     /**
      * Constructs a monkey thread.
@@ -260,77 +212,10 @@ public class TestClickCombination extends Thread {
      * @memory Allocates only a temporary {@code short[]} during the first lookup table
      *         initialization, in addition to the thread itself.
      */
-    public TestClickCombination(String threadName, CombinationQueue combinationQueue,
-            CombinationQueueArray queueArray, Grid puzzleGrid) {
-        super(threadName);
-        this.combinationQueue = combinationQueue;
-        this.queueArray = queueArray;
-        this.puzzleGrid = puzzleGrid;
-
-        // Initialize lookup table once for all threads
-        short[] trueCells = puzzleGrid.findTrueCells(Grid.ValueFormat.Index); // Find all true cells
-                                                                              // in index format
-        initializeLookupTable(trueCells);
-    }
-
-    /**
-     * Initializes the {@code static}, shared lookup tables for the odd adjacency check.
-     *
-     * <p>
-     * This method pre-computes the {@link #CLICK_TO_TRUE_CELL_MASK} and {@link #EXPECTED_MASK}
-     * values. It is called from the constructor but uses double-checked locking to ensure it only
-     * executes once per puzzle, making initialization thread-safe and lazy.
-     * </p>
-     *
-     * <p>
-     * For each of the {@value Grid#NUM_CELLS} possible clicks, it determines which of the puzzle's
-     * {@code true} cells are adjacent and encodes that information into a
-     * {@link Grid.ValueFormat#Bitmask bitmask}. It then computes the final expected mask where all
-     * relevant bits are set.
-     * </p>
-     *
-     * @param trueCells The array of initially true cells in {@link Grid.ValueFormat#Index Index}
-     *                  format.
-     * @since 2025.07 - Long Array Grid State Representation
-     * @performance {@code O(Grid.NUM_CELLS × trueCells.length)} initialization.
-     * @threading Thread-safe due to double-checked locking.
-     * @memory Allocates the lookup table (approx. 872 bytes) once.
-     */
-    private static void initializeLookupTable(short[] trueCells) {
-        // Double-checked locking for thread-safe lazy initialization
-        if (CLICK_TO_TRUE_CELL_MASK == null) {
-            synchronized (TestClickCombination.class) {
-                if (CLICK_TO_TRUE_CELL_MASK == null) {
-                    long[] lookup = new long[Grid.NUM_CELLS]; // 109 possible clicks, single long
-                                                              // for ≤64 bits
-
-                    for (short clickCell = 0; clickCell < 109; clickCell++) {
-                        for (int i = 0; i < trueCells.length; i++) {
-                            if (Grid.areAdjacent(trueCells[i], clickCell, Grid.ValueFormat.Index)) {
-                                lookup[clickCell] |= (1L << i);
-                            }
-                        }
-                    }
-
-                    // Compute expected mask once - simplified since trueCells.length ≤ 64
-                    long expectedMask = (1L << trueCells.length) - 1;
-
-                    // Atomically publish the results
-                    EXPECTED_MASK = expectedMask;
-                    CLICK_TO_TRUE_CELL_MASK = lookup; // This must be last
-                }
-            }
-        }
-    }
-
-    /**
-     * Returns the pre-computed lookup table mapping a click to its effect on true cells. This is
-     * required by the {@link CombinationGeneratorTask} to pre-compute prefix adjacency masks.
-     *
-     * @return The click-to-true-cell bitmask array.
-     */
-    public static long[] getClickToTrueCellMask() {
-        return CLICK_TO_TRUE_CELL_MASK;
+    public TestClickCombination(String name, CombinationQueue queue) {
+        super(name);
+        this.combinationQueue = queue;
+        this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid().clone();
     }
 
     /**
@@ -606,7 +491,7 @@ public class TestClickCombination extends Thread {
      */
     private final long buildParityMask(short[] combination) {
         // JIT OPTIMIZATION: Cache array references and length to encourage optimization
-        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
+        final long[] masks = MASKS;
         final int combinationLength = combination.length;
 
         long trueCellCounts = 0L;
@@ -643,8 +528,8 @@ public class TestClickCombination extends Thread {
      * @memory Does not allocate.
      */
     private final boolean satisfiesOddAdjacency(long prefixMask, short finalClick) {
-        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
-        final long expectedMask = EXPECTED_MASK;
+        final long[] masks = MASKS;
+        final long expectedMask = EXPECTED;
 
         long finalMask = prefixMask ^ masks[finalClick];
 

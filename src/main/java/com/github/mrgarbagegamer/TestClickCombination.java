@@ -527,12 +527,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe; uses only static data.
      * @memory Does not allocate.
      */
-    private final boolean satisfiesOddAdjacency(long prefixMask, short finalClick) {
-        final long[] masks = MASKS;
-        final long expectedMask = EXPECTED;
-
-        long finalMask = prefixMask ^ masks[finalClick];
-
-        return finalMask == expectedMask;
+    private boolean satisfiesOddAdjacency(long prefixMask, short finalClick) {
+        return (prefixMask ^ MASKS[finalClick]) == EXPECTED;
     }
 }

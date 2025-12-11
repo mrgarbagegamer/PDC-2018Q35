@@ -4,7 +4,9 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
@@ -115,27 +117,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private static final Logger logger = LogManager.getLogger();
 
     /**
-     * A {@link ThreadLocal} container for the {@link GeneratorContext}.
-     * 
-     * <p>
-     * This provides each generator thread with its own isolated set of resources ({@link ArrayPool
-     * array pools}, {@link TaskPool task pools}, and the current {@link WorkBatch}). Using a single
-     * {@code ThreadLocal} to hold a context object is a key optimization that avoids the high cost
-     * of multiple {@link ThreadLocal#get()} calls in the hot path. The context is fetched once at
-     * the start of {@link #compute()} and then passed down as a parameter.
-     * </p>
-     * 
-     * @since 2025.07 - {@code GeneratorContext} Introduction
-     * @performance {@code O(BATCH_SIZE)} on creation (due to pre-allocation); {@code O(1)} access
-     *              time.
-     * @threading Thread-local; each thread has its own instance of the context obtained via
-     *            {@code context.get()}.
-     * @memory Fixed memory footprint of 4 bytes as a reference.
-     */
-    private static final ThreadLocal<GeneratorContext> context = ThreadLocal
-            .withInitial(GeneratorContext::new);
-
-    /**
      * A thread-safe collection of all active {@link GeneratorContext} instances.
      * 
      * <p>
@@ -167,7 +148,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@link #context ThreadLocal}, ensuring that each thread in the {@link ForkJoinPool} has its
      * own set of resource pools and a dedicated {@link WorkBatch}.
      * </p>
-     * 
+     *
      * <h2>Optimization Strategy</h2>
      * <p>
      * By fetching this context object only once per task via {@code context.get()}, we avoid the
@@ -180,17 +161,17 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </ul>
      * This pattern is crucial for achieving near-zero allocation during combination generation.
      * </p>
-     * 
+     *
      * @since 2025.07 - {@code GeneratorContext} Introduction
      * @performance {@code O(1)} access time after initial allocation.
      * @threading This class is NOT thread-safe, but is intended to be used in a thread-local
      *            manner.
      * @memory Minimal memory footprint of two fixed-capacity pools and a batch reference.
      */
-    private static class GeneratorContext {
+    static class GeneratorContext {
         /**
          * The name of the thread owning this context, for logging purposes.
-         * 
+         *
          * @see #allContexts
          * @see CombinationGeneratorTask#flushAllPendingBatches()
          * @see Thread#getName()
@@ -233,7 +214,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
          *            {@link ConcurrentLinkedQueue thread-safe queue}.
          * @memory Does not allocate, apart from the instance itself.
          */
-        private GeneratorContext() {
+        GeneratorContext() {
             allContexts.add(this);
         }
 
@@ -392,9 +373,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
     private static final CombinationQueueArray QUEUE_ARRAY = CombinationQueueArray.getInstance();
+    private static final int NUM_CLICKS = StartYourMonkeys.GlobalConfig.getNumClicks();
     /**
      * The maximum index allowed for the first click in any combination.
-     * 
+     *
      * <p>
      * This is a simple but effective pruning optimization. Since combinations are generated in
      * lexicographical order, we know that the first initially {@code true} cell must be toggled by
@@ -604,7 +586,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final CombinationGeneratorTask rootTask = new CombinationGeneratorTask();
 
         // Initialize instance fields
-        rootTask.prefix = new short[StartYourMonkeys.GlobalConfig.getNumClicks() - 1];
+        rootTask.prefix = new short[NUM_CLICKS - 1];
         rootTask.prefixLength = 0;
         rootTask.cachedAdjacencyState = -1;
 
@@ -655,8 +637,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     @Override
     protected void compute() {
-        // Single ThreadLocal access per task - pass context down to all methods
-        final GeneratorContext ctx = context.get();
+        // Fetch the context from the custom ForkJoinWorkerThread subclass
+        final GeneratorContext ctx = ((GeneratorWorkerThread) Thread.currentThread()).context;
 
         try {
             // Path for the root task
@@ -664,7 +646,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 computeRootSubtasks(ctx);
 
             // Path for leaf tasks
-            else if (prefixLength == StartYourMonkeys.GlobalConfig.getNumClicks() - 1) {
+            else if (prefixLength == NUM_CLICKS - 1) {
                 computeLeafCombinations(ctx);
             }
 
@@ -713,15 +695,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Does not allocate unless pools are empty.
      */
     private void computeRootSubtasks(GeneratorContext ctx) {
-        final int numClicks = StartYourMonkeys.GlobalConfig.getNumClicks();
         final short start = 0;
-        final short max = (short) (Math.min(Grid.NUM_CELLS - numClicks, maxFirstClickIndex) + 1);
+        final short max = (short) (Math.min(Grid.NUM_CELLS - NUM_CLICKS, maxFirstClickIndex) + 1);
 
         for (short i = start; i < max; i++) {
             // Use context pools directly - no more ThreadLocal calls
             short[] newPrefix = ctx.prefixArrayPool.get();
             if (newPrefix == null)
-                newPrefix = new short[numClicks]; // Safeguard if pool is empty
+                newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
 
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = i;
@@ -923,9 +904,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Does not allocate unless pools are empty; uses pooled resources.
      */
     private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx) {
-        final int numClicks = StartYourMonkeys.GlobalConfig.getNumClicks();
         final short start = (short) (prefix[prefixLength - 1] + 1);
-        final short max = (short) (Grid.NUM_CELLS - (numClicks - prefixLength) + 1);
+        final short max = (short) (Grid.NUM_CELLS - (NUM_CLICKS - prefixLength) + 1);
         final ArrayPool prefixPool = ctx.prefixArrayPool;
         final TaskPool taskPool = ctx.taskPool;
         final boolean prefixParity = this.prefixParity; // Cache field read
@@ -934,7 +914,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         for (short i = start; i < max; i++) {
             short[] newPrefix = prefixPool.get();
             if (newPrefix == null)
-                newPrefix = new short[numClicks]; // Safeguard if pool is empty
+                newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
 
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = i;
@@ -990,9 +970,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Does not allocate unless pools are empty; uses pooled resources.
      */
     private void computeIntermediateSubtasksConstraintPath(GeneratorContext ctx) {
-        final int numClicks = StartYourMonkeys.GlobalConfig.getNumClicks();
         final short start = (short) (prefix[prefixLength - 1] + 1);
-        final short max = (short) (Grid.NUM_CELLS - (numClicks - prefixLength) + 1);
+        final short max = (short) (Grid.NUM_CELLS - (NUM_CLICKS - prefixLength) + 1);
 
         // Early constraint check - happens ONCE per task, not per iteration
         if (prefixLength >= 2 && !canPotentiallySatisfyConstraints(start)) {
@@ -1013,7 +992,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         {
             short[] newPrefix = prefixPool.get();
             if (newPrefix == null)
-                newPrefix = new short[numClicks]; // Safeguard if pool is empty
+                newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
 
             System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
             newPrefix[prefixLength] = i;
@@ -1318,4 +1297,30 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
     }
 
+    /**
+     * A custom {@link ForkJoinWorkerThread} that holds a direct reference to its own
+     * {@link GeneratorContext}.
+     *
+     * @since 2025.12 - Custom Worker Thread Optimization
+     */
+    private static class GeneratorWorkerThread extends ForkJoinWorkerThread {
+        final GeneratorContext context;
+
+        GeneratorWorkerThread(ForkJoinPool pool) {
+            super(pool);
+            this.context = new GeneratorContext();
+        }
+    }
+
+    /**
+     * A factory for creating {@link GeneratorWorkerThread} instances.
+     *
+     * @since 2025.12 - Custom Worker Thread Optimization
+     */
+    public static class GeneratorWorkerThreadFactory implements ForkJoinWorkerThreadFactory {
+        @Override
+        public ForkJoinWorkerThread newThread(ForkJoinPool pool) {
+            return new GeneratorWorkerThread(pool);
+        }
+    }
 }

@@ -240,7 +240,8 @@ public class StartYourMonkeys {
         }
 
         // Create generator pool and submit root task
-        ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads);
+        ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
+                new CombinationGeneratorTask.GeneratorWorkerThreadFactory(), null, false);
         CombinationGeneratorTask.setForkJoinPool(generatorPool);
 
         try {

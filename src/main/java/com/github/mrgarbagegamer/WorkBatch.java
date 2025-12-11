@@ -3,7 +3,7 @@ package com.github.mrgarbagegamer;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * A high-performance, reusable, and iterable container for batching puzzle combinations.
@@ -84,27 +84,30 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * Represents an even-parity prefix, requiring a final click from the
          * {@link WorkBatch#ODD_CLICK_INDICES} array to achieve overall odd adjacency.
          */
-        EVEN(ODD_CLICK_INDICES),
+        EVEN(StartYourMonkeys.GlobalConfig.ODD_CLICK_INDICES,
+                StartYourMonkeys.GlobalConfig.ODD_START_INDICES),
         /**
          * Represents an odd-parity prefix, requiring a final click from the
          * {@link WorkBatch#EVEN_CLICK_INDICES} array to achieve overall odd adjacency.
          */
-        ODD(EVEN_CLICK_INDICES);
+        ODD(StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES,
+                StartYourMonkeys.GlobalConfig.EVEN_START_INDICES);
 
         /**
          * A reference to the pre-computed array of final click indices associated with this
          * parity.
          */
         private final short[] finalClicks;
+        private final int[] startIndices;
 
         /**
          * Constructs a {@code Parity} enum constant.
          *
          * @param finalClicks The array of final click indices.
          */
-        Parity(short[] finalClicks) {
-            Objects.requireNonNull(finalClicks);
-            this.finalClicks = finalClicks;
+        Parity(Supplier<short[]> clicksSupplier, Supplier<int[]> indicesSupplier) {
+            this.finalClicks = clicksSupplier.get();
+            this.startIndices = indicesSupplier.get();
         }
 
         /**
@@ -114,6 +117,10 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         public short[] getFinalClicks() {
             return finalClicks;
+        }
+
+        public int getStartIndex(int lastPrefixClick) {
+            return startIndices[lastPrefixClick];
         }
 
         /**
@@ -154,11 +161,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
      */
     public static final int BATCH_SIZE = 256;
-
-    private static final short[] ODD_CLICK_INDICES =
-            StartYourMonkeys.GlobalConfig.ODD_CLICK_INDICES.get();
-    private static final short[] EVEN_CLICK_INDICES =
-            StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES.get();
 
     /**
      * The internal, pre-allocated pool of {@link WorkItem} objects.
@@ -781,19 +783,17 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             return false;
         }
 
-        Parity finalClickParity = Parity.fromBoolean(prefixParity);
+        final Parity finalClickParity = Parity.fromBoolean(prefixParity);
         final short[] validClicks = finalClickParity.getFinalClicks(); // Get arrays from Parity enum
 
-        int startIdx = Arrays.binarySearch(validClicks, (short) (lastPrefixClick + 1));
-        if (startIdx < 0) {
-            startIdx = -startIdx - 1;
-        }
+        // O(1) lookup instead of O(log n) binary search
+        final int startIdx = finalClickParity.getStartIndex(lastPrefixClick);
 
         if (startIdx >= validClicks.length) {
             return false;
         }
 
-        WorkItem item = workItems[workItemCount++];
+        final WorkItem item = workItems[workItemCount++];
         item.set(prefix, finalClickParity, startIdx);
         return true;
     }

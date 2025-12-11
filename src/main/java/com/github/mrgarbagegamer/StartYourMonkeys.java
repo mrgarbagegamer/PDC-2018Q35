@@ -405,6 +405,12 @@ public class StartYourMonkeys {
         public static final Supplier<long[]> SUFFIX_OR_MASKS = StableValue
                 .supplier(() -> computeSuffixOrMasks());
 
+        public static final Supplier<int[]> ODD_START_INDICES =
+                StableValue.supplier(() -> computeStartIndices(ODD_CLICK_INDICES.get()));
+
+        public static final Supplier<int[]> EVEN_START_INDICES =
+                StableValue.supplier(() -> computeStartIndices(EVEN_CLICK_INDICES.get()));
+
         /**
          * Private constructor to prevent instantiation.
          */
@@ -483,6 +489,20 @@ public class StartYourMonkeys {
             }
 
             return orMasks;
+        }
+
+        private static int[] computeStartIndices(short[] validClicks) {
+            int[] result = new int[Grid.NUM_CELLS];
+            int clickIdx = 0;
+
+            for (int lastPrefixClick = 0; lastPrefixClick < Grid.NUM_CELLS; lastPrefixClick++) {
+                // Find first index where validClicks[idx] > lastPrefixClick
+                while (clickIdx < validClicks.length && validClicks[clickIdx] <= lastPrefixClick) {
+                    clickIdx++;
+                }
+                result[lastPrefixClick] = clickIdx;
+            }
+            return result;
         }
     }
 }

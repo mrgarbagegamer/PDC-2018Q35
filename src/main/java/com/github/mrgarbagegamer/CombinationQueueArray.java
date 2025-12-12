@@ -5,6 +5,7 @@ import java.util.function.Supplier;
 
 import org.jctools.queues.MpmcArrayQueue;
 
+// TODO: Fix up javadocs to reflect recent changes.
 /**
  * A structure for managing work distribution and shared resources between
  * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}.

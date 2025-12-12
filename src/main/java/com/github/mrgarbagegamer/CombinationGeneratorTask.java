@@ -15,6 +15,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Unbox;
 
+// TODO: Fix up javadocs to reflect recent changes.
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
  *
@@ -494,7 +495,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            isolation.
      * @memory Minimal memory footprint of 1 byte as a {@code boolean}.
      */
-    private boolean prefixParity; // TODO: Consider removing and computing in the addWork method.
+    private boolean prefixParity;
     /**
      * A flag indicating that this task and all its descendants are guaranteed to satisfy the
      * constraints, allowing future checks to be skipped.

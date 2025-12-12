@@ -35,7 +35,7 @@
 // @TestClassOrder(ClassOrderer.OrderAnnotation.class)
 // public class BatchAndQueueArrayTests {
 
-//     // TODO: Update the Javadoc comments for each test method to accurately reflect their purpose.
+// TODO: Fix up tests to reflect recent changes.
 
 //     static final Random random = new Random();
 

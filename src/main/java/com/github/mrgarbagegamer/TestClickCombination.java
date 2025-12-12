@@ -5,6 +5,7 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+// TODO: Update javadocs to reflect recent changes.
 /**
  * An optimized worker thread that tests potential puzzle solutions from a shared work queue.
  *

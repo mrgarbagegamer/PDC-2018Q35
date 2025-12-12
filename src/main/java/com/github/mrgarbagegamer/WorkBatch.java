@@ -5,6 +5,7 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 
+// TODO: Update javadocs to reflect StableValue usage.
 /**
  * A high-performance, reusable, and iterable container for batching puzzle combinations.
  *

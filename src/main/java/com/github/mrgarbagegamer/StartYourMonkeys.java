@@ -241,9 +241,9 @@ public class StartYourMonkeys {
         }
 
         // Create generator pool and submit root task
-        ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
+        final ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
                 new CombinationGeneratorTask.GeneratorWorkerThreadFactory(), null, false);
-        CombinationGeneratorTask.setForkJoinPool(generatorPool);
+        GlobalConfig.setGeneratorPool(generatorPool);
 
         try {
             // Invoke root task - no need to keep reference since we use awaitQuiescence
@@ -388,6 +388,7 @@ public class StartYourMonkeys {
         private static final StableValue<Integer> NUM_CLICKS = StableValue.of();
         private static final StableValue<Integer> NUM_THREADS = StableValue.of();
         private static final StableValue<Grid> BASE_GRID = StableValue.of();
+        private static final StableValue<ForkJoinPool> GENERATOR_POOL = StableValue.of();
 
         public static final Supplier<short[]> TRUE_CELLS =
                 StableValue.supplier(() -> getBaseGrid().findTrueCells());
@@ -451,6 +452,14 @@ public class StartYourMonkeys {
             NUM_CLICKS.setOrThrow(numClicks);
             NUM_THREADS.setOrThrow(numThreads);
             BASE_GRID.setOrThrow(baseGrid);
+        }
+
+        public static void setGeneratorPool(ForkJoinPool pool) {
+            GENERATOR_POOL.setOrThrow(pool);
+        }
+
+        public static ForkJoinPool getGeneratorPool() {
+            return GENERATOR_POOL.orElseThrow();
         }
 
         public static int getNumClicks() {

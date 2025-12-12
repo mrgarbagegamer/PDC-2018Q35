@@ -524,65 +524,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     private static final long EXPECTED_MASK = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
-    /**
-     * The {@link ForkJoinPool} that executes the generator tasks.
-     * 
-     * <p>
-     * A {@code static} reference to the pool is maintained so that a {@link TestClickCombination}
-     * thread can signal a global shutdown by calling {@link ForkJoinPool#shutdownNow()} on it as
-     * soon as a solution is found. This is the primary mechanism for terminating the search.
-     * </p>
-     * 
-     * @see TestClickCombination#triggerGeneratorShutdown()
-     * @since 2025.07 - Self-Cleanup and Cancellation Refactor
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe due to the use of a {@code static volatile} field.
-     * @memory Minimal memory footprint of 4 bytes as a reference.
-     */
-    private static volatile ForkJoinPool generatorPool; // TODO: Consider making this into a
-                                                        // StableValue.
-
-    /**
-     * Sets the {@link ForkJoinPool} used to execute generator tasks.
-     * 
-     * <p>
-     * This method is used to set the static {@link #generatorPool pool} field, allowing
-     * {@link TestClickCombination monkeys} to signal cancellation when they find a solution. The
-     * pool is best set once at the start of generation and left constant thereafter, as changing it
-     * mid-generation could lead to inconsistent behavior.
-     * </p>
-     * 
-     * @param pool the {@link ForkJoinPool} to use for executing generator tasks.
-     * @see TestClickCombination#triggerGeneratorShutdown()
-     * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
-     * @performance {@code O(1)} assignment.
-     * @threading Thread-safe due to the use of a {@code static volatile} field, though this method
-     *            should be called by one thread only.
-     * @memory Does not allocate.
-     */
-    public static void setForkJoinPool(ForkJoinPool pool) {
-        CombinationGeneratorTask.generatorPool = pool;
-    }
-
-    /**
-     * Gets the {@link ForkJoinPool} used to execute generator tasks.
-     * 
-     * <p>
-     * This method provides access to the static {@link #generatorPool pool} field, allowing
-     * {@link TestClickCombination monkeys} to signal cancellation when they find a solution.
-     * </p>
-     * 
-     * @return the {@link ForkJoinPool} used for executing generator tasks.
-     * @see TestClickCombination#triggerGeneratorShutdown()
-     * @since 2025.07.22 - Self-Cleanup and Cancellation Refactor
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe due to the use of a {@code static volatile} field.
-     * @memory Does not allocate.
-     */
-    public static ForkJoinPool getForkJoinPool() {
-        return generatorPool;
-    }
-
     public static CombinationGeneratorTask createRootTask() {
         final CombinationGeneratorTask rootTask = new CombinationGeneratorTask();
 

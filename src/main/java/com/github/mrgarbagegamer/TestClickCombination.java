@@ -381,7 +381,8 @@ public class TestClickCombination extends Thread {
     private void triggerGeneratorShutdown() {
         // Access the generator pool from CombinationGeneratorTask if stored there,
         // or use a different mechanism to signal shutdown
-        ForkJoinPool generatorPool = CombinationGeneratorTask.getForkJoinPool();
+        final ForkJoinPool generatorPool =
+                StartYourMonkeys.GlobalConfig.getGeneratorPool();
         if (generatorPool != null && !generatorPool.isShutdown()) {
             logger.debug("Triggering generator pool shutdown from {}", getName());
             generatorPool.shutdownNow(); // Immediate shutdown with interruption

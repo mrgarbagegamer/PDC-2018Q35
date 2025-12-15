@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -160,6 +161,26 @@ public class BatchAndQueueArrayTests {
 
             assertNull(item.getFinalClicks(), "Final clicks should be null after clear.");
             assertEquals(-1, item.getStart(), "Start index should be -1 after clear.");
+        }
+
+        /**
+         * Tests that multiple calls to {@link WorkBatch#iterator()} on the same batch return the
+         * same iterator instance, and that different {@code WorkBatch} instances return different
+         * iterator instances.
+         */
+        @Test
+        void testWorkBatchIterator() {
+            final WorkBatch batch = new WorkBatch(3);
+
+            final Iterator<WorkItem> iterator1 = batch.iterator();
+            final Iterator<WorkItem> iterator2 = batch.iterator();
+            assertSame(iterator1, iterator2,
+                    "Multiple calls to iterator() should return the same iterator instance.");
+
+            final WorkBatch batch2 = new WorkBatch(3);
+            final Iterator<WorkItem> iterator3 = batch2.iterator();
+            assertNotSame(iterator1, iterator3,
+                    "Iterators from different WorkBatch instances should be different.");
         }
 
         /**

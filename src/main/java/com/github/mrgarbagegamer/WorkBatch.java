@@ -633,16 +633,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory 4 bytes for the primitive {@code int}.
          */
         private int currentWorkItemIndex;
-        /**
-         * A final reference to the enclosing {@link WorkBatch} instance, primarily used for
-         * debugging in the {@link #toString()} method.
-         *
-         * @since 2025.11 - Range-Based WorkItem Refactor
-         * @performance {@code O(1)} access.
-         * @threading Not thread-safe.
-         * @memory Fixed memory footprint of 4 bytes as a reference.
-         */
-        private final WorkBatch batch = WorkBatch.this;
 
         /**
          * Constructs the iterator.
@@ -736,7 +726,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         @Override
         public String toString() {
             return "BatchIterator{currentWorkItemIndex=" + currentWorkItemIndex
-                    + ", batch=WorkBatch@" + System.identityHashCode(batch) + "}";
+                    + ", batch=WorkBatch@" + System.identityHashCode(WorkBatch.this) + "}";
         }
     }
 
@@ -835,6 +825,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Does not allocate.
      */
     public boolean addWork(short[] prefix, short lastPrefixClick, boolean prefixParity) {
+        // TODO: Consider removing this check for performance if the caller guarantees capacity.
         if (isFull()) {
             return false;
         }

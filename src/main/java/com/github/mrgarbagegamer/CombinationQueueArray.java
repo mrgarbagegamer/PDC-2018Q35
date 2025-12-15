@@ -331,24 +331,6 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Resets the singleton instance for testing purposes only.
-     * 
-     * <p>
-     * This method is intended solely for use in unit tests to allow re-initialization of the
-     * singleton instance between tests. It should not be used in production code.
-     * </p>
-     * 
-     * @since 2025.11 - Testability Improvement
-     * @performance {@code O(1)} operation.
-     * @threading Not thread-safe; intended for single-threaded test environments only.
-     * @memory Sets the singleton reference to {@code null}.
-     */
-    static void resetInstance() {
-        // This is now more complex with StableValue, might need a different approach for tests
-        // if re-initialization is truly needed. For now, this does nothing.
-    }
-
-    /**
      * Returns the {@link #workBatchPool central pool} for recycled {@link WorkBatch} objects.
      *
      * <p>

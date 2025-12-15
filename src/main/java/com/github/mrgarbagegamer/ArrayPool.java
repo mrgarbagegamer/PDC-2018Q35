@@ -34,7 +34,8 @@ package com.github.mrgarbagegamer;
  * @threading This class is explicitly not thread-safe. All access must be confined to a single
  *            thread.
  * @memory Pre-allocated at construction to avoid runtime allocation, with a memory footprint
- *         determined by the {@link #capacity} and {@link #numClicks} fields.
+ *         determined by the {@link #capacity} and the number of clicks configured in
+ *         {@link StartYourMonkeys.GlobalConfig}.
  */
 public final class ArrayPool {
     /**
@@ -43,17 +44,17 @@ public final class ArrayPool {
      * <p>
      * This 2D array acts as the backing store for the circular buffer. It is allocated once at
      * construction with a fixed {@link #capacity}, and its arrays are recycled via the
-     * {@link #head} and {@link #tail} pointers.
+     * {@link #head} and {@link #tail} pointers. The size of the inner arrays is determined by the
+     * {@code numClicks} value from {@link StartYourMonkeys.GlobalConfig}.
      * </p>
      *
      * @see #capacity
-     * @see #numClicks
+     * @see StartYourMonkeys.GlobalConfig#getNumClicks()
      * @see #ArrayPool(int)
      * @since 2025.07 - Custom Generator Pools
      * @performance {@code O(1)} access for {@link #get() get}/{@link #put(short[]) put} operations.
      * @threading Not thread-safe; must be confined to a single thread.
-     * @memory Fixed memory footprint of ~{@code capacity * numClicks * 2} bytes as a
-     *         {@code short[][]}.
+     * @memory Fixed memory footprint of ~{@code capacity * (numClicks - 1) * 2} bytes.
      */
     private final short[][] arrays;
     /**
@@ -126,19 +127,17 @@ public final class ArrayPool {
      * Constructs a new {@code ArrayPool} and pre-allocates its internal array buffer.
      *
      * <p>
-     * All arrays are allocated upfront to prevent runtime allocation overhead. This constructor
-     * will fail if {@link #numClicks} has not been set, ensuring a fail-fast approach to
-     * configuration errors.
+     * All arrays are allocated upfront to prevent runtime allocation overhead. The size of the
+     * arrays is retrieved from the central {@link StartYourMonkeys.GlobalConfig}.
      * </p>
      *
      * @param capacity The maximum number of arrays the pool can hold. Must be positive.
-     * @throws IllegalArgumentException if {@code capacity} is not positive or if {@link #numClicks}
-     *                                  has not been set.
+     * @throws IllegalArgumentException if {@code capacity} is not positive.
      * @see #arrays
-     * @see #setNumClicks(int)
+     * @see StartYourMonkeys.GlobalConfig#getNumClicks()
      * @since 2025.07 - Custom Generator Pools
-     * @performance {@code O(capacity)} pre-allocation of arrays.
-     * @memory Allocates a {@code short[capacity][numClicks]} and an {@code ArrayPool} instance.
+     * @performance {@code O(capacity * numClicks)} for pre-allocation.
+     * @memory Allocates a {@code short[capacity][numClicks - 1]} buffer.
      */
     public ArrayPool(int capacity) {
         if (capacity <= 0) {
@@ -192,10 +191,9 @@ public final class ArrayPool {
      * </p>
      *
      * @param array The {@code short[]} array to return to the pool. It is assumed to be
-     *              non-{@code null} and of the {@link #numClicks correct size}.
+     *              non-{@code null} and of the correct size.
      * @see #ArrayPool(int)
      * @see #get()
-     * @see #setNumClicks(int)
      * @see #size()
      * @since 2025.07 - Custom Generator Pools
      * @performance {@code O(1)} insertion and field updates.

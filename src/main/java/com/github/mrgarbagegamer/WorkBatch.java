@@ -5,7 +5,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 
-// TODO: Update javadocs to reflect StableValue usage.
 /**
  * A high-performance, reusable, and iterable container for batching puzzle combinations.
  *
@@ -66,83 +65,142 @@ import java.util.function.Supplier;
 public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
 
     /**
-     * An enum representing the parity of a combination's prefix, which determines whether the
-     * final click should be chosen from the set of indices adjacent (ODD) or not-adjacent (EVEN)
-     * to the first {@code true} cell in the grid.
+     * An enum representing the parity of a combination's prefix, which determines whether the final
+     * click should be chosen from the set of indices adjacent ({@link Parity#ODD ODD}) or
+     * not-adjacent ({@link Parity#EVEN EVEN}) to the first {@code true} cell in the grid.
      *
      * <p>
-     * This enum encapsulates the logic for selecting the correct final click array, replacing the
-     * need for {@code WorkItem} to hold a direct reference to the raw {@code short[]} arrays. It
-     * improves type safety and reduces memory usage per {@code WorkItem}.
+     * This {@code enum} encapsulates the logic for selecting the correct final click array. It
+     * improves type safety and reduces memory usage per {@code WorkItem} by holding references to
+     * the final click arrays and start index lookup tables, which are pulled from
+     * {@link StartYourMonkeys.GlobalConfig} at class load time.
      * </p>
      *
      * @since 2025.12 - Parity Enum Refactor
-     * @see WorkBatch#ODD_CLICK_INDICES
-     * @see WorkBatch#EVEN_CLICK_INDICES
+     * @performance {@code O(1)} access to final clicks and start indices.
+     * @threading Thread-safe as enum constants.
+     * @memory Fixed memory footprint per enum constant.
      */
     public enum Parity {
         /**
-         * Represents an even-parity prefix, requiring a final click from the
-         * {@link WorkBatch#ODD_CLICK_INDICES} array to achieve overall odd adjacency.
+         * Represents an even-parity prefix, requiring a final click from the odd-indexed array.
+         * 
+         * @see StartYourMonkeys.GlobalConfig#ODD_CLICK_INDICES
+         * @see StartYourMonkeys.GlobalConfig#ODD_START_INDICES
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance {@code O(1)} access to final clicks and start indices.
+         * @threading Thread-safe as enum constants.
          */
         EVEN(StartYourMonkeys.GlobalConfig.ODD_CLICK_INDICES,
                 StartYourMonkeys.GlobalConfig.ODD_START_INDICES),
         /**
-         * Represents an odd-parity prefix, requiring a final click from the
-         * {@link WorkBatch#EVEN_CLICK_INDICES} array to achieve overall odd adjacency.
+         * Represents an odd-parity prefix, requiring a final click from the even-indexed array.
+         * 
+         * @see StartYourMonkeys.GlobalConfig#EVEN_CLICK_INDICES
+         * @see StartYourMonkeys.GlobalConfig#EVEN_START_INDICES
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance {@code O(1)} access to final clicks and start indices.
+         * @threading Thread-safe as enum constants.
          */
         ODD(StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES,
                 StartYourMonkeys.GlobalConfig.EVEN_START_INDICES);
 
         /**
-         * A reference to the pre-computed array of final click indices associated with this
-         * parity.
+         * A reference to the pre-computed array of final click indices associated with this parity,
+         * pulled from {@link StartYourMonkeys.GlobalConfig}.
+         *
+         * @see #getFinalClicks()
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance O(1) access.
+         * @threading Thread-safe as a final array reference.
+         * @memory Fixed memory footprint for the array reference.
          */
         private final short[] finalClicks;
+        /**
+         * A reference to the pre-computed start index lookup table associated with this parity,
+         * pulled from {@link StartYourMonkeys.GlobalConfig}.
+         *
+         * @see #getStartIndex(int)
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance O(1) access.
+         * @threading Thread-safe as a final array reference.
+         * @memory Fixed memory footprint for the array reference.
+         */
         private final int[] startIndices;
 
         /**
-         * Constructs a {@code Parity} enum constant.
+         * Constructs a {@code Parity} enum constant, loading its arrays from the provided
+         * suppliers, which should point to {@link StartYourMonkeys.GlobalConfig}.
          *
-         * @param finalClicks The array of final click indices.
+         * @param clicksSupplier  A {@link Supplier} for the array of final click indices.
+         * @param indicesSupplier A {@link Supplier} for the start index lookup table.
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance O(1) construction.
+         * @threading Thread-safe during enum initialization.
+         * @memory Does not allocate, apart from the enum constant itself.
          */
-        Parity(Supplier<short[]> clicksSupplier, Supplier<int[]> indicesSupplier) {
+        private Parity(Supplier<short[]> clicksSupplier, Supplier<int[]> indicesSupplier) {
             this.finalClicks = clicksSupplier.get();
             this.startIndices = indicesSupplier.get();
         }
 
         /**
-         * Returns the array of final click indices associated with this parity.
+         * Returns the {@link #finalClicks array of final click indices} associated with this
+         * parity.
          *
          * @return The {@code short[]} array of final clicks.
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance O(1) access.
+         * @threading Thread-safe.
+         * @memory Does not allocate; returns reference to existing array.
          */
         public short[] getFinalClicks() {
             return finalClicks;
         }
 
+        /**
+         * Returns the {@link #startIndices pre-calculated} starting index within the
+         * {@link #finalClicks final clicks array} for a given last prefix click.
+         *
+         * @param lastPrefixClick The last (highest) click in the prefix.
+         * @return The starting index for the final click search.
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance O(1) lookup.
+         * @threading Thread-safe.
+         * @memory Does not allocate.
+         */
         public int getStartIndex(int lastPrefixClick) {
             return startIndices[lastPrefixClick];
         }
 
         /**
          * Checks if this parity is odd.
-         * 
+         *
          * @return {@code true} if this is {@link #ODD}, {@code false} otherwise.
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance O(1) comparison.
+         * @threading Thread-safe.
+         * @memory Does not allocate.
          */
         public boolean isOdd() {
             return this == ODD;
         }
 
         /**
-         * Converts a boolean indicating oddness into the corresponding {@code Parity} enum.
-         * 
+         * Converts a {@code boolean} indicating oddness into the corresponding {@code Parity} enum.
+         *
          * @param isOdd Whether the prefix is odd.
          * @return The corresponding {@code Parity} enum constant.
+         * @since 2025.12 - Parity Enum Refactor
+         * @performance O(1) conversion.
+         * @threading Thread-safe.
+         * @memory Does not allocate.
          */
         public static Parity fromBoolean(boolean isOdd) {
             return isOdd ? ODD : EVEN;
         }
     }
+
     /**
      * The default number of {@link WorkItem}s a single {@code WorkBatch} can hold, used in the
      * {@link #WorkBatch() no-argument constructor}. Unlike the previous {@code BATCH_SIZE}
@@ -266,8 +324,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * This is the fundamental unit of work within a {@link WorkBatch}. Instead of storing millions
      * of complete combinations, a {@code WorkItem} describes a set of combinations by storing a
      * shared {@link #prefix} and a {@link Parity} value that determines the array of possible final
-     * clicks. The
-     * {@link TestClickCombination monkey} can then iterate through the final clicks efficiently.
+     * clicks. The {@link TestClickCombination monkey} can then iterate through the final clicks
+     * efficiently.
      * </p>
      *
      * <h2>Object Lifecycle</h2>
@@ -289,8 +347,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         /**
          * The shared prefix of the combinations, with a fixed length of {@link #prefixLength}. The
          * contents of this array are copied from the input provided by
-         * {@link #set(short[], Parity, int)}, ensuring that external modifications do not
-         * affect this work item.
+         * {@link #set(short[], Parity, int)}, ensuring that external modifications do not affect
+         * this work item.
          * 
          * <p>
          * For better performance, this field could be made {@code final} and initialized in the
@@ -319,10 +377,10 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         private Parity finalClickParity;
         /**
-         * The starting index within the final clicks array (retrieved via {@link #getFinalClicks()})
-         * from which the {@link TestClickCombination
-         * monkey} should begin testing. This allows a {@link CombinationGeneratorTask generator} to
-         * create a {@code WorkItem} that represents a sub-range of the final clicks.
+         * The starting index within the final clicks array (retrieved via
+         * {@link #getFinalClicks()}) from which the {@link TestClickCombination monkey} should
+         * begin testing. This allows a {@link CombinationGeneratorTask generator} to create a
+         * {@code WorkItem} that represents a sub-range of the final clicks.
          *
          * @see #getStart()
          * @since 2025.11 - Range-Based WorkItem Refactor
@@ -352,15 +410,15 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * Initializes or re-initializes the {@code WorkItem} with its data.
          *
          * <p>
-         * This method is internally called by {@link WorkBatch#addWork(short[], boolean, int)}
-         * to fill a recycled {@code WorkItem} with the necessary data. The provided {@code prefix}
-         * is {@link System#arraycopy(Object, int, Object, int, int) copied} into the {@link #prefix
+         * This method is internally called by {@link WorkBatch#addWork(short[], boolean, int)} to
+         * fill a recycled {@code WorkItem} with the necessary data. The provided {@code prefix} is
+         * {@link System#arraycopy(Object, int, Object, int, int) copied} into the {@link #prefix
          * internal array} to prevent external modifications from affecting this item.
          * </p>
          *
-         * @param prefix      The common prefix for this range of combinations.
+         * @param prefix           The common prefix for this range of combinations.
          * @param finalClickParity The {@link Parity} indicating which set of final clicks to use.
-         * @param start       The starting index in the {@code finalClicks} array.
+         * @param start            The starting index in the {@code finalClicks} array.
          * @since 2025.11 - Range-Based WorkItem Refactor
          * @performance {@code O(prefixLength)} for array copy; {@code O(1)} for field assignments.
          * @threading Not thread-safe.
@@ -438,8 +496,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         }
 
         /**
-         * Returns the {@link #start starting index} within the final clicks
-         * array} from which a {@link TestClickCombination monkey} should begin processing.
+         * Returns the {@link #start starting index} within the final clicks array} from which a
+         * {@link TestClickCombination monkey} should begin processing.
          *
          * @return The start index.
          * @since 2025.11 - Range-Based WorkItem Refactor
@@ -456,8 +514,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          *
          * <p>
          * The format is {@code WorkItem{prefix=[...], prefixLength=..., finalClickParity=...}}. The
-         * final clicks portion only includes the elements from the {@link #start} index to
-         * the end of the array.
+         * final clicks portion only includes the elements from the {@link #start} index to the end
+         * of the array.
          * </p>
          *
          * @return A {@code String} representation of the object.
@@ -498,15 +556,13 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * <p>
          * Two {@code WorkItem}s are considered equal if their {@link #prefix},
          * {@link #finalClickParity}, and {@link #start} fields are all equal. The
-         * {@link #prefixLength}
-         * is not compared as it is derived from the {@code prefix} array.
+         * {@link #prefixLength} is not compared as it is derived from the {@code prefix} array.
          * </p>
          *
          * @param obj The {@code Object} to compare with.
          * @return {@code true} if the objects are equal, {@code false} otherwise.
          * @since 2025.11 - Range-Based WorkItem Refactor
-         * @performance {@code O(prefixLength)} in the worst case due to array
-         *              comparisons.
+         * @performance {@code O(prefixLength)} in the worst case due to array comparisons.
          * @threading Not thread-safe.
          * @memory Does not allocate.
          */
@@ -519,7 +575,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 // Since prefixLength is derived from prefix, we can compare just the arrays and
                 // start
                 return Arrays.equals(this.prefix, other.prefix)
-                        && this.finalClickParity == other.finalClickParity && this.start == other.start;
+                        && this.finalClickParity == other.finalClickParity
+                        && this.start == other.start;
             }
             return false;
         }
@@ -534,8 +591,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          *
          * @return A hash code value for this object.
          * @since 2025.11 - Range-Based WorkItem Refactor
-         * @performance {@code O(prefixLength)} due to array hash code
-         *              computations.
+         * @performance {@code O(prefixLength)} due to array hash code computations.
          * @threading Not thread-safe.
          * @memory Does not allocate.
          */
@@ -630,8 +686,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * {@link NoSuchElementException} is thrown.
          * 
          * <p>
-         * While the {@link #hasNext()} call in this method seems to introduce a minor overhead, it is
-         * typically inlined and optimized away by the JVM. As such, we leave it for safety and clarity.
+         * While the {@link #hasNext()} call in this method seems to introduce a minor overhead, it
+         * is typically inlined and optimized away by the JVM. As such, we leave it for safety and
+         * clarity.
          * </p>
          *
          * @return The next {@code WorkItem}.
@@ -736,21 +793,19 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         return capacity;
     }
 
-
     /**
-     * Gets the {@code static} {@link #numClicks} value.
-     * 
+     * Gets the configured number of clicks per combination from the central
+     * {@link StartYourMonkeys.GlobalConfig}.
+     *
      * @return The number of clicks per combination.
-     * @see #setNumClicks(int)
      * @since 2025.11 - Range-Based WorkItem Refactor
      * @performance {@code O(1)} field access.
-     * @threading Thread-safe after initialization.
+     * @threading Thread-safe.
      * @memory Does not allocate.
      */
     public static int getNumClicks() {
         return StartYourMonkeys.GlobalConfig.getNumClicks();
     }
-
 
     /**
      * Adds a new work range to the batch.
@@ -760,9 +815,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * {@link CombinationGeneratorTask generator} threads. It checks if the batch {@link #isFull()
      * is full} and, if not, retrieves the next available {@link WorkItem} from the pre-allocated
      * pool. It then initializes the item using the provided {@code prefix}, {@code prefixParity},
-     * and {@code start} parameters. Since the range of combinations needs to toggle the first
-     * {@code true} cell an odd number of times, the method selects the opposite click indices array
-     * based on the {@code prefixParity}. All of this is done without any memory allocations,
+     * and {@code lastPrefixClick} parameters. Since the range of combinations needs to toggle the
+     * first {@code true} cell an odd number of times, the method selects the opposite click indices
+     * array based on the {@code prefixParity}. All of this is done without any memory allocations,
      * ensuring minimal GC pressure in the hot path.
      * </p>
      *
@@ -785,7 +840,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         }
 
         final Parity finalClickParity = Parity.fromBoolean(prefixParity);
-        final short[] validClicks = finalClickParity.getFinalClicks(); // Get arrays from Parity enum
+        final short[] validClicks = finalClickParity.getFinalClicks(); // Get arrays from Parity
+                                                                       // enum
 
         // O(1) lookup instead of O(log n) binary search
         final int startIdx = finalClickParity.getStartIndex(lastPrefixClick);

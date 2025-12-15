@@ -5,7 +5,6 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-// TODO: Update javadocs to reflect recent changes.
 /**
  * An optimized worker thread that tests potential puzzle solutions from a shared work queue.
  *
@@ -40,14 +39,15 @@ import org.apache.logging.log4j.Logger;
  * monkey logs the solution, signals a global shutdown, and terminates.
  * </p>
  *
- * <h2>Resource Management</h2>
+ * <h2>Resource Management and Configuration</h2>
  * <p>
- * To eliminate contention, each monkey operates on its own private {@link Grid} instance. Unlike
- * generator tasks, which use {@link ThreadLocal} storage to manage resources within a
- * {@link ForkJoinPool}, monkeys are simple {@link Thread}s with a persistent state, avoiding the
- * overhead of {@code ThreadLocal} lookups in their hot loop.
+ * To eliminate contention, each monkey operates on its own private {@link Grid} instance, cloned
+ * from the base grid in {@link StartYourMonkeys.GlobalConfig}. All derived configuration data, such
+ * as the {@link #MASKS} and {@link #EXPECTED} value, are now cached as {@code static final} fields
+ * at class load time by pulling them from {@code GlobalConfig}. This allows the JIT compiler to
+ * perform powerful constant-folding optimizations in the critical validation loop.
  * </p>
- * 
+ *
  * <p>
  * The only shared, mutable resource monkeys interact with directly is the central
  * {@link CombinationQueueArray}, from which they fetch work and to which they
@@ -168,50 +168,55 @@ public class TestClickCombination extends Thread {
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
     private final Grid puzzleGrid;
-    private static final long[] MASKS =
-            StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
+    /**
+     * A {@code static final} cache of
+     * {@link StartYourMonkeys.GlobalConfig#CLICK_TO_TRUE_CELL_MASK}.
+     *
+     * <p>
+     * By caching this as a {@code static final} field at class load time, we enable the JIT
+     * compiler to perform constant-folding and other aggressive optimizations in the hot path
+     * method {@link #satisfiesOddAdjacency(long, short)}.
+     * </p>
+     *
+     * @since 2025.12 - GlobalConfig Refactor
+     * @performance {@code O(1)} array access in the hot path.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes for the reference.
+     */
+    private static final long[] MASKS = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
+    /**
+     * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}.
+     *
+     * <p>
+     * Caching this as a {@code static final} constant allows the JIT compiler to treat it as a
+     * compile-time constant in the hot path method {@link #satisfiesOddAdjacency(long, short)},
+     * leading to significant performance improvements.
+     * </p>
+     *
+     * @since 2025.12 - GlobalConfig Refactor
+     * @performance {@code O(1)} access in the hot path.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 8 bytes for the primitive {@code long}.
+     */
     private static final long EXPECTED = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
     /**
      * Constructs a monkey thread.
      *
      * <p>
-     * Each monkey requires its own {@link Grid} instance to test combinations, a preferred
-     * {@link CombinationQueue} to pull work from, and a reference to the shared
-     * {@link CombinationQueueArray} for work-stealing and global state coordination.
+     * The constructor is now simplified, requiring only a name and its preferred queue. All other
+     * configuration, including the {@link #puzzleGrid} to clone and the shared {@link #queueArray}
+     * instance, is retrieved directly from the central {@link StartYourMonkeys.GlobalConfig}.
      * </p>
      *
-     * <p>
-     * This constructor also triggers the one-time, thread-safe
-     * {@link #initializeLookupTable(short[]) initialization} of the {@code static}
-     * {@link #CLICK_TO_TRUE_CELL_MASK} and {@link #EXPECTED_MASK} lookup tables, which are shared
-     * across all monkey instances for a given puzzle.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The design delegates resource allocation to the caller for flexibility. A potential
-     * micro-optimization could be to make the {@link #queueArray} a {@code static} field, set once,
-     * rather than passing it as a reference to each monkey. This would save a small amount of
-     * memory per thread but was omitted for design simplicity.
-     * </p>
-     *
-     * @param threadName       The unique name for this monkey thread, used for logging.
-     * @param combinationQueue The monkey's preferred work queue.
-     * @param queueArray       The shared array of all queues, used for work-stealing and
-     *                         coordination.
-     * @param puzzleGrid       A <b>unique</b> {@link Grid} instance for this monkey to use for
-     *                         testing.
-     * @see #combinationQueue
-     * @see #puzzleGrid
-     * @see #queueArray
-     * @see Grid#findTrueCells(Grid.ValueFormat)
+     * @param name  The unique name for this monkey thread, used for logging.
+     * @param queue The monkey's preferred work queue.
+     * @see StartYourMonkeys.GlobalConfig#getBaseGrid()
+     * @see CombinationQueueArray#getInstance()
      * @since 2025.04 - Monkey Thread Introduction
-     * @performance {@code O(1)} assignments. The one-time cost of
-     *              {@link #initializeLookupTable(short[])} is amortized across all threads.
+     * @performance {@code O(1)} assignments plus the cost of cloning the grid.
      * @threading Thread-safe by nature of construction.
-     * @memory Allocates only a temporary {@code short[]} during the first lookup table
-     *         initialization, in addition to the thread itself.
+     * @memory Allocates a new {@link Grid} clone for this thread.
      */
     public TestClickCombination(String name, CombinationQueue queue) {
         super(name);
@@ -271,7 +276,8 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        final int prefixLength = WorkBatch.getNumClicks() - 1; // Constant prefix length for all items
+        final int prefixLength = WorkBatch.getNumClicks() - 1; // Constant prefix length for all
+                                                               // items
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
@@ -340,9 +346,9 @@ public class TestClickCombination extends Thread {
      * {@link #triggerGeneratorShutdown() triggering a shutdown}. By extracting this logic from the
      * {@link #run()} method, we improve JIT optimization opportunities in the hot loop.
      * 
-     * @param prefix The combination prefix leading up to the final click.
+     * @param prefix       The combination prefix leading up to the final click.
      * @param prefixLength The length of the prefix.
-     * @param finalClick The final click that completes the solution.
+     * @param finalClick   The final click that completes the solution.
      * @see CombinationQueueArray#solutionFound(String, short[])
      * @see System#arraycopy(Object, int, Object, int, int)
      * @since 2025.11 - Success Handling Extraction
@@ -356,8 +362,7 @@ public class TestClickCombination extends Thread {
         winningCombination[prefixLength] = finalClick;
         queueArray.solutionFound(this.getName(), winningCombination);
         logger.info("Found the solution as the following click combination: {}",
-                new CombinationMessage(winningCombination.clone(),
-                        Grid.ValueFormat.Index));
+                new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
 
         triggerGeneratorShutdown();
     }
@@ -381,8 +386,7 @@ public class TestClickCombination extends Thread {
     private void triggerGeneratorShutdown() {
         // Access the generator pool from CombinationGeneratorTask if stored there,
         // or use a different mechanism to signal shutdown
-        final ForkJoinPool generatorPool =
-                StartYourMonkeys.GlobalConfig.getGeneratorPool();
+        final ForkJoinPool generatorPool = StartYourMonkeys.GlobalConfig.getGeneratorPool();
         if (generatorPool != null && !generatorPool.isShutdown()) {
             logger.debug("Triggering generator pool shutdown from {}", getName());
             generatorPool.shutdownNow(); // Immediate shutdown with interruption

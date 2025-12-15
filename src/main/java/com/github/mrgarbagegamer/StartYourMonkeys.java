@@ -8,15 +8,15 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Unbox;
 
-// TODO: Fix up javadocs to reflect recent changes.
 /**
  * The main application entry point and orchestrator for the Lights Out puzzle solver.
  *
  * <p>
  * This class is responsible for initializing and coordinating the entire puzzle-solving process. It
- * sets up a producer-consumer architecture where {@link CombinationGeneratorTask generators} act as
- * producers, generating potential solutions, and {@link TestClickCombination "monkeys"} act as
- * consumers, validating them.
+ * parses command-line arguments, initializes the central {@link GlobalConfig}, and sets up the
+ * producer-consumer architecture. In this architecture, {@link CombinationGeneratorTask generators}
+ * act as producers within a {@link ForkJoinPool}, and {@link TestClickCombination "monkeys"} act as
+ * consumers, validating potential solutions.
  * </p>
  *
  * <h2>Architecture Role</h2>
@@ -26,14 +26,13 @@ import org.apache.logging.log4j.util.Unbox;
  * <ul>
  * <li>Parses command-line arguments for {@code numClicks}, {@code numThreads}, and
  * {@code puzzleNumber}.</li>
- * <li>Instantiates the correct {@link Grid} implementation (e.g., {@link Grid35}) for the selected
- * puzzle.</li>
- * <li>Initializes the {@link CombinationQueueArray}, the communication backbone for distributing
- * work.</li>
- * <li>Configures and starts a {@link ForkJoinPool} for the recursive generators.</li>
- * <li>Launches a pool of monkeys.</li>
- * <li>Manages the application lifecycle, from submitting the initial root task to gracefully
- * shutting down and reporting results.</li>
+ * <li><b>Initializes the {@link GlobalConfig} with the core configuration.</b></li>
+ * <li>Initializes the {@link CombinationQueueArray} singleton, which now pulls its configuration
+ * from {@code GlobalConfig}.</li>
+ * <li>Configures and starts the consumer thread pool ("monkeys").</li>
+ * <li>Configures and starts the {@link ForkJoinPool} for the producers.</li>
+ * <li>Submits the root {@link CombinationGeneratorTask} to begin the search.</li>
+ * <li>Manages graceful shutdown and reports the final result.</li>
  * </ul>
  *
  * <h2>Performance and Threading</h2>
@@ -233,8 +232,8 @@ public class StartYourMonkeys {
         final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
 
         // Start consumer threads BEFORE generation
-        final TestClickCombination[] monkeys =
-                new TestClickCombination[numThreads - numGeneratorThreads];
+        final TestClickCombination[] monkeys = new TestClickCombination[numThreads
+                - numGeneratorThreads];
         for (int i = 0; i < monkeys.length; i++) {
             monkeys[i] = new TestClickCombination("Monkey-" + i, queueArray.getQueue(i));
             monkeys[i].start();
@@ -373,46 +372,154 @@ public class StartYourMonkeys {
     }
 
     /**
-     * A centralized, immutable holder for all once-per-run configuration settings.
+     * A centralized, immutable, single source of truth for all startup and derived configurations.
      *
-     * <p>This class uses {@link StableValue} to ensure that configuration values are set exactly
-     * once during application startup and remain constant thereafter. This provides a safe and
-     * predictable way for any component to access core settings without the risk of them being
-     * modified after initialization.</p>
+     * <p>
+     * This class uses the Java 25 {@link StableValue} API to provide a robust and thread-safe
+     * mechanism for managing configuration. It holds two types of data:
+     * </p>
+     * <ul>
+     * <li><b>Core Configuration:</b> Values like {@link #NUM_CLICKS}, {@link #NUM_THREADS}, and
+     * {@link #BASE_GRID} are set once at application startup using
+     * {@link StableValue#setOrThrow(Object)}.</li>
+     * <li><b>Derived Configuration:</b> Values like {@link #TRUE_CELLS} and
+     * {@link #CLICK_TO_TRUE_CELL_MASK} are computed lazily and safely on first access using
+     * {@link StableValue#supplier(Supplier)}.</li>
+     * </ul>
+     * <p>
+     * This design eliminates the need for manual configuration passing and {@code volatile} fields
+     * throughout the application, simplifying component initialization and improving performance.
+     * </p>
      *
      * @since 2025.12 - Global Configuration Refactor
-     * @threading Thread-safe after initialization.
+     * @threading Thread-safe. Core values are set once from the main thread, and derived values are
+     *            initialized safely by {@code StableValue}.
+     * @memory Minimal overhead. Stores references and lazily-computed values.
      */
     public static final class GlobalConfig {
 
+        /**
+         * The number of clicks to test for a solution, set once at startup.
+         *
+         * @see #initialize(int, int, Grid)
+         * @see #getNumClicks()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
         private static final StableValue<Integer> NUM_CLICKS = StableValue.of();
+        /**
+         * The total number of threads to use, set once at startup.
+         *
+         * @see #initialize(int, int, Grid)
+         * @see #getNumThreads()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
         private static final StableValue<Integer> NUM_THREADS = StableValue.of();
+        /**
+         * The base grid instance for the selected puzzle, set once at startup.
+         *
+         * @see #initialize(int, int, Grid)
+         * @see #getBaseGrid()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
         private static final StableValue<Grid> BASE_GRID = StableValue.of();
+        /**
+         * The {@link ForkJoinPool} for the generators, set once after initialization.
+         *
+         * @see #setGeneratorPool(ForkJoinPool)
+         * @see #getGeneratorPool()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
         private static final StableValue<ForkJoinPool> GENERATOR_POOL = StableValue.of();
 
-        public static final Supplier<short[]> TRUE_CELLS =
-                StableValue.supplier(() -> getBaseGrid().findTrueCells());
+        /**
+         * A lazily computed array of all cell indices that are initially {@code true}.
+         *
+         * @see Grid#findTrueCells()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<short[]> TRUE_CELLS = StableValue
+                .supplier(() -> getBaseGrid().findTrueCells());
 
-        public static final Supplier<long[]> CLICK_TO_TRUE_CELL_MASK =
-                StableValue.supplier(() -> computeClickToTrueCellMask());
+        /**
+         * A lazily computed lookup table where {@code MASK[i]} is a bitmask representing which of
+         * the {@link #TRUE_CELLS} are adjacent to cell {@code i}.
+         *
+         * @see #computeClickToTrueCellMask()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<long[]> CLICK_TO_TRUE_CELL_MASK = StableValue
+                .supplier(() -> computeClickToTrueCellMask());
 
-        public static final Supplier<Long> EXPECTED_MASK =
-                StableValue.supplier(() -> (1L << TRUE_CELLS.get().length) - 1);
+        /**
+         * A lazily computed bitmask where all bits corresponding to a {@code true} cell are set to
+         * 1. This is the expected result of the final XOR sum for a valid combination.
+         *
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<Long> EXPECTED_MASK = StableValue
+                .supplier(() -> (1L << TRUE_CELLS.get().length) - 1);
 
+        /**
+         * A lazily computed, sorted array of cell indices that have an odd-numbered adjacency
+         * relationship with the first {@code true} cell.
+         *
+         * @see Grid#findFirstTrueAdjacents()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
         public static final Supplier<short[]> ODD_CLICK_INDICES = StableValue
                 .supplier(() -> BASE_GRID.orElseThrow().findFirstTrueAdjacents());
 
-        public static final Supplier<short[]> EVEN_CLICK_INDICES =
-                StableValue.supplier(() -> Grid.invertCombination(ODD_CLICK_INDICES.get()));
+        /**
+         * A lazily computed, sorted array of cell indices that have an even-numbered (or zero)
+         * adjacency relationship with the first {@code true} cell.
+         *
+         * @see Grid#invertCombination(short[])
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<short[]> EVEN_CLICK_INDICES = StableValue
+                .supplier(() -> Grid.invertCombination(ODD_CLICK_INDICES.get()));
 
+        /**
+         * A lazily computed lookup table of "suffix OR masks" used for {@code O(1)} pruning in the
+         * generator.
+         *
+         * @see #computeSuffixOrMasks()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
         public static final Supplier<long[]> SUFFIX_OR_MASKS = StableValue
                 .supplier(() -> computeSuffixOrMasks());
 
-        public static final Supplier<int[]> ODD_START_INDICES =
-                StableValue.supplier(() -> computeStartIndices(ODD_CLICK_INDICES.get()));
+        /**
+         * A lazily computed lookup table to find the starting index for final clicks in the
+         * {@link #ODD_CLICK_INDICES} array.
+         *
+         * @see #computeStartIndices(short[])
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<int[]> ODD_START_INDICES = StableValue
+                .supplier(() -> computeStartIndices(ODD_CLICK_INDICES.get()));
 
-        public static final Supplier<int[]> EVEN_START_INDICES =
-                StableValue.supplier(() -> computeStartIndices(EVEN_CLICK_INDICES.get()));
+        /**
+         * A lazily computed lookup table to find the starting index for final clicks in the
+         * {@link #EVEN_CLICK_INDICES} array.
+         *
+         * @see #computeStartIndices(short[])
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<int[]> EVEN_START_INDICES = StableValue
+                .supplier(() -> computeStartIndices(EVEN_CLICK_INDICES.get()));
 
         /**
          * Private constructor to prevent instantiation.
@@ -445,8 +552,7 @@ public class StartYourMonkeys {
          */
         static void initialize(int numClicks, int numThreads, Grid baseGrid) {
             if (numClicks < 1 || numThreads < 1 || baseGrid == null) {
-                throw new IllegalArgumentException(
-                        "Invalid arguments to initialize GlobalConfig.");
+                throw new IllegalArgumentException("Invalid arguments to initialize GlobalConfig.");
             }
 
             NUM_CLICKS.setOrThrow(numClicks);

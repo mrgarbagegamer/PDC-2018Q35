@@ -5,9 +5,8 @@ import java.util.function.Supplier;
 
 import org.jctools.queues.MpmcArrayQueue;
 
-// TODO: Fix up javadocs to reflect recent changes.
 /**
- * A structure for managing work distribution and shared resources between
+ * A singleton structure for managing work distribution and shared resources between
  * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}.
  *
  * <p>
@@ -56,15 +55,17 @@ public class CombinationQueueArray {
      * The singleton instance of this class.
      *
      * <p>
-     * This field ensures that only one instance of {@code CombinationQueueArray} exists throughout
-     * the application's lifecycle. It is initialized lazily via {@link #getInstance(int)} to allow
-     * proper configuration with the number of consumers.
+     * This {@link StableValue#supplier(Supplier)} provides a modern, thread-safe, and lazy
+     * initialization for the singleton instance. It replaces the classic double-checked locking
+     * pattern, offering a cleaner and more robust approach. The instance is created on the first
+     * call to {@link #getInstance()}, pulling its configuration directly from the
+     * {@link StartYourMonkeys.GlobalConfig}.
      * </p>
      *
-     * @since 2025.10 - Singleton Enforcement
-     * @performance {@code O(1)} access.
-     * @threading Thread-safe; uses {@code volatile} for safe publication.
-     * @memory Minimal footprint of 4 bytes as a reference.
+     * @since 2025.12 - StableValue Singleton Refactor
+     * @performance {@code O(1)} for subsequent accesses after the first initialization.
+     * @threading Thread-safe via {@link StableValue}.
+     * @memory Minimal footprint for the {@code Supplier} and the singleton reference.
      */
     private static final Supplier<CombinationQueueArray> INSTANCE = StableValue.supplier(() -> {
         final int numThreads = StartYourMonkeys.GlobalConfig.getNumThreads();
@@ -308,27 +309,22 @@ public class CombinationQueueArray {
     }
 
     /**
-     * Returns the singleton instance of {@code CombinationQueueArray}, initializing it with the
-     * specified number of consumers if it has not been created yet.
+     * Returns the singleton instance of {@code CombinationQueueArray}, creating it on the first
+     * call.
      *
      * <p>
-     * This method enforces the singleton pattern, ensuring that only one instance exists. If the
-     * instance has already been initialized, subsequent calls will return the existing instance
-     * regardless of the {@code numConsumers} parameter. This allows the instance to be configured
-     * once at application startup.
+     * This method provides global access to the singleton. The underlying
+     * {@link StableValue#supplier(Supplier)} ensures that the instance is created lazily and
+     * thread-safely on the first invocation of {@link Supplier#get() get()}. Subsequent calls
+     * return the already-created instance.
      * </p>
      *
-     * @param numConsumers The number of {@link TestClickCombination monkeys}. Used only for
-     *                     initialization if the instance does not yet exist.
      * @return The singleton instance of {@code CombinationQueueArray}.
-     * @throws IllegalArgumentException if {@code numConsumers} is not positive (only on first
-     *                                  call).
-     * @throws IllegalStateException    if the pre-allocation of the {@link #workBatchPool pool}
-     *                                  fails (only on first call).
      * @since 2025.10 - Singleton Enforcement
-     * @performance {@code O(1)} for subsequent calls; {@code O(numConsumers)} for initialization.
-     * @threading Thread-safe; uses double-checked locking for lazy initialization.
-     * @memory Does not allocate unless initializing the singleton.
+     * @performance {@code O(1)} for subsequent calls; initialization cost is paid on the first
+     *              call.
+     * @threading Thread-safe via {@link StableValue}.
+     * @memory Does not allocate, aside from the first-time singleton creation.
      */
     public static CombinationQueueArray getInstance() {
         return INSTANCE.get();

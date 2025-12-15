@@ -15,7 +15,6 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Unbox;
 
-// TODO: Fix up javadocs to reflect recent changes.
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
  *
@@ -374,26 +373,39 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
     private static final CombinationQueueArray QUEUE_ARRAY = CombinationQueueArray.getInstance();
-    private static final int NUM_CLICKS = StartYourMonkeys.GlobalConfig.getNumClicks();
     /**
-     * The maximum index allowed for the first click in any combination.
+     * The target length of the combinations to be generated, pulled from
+     * {@link StartYourMonkeys.GlobalConfig}. Through the use of {@link StableValue StableValues}
+     * and the ordering of class initializations, this value is guaranteed to be initialized before
+     * any tasks are created and can be treated as a constant.
      *
+     * @since 2025.12 - GlobalConfig Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe due to immutability after initialization.
+     * @memory Minimal memory footprint of 4 bytes as an {@code int}.
+     */
+    private static final int NUM_CLICKS = StartYourMonkeys.GlobalConfig.getNumClicks();
+
+    /**
+     * The maximum index allowed for the first click, used for pruning.
+     * 
      * <p>
      * This is a simple but effective pruning optimization. Since combinations are generated in
      * lexicographical order, we know that the first initially {@code true} cell must be toggled by
      * one of the clicks in the combination. This value is pre-calculated as the highest-indexed
      * cell adjacent to the first {@code true} cell, effectively pruning any combinations that start
-     * with a click beyond this point.
+     * with a click beyond this point. We pull this value from {@link StartYourMonkeys.GlobalConfig}
+     * to ensure consistency with the puzzle configuration.
      * </p>
-     * 
+     *
      * @see #compute()
-     * @see Grid#findFirstTrueAdjacents(com.github.mrgarbagegamer.Grid.ValueFormat)
+     * @see Grid#findFirstTrueAdjacents(Grid.ValueFormat)
      * @since 2025.06 - First Click Optimization
      * @performance {@code O(1)} access time.
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    private static final int maxFirstClickIndex = StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES
+    private static final int MAX_FIRST_CLICK_INDEX = StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES
             .get()[StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES.get().length - 1];
 
     // Cached data between tasks
@@ -519,9 +531,31 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private boolean skipConstraintsCheck = false;
 
+    /**
+     * A {@code static final} cache of
+     * {@link StartYourMonkeys.GlobalConfig#CLICK_TO_TRUE_CELL_MASK}, used for quick adjacency
+     * checks. Through the use of {@link StableValue StableValues} and the ordering of class
+     * initializations, this array is guaranteed to be initialized before any tasks are created and
+     * can be treated as a constant.
+     * 
+     * @since 2025.12 - GlobalConfig Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe due to immutability after initialization.
+     * @memory Fixed memory footprint of {@code Grid.NUM_CELLS * 8} bytes as a {@code long[]} array.
+     */
     private static final long[] CLICK_TO_TRUE_CELL_MASK = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK
             .get();
-
+    /**
+     * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}, used for
+     * quick pruning checks. Through the use of {@link StableValue StableValues} and the ordering of
+     * class initializations, this value is guaranteed to be initialized before any tasks are
+     * created and can be treated as a constant.
+     *
+     * @since 2025.12 - GlobalConfig Refactor
+     * @performance {@code O(1)} access time.
+     * @threading Thread-safe due to immutability after initialization.
+     * @memory Minimal memory footprint of 8 bytes as a {@code long}.
+     */
     private static final long EXPECTED_MASK = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
     public static CombinationGeneratorTask createRootTask() {
@@ -607,7 +641,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * This method iterates through all valid first clicks, creating and forking a new subtask for
-     * each one. The range of iteration is limited by {@link #maxFirstClickIndex} as a pruning
+     * each one. The range of iteration is limited by {@link #MAX_FIRST_CLICK_INDEX} as a pruning
      * optimization.
      * </p>
      * 
@@ -638,7 +672,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private void computeRootSubtasks(GeneratorContext ctx) {
         final short start = 0;
-        final short max = (short) (Math.min(Grid.NUM_CELLS - NUM_CLICKS, maxFirstClickIndex) + 1);
+        final short max = (short) (Math.min(Grid.NUM_CELLS - NUM_CLICKS, MAX_FIRST_CLICK_INDEX)
+                + 1);
 
         for (short i = start; i < max; i++) {
             // Use context pools directly - no more ThreadLocal calls
@@ -1031,7 +1066,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * This is a critical optimization for {@link #canPotentiallySatisfyConstraints(int)}. The mask
-     * at index {@code i} is the bitwise {@code OR} of all {@link #TRUE_CELL_ADJACENCY_MASKS} from
+     * at index {@code i} is the bitwise {@code OR} of all {@link #CLICK_TO_TRUE_CELL_MASK} from
      * index {@code i} to the end of the grid.
      * </p>
      * <p>
@@ -1039,15 +1074,19 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * toggled by <em>any</em> future click from index {@code i} onwards. This allows the constraint
      * check to determine if a solution is still possible in a single {@code O(1)} bitwise
      * operation, rather than iterating through all remaining clicks (though the use of a
-     * {@code long} limits this optimization to puzzles with 64 or fewer {@code true} cells). It is
-     * initialized once per puzzle run by {@link #ensureTrueCellMasks(short[])}.
+     * {@code long} limits this optimization to puzzles with 64 or fewer {@code true} cells).
+     * </p>
+     * 
+     * <p>
+     * The array is initialized statically via
+     * {@link StartYourMonkeys.GlobalConfig#SUFFIX_OR_MASKS}, ensuring it is ready before any tasks
+     * are created.
      * </p>
      * 
      * @since 2025.07 - Suffix OR Masks Introduction
      * @performance {@code O(1)} for constraint checks, {@code O(Grid.NUM_CELLS)} for initial
      *              computation.
-     * @threading Statically initialized once by {@link #ensureTrueCellMasks(short[])} and
-     *            effectively {@code final} thereafter.
+     * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of ~{@code 8 * Grid.NUM_CELLS} bytes as a {@code long} array.
      */
     private static final long[] SUFFIX_OR_MASKS = StartYourMonkeys.GlobalConfig.SUFFIX_OR_MASKS
@@ -1240,14 +1279,41 @@ public class CombinationGeneratorTask extends RecursiveAction {
     }
 
     /**
-     * A custom {@link ForkJoinWorkerThread} that holds a direct reference to its own
+     * A custom {@link ForkJoinWorkerThread} that holds a direct, {@code final} reference to its own
      * {@link GeneratorContext}.
      *
+     * <p>
+     * This optimization eliminates the need for a {@link ThreadLocal#get()} lookup in the hot path
+     * of {@link #compute()}, as the context can be accessed directly from the current thread
+     * instance. This provides a small but meaningful performance improvement by reducing access
+     * overhead.
+     * </p>
+     *
+     * @see ForkJoinWorkerThreadFactory
      * @since 2025.12 - Custom Worker Thread Optimization
+     * @threading Instances are confined to their respective threads.
      */
     private static class GeneratorWorkerThread extends ForkJoinWorkerThread {
+        /**
+         * The {@link GeneratorContext} unique to this worker thread.
+         * 
+         * @since 2025.12 - Custom Worker Thread Optimization
+         * @performance {@code final} reference for direct access.
+         * @threading Thread-local confinement.
+         * @memory One instance per worker thread.
+         */
         final GeneratorContext context;
 
+        /**
+         * Constructs a new worker thread for the given pool, creating its unique
+         * {@link GeneratorContext}.
+         *
+         * @param pool The pool this thread is joining.
+         * @since 2025.12 - Custom Worker Thread Optimization
+         * @performance {@code O(1)} for construction.
+         * @threading Confined to the creating thread.
+         * @memory Allocates one {@link GeneratorContext}.
+         */
         GeneratorWorkerThread(ForkJoinPool pool) {
             super(pool);
             this.context = new GeneratorContext();
@@ -1255,11 +1321,23 @@ public class CombinationGeneratorTask extends RecursiveAction {
     }
 
     /**
-     * A factory for creating {@link GeneratorWorkerThread} instances.
+     * A factory for creating {@link GeneratorWorkerThread} instances for the {@link ForkJoinPool}.
      *
+     * @see ForkJoinWorkerThread
      * @since 2025.12 - Custom Worker Thread Optimization
+     * @threading Stateless and thread-safe.
      */
     public static class GeneratorWorkerThreadFactory implements ForkJoinWorkerThreadFactory {
+        /**
+         * Creates and returns a new {@link GeneratorWorkerThread}.
+         *
+         * @param pool The pool in which the new thread will operate.
+         * @return The new worker thread.
+         * @since 2025.12 - Custom Worker Thread Optimization
+         * @performance {@code O(1)} for thread creation.
+         * @threading Thread-safe.
+         * @memory Allocates one {@link GeneratorWorkerThread}.
+         */
         @Override
         public ForkJoinWorkerThread newThread(ForkJoinPool pool) {
             return new GeneratorWorkerThread(pool);

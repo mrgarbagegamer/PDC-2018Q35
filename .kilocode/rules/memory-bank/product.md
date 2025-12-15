@@ -12,7 +12,7 @@ The program is designed to tackle a complex combinatorial problem by systematica
 
 The solver operates on a producer-consumer model:
 
-1.  **Producers (`CombinationGeneratorTask`):** A `ForkJoinPool` is used to recursively and efficiently generate vast numbers of potential click combinations.
-2.  **Consumers (`TestClickCombination`):** A pool of worker threads ("monkeys") consumes these combinations, applies them to a grid instance, and validates whether they solve the puzzle.
+1. **Producers (`CombinationGeneratorTask`):** A `ForkJoinPool` is used to recursively and efficiently generate vast numbers of potential click combinations.
+2. **Consumers (`TestClickCombination`):** A pool of worker threads ("monkeys") consumes these combinations, applies them to a grid instance, and validates whether they solve the puzzle.
 
 This parallel architecture is designed to maximize the use of modern multi-core processors, turning a computationally bound problem into a parallel one. The core data structure, `Grid`, uses bitmasks for extremely fast state manipulation.

@@ -1863,7 +1863,19 @@ public abstract class Grid {
         return gridState.clone();
     }
 
-    // TODO: Add documentation and unit tests for this method.
+    /**
+     * Inverts a given combination of clicks, returning the complement set of clicks (i.e., all
+     * cells not included in the original combination).
+     * 
+     * @param clicks An array of clicked cells in {@link ValueFormat#Index} format.
+     * @return A new array containing the inverted combination of clicks.
+     * @throws NullPointerException if the {@code clicks} array is {@code null}.
+     * @see ValueFormat#Index
+     * @since 2025.12 - Global Configuration Refactor
+     * @performance {@code O(NUM_CELLS)} due to iteration over all cells.
+     * @threading Thread-safe; does not modify any instance state.
+     * @memory Allocates a new {@link ShortArrayList} and resulting {@code short[]} array.
+     */
     public static short[] invertCombination(short[] clicks) {
         final ShortArrayList combination = ShortArrayList.wrap(clicks);
         final ShortArrayList inverted = new ShortArrayList(NUM_CELLS - combination.size());

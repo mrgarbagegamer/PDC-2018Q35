@@ -126,7 +126,7 @@ public class TestClickCombination extends Thread {
      * {@link #queueArray}.
      * </p>
      *
-     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     * @see #TestClickCombination(String, CombinationQueue)
      * @see #allQueuesEmpty()
      * @see #getWork()
      * @since 2025.05 - Dedicated Queue per Monkey
@@ -144,7 +144,7 @@ public class TestClickCombination extends Thread {
      * {@link CombinationQueueArray#generationComplete}.
      * </p>
      *
-     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     * @see #TestClickCombination(String, CombinationQueue)
      * @since 2025.05 - Dedicated Queue per Monkey
      * @performance {@code O(1)} access to queues and flags.
      * @threading Thread-safe through use of {@code volatile} flags and concurrent queues.
@@ -160,8 +160,8 @@ public class TestClickCombination extends Thread {
      * combination test.
      * </p>
      *
+     * @see #TestClickCombination(String, CombinationQueue)
      * @see #run()
-     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
      * @since 2025.04 - Multi-threaded Solver Introduction
      * @performance {@code O(1)} state resets and cell toggles.
      * @threading Thread-safe by design, as each thread has its own instance.
@@ -469,9 +469,9 @@ public class TestClickCombination extends Thread {
      * <p>
      * This method is a critical part of the "odd adjacency" optimization. It calculates the
      * cumulative effect of all clicks in the {@code combination} prefix by XORing their respective
-     * bitmasks from the {@link #CLICK_TO_TRUE_CELL_MASK} lookup table. The resulting {@code long}
-     * is a bitmask where the Nth bit is 1 if the Nth true cell was toggled an odd number of times
-     * by the prefix, and 0 otherwise.
+     * bitmasks from the {@link #MASKS} lookup table. The resulting {@code long} is a bitmask where
+     * the Nth bit is 1 if the Nth {@code true} cell was toggled an odd number of times by the
+     * prefix, and 0 otherwise.
      * </p>
      *
      * <p>
@@ -521,8 +521,9 @@ public class TestClickCombination extends Thread {
      * <p>
      * This is the most performance-critical method in the monkey's hot loop. It validates a full
      * combination by taking the pre-computed XOR sum of the prefix ({@code prefixMask}) and XORing
-     * it with the mask for the {@code finalClick}. If the result equals the {@link #EXPECTED_MASK},
-     * it means every true cell was toggled an odd number of times, and the combination is valid.
+     * it with the mask for the {@code finalClick}. If the result equals the {@link #EXPECTED}, it
+     * means every {@code true} cell was toggled an odd number of times, and the combination is
+     * valid.
      * </p>
      *
      * @param prefixMask The pre-computed XOR sum of the combination's prefix.

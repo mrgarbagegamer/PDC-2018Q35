@@ -257,7 +257,7 @@ public class CombinationQueueArray {
 
     /**
      * Constructs the shared {@link #queues queue array} and its associated resources. As a private
-     * constructor, it enforces the singleton pattern via {@link #getInstance(int)}.
+     * constructor, it enforces the singleton pattern via {@link #getInstance()}.
      *
      * <p>
      * This constructor initializes the entire communication and resource-sharing infrastructure. It

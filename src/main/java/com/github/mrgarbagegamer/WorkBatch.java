@@ -255,7 +255,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      *
      * <p>
      * This counter tracks the fill level of the {@link #workItems} array. It is incremented by
-     * {@link #addWork(short[], int, boolean, int)} and reset to zero by {@link #clear()}.
+     * {@link #addWork(short[], short, boolean)} and reset to zero by {@link #clear()}.
      * </p>
      *
      * @see #capacity
@@ -291,33 +291,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     private final BatchIterator iterator = new BatchIterator();
 
     /**
-     * The total number of clicks that constitute a valid combination for the puzzle being solved.
-     *
-     * <p>
-     * This {@code static} value must be configured once at application startup via
-     * {@link #setNumClicks(int)}. It determines the size of internal arrays within {@link WorkItem}
-     * instances and is fundamental to the logic of both {@link CombinationGeneratorTask generators}
-     * and {@link TestClickCombination monkeys}.
-     * </p>
-     * 
-     * <p>
-     * Once set, this value is immutable for the lifetime of the application. As such, we could
-     * consider work-arounds to make this a {@code final} constant based on user-input, though that
-     * could add some complexity to initialization. We could also explore using the
-     * {@code StableValue}/{@code LazyConstant} API defined in
-     * <a href="https://openjdk.org/jeps/502">JEP 502</a> and
-     * <a href="https://openjdk.org/jeps/526">JEP 526</a>, though the boxing overhead may not be
-     * worth it.
-     * </p>
-     *
-     * @see #getNumClicks()
-     * @since 2025.11 - Range-Based WorkItem Refactor
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe after its single initialization at startup.
-     * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
-     */
-
-    /**
      * A compact, reusable representation of a range of combinations that share a common prefix.
      *
      * <p>
@@ -336,7 +309,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * {@link #clear()} is called when the {@code WorkBatch} itself is recycled.
      * </p>
      *
-     * @see WorkBatch#addWork(short[], boolean, int)
+     * @see WorkBatch#addWork(short[], short, boolean)
      * @since 2025.11 - Range-Based WorkItem Refactor
      * @performance Accessors are {@code O(1)}. No performance-critical methods.
      * @memory The object contains references to a prefix array and a final clicks array but does
@@ -345,14 +318,12 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      */
     public static class WorkItem {
         /**
-         * The shared prefix of the combinations, with a fixed length of {@link #prefixLength}. The
-         * contents of this array are copied from the input provided by
-         * {@link #set(short[], Parity, int)}, ensuring that external modifications do not affect
-         * this work item.
+         * The shared prefix of the combinations. The contents of this array are copied from the
+         * input provided by {@link #set(short[], Parity, int)}, ensuring that external
+         * modifications do not affect this work item.
          * 
          * <p>
-         * For better performance, this field could be made {@code final} and initialized in the
-         * {@link #WorkItem() constructor}.
+         * For better performance, this field could be made {@code final}.
          * </p>
          *
          * @see #getPrefix()
@@ -365,8 +336,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         private short[] prefix; // TODO: Consider making this final.
         /**
          * The {@link Parity} of the prefix, which determines whether to use
-         * {@link Parity#ODD_CLICK_INDICES} or {@link Parity#EVEN_CLICK_INDICES} for the final
-         * click. This replaces the direct {@code short[]} reference to save memory.
+         * {@link StartYourMonkeys.GlobalConfig#ODD_CLICK_INDICES} or
+         * {@link StartYourMonkeys.GlobalConfig#EVEN_CLICK_INDICES} for the final click. This
+         * replaces the direct {@code short[]} reference to save memory.
          *
          * @see #getFinalClicks()
          * @see Parity
@@ -391,10 +363,10 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         private int start;
 
         /**
-         * Constructs a new {@code WorkItem}, pre-allocating its internal {@link #prefix} array
-         * based on the static {@link WorkBatch#numClicks} value.
+         * Constructs a new {@code WorkItem}, pre-allocating its internal {@link #prefix} array.
          *
          * @throws IllegalStateException if {@code numClicks} has not been set.
+         * @see WorkBatch#getNumClicks()
          * @since 2025.11 - Range-Based WorkItem Refactor
          * @performance {@code O(numClicks - 1)} allocation for the prefix array.
          * @threading Not thread-safe.
@@ -410,7 +382,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * Initializes or re-initializes the {@code WorkItem} with its data.
          *
          * <p>
-         * This method is internally called by {@link WorkBatch#addWork(short[], boolean, int)} to
+         * This method is internally called by {@link WorkBatch#addWork(short[], short, boolean)} to
          * fill a recycled {@code WorkItem} with the necessary data. The provided {@code prefix} is
          * {@link System#arraycopy(Object, int, Object, int, int) copied} into the {@link #prefix
          * internal array} to prevent external modifications from affecting this item.
@@ -469,7 +441,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         }
 
         /**
-         * Returns the {@link #prefixLength length} of the shared combination {@link #prefix}.
+         * Returns the length of the shared combination {@link #prefix}.
          *
          * @return The prefix length, or -1 if not set.
          * @since 2025.11 - Range-Based WorkItem Refactor
@@ -555,8 +527,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          *
          * <p>
          * Two {@code WorkItem}s are considered equal if their {@link #prefix},
-         * {@link #finalClickParity}, and {@link #start} fields are all equal. The
-         * {@link #prefixLength} is not compared as it is derived from the {@code prefix} array.
+         * {@link #finalClickParity}, and {@link #start} fields are all equal.
          * </p>
          *
          * @param obj The {@code Object} to compare with.
@@ -572,8 +543,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             if (this == obj)
                 return true;
             if (obj instanceof WorkItem other) {
-                // Since prefixLength is derived from prefix, we can compare just the arrays and
-                // start
                 return Arrays.equals(this.prefix, other.prefix)
                         && this.finalClickParity == other.finalClickParity
                         && this.start == other.start;
@@ -748,8 +717,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * {@link #workItems internal WorkItem pool}.
      *
      * @param capacity The maximum number of {@link WorkItem}s the batch can hold.
-     * @throws IllegalStateException    if {@link #numClicks} has not been set prior to
-     *                                  construction.
+     * @throws IllegalStateException    if {@link StartYourMonkeys.GlobalConfig#getNumClicks()
+     *                                  StartYourMonkeys.GlobalConfig.NUM_CLICKS} has not been set
+     *                                  prior to construction.
      * @throws IllegalArgumentException if capacity is not a positive integer.
      * @since 2025.11 - Range-Based WorkItem Refactor
      * @performance {@code O(capacity)} due to the loop for pre-allocating {@code WorkItem}

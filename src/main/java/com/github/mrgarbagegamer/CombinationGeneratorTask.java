@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
@@ -33,14 +32,14 @@ import org.apache.logging.log4j.util.Unbox;
  * {@link #prefix} of clicks. The root task {@link #computeRootSubtasks(GeneratorContext) forks
  * subtasks} for each possible first click, and these subtasks recursively
  * {@link #computeIntermediateSubtasks(GeneratorContext) fork children} until the desired
- * {@link #numClicks combination length} is reached. To optimize performance, this class implements
+ * {@link #NUM_CLICKS combination length} is reached. To optimize performance, this class implements
  * two key strategies:
  * <ul>
  * <li><b>Constraint Pruning:</b> At each branching point,
  * {@link #canPotentiallySatisfyConstraints(int)} uses bitmasks to check if a path can possibly lead
  * to a valid solution, pruning entire branches early.</li>
  * <li><b>Range-Based Batching:</b> Leaf tasks now define a range of work with a single
- * {@link WorkBatch#addWork(short[], int, boolean, int)} call, offloading the final combination
+ * {@link WorkBatch#addWork(short[], short, boolean)} call, offloading the final combination
  * enumeration to the monkeys. This significantly reduces CPU load on the generator threads.</li>
  * </ul>
  * </p>
@@ -60,13 +59,13 @@ import org.apache.logging.log4j.util.Unbox;
  *              aggressive bitmask-based pruning and parallel execution significantly reduce the
  *              practical workload.
  * @threading Tasks are isolated by the {@code ForkJoinTask} framework. Shared resources are managed
- *            via a {@link #context ThreadLocal} {@link GeneratorContext GeneratorContext} to ensure
- *            thread safety and eliminate contention.
+ *            via a {@link GeneratorWorkerThread#context thread-local} {@link GeneratorContext
+ *            GeneratorContext} to ensure thread safety and eliminate contention.
  * @algorithm A recursive, divide-and-conquer approach. Tasks form a generation tree where each node
  *            is a click prefix. Subtasks are {@link #computeIntermediateSubtasks(GeneratorContext)
- *            forked} until a {@link #numClicks target length} is reached. Leaf tasks
- *            {@link #computeLeafCombinations(GeneratorContext) generate} final combinations, which
- *            are batched and {@link #flushBatchFast(WorkBatch) queued} for validation.
+ *            forked} until a {@link #NUM_CLICKS target length} is reached. Leaf tasks
+ *            {@link #computeLeafCombinations(GeneratorContext) generate} work items, which are
+ *            {@link #flushBatchFast(WorkBatch) queued} for validation.
  * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
  *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
  */
@@ -120,7 +119,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * A thread-safe collection of all active {@link GeneratorContext} instances.
      * 
      * <p>
-     * This is the key to solving the final flush problem. Each time a {@link #context
+     * This is the key to solving the final flush problem. Each time a {@link GeneratorContext
      * GeneratorContext} is {@link GeneratorContext#GeneratorContext() created} for a new thread, it
      * adds itself to this {@code static}, concurrent queue. When {@link #flushAllPendingBatches()}
      * is called, it can safely iterate over this queue to access every thread's context and flush
@@ -145,8 +144,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <p>
      * This class is a key part of the resource management strategy. It consolidates all expensive,
      * thread-specific objects into a single container. An instance of this context is stored in a
-     * {@link #context ThreadLocal}, ensuring that each thread in the {@link ForkJoinPool} has its
-     * own set of resource pools and a dedicated {@link WorkBatch}.
+     * {@link GeneratorWorkerThread#context field}, ensuring that each thread in the
+     * {@link ForkJoinPool} has its own set of resource pools and a dedicated {@link WorkBatch}.
      * </p>
      *
      * <h2>Optimization Strategy</h2>
@@ -202,8 +201,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * global context list}.
          * 
          * <p>
-         * This constructor is meant to be called only by the {@link #context ThreadLocal's}
-         * {@link ThreadLocal#withInitial(java.util.function.Supplier) initializer}, and
+         * This constructor is meant to be called only by the {@link GeneratorWorkerThread}'s
+         * {@link GeneratorWorkerThread#GeneratorWorkerThread(ForkJoinPool) initializer}, and
          * {@link ConcurrentLinkedQueue#add(Object) adds} the context to the global list for the
          * {@link CombinationGeneratorTask#flushAllPendingBatches() final flush}.
          * </p>
@@ -365,7 +364,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @see #prefix
      * @see #prefixLength
-     * @see #CombinationGeneratorTask(int, CombinationQueueArray, short[], int)
+     * @see #createRootTask()
      * @see #compute()
      * @since 2025.06 - Fork Join Refactor
      * @performance {@code O(1)} access time.
@@ -419,7 +418,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@link #computeLeafCombinations(GeneratorContext) generate final combinations} by appending a
      * final click. The {@code short[]} holding the {@code prefix} is obtained from a pre-allocated
      * {@link ArrayPool} to prevent heap allocation. To prevent array resizing, we always allocate
-     * arrays of size {@link #numClicks}, tracking the current length of the {@code prefix} with
+     * arrays of size {@code NUM_CLICKS - 1}, tracking the current length of the {@code prefix} with
      * {@link #prefixLength}.
      * </p>
      * 
@@ -443,7 +442,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <p>
      * This value determines the task's position in the generation tree (root, intermediate, or
      * leaf) and is used as an index for appending the next click, since {@code prefix} arrays are
-     * always sized to {@link #numClicks}.
+     * always sized at {@code NUM_CLICKS - 1}.
      * </p>
      * 
      * @see #compute()
@@ -472,10 +471,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@code true} cells, but all puzzles simulated in this project fall under this limit.
      * </p>
      * 
+     * @see #CLICK_TO_TRUE_CELL_MASK
      * @see #skipConstraintsCheck
-     * @see #TRUE_CELL_ADJACENCY_MASKS
      * @see #canPotentiallySatisfyConstraints(int)
-     * @see #ensureTrueCellMasks(short[])
      * @see #init(short[], int, long, boolean, boolean)
      * @see Grid#areAdjacent(short, short)
      * @see Grid#findTrueCells()
@@ -755,15 +753,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *
      * <h3>Algorithm</h3>
      * <ol>
-     * <li><b>Pre-filtered Clicks:</b> It selects the correct array of potential final clicks
-     * ({@link #ODD_CLICK_INDICES} or {@link #EVEN_CLICK_INDICES}) based on the pre-computed
-     * {@link #prefixParity}.</li>
-     * <li><b>Binary Search:</b> It performs a {@link Arrays#binarySearch(short[], short) binary
-     * search} on that array to find the first valid final click that can follow the current prefix
-     * in lexicographical order.</li>
-     * <li><b>WorkItem Batching:</b> It then creates a single {@link WorkBatch.WorkItem}
-     * representing the prefix and the entire valid range of final clicks by calling
-     * {@link WorkBatch#addWork(short[], int, boolean, int)}.</li>
+     * <li><b>WorkItem Batching:</b> It creates a single {@link WorkBatch.WorkItem} representing the
+     * {@code prefix} and the entire valid range of final clicks by calling
+     * {@link WorkBatch#addWork(short[], short, boolean)}.</li>
      * </ol>
      * If the current batch is full, it is {@link #flushBatchFast(WorkBatch) flushed} before the new
      * work item is added. This bulk-processing approach dramatically reduces method call overhead
@@ -771,15 +763,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * </p>
      *
      * @param ctx The thread-local {@link GeneratorContext}.
-     * @see WorkBatch#addWork(short[], int, boolean, int)
      * @see GeneratorContext#getOrCreateBatch()
      * @since 2025.07 - Splitting the Compute Method Into Paths
-     * @performance {@code O(log N)} binary search, where {@code N} is the number of valid final
-     *              clicks.
+     * @performance {@code O(1)} for the start index lookup.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
      *            isolation.
-     * @algorithm Uses binary search to find a starting index, then adds a single {@code WorkItem}
-     *            to the batch representing the entire remaining range.
+     * @algorithm Uses an {@code O(1)} lookup to find a starting index, then adds a single
+     *            {@code WorkItem} to the batch representing the entire remaining range.
      * @memory Does not allocate; uses pooled resources.
      */
     private final void computeLeafCombinations(GeneratorContext ctx) {
@@ -936,10 +926,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @param ctx The thread-local {@link GeneratorContext} containing the resource pools.
      * @see #computeIntermediateSubtasksSkipPath(GeneratorContext)
-     * @see #ensureTrueCellMasks(short[])
      * @since 2025.08 - Specialized Subtask Paths
      * @performance {@code O(1)} for the early constraint check,
-     *              <code>O({@link Grid#NUM_CELLS} - {@link #numClicks} + {@link #prefixLength} -
+     *              <code>O({@link Grid#NUM_CELLS} - {@link #NUM_CLICKS} + {@link #prefixLength} -
      *              {@link #prefix}[prefixLength - 1] + 1)</code> for iterating over possible next
      *              clicks.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
@@ -1008,7 +997,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <ol>
      * <li><b>Direct Check:</b> It computes the {@code needed} bits by XORing the
      * {@link #cachedAdjacencyState} (which {@code true} cells are toggled by the current prefix)
-     * with the {@link #targetMask} (all {@code true} cells). If {@code needed} is zero, the
+     * with the {@link #EXPECTED_MASK} (all {@code true} cells). If {@code needed} is zero, the
      * constraint is already met. As an optimization, it sets {@link #skipConstraintsCheck} to
      * {@code true}, allowing all descendants to use a faster, check-free generation path.</li>
      * <li><b>Potential Check:</b> If the constraint is not yet met, it checks if it's still
@@ -1025,7 +1014,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param startIdx The starting index for the next click, used to look up the correct suffix
      *                 mask.
      * @return {@code true} if this path is still viable, {@code false} if it should be pruned.
-     * @see #TRUE_CELL_ADJACENCY_MASKS
+     * @see #CLICK_TO_TRUE_CELL_MASK
      * @see Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)
      * @see Grid#findTrueCells(Grid.ValueFormat)
      * @see Grid.ValueFormat#Bitmask
@@ -1106,7 +1095,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <h3>Algorithm</h3>
      * <p>
      * The method attempts to add the {@code WorkBatch} to a {@link ThreadLocalRandom#nextInt(int)
-     * randomly selected queue} from the {@link #queueArray}. To minimize contention, it tries each
+     * randomly selected queue} from the {@link #QUEUE_ARRAY}. To minimize contention, it tries each
      * queue once in a round-robin fashion. If all queues are full, the thread
      * {@link Thread#sleep(long, int) sleeps} briefly (0.5ms) to avoid busy-waiting, then retries.
      * This loop continues indefinitely until the batch is successfully enqueued or the thread is
@@ -1176,9 +1165,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @param ctx The thread-local {@link GeneratorContext} containing the {@link ArrayPool} and
      *            {@link TaskPool}.
-     * @see #context
      * @see ArrayPool
      * @see ArrayPool#put(short[])
+     * @see GeneratorWorkerThread#context
      * @see TaskPool
      * @see TaskPool#put(CombinationGeneratorTask)
      * @since 2025.07 - Task Self-Recycling
@@ -1216,7 +1205,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * transparency.
      * </p>
      * 
-     * @see #context
+     * @see GeneratorWorkerThread#context
      * @since 2025.06 - Flush Batches when Full (or on Completion)
      * @performance {@code O(numQueues)} for the flushing operation.
      * @threading Synchronized to prevent concurrent invocations.

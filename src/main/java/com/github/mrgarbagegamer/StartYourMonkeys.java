@@ -391,7 +391,14 @@ public class StartYourMonkeys {
      * throughout the application, simplifying component initialization and improving performance.
      * </p>
      *
+     * @see ArrayPool
+     * @see CombinationGeneratorTask
+     * @see CombinationQueueArray
+     * @see TestClickCombination
+     * @see WorkBatch
      * @since 2025.12 - Global Configuration Refactor
+     * @performance {@code O(1)} access for core values; lazy initialization for derived values,
+     *              with amortized {@code O(1)} access thereafter.
      * @threading Thread-safe. Core values are set once from the main thread, and derived values are
      *            initialized safely by {@code StableValue}.
      * @memory Minimal overhead. Stores references and lazily-computed values.
@@ -401,128 +408,204 @@ public class StartYourMonkeys {
         /**
          * The number of clicks to test for a solution, set once at startup.
          *
-         * @see #initialize(int, int, Grid)
          * @see #getNumClicks()
+         * @see #initialize(int, int, Grid)
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignment and retrieval.
          * @threading Thread-safe via {@link StableValue}.
+         * @memory Minimal overhead for storing an {@link Integer} reference.
          */
         private static final StableValue<Integer> NUM_CLICKS = StableValue.of();
         /**
          * The total number of threads to use, set once at startup.
          *
-         * @see #initialize(int, int, Grid)
          * @see #getNumThreads()
+         * @see #initialize(int, int, Grid)
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignment and retrieval.
          * @threading Thread-safe via {@link StableValue}.
+         * @memory Minimal overhead for storing an {@link Integer} reference.
          */
         private static final StableValue<Integer> NUM_THREADS = StableValue.of();
         /**
          * The base grid instance for the selected puzzle, set once at startup.
          *
-         * @see #initialize(int, int, Grid)
          * @see #getBaseGrid()
+         * @see #initialize(int, int, Grid)
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignment and retrieval.
          * @threading Thread-safe via {@link StableValue}.
+         * @memory Minimal overhead for storing a {@link Grid} reference.
          */
         private static final StableValue<Grid> BASE_GRID = StableValue.of();
         /**
-         * The {@link ForkJoinPool} for the generators, set once after initialization.
+         * The {@link ForkJoinPool} for the {@link CombinationGeneratorTask generators}, set once
+         * after initialization. This is used by the {@link TestClickCombination monkeys} to signal
+         * when generation is complete.
          *
-         * @see #setGeneratorPool(ForkJoinPool)
          * @see #getGeneratorPool()
+         * @see #setGeneratorPool(ForkJoinPool)
+         * @see StartYourMonkeys#main(String[])
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignment and retrieval.
          * @threading Thread-safe via {@link StableValue}.
+         * @memory Minimal overhead for storing a {@link ForkJoinPool} reference.
          */
         private static final StableValue<ForkJoinPool> GENERATOR_POOL = StableValue.of();
 
         /**
          * A lazily computed array of all cell indices that are initially {@code true}.
          *
+         * @see #getBaseGrid()
          * @see Grid#findTrueCells()
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates an array of {@code short} of size equal to the number of {@code true}
+         *         cells on first access. Returns the same array reference thereafter.
          */
         public static final Supplier<short[]> TRUE_CELLS = StableValue
                 .supplier(() -> getBaseGrid().findTrueCells());
 
         /**
          * A lazily computed lookup table where {@code MASK[i]} is a bitmask representing which of
-         * the {@link #TRUE_CELLS} are adjacent to cell {@code i}.
+         * the {@link #TRUE_CELLS} are adjacent to cell {@code i}. This is used in
+         * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} for
+         * incremental and in-depth pruning checks respectively.
          *
          * @see #computeClickToTrueCellMask()
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates an array of {@code long} of size {@code NUM_CELLS} on first access.
+         *         Returns the same array reference thereafter.
          */
         public static final Supplier<long[]> CLICK_TO_TRUE_CELL_MASK = StableValue
                 .supplier(() -> computeClickToTrueCellMask());
 
         /**
          * A lazily computed bitmask where all bits corresponding to a {@code true} cell are set to
-         * 1. This is the expected result of the final XOR sum for a valid combination.
+         * {@code 1}. This is the expected result of the final XOR sum for a valid combination, and
+         * is used in both {@link CombinationGeneratorTask generators} and
+         * {@link TestClickCombination monkeys} for pruning checks in combination with
+         * {@link #CLICK_TO_TRUE_CELL_MASK}.
          *
+         * @see #TRUE_CELLS
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates a single {@link Long} on first access. Returns the same reference
+         *         thereafter.
          */
         public static final Supplier<Long> EXPECTED_MASK = StableValue
                 .supplier(() -> (1L << TRUE_CELLS.get().length) - 1);
 
         /**
          * A lazily computed, sorted array of cell indices that have an odd-numbered adjacency
-         * relationship with the first {@code true} cell.
+         * relationship with the first {@code true} cell. In other words, clicking these cells will
+         * toggle the first {@code true} cell.
          *
+         * @see #BASE_GRID
+         * @see #EVEN_CLICK_INDICES
          * @see Grid#findFirstTrueAdjacents()
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates an array of {@code short} on first access. Returns the same array
+         *         reference thereafter.
          */
         public static final Supplier<short[]> ODD_CLICK_INDICES = StableValue
                 .supplier(() -> BASE_GRID.orElseThrow().findFirstTrueAdjacents());
 
         /**
          * A lazily computed, sorted array of cell indices that have an even-numbered (or zero)
-         * adjacency relationship with the first {@code true} cell.
+         * adjacency relationship with the first {@code true} cell. In other words, clicking these
+         * cells will <b>not</b> toggle the first {@code true} cell.
          *
+         * @see #BASE_GRID
+         * @see #ODD_CLICK_INDICES
          * @see Grid#invertCombination(short[])
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates an array of {@code short} on first access. Returns the same array
+         *         reference thereafter.
          */
         public static final Supplier<short[]> EVEN_CLICK_INDICES = StableValue
                 .supplier(() -> Grid.invertCombination(ODD_CLICK_INDICES.get()));
 
         /**
          * A lazily computed lookup table of "suffix OR masks" used for {@code O(1)} pruning in the
-         * generator.
+         * generator. Each entry {@code SUFFIX_OR_MASKS[i]} is the bitwise OR of all
+         * {@link #CLICK_TO_TRUE_CELL_MASK} values from index {@code i} to the end of the array.
+         * This allows quick determination by the {@link CombinationGeneratorTask generators} of
+         * whether any remaining clicks can potentially touch the untoggled {@code true} cells.
          *
          * @see #computeSuffixOrMasks()
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates an array of {@code long} of size {@code NUM_CLICKS} on first access.
+         *         Returns the same array reference thereafter.
          */
         public static final Supplier<long[]> SUFFIX_OR_MASKS = StableValue
                 .supplier(() -> computeSuffixOrMasks());
 
         /**
          * A lazily computed lookup table to find the starting index for final clicks in the
-         * {@link #ODD_CLICK_INDICES} array.
+         * {@link #ODD_CLICK_INDICES} array. This is used by {@link WorkBatch} to quickly convert
+         * click indices to their corresponding positions in the odd array, avoiding a
+         * {@code O(log n)} binary search.
+         * 
+         * For a slight performance improvement, this array could be made into a {@code short[]} or
+         * even a {@code byte[]} since the maximum size of the odd array is 6, but we keep it as an
+         * {@code int[]} for simplicity and to prevent potential conversions to {@code int} later.
          *
+         * @see #EVEN_START_INDICES
          * @see #computeStartIndices(short[])
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates an array of {@code int} on first access. Returns the same array
+         *         reference thereafter.
          */
         public static final Supplier<int[]> ODD_START_INDICES = StableValue
                 .supplier(() -> computeStartIndices(ODD_CLICK_INDICES.get()));
 
         /**
          * A lazily computed lookup table to find the starting index for final clicks in the
-         * {@link #EVEN_CLICK_INDICES} array.
+         * {@link #EVEN_CLICK_INDICES} array. This is used by {@link WorkBatch} to quickly convert
+         * click indices to their corresponding positions in the even array, avoiding a
+         * {@code O(log n)} binary search.
+         * 
+         * For a slight performance improvement, this array could be made into a {@code short[]} or
+         * even a {@code byte[]} since the maximum size of the even array is 103, but we keep it as
+         * an {@code int[]} for simplicity and to prevent potential conversions to {@code int}
+         * later.
          *
+         * @see #EVEN_START_INDICES
          * @see #computeStartIndices(short[])
          * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} method call for computation, amortized {@code O(1)} access
+         *              thereafter.
          * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         * @memory Allocates an array of {@code int} on first access. Returns the same array
+         *         reference thereafter.
          */
         public static final Supplier<int[]> EVEN_START_INDICES = StableValue
                 .supplier(() -> computeStartIndices(EVEN_CLICK_INDICES.get()));
 
         /**
          * Private constructor to prevent instantiation.
+         * 
+         * @since 2025.12 - Global Configuration Refactor
          */
         private GlobalConfig() {}
 

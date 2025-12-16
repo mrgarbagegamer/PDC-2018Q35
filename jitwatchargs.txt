@@ -69,3 +69,8 @@
 # Better branch prediction
 -XX:+UseCountLeadingZerosInstruction        # Explicitly enable leading zeros instruction
 -XX:+UseCountTrailingZerosInstruction       # Explicitly enable trailing zeros instruction
+
+-XX:+UnlockDiagnosticVMOptions
+-Xlog:class+load=info
+-XX:+LogCompilation
+-XX:CompilerDirectivesFile=directives.txt

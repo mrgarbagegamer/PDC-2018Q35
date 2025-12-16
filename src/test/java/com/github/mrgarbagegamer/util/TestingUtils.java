@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Random;
 
 import com.github.mrgarbagegamer.Grid;
+import com.github.mrgarbagegamer.WorkBatch.Parity;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
@@ -22,6 +23,16 @@ public class TestingUtils {
         throw new UnsupportedOperationException(
                 "TestingUtils is a utility class and cannot be instantiated.");
     }
+
+    /**
+     * A predefined array of valid cell indices.
+     */
+    public static final short[] validIndices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+            15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
+            37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
+            59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
+            81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
+            102, 103, 104, 105, 106, 107, 108};
 
     /**
      * A predefined array of valid packed integer representations of cell indices.
@@ -45,35 +56,123 @@ public class TestingUtils {
      */
     public static short[] generateRandomCombination(int numClicks, short lowerBound,
             short upperBound) {
+        validateBounds(numClicks, lowerBound, upperBound);
+
+        return generateFromArray(validIndices, numClicks, lowerBound, upperBound);
+    }
+
+    /**
+     * Validates the bounds and number of clicks for generating a random combination.
+     * 
+     * @param numClicks  The number of unique shorts to generate.
+     * @param lowerBound The inclusive lower bound for the random shorts.
+     * @param upperBound The exclusive upper bound for the random shorts.
+     * @throws IllegalArgumentException if any of the validation checks fail.
+     */
+    private static void validateBounds(int numClicks, short lowerBound, short upperBound) {
         if (lowerBound < 0) {
             throw new IllegalArgumentException("lowerBound must be a non-negative integer.");
-        }
-        if (lowerBound >= upperBound) {
+        } else if (lowerBound >= upperBound) {
             throw new IllegalArgumentException("lowerBound must be less than upperBound.");
-        }
-        if (numClicks > upperBound - lowerBound) {
+        } else if (numClicks > upperBound - lowerBound) {
             throw new IllegalArgumentException(
                     "numClicks cannot be greater than the range defined by lowerBound and upperBound.");
-        }
-        if (numClicks <= 0) {
+        } else if (numClicks <= 0) {
             throw new IllegalArgumentException("numClicks must be a positive integer.");
         }
+    }
 
-        if (numClicks == upperBound - lowerBound) {
-            // If the number of clicks equals the range, return all values in the range
-            short[] allValues = new short[numClicks];
-            for (int i = 0; i < numClicks; i++) {
-                allValues[i] = (short) (lowerBound + i);
-            }
-            return allValues;
+    private static short[] generateFromList(ShortList source, int numClicks, short lowerBound, short upperBound) {
+        // Assume the source list is sorted
+        
+        // We need to get the indices in the source list that correspond to the bounds. Note that the
+        // bounds don't need to be in the source list, so we'd want to find the insertion points.
+
+        int lbIndex = Arrays.binarySearch(source.toShortArray(), lowerBound);
+        final int lowerIndex = lbIndex >= 0 ? lbIndex : -lbIndex - 1;
+
+        int ubIndex = Arrays.binarySearch(source.toShortArray(), upperBound);
+        final int upperIndex = ubIndex >= 0 ? ubIndex : -ubIndex - 1;
+
+        // If the range is the same as the number of clicks, return all elements in range
+        if (upperIndex - lowerIndex == numClicks) {
+            ShortList resultList = source.subList(lowerIndex, upperIndex);
+            return resultList.toShortArray();
         }
 
-        Random random = new Random();
-        ShortSortedSet testSet = new ShortAVLTreeSet();
-        while (testSet.size() < numClicks) {
-            testSet.add((short) random.nextInt(lowerBound, upperBound));
+        final Random random = new Random();
+        final ShortSortedSet resultSet = new ShortAVLTreeSet();
+        
+        while (resultSet.size() < numClicks) {
+            final int randIndex = random.nextInt(lowerIndex, upperIndex);
+            resultSet.add(source.getShort(randIndex));
         }
-        return testSet.toShortArray();
+
+        return resultSet.toShortArray();
+    }
+
+    @SuppressWarnings("unused")
+    private static short[] generateFromList(ShortList source, int numClicks, int lowerBound, int upperBound) {
+        return generateFromList(source, numClicks, (short) lowerBound, (short) upperBound);
+    }
+
+    private static short[] generateFromList(ShortList source, int numClicks, short upperBound) {
+        return generateFromList(source, numClicks, source.getShort(0), upperBound);
+    }
+
+    private static short[] generateFromList(ShortList source, int numClicks, int upperBound) {
+        return generateFromList(source, numClicks, (short) upperBound);
+    }
+
+    @SuppressWarnings("unused")
+    private static short[] generateFromList(ShortList source, int numClicks) {
+        return generateFromList(source, numClicks, source.getShort(source.size() - 1) + 1);
+    }
+    
+    private static short[] generateFromSet(ShortSortedSet source, int numClicks, short lowerBound, short upperBound) {
+        final ShortList sourceList = new ShortArrayList(source);
+        return generateFromList(sourceList, numClicks, lowerBound, upperBound);
+    }
+
+    @SuppressWarnings("unused")
+    private static short[] generateFromSet(ShortSortedSet source, int numClicks, int lowerBound, int upperBound) {
+        return generateFromSet(source, numClicks, (short) lowerBound, (short) upperBound);
+    }
+
+    private static short[] generateFromSet(ShortSortedSet source, int numClicks, short upperBound) {
+        return generateFromSet(source, numClicks, source.firstShort(), upperBound);
+    }
+
+    @SuppressWarnings("unused")
+    private static short[] generateFromSet(ShortSortedSet source, int numClicks, int upperBound) {
+        return generateFromSet(source, numClicks, (short) upperBound);
+    }
+
+    @SuppressWarnings("unused")
+    private static short[] generateFromSet(ShortSortedSet source, int numClicks) {
+        return generateFromSet(source, numClicks, source.lastShort());
+    }
+
+    private static short[] generateFromArray(short[] source, int numClicks, short lowerBound, short upperBound) {
+        final ShortList sourceList = new ShortArrayList(source);
+        return generateFromList(sourceList, numClicks, lowerBound, upperBound);
+    }
+
+    private static short[] generateFromArray(short[] source, int numClicks, int lowerBound, int upperBound) {
+        return generateFromArray(source, numClicks, (short) lowerBound, (short) upperBound);
+    }
+
+    private static short[] generateFromArray(short[] source, int numClicks, short upperBound) {
+        return generateFromArray(source, numClicks, 0, upperBound);
+    }
+
+    private static short[] generateFromArray(short[] source, int numClicks, int upperBound) {
+        return generateFromArray(source, numClicks, (short) upperBound);
+    }
+
+    @SuppressWarnings("unused")
+    private static short[] generateFromArray(short[] source, int numClicks) {
+        return generateFromArray(source, numClicks, source.length);
     }
 
     /**
@@ -133,18 +232,7 @@ public class TestingUtils {
      * @return An array of unique shorts.
      */
     public static short[] generateRandomCombinationPackedInt(int numClicks, short upperBound) {
-        int upperBoundIndex = Arrays.binarySearch(validPackedInts, upperBound);
-        if (upperBoundIndex < 0) {
-            throw new IllegalArgumentException("upperBound is not a valid PackedInt.");
-        }
-
-        Random random = new Random();
-        ShortSortedSet testSet = new ShortAVLTreeSet();
-        while (testSet.size() < numClicks) {
-            int randIndex = random.nextInt(upperBoundIndex + 1);
-            testSet.add(validPackedInts[randIndex]);
-        }
-        return testSet.toShortArray();
+        return generateFromArray(validPackedInts, numClicks, upperBound + 1);
     }
 
     /**
@@ -265,18 +353,18 @@ public class TestingUtils {
      * @param firstTrueCell The first true cell in Index format.
      * @return An array of odd click indices.
      */
-    public static short[] generateOddClickIndices(short firstTrueCell) {
+    public static short[] getOddClickIndices(short firstTrueCell) {
         return Grid.findAdjacents(firstTrueCell);
     }
 
     /**
-     * Overload for {@link #generateOddClickIndices(short)} with int input (for convenience).
+     * Overload for {@link #getOddClickIndices(short)} with int input (for convenience).
      * 
      * @param firstTrueCell The first true cell in Index format.
      * @return An array of odd click indices.
      */
-    public static short[] generateOddClickIndices(int firstTrueCell) {
-        return generateOddClickIndices((short) firstTrueCell);
+    public static short[] getOddClickIndices(int firstTrueCell) {
+        return getOddClickIndices((short) firstTrueCell);
     }
 
     /**
@@ -285,9 +373,9 @@ public class TestingUtils {
      * @param firstTrueCell The first true cell in Index format.
      * @return An array of even click indices.
      */
-    public static short[] generateEvenClickIndices(short firstTrueCell) {
+    public static short[] getEvenClickIndices(short firstTrueCell) {
         ShortSortedSet oddClickIndices = new ShortAVLTreeSet(
-                generateOddClickIndices(firstTrueCell));
+                getOddClickIndices(firstTrueCell));
         ShortSortedSet evenClickSet = new ShortAVLTreeSet();
         for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
             if (!oddClickIndices.contains(cell)) {
@@ -298,13 +386,13 @@ public class TestingUtils {
     }
 
     /**
-     * Overload for {@link #generateEvenClickIndices(short)} with int input (for convenience).
+     * Overload for {@link #getEvenClickIndices(short)} with int input (for convenience).
      * 
      * @param firstTrueCell The first true cell in Index format.
      * @return An array of even click indices.
      */
-    public static short[] generateEvenClickIndices(int firstTrueCell) {
-        return generateEvenClickIndices((short) firstTrueCell);
+    public static short[] getEvenClickIndices(int firstTrueCell) {
+        return getEvenClickIndices((short) firstTrueCell);
     }
 
     /**
@@ -315,8 +403,8 @@ public class TestingUtils {
      *         the even click indices.
      */
     public static short[][] generateClickIndices(short firstTrueCell) {
-        final short[] oddClickIndices = generateOddClickIndices(firstTrueCell);
-        final short[] evenClickIndices = generateEvenClickIndices(firstTrueCell);
+        final short[] oddClickIndices = getOddClickIndices(firstTrueCell);
+        final short[] evenClickIndices = getEvenClickIndices(firstTrueCell);
         return new short[][] {oddClickIndices, evenClickIndices};
     }
 
@@ -351,13 +439,13 @@ public class TestingUtils {
      * @param firstTrueCell The first true cell in Index format.
      * @return The calculated parity.
      */
-    public static boolean getPrefixParity(short[] prefix, short firstTrueCell) {
+    public static Parity getPrefixParity(short[] prefix, short firstTrueCell) {
         boolean parity = false;
         for (short cell : prefix) {
             parity ^= Grid.areAdjacent(cell, firstTrueCell);
         }
 
-        return parity;
+        return Parity.fromBoolean(parity);
     }
 
     /**
@@ -367,8 +455,20 @@ public class TestingUtils {
      * @param firstTrueCell The first true cell in Index format.
      * @return The calculated parity.
      */
-    public static boolean getPrefixParity(short[] prefix, int firstTrueCell) {
+    public static Parity getPrefixParity(short[] prefix, int firstTrueCell) {
         return getPrefixParity(prefix, (short) firstTrueCell);
+    }
+    
+    /**
+     * Overload for {@link #getPrefixParity(short[], short)} with StableValue input (for
+     * convenience).
+     * 
+     * @param prefix        The prefix combination in Index format.
+     * @param firstTrueCell A StableValue representing the first true cell in Index format.
+     * @return The calculated parity.
+     */
+    public static Parity getPrefixParity(short[] prefix, StableValue<Short> firstTrueCell) {
+        return getPrefixParity(prefix, firstTrueCell.orElseThrow());
     }
 
     /**
@@ -380,10 +480,11 @@ public class TestingUtils {
      * @return An array of final click indices.
      */
     public static short[] getFinalClicks(short[] prefix, short firstTrueCell) {
-        boolean prefixParity = getPrefixParity(prefix, firstTrueCell);
+        Parity prefixParity = getPrefixParity(prefix, firstTrueCell);
 
-        return prefixParity ? generateEvenClickIndices(firstTrueCell)
-                : generateOddClickIndices(firstTrueCell);
+        return prefixParity == Parity.ODD
+                ? getEvenClickIndices(firstTrueCell)
+                : getOddClickIndices(firstTrueCell);
     }
 
     /**
@@ -395,5 +496,302 @@ public class TestingUtils {
      */
     public static short[] getFinalClicks(short[] prefix, int firstTrueCell) {
         return getFinalClicks(prefix, (short) firstTrueCell);
+    }
+
+    /**
+     * Overload for {@link #getFinalClicks(short[], short)} with StableValue input (for
+     * convenience).
+     * 
+     * @param prefix        The prefix combination in Index format.
+     * @param firstTrueCell A StableValue representing the first true cell in Index format.
+     * @return An array of final click indices.
+     */
+    public static short[] getFinalClicks(short[] prefix, StableValue<Short> firstTrueCell) {
+        return getFinalClicks(prefix, firstTrueCell.orElseThrow());
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            short firstTrueCell, short lowerBound, short upperBound) {
+        // Basic validation
+        validateBounds(numClicks, lowerBound, upperBound);
+
+        final short[] oddClickIndices = getOddClickIndices(firstTrueCell);
+        final short[] evenClickIndices = getEvenClickIndices(firstTrueCell);
+
+        // Evaluate feasibility
+        checkEvenFeasibility(numClicks, lowerBound, upperBound, oddClickIndices);
+
+        // Generate combination
+        final int oddsToGenerate = generateRandomEvenNumber(0,
+                Math.min(numClicks, oddClickIndices.length) + 1);
+        final int evensToGenerate = numClicks - oddsToGenerate;
+
+        // Generate odd clicks
+        final short[] oddClicks = generateFromArray(oddClickIndices, oddsToGenerate,
+                lowerBound, upperBound);
+        
+        // Generate even clicks
+        final short[] evenClicks = generateFromArray(evenClickIndices, evensToGenerate,
+                lowerBound, upperBound);
+        
+        // Combine and return
+        return combineArrays(oddClicks, evenClicks);
+    }
+
+    private static void checkEvenFeasibility(short numClicks, short lowerBound, short upperBound,
+            final short[] oddClickIndices) {
+        // Count odds and evens in range
+        final ShortSortedSet oddClicksInRange = new ShortAVLTreeSet(
+                generateFromArray(oddClickIndices, oddClickIndices.length, lowerBound, upperBound));
+
+        final int oddsInRange = oddClicksInRange.size();
+        final int evensInRange = (upperBound - lowerBound) - oddsInRange;
+
+        // Check feasibility
+        boolean feasible = false;
+        for (int i = 0; i <= Math.min(numClicks, oddsInRange); i += 2) {
+            if (numClicks - i <= evensInRange) {
+                feasible = true;
+                break;
+            }
+        }
+        
+        if (!feasible) {
+            throw new IllegalArgumentException(
+                    "Cannot generate a combination with the specified parameters and even parity.");
+        }
+    }
+
+    private static int generateRandomEvenNumber(int lowerBound, int upperBound) {
+        final Random random = new Random();
+        // Adjust bounds to only include even numbers
+        final int adjustedLower = (lowerBound % 2 == 0) ? lowerBound : lowerBound + 1;
+        final int adjustedUpper = (upperBound % 2 == 0) ? upperBound : upperBound - 1;
+
+        if (adjustedLower > adjustedUpper) {
+            throw new IllegalArgumentException("No even numbers in the specified range.");
+        }
+
+        // Count of even numbers in range: (adjustedUpper - adjustedLower) / 2 + 1
+        final int evenCount = (adjustedUpper - adjustedLower) / 2 + 1;
+        final int randomIndex = random.nextInt(evenCount);
+        return adjustedLower + randomIndex * 2;
+    }
+
+    private static short[] combineArrays(short[] array1, short[] array2) {
+        ShortSortedSet combinedSet = new ShortAVLTreeSet(array1);
+        combinedSet.addAll(ShortList.of(array2));
+        return combinedSet.toShortArray();
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            short firstTrueCell, int lowerBound, int upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell, (short) lowerBound,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks, int firstTrueCell,
+            int lowerBound, int upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, (short) firstTrueCell,
+                (short) lowerBound, (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            StableValue<Short> firstTrueCell, short lowerBound, short upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell.orElseThrow(),
+                lowerBound, upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            StableValue<Short> firstTrueCell, int lowerBound, int upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell, (short) lowerBound,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            short firstTrueCell, short upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell, (short) 0,
+                upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            short firstTrueCell, int upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell, (short) 0,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks, int firstTrueCell,
+            int upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, (short) firstTrueCell, (short) 0,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            StableValue<Short> firstTrueCell, short upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell.orElseThrow(),
+                (short) 0, upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            StableValue<Short> firstTrueCell, int upperBound) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell.orElseThrow(),
+                (short) 0, (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            short firstTrueCell) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell,
+                (short) Grid.NUM_CELLS);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            int firstTrueCell) {
+        return generateRandomCombinationOfEvenParity(numClicks, (short) firstTrueCell,
+                (short) Grid.NUM_CELLS);
+    }
+
+    public static short[] generateRandomCombinationOfEvenParity(short numClicks,
+            StableValue<Short> firstTrueCell) {
+        return generateRandomCombinationOfEvenParity(numClicks, firstTrueCell.orElseThrow(),
+                (short) Grid.NUM_CELLS);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks, short firstTrueCell,
+            short lowerBound, short upperBound) {
+        // Basic validation
+        validateBounds(numClicks, lowerBound, upperBound);
+
+        final short[] oddClickIndices = getOddClickIndices(firstTrueCell);
+        final short[] evenClickIndices = getEvenClickIndices(firstTrueCell);
+
+        // Evaluate feasibility
+        checkOddFeasibility(numClicks, lowerBound, upperBound, oddClickIndices);
+
+        // Generate combination
+        final int oddsToGenerate = generateRandomOddNumber(1,
+                Math.min(numClicks, oddClickIndices.length) + 1);
+        final int evensToGenerate = numClicks - oddsToGenerate;
+
+        // Generate odd clicks
+        final short[] oddClicks = generateFromArray(oddClickIndices, oddsToGenerate,
+                lowerBound, upperBound);
+        
+        // Generate even clicks
+        final short[] evenClicks = generateFromArray(evenClickIndices, evensToGenerate,
+                lowerBound, upperBound);
+        
+        // Combine and return
+        return combineArrays(oddClicks, evenClicks);
+    }
+
+    private static void checkOddFeasibility(short numClicks, short lowerBound, short upperBound,
+            final short[] oddClickIndices) {
+        // Count odds and evens in range
+        final ShortSortedSet oddClicksInRange = new ShortAVLTreeSet(
+                generateFromArray(oddClickIndices, oddClickIndices.length, lowerBound, upperBound));
+
+        final int oddsInRange = oddClicksInRange.size();
+        final int evensInRange = (upperBound - lowerBound) - oddsInRange;
+
+        // Check feasibility
+        boolean feasible = false;
+        for (int i = 1; i <= Math.min(numClicks, oddsInRange); i += 2) {
+            if (numClicks - i <= evensInRange) {
+                feasible = true;
+                break;
+            }
+        }
+        
+        if (!feasible) {
+            throw new IllegalArgumentException(
+                    "Cannot generate a combination with the specified parameters and odd parity.");
+        }
+    }
+
+    private static int generateRandomOddNumber(int lowerBound, int upperBound) {
+        final Random random = new Random();
+        // Adjust bounds to only include odd numbers
+        final int adjustedLower = (lowerBound % 2 != 0) ? lowerBound : lowerBound + 1;
+        final int adjustedUpper = (upperBound % 2 != 0) ? upperBound : upperBound - 1;
+
+        if (adjustedLower > adjustedUpper) {
+            throw new IllegalArgumentException("No odd numbers in the specified range.");
+        }
+
+        // Count of odd numbers in range: (adjustedUpper - adjustedLower) / 2 + 1
+        final int oddCount = (adjustedUpper - adjustedLower) / 2 + 1;
+        final int randomIndex = random.nextInt(oddCount);
+        return adjustedLower + randomIndex * 2;
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks, short firstTrueCell,
+            int lowerBound, int upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell, (short) lowerBound,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks, int firstTrueCell,
+            int lowerBound, int upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, (short) firstTrueCell,
+                (short) lowerBound, (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks,
+            StableValue<Short> firstTrueCell, short lowerBound, short upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell.orElseThrow(),
+                lowerBound, upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks,
+            StableValue<Short> firstTrueCell, int lowerBound, int upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell.orElseThrow(),
+                (short) lowerBound, (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks, short firstTrueCell,
+            short upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell, (short) 0,
+                upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks, short firstTrueCell,
+            int upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell, (short) 0,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks, int firstTrueCell,
+            int upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, (short) firstTrueCell, (short) 0,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks,
+            StableValue<Short> firstTrueCell, short upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell.orElseThrow(),
+                (short) 0, upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks,
+            StableValue<Short> firstTrueCell, int upperBound) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell.orElseThrow(),
+                (short) 0, (short) upperBound);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks,
+            short firstTrueCell) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell,
+                (short) Grid.NUM_CELLS);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks, int firstTrueCell) {
+        return generateRandomCombinationOfOddParity(numClicks, (short) firstTrueCell,
+                (short) Grid.NUM_CELLS);
+    }
+
+    public static short[] generateRandomCombinationOfOddParity(short numClicks,
+            StableValue<Short> firstTrueCell) {
+        return generateRandomCombinationOfOddParity(numClicks, firstTrueCell.orElseThrow(),
+                (short) Grid.NUM_CELLS);
     }
 }

@@ -34,46 +34,27 @@ package com.github.mrgarbagegamer;
  * @threading This class is explicitly not thread-safe. All access must be confined to a single
  *            thread.
  * @memory Pre-allocated at construction to avoid runtime allocation, with a memory footprint
- *         determined by the {@link #capacity} and {@link #numClicks} fields.
+ *         determined by the {@link #capacity} and the number of clicks configured in
+ *         {@link StartYourMonkeys.GlobalConfig}.
  */
 public final class ArrayPool {
-    /**
-     * The required size for all arrays managed by the pool. This value is shared across all
-     * {@code ArrayPool} instances.
-     *
-     * <p>
-     * This field <strong>must</strong> be set via {@link #setNumClicks(int)} before any
-     * {@code ArrayPool} is {@link #ArrayPool(int) instantiated}. It is {@code static} to ensure
-     * that all generated combination arrays are of a consistent, predictable size, which is
-     * essential for the pre-allocation strategy. Making it non-{@code final} (but settable only
-     * once) was a design trade-off to avoid dependencies on configuration files or system
-     * properties for initialization.
-     * </p>
-     *
-     * @see #ArrayPool(int)
-     * @since 2025.07 - {@code ArrayPool} Pre-allocation
-     * @performance {@code O(1)} access.
-     * @threading Thread-safe; effectively immutable after being set once.
-     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
-     */
-    private static int numClicks = -1;
     /**
      * The internal buffer storing the pre-allocated {@code short[]} arrays.
      *
      * <p>
      * This 2D array acts as the backing store for the circular buffer. It is allocated once at
      * construction with a fixed {@link #capacity}, and its arrays are recycled via the
-     * {@link #head} and {@link #tail} pointers.
+     * {@link #head} and {@link #tail} pointers. The size of the inner arrays is determined by the
+     * {@code numClicks} value from {@link StartYourMonkeys.GlobalConfig}.
      * </p>
      *
      * @see #capacity
-     * @see #numClicks
+     * @see StartYourMonkeys.GlobalConfig#getNumClicks()
      * @see #ArrayPool(int)
      * @since 2025.07 - Custom Generator Pools
      * @performance {@code O(1)} access for {@link #get() get}/{@link #put(short[]) put} operations.
      * @threading Not thread-safe; must be confined to a single thread.
-     * @memory Fixed memory footprint of ~{@code capacity * numClicks * 2} bytes as a
-     *         {@code short[][]}.
+     * @memory Fixed memory footprint of ~{@code capacity * (numClicks - 1) * 2} bytes.
      */
     private final short[][] arrays;
     /**
@@ -146,56 +127,28 @@ public final class ArrayPool {
      * Constructs a new {@code ArrayPool} and pre-allocates its internal array buffer.
      *
      * <p>
-     * All arrays are allocated upfront to prevent runtime allocation overhead. This constructor
-     * will fail if {@link #numClicks} has not been set, ensuring a fail-fast approach to
-     * configuration errors.
+     * All arrays are allocated upfront to prevent runtime allocation overhead. The size of the
+     * arrays is retrieved from the central {@link StartYourMonkeys.GlobalConfig}.
      * </p>
      *
      * @param capacity The maximum number of arrays the pool can hold. Must be positive.
-     * @throws IllegalArgumentException if {@code capacity} is not positive or if {@link #numClicks}
-     *                                  has not been set.
+     * @throws IllegalArgumentException if {@code capacity} is not positive.
      * @see #arrays
-     * @see #setNumClicks(int)
+     * @see StartYourMonkeys.GlobalConfig#getNumClicks()
      * @since 2025.07 - Custom Generator Pools
-     * @performance {@code O(capacity)} pre-allocation of arrays.
-     * @memory Allocates a {@code short[capacity][numClicks]} and an {@code ArrayPool} instance.
+     * @performance {@code O(capacity * numClicks)} for pre-allocation.
+     * @memory Allocates a {@code short[capacity][numClicks - 1]} buffer.
      */
     public ArrayPool(int capacity) {
-        if (numClicks <= 0) {
-            throw new IllegalArgumentException("numClicks must be set before using ArrayPool.");
-        } else if (capacity <= 0) {
+        if (capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be greater than 0.");
         }
 
         this.capacity = capacity;
-        this.arrays = new short[capacity][numClicks];
+        final int numClicks = StartYourMonkeys.GlobalConfig.getNumClicks();
+        this.arrays = new short[capacity][numClicks - 1];
         // Pre-allocated arrays are immediately available
         this.size = capacity;
-    }
-
-    /**
-     * Sets the {@code static} size for all arrays that will be managed by {@code ArrayPool}
-     * instances.
-     *
-     * <p>
-     * This method is not thread-safe and must be called exactly once during application
-     * initialization, before any threads begin creating or using pools.
-     * </p>
-     *
-     * @param numClicks The size of each array in the pool. Must be positive.
-     * @throws IllegalArgumentException if {@code numClicks} is not positive.
-     * @see #numClicks
-     * @see #ArrayPool(int)
-     * @since 2025.07 - {@code ArrayPool} Pre-allocation
-     * @performance {@code O(1)} assignment.
-     * @threading Not thread-safe; must be called during single-threaded initialization.
-     * @memory Does not allocate.
-     */
-    public static void setNumClicks(int numClicks) {
-        if (numClicks <= 0) {
-            throw new IllegalArgumentException("numClicks must be greater than 0.");
-        }
-        ArrayPool.numClicks = numClicks;
     }
 
     /**
@@ -238,10 +191,9 @@ public final class ArrayPool {
      * </p>
      *
      * @param array The {@code short[]} array to return to the pool. It is assumed to be
-     *              non-{@code null} and of the {@link #numClicks correct size}.
+     *              non-{@code null} and of the correct size.
      * @see #ArrayPool(int)
      * @see #get()
-     * @see #setNumClicks(int)
      * @see #size()
      * @since 2025.07 - Custom Generator Pools
      * @performance {@code O(1)} insertion and field updates.

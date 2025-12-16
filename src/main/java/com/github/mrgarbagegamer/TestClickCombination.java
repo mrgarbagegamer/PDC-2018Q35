@@ -39,14 +39,15 @@ import org.apache.logging.log4j.Logger;
  * monkey logs the solution, signals a global shutdown, and terminates.
  * </p>
  *
- * <h2>Resource Management</h2>
+ * <h2>Resource Management and Configuration</h2>
  * <p>
- * To eliminate contention, each monkey operates on its own private {@link Grid} instance. Unlike
- * generator tasks, which use {@link ThreadLocal} storage to manage resources within a
- * {@link ForkJoinPool}, monkeys are simple {@link Thread}s with a persistent state, avoiding the
- * overhead of {@code ThreadLocal} lookups in their hot loop.
+ * To eliminate contention, each monkey operates on its own private {@link Grid} instance, cloned
+ * from the base grid in {@link StartYourMonkeys.GlobalConfig}. All derived configuration data, such
+ * as the {@link #MASKS} and {@link #EXPECTED} value, are now cached as {@code static final} fields
+ * at class load time by pulling them from {@code GlobalConfig}. This allows the JIT compiler to
+ * perform powerful constant-folding optimizations in the critical validation loop.
  * </p>
- * 
+ *
  * <p>
  * The only shared, mutable resource monkeys interact with directly is the central
  * {@link CombinationQueueArray}, from which they fetch work and to which they
@@ -125,7 +126,7 @@ public class TestClickCombination extends Thread {
      * {@link #queueArray}.
      * </p>
      *
-     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     * @see #TestClickCombination(String, CombinationQueue)
      * @see #allQueuesEmpty()
      * @see #getWork()
      * @since 2025.05 - Dedicated Queue per Monkey
@@ -143,13 +144,13 @@ public class TestClickCombination extends Thread {
      * {@link CombinationQueueArray#generationComplete}.
      * </p>
      *
-     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
+     * @see #TestClickCombination(String, CombinationQueue)
      * @since 2025.05 - Dedicated Queue per Monkey
      * @performance {@code O(1)} access to queues and flags.
      * @threading Thread-safe through use of {@code volatile} flags and concurrent queues.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private final CombinationQueueArray queueArray;
+    private static final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
     /**
      * The monkey's dedicated {@link Grid} instance for testing combinations.
      *
@@ -159,178 +160,68 @@ public class TestClickCombination extends Thread {
      * combination test.
      * </p>
      *
+     * @see #TestClickCombination(String, CombinationQueue)
      * @see #run()
-     * @see #TestClickCombination(String, CombinationQueue, CombinationQueueArray, Grid)
      * @since 2025.04 - Multi-threaded Solver Introduction
      * @performance {@code O(1)} state resets and cell toggles.
      * @threading Thread-safe by design, as each thread has its own instance.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
     private final Grid puzzleGrid;
-
     /**
-     * A pre-computed lookup table mapping a cell click to its effect on the puzzle's {@code true}
-     * cells.
+     * A {@code static final} cache of
+     * {@link StartYourMonkeys.GlobalConfig#CLICK_TO_TRUE_CELL_MASK}.
      *
      * <p>
-     * This table is the core of the {@link #buildParityMask(short[]) parity mask creation} and
-     * {@link #satisfiesOddAdjacency(long, short) odd adjacency checks}. Each index corresponds to a
-     * cell on the grid (0-108). The {@code long} value at that index is a
-     * {@link Grid.ValueFormat#Bitmask bitmask} where the Nth bit is 1 if clicking that cell toggles
-     * the Nth {@code true} cell of the puzzle.
+     * By caching this as a {@code static final} field at class load time, we enable the JIT
+     * compiler to perform constant-folding and other aggressive optimizations in the hot path
+     * method {@link #satisfiesOddAdjacency(long, short)}.
      * </p>
      *
-     * <p>
-     * This table is initialized once per puzzle via {@link #initializeLookupTable(short[])} using
-     * double-checked locking for thread-safety. All monkey threads share this single {@code static}
-     * instance. Since all puzzles have fewer than 64 {@code true} cells, a single {@code long} is
-     * sufficient for the bitmask.
-     * </p>
-     *
-     * @see #EXPECTED_MASK
-     * @since 2025.06 - Bitmask Pre-computations
-     * @performance {@code O(NUM_CELLS)} initialization cost amortized across threads; {@code O(1)}
-     *              lookups during checks.
-     * @threading Thread-safe via double-checked locking during initialization.
-     * @memory Fixed memory footprint of ~{@code 8 × Grid.NUM_CELLS} bytes (872 bytes).
+     * @since 2025.12 - GlobalConfig Refactor
+     * @performance {@code O(1)} array access in the hot path.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private static volatile long[] CLICK_TO_TRUE_CELL_MASK = null;
+    private static final long[] MASKS = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
     /**
-     * The target {@link Grid.ValueFormat#Bitmask bitmask} for a valid combination, where all bits
-     * corresponding to {@code true} cells are 1.
+     * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}.
      *
      * <p>
-     * A combination is valid under the odd adjacency rule if the final result of XORing the
-     * {@link #CLICK_TO_TRUE_CELL_MASK} for each click equals this expected mask. This means every
-     * true cell was toggled an odd number of times.
+     * Caching this as a {@code static final} constant allows the JIT compiler to treat it as a
+     * compile-time constant in the hot path method {@link #satisfiesOddAdjacency(long, short)},
+     * leading to significant performance improvements.
      * </p>
      *
-     * <p>
-     * Like the lookup table, this value is computed once per puzzle via
-     * {@link #initializeLookupTable(short[])} and shared {@code static}ally.
-     * </p>
-     *
-     * @see #CLICK_TO_TRUE_CELL_MASK
-     * @see #satisfiesOddAdjacency(long, short)
-     * @since 2025.06 - Bitmask Pre-computations
-     * @performance {@code O(1)} lookups.
-     * @threading Thread-safe via double-checked locking during initialization.
-     * @memory Fixed memory footprint of 8 bytes as a primitive {@code long}.
+     * @since 2025.12 - GlobalConfig Refactor
+     * @performance {@code O(1)} access in the hot path.
+     * @threading Thread-safe as a {@code static final} constant.
+     * @memory Fixed memory footprint of 8 bytes for the primitive {@code long}.
      */
-    private static volatile long EXPECTED_MASK = 0L;
+    private static final long EXPECTED = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
     /**
      * Constructs a monkey thread.
      *
      * <p>
-     * Each monkey requires its own {@link Grid} instance to test combinations, a preferred
-     * {@link CombinationQueue} to pull work from, and a reference to the shared
-     * {@link CombinationQueueArray} for work-stealing and global state coordination.
+     * The constructor is now simplified, requiring only a name and its preferred queue. All other
+     * configuration, including the {@link #puzzleGrid} to clone and the shared {@link #queueArray}
+     * instance, is retrieved directly from the central {@link StartYourMonkeys.GlobalConfig}.
      * </p>
      *
-     * <p>
-     * This constructor also triggers the one-time, thread-safe
-     * {@link #initializeLookupTable(short[]) initialization} of the {@code static}
-     * {@link #CLICK_TO_TRUE_CELL_MASK} and {@link #EXPECTED_MASK} lookup tables, which are shared
-     * across all monkey instances for a given puzzle.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The design delegates resource allocation to the caller for flexibility. A potential
-     * micro-optimization could be to make the {@link #queueArray} a {@code static} field, set once,
-     * rather than passing it as a reference to each monkey. This would save a small amount of
-     * memory per thread but was omitted for design simplicity.
-     * </p>
-     *
-     * @param threadName       The unique name for this monkey thread, used for logging.
-     * @param combinationQueue The monkey's preferred work queue.
-     * @param queueArray       The shared array of all queues, used for work-stealing and
-     *                         coordination.
-     * @param puzzleGrid       A <b>unique</b> {@link Grid} instance for this monkey to use for
-     *                         testing.
-     * @see #combinationQueue
-     * @see #puzzleGrid
-     * @see #queueArray
-     * @see Grid#findTrueCells(Grid.ValueFormat)
+     * @param name  The unique name for this monkey thread, used for logging.
+     * @param queue The monkey's preferred work queue.
+     * @see StartYourMonkeys.GlobalConfig#getBaseGrid()
+     * @see CombinationQueueArray#getInstance()
      * @since 2025.04 - Monkey Thread Introduction
-     * @performance {@code O(1)} assignments. The one-time cost of
-     *              {@link #initializeLookupTable(short[])} is amortized across all threads.
+     * @performance {@code O(1)} assignments plus the cost of cloning the grid.
      * @threading Thread-safe by nature of construction.
-     * @memory Allocates only a temporary {@code short[]} during the first lookup table
-     *         initialization, in addition to the thread itself.
+     * @memory Allocates a new {@link Grid} clone for this thread.
      */
-    public TestClickCombination(String threadName, CombinationQueue combinationQueue,
-            CombinationQueueArray queueArray, Grid puzzleGrid) {
-        super(threadName);
-        this.combinationQueue = combinationQueue;
-        this.queueArray = queueArray;
-        this.puzzleGrid = puzzleGrid;
-
-        // Initialize lookup table once for all threads
-        short[] trueCells = puzzleGrid.findTrueCells(Grid.ValueFormat.Index); // Find all true cells
-                                                                              // in index format
-        initializeLookupTable(trueCells);
-    }
-
-    /**
-     * Initializes the {@code static}, shared lookup tables for the odd adjacency check.
-     *
-     * <p>
-     * This method pre-computes the {@link #CLICK_TO_TRUE_CELL_MASK} and {@link #EXPECTED_MASK}
-     * values. It is called from the constructor but uses double-checked locking to ensure it only
-     * executes once per puzzle, making initialization thread-safe and lazy.
-     * </p>
-     *
-     * <p>
-     * For each of the {@value Grid#NUM_CELLS} possible clicks, it determines which of the puzzle's
-     * {@code true} cells are adjacent and encodes that information into a
-     * {@link Grid.ValueFormat#Bitmask bitmask}. It then computes the final expected mask where all
-     * relevant bits are set.
-     * </p>
-     *
-     * @param trueCells The array of initially true cells in {@link Grid.ValueFormat#Index Index}
-     *                  format.
-     * @since 2025.07 - Long Array Grid State Representation
-     * @performance {@code O(Grid.NUM_CELLS × trueCells.length)} initialization.
-     * @threading Thread-safe due to double-checked locking.
-     * @memory Allocates the lookup table (approx. 872 bytes) once.
-     */
-    private static void initializeLookupTable(short[] trueCells) {
-        // Double-checked locking for thread-safe lazy initialization
-        if (CLICK_TO_TRUE_CELL_MASK == null) {
-            synchronized (TestClickCombination.class) {
-                if (CLICK_TO_TRUE_CELL_MASK == null) {
-                    long[] lookup = new long[Grid.NUM_CELLS]; // 109 possible clicks, single long
-                                                              // for ≤64 bits
-
-                    for (short clickCell = 0; clickCell < 109; clickCell++) {
-                        for (int i = 0; i < trueCells.length; i++) {
-                            if (Grid.areAdjacent(trueCells[i], clickCell, Grid.ValueFormat.Index)) {
-                                lookup[clickCell] |= (1L << i);
-                            }
-                        }
-                    }
-
-                    // Compute expected mask once - simplified since trueCells.length ≤ 64
-                    long expectedMask = (1L << trueCells.length) - 1;
-
-                    // Atomically publish the results
-                    EXPECTED_MASK = expectedMask;
-                    CLICK_TO_TRUE_CELL_MASK = lookup; // This must be last
-                }
-            }
-        }
-    }
-
-    /**
-     * Returns the pre-computed lookup table mapping a click to its effect on true cells. This is
-     * required by the {@link CombinationGeneratorTask} to pre-compute prefix adjacency masks.
-     *
-     * @return The click-to-true-cell bitmask array.
-     */
-    public static long[] getClickToTrueCellMask() {
-        return CLICK_TO_TRUE_CELL_MASK;
+    public TestClickCombination(String name, CombinationQueue queue) {
+        super(name);
+        this.combinationQueue = queue;
+        this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid().clone();
     }
 
     /**
@@ -385,6 +276,8 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
+        final int prefixLength = WorkBatch.getNumClicks() - 1; // Constant prefix length for all
+                                                               // items
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
@@ -414,8 +307,6 @@ public class TestClickCombination extends Thread {
                 final short[] finalClicks = item.getFinalClicks();
                 final int start = item.getStart();
                 final short[] prefix = item.getPrefix();
-                final int prefixLength = item.getPrefixLength(); // TODO: Consider removing this
-                                                                 // variable for slight optimization
 
                 final long prefixMask = buildParityMask(prefix);
 
@@ -455,9 +346,9 @@ public class TestClickCombination extends Thread {
      * {@link #triggerGeneratorShutdown() triggering a shutdown}. By extracting this logic from the
      * {@link #run()} method, we improve JIT optimization opportunities in the hot loop.
      * 
-     * @param prefix The combination prefix leading up to the final click.
+     * @param prefix       The combination prefix leading up to the final click.
      * @param prefixLength The length of the prefix.
-     * @param finalClick The final click that completes the solution.
+     * @param finalClick   The final click that completes the solution.
      * @see CombinationQueueArray#solutionFound(String, short[])
      * @see System#arraycopy(Object, int, Object, int, int)
      * @since 2025.11 - Success Handling Extraction
@@ -471,8 +362,7 @@ public class TestClickCombination extends Thread {
         winningCombination[prefixLength] = finalClick;
         queueArray.solutionFound(this.getName(), winningCombination);
         logger.info("Found the solution as the following click combination: {}",
-                new CombinationMessage(winningCombination.clone(),
-                        Grid.ValueFormat.Index));
+                new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
 
         triggerGeneratorShutdown();
     }
@@ -496,7 +386,7 @@ public class TestClickCombination extends Thread {
     private void triggerGeneratorShutdown() {
         // Access the generator pool from CombinationGeneratorTask if stored there,
         // or use a different mechanism to signal shutdown
-        ForkJoinPool generatorPool = CombinationGeneratorTask.getForkJoinPool();
+        final ForkJoinPool generatorPool = StartYourMonkeys.GlobalConfig.getGeneratorPool();
         if (generatorPool != null && !generatorPool.isShutdown()) {
             logger.debug("Triggering generator pool shutdown from {}", getName());
             generatorPool.shutdownNow(); // Immediate shutdown with interruption
@@ -579,9 +469,9 @@ public class TestClickCombination extends Thread {
      * <p>
      * This method is a critical part of the "odd adjacency" optimization. It calculates the
      * cumulative effect of all clicks in the {@code combination} prefix by XORing their respective
-     * bitmasks from the {@link #CLICK_TO_TRUE_CELL_MASK} lookup table. The resulting {@code long}
-     * is a bitmask where the Nth bit is 1 if the Nth true cell was toggled an odd number of times
-     * by the prefix, and 0 otherwise.
+     * bitmasks from the {@link #MASKS} lookup table. The resulting {@code long} is a bitmask where
+     * the Nth bit is 1 if the Nth {@code true} cell was toggled an odd number of times by the
+     * prefix, and 0 otherwise.
      * </p>
      *
      * <p>
@@ -607,7 +497,7 @@ public class TestClickCombination extends Thread {
      */
     private final long buildParityMask(short[] combination) {
         // JIT OPTIMIZATION: Cache array references and length to encourage optimization
-        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
+        final long[] masks = MASKS;
         final int combinationLength = combination.length;
 
         long trueCellCounts = 0L;
@@ -631,8 +521,9 @@ public class TestClickCombination extends Thread {
      * <p>
      * This is the most performance-critical method in the monkey's hot loop. It validates a full
      * combination by taking the pre-computed XOR sum of the prefix ({@code prefixMask}) and XORing
-     * it with the mask for the {@code finalClick}. If the result equals the {@link #EXPECTED_MASK},
-     * it means every true cell was toggled an odd number of times, and the combination is valid.
+     * it with the mask for the {@code finalClick}. If the result equals the {@link #EXPECTED}, it
+     * means every {@code true} cell was toggled an odd number of times, and the combination is
+     * valid.
      * </p>
      *
      * @param prefixMask The pre-computed XOR sum of the combination's prefix.
@@ -643,12 +534,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe; uses only static data.
      * @memory Does not allocate.
      */
-    private final boolean satisfiesOddAdjacency(long prefixMask, short finalClick) {
-        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
-        final long expectedMask = EXPECTED_MASK;
-
-        long finalMask = prefixMask ^ masks[finalClick];
-
-        return finalMask == expectedMask;
+    private boolean satisfiesOddAdjacency(long prefixMask, short finalClick) {
+        return (prefixMask ^ MASKS[finalClick]) == EXPECTED;
     }
 }

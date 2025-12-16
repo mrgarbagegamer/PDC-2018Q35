@@ -75,8 +75,21 @@
       <plugins>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.14.1</version>
+          <configuration>
+            <compilerArgs>
+              <arg>--enable-preview</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.5.0</version>
+          <configuration>
+            <argLine>--enable-preview</argLine>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -108,7 +121,7 @@
           <source>25</source>
           <encoding>UTF-8</encoding>
           <doclint>none</doclint>
-          <additionalOptions>-Xdoclint:none</additionalOptions>
+          <additionalOptions>-Xdoclint:none --enable-preview</additionalOptions>
           <show>private</show>
           <nohelp>true</nohelp>
           <windowTitle>PDC-2018Q35 Lights Out Solver - Internal Documentation</windowTitle>

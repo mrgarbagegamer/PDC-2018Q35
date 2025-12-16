@@ -4,6 +4,8 @@ import org.apache.logging.log4j.message.AsynchronouslyFormattable;
 import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
 
+// TODO: Investigate reuse strategies to avoid allocating a new CombinationMessage for each log
+// event.
 /**
  * A specialized Log4j2 {@link Message} for logging solution combinations with low overhead.
  *
@@ -79,7 +81,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      *              conversion.
      * @memory Minimal footprint of ~{@code list.length × 2} bytes as a {@code short[]}.
      */
-    private short[] list;
+    private short[] list; // TODO: Consider making this final or investigating reuse strategies.
     /**
      * The {@link Grid.ValueFormat} of the combination stored in {@link #list}.
      * 

@@ -1,6 +1,8 @@
 package com.github.mrgarbagegamer;
 
+import java.lang.StableValue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -11,9 +13,10 @@ import org.apache.logging.log4j.util.Unbox;
  *
  * <p>
  * This class is responsible for initializing and coordinating the entire puzzle-solving process. It
- * sets up a producer-consumer architecture where {@link CombinationGeneratorTask generators} act as
- * producers, generating potential solutions, and {@link TestClickCombination "monkeys"} act as
- * consumers, validating them.
+ * parses command-line arguments, initializes the central {@link GlobalConfig}, and sets up the
+ * producer-consumer architecture. In this architecture, {@link CombinationGeneratorTask generators}
+ * act as producers within a {@link ForkJoinPool}, and {@link TestClickCombination "monkeys"} act as
+ * consumers, validating potential solutions.
  * </p>
  *
  * <h2>Architecture Role</h2>
@@ -23,14 +26,13 @@ import org.apache.logging.log4j.util.Unbox;
  * <ul>
  * <li>Parses command-line arguments for {@code numClicks}, {@code numThreads}, and
  * {@code puzzleNumber}.</li>
- * <li>Instantiates the correct {@link Grid} implementation (e.g., {@link Grid35}) for the selected
- * puzzle.</li>
- * <li>Initializes the {@link CombinationQueueArray}, the communication backbone for distributing
- * work.</li>
- * <li>Configures and starts a {@link ForkJoinPool} for the recursive generators.</li>
- * <li>Launches a pool of monkeys.</li>
- * <li>Manages the application lifecycle, from submitting the initial root task to gracefully
- * shutting down and reporting results.</li>
+ * <li><b>Initializes the {@link GlobalConfig} with the core configuration.</b></li>
+ * <li>Initializes the {@link CombinationQueueArray} singleton, which now pulls its configuration
+ * from {@code GlobalConfig}.</li>
+ * <li>Configures and starts the consumer thread pool ("monkeys").</li>
+ * <li>Configures and starts the {@link ForkJoinPool} for the producers.</li>
+ * <li>Submits the root {@link CombinationGeneratorTask} to begin the search.</li>
+ * <li>Manages graceful shutdown and reports the final result.</li>
  * </ul>
  *
  * <h2>Performance and Threading</h2>
@@ -220,47 +222,31 @@ public class StartYourMonkeys {
             baseGrid = new Grid22();
         }
 
-        short[] trueAdjacents = baseGrid.findFirstTrueAdjacents(Grid.ValueFormat.Index); // Find the
-                                                                                         // first
-                                                                                         // true
-                                                                                         // adjacents
-                                                                                         // in index
-                                                                                         // format
-        int finalFirstTrueAdjacent = -1;
-        if (trueAdjacents != null) {
-            for (int adjacent : trueAdjacents) {
-                if (adjacent > finalFirstTrueAdjacent) {
-                    finalFirstTrueAdjacent = adjacent;
-                }
-            }
-        }
+        // Initialize the global configuration values.
+        GlobalConfig.initialize(numClicks, numThreads, baseGrid);
 
         final int numGeneratorThreads = numThreads / 2; // Rounds down in the case of odd numbers
 
         // Tell the queue how many generators we have on startup (since we will be using
         // ForkJoinPool, there is effectively only one thread generating combinations)
-        WorkBatch.setNumClicks(numClicks);
-        CombinationQueueArray queueArray = CombinationQueueArray
-                .getInstance(numThreads - numGeneratorThreads); // One queue per worker thread
-        short[] trueCells = baseGrid.findTrueCells();
+        final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
 
         // Start consumer threads BEFORE generation
-        TestClickCombination[] monkeys = new TestClickCombination[numThreads - numGeneratorThreads];
-        for (int i = 0; i < numGeneratorThreads; i++) {
-            String threadName = String.format("Monkey-%d", i);
-            monkeys[i] = new TestClickCombination(threadName, queueArray.getQueue(i), queueArray,
-                    baseGrid.clone());
+        final TestClickCombination[] monkeys = new TestClickCombination[numThreads
+                - numGeneratorThreads];
+        for (int i = 0; i < monkeys.length; i++) {
+            monkeys[i] = new TestClickCombination("Monkey-" + i, queueArray.getQueue(i));
             monkeys[i].start();
         }
 
         // Create generator pool and submit root task
-        ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads);
-        CombinationGeneratorTask.setForkJoinPool(generatorPool);
+        final ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
+                new CombinationGeneratorTask.GeneratorWorkerThreadFactory(), null, false);
+        GlobalConfig.setGeneratorPool(generatorPool);
 
         try {
             // Invoke root task - no need to keep reference since we use awaitQuiescence
-            generatorPool.invoke(new CombinationGeneratorTask(numClicks, queueArray, trueCells,
-                    finalFirstTrueAdjacent));
+            generatorPool.invoke(CombinationGeneratorTask.createRootTask());
         } finally {
             // Flush any remaining batches only if no solution found
             if (!queueArray.isSolutionFound()) {
@@ -382,6 +368,408 @@ public class StartYourMonkeys {
         String[] lines = grid.toString().split("\n");
         for (String line : lines) {
             logger.info(line);
+        }
+    }
+
+    /**
+     * A centralized, immutable, single source of truth for all startup and derived configurations.
+     *
+     * <p>
+     * This class uses the Java 25 {@link StableValue} API to provide a robust and thread-safe
+     * mechanism for managing configuration. It holds two types of data:
+     * </p>
+     * <ul>
+     * <li><b>Core Configuration:</b> Values like {@link #NUM_CLICKS}, {@link #NUM_THREADS}, and
+     * {@link #BASE_GRID} are set once at application startup using
+     * {@link StableValue#setOrThrow(Object)}.</li>
+     * <li><b>Derived Configuration:</b> Values like {@link #TRUE_CELLS} and
+     * {@link #CLICK_TO_TRUE_CELL_MASK} are computed lazily and safely on first access using
+     * {@link StableValue#supplier(Supplier)}.</li>
+     * </ul>
+     * <p>
+     * This design eliminates the need for manual configuration passing and {@code volatile} fields
+     * throughout the application, simplifying component initialization and improving performance.
+     * </p>
+     *
+     * @since 2025.12 - Global Configuration Refactor
+     * @threading Thread-safe. Core values are set once from the main thread, and derived values are
+     *            initialized safely by {@code StableValue}.
+     * @memory Minimal overhead. Stores references and lazily-computed values.
+     */
+    public static final class GlobalConfig {
+
+        /**
+         * The number of clicks to test for a solution, set once at startup.
+         *
+         * @see #initialize(int, int, Grid)
+         * @see #getNumClicks()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
+        private static final StableValue<Integer> NUM_CLICKS = StableValue.of();
+        /**
+         * The total number of threads to use, set once at startup.
+         *
+         * @see #initialize(int, int, Grid)
+         * @see #getNumThreads()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
+        private static final StableValue<Integer> NUM_THREADS = StableValue.of();
+        /**
+         * The base grid instance for the selected puzzle, set once at startup.
+         *
+         * @see #initialize(int, int, Grid)
+         * @see #getBaseGrid()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
+        private static final StableValue<Grid> BASE_GRID = StableValue.of();
+        /**
+         * The {@link ForkJoinPool} for the generators, set once after initialization.
+         *
+         * @see #setGeneratorPool(ForkJoinPool)
+         * @see #getGeneratorPool()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue}.
+         */
+        private static final StableValue<ForkJoinPool> GENERATOR_POOL = StableValue.of();
+
+        /**
+         * A lazily computed array of all cell indices that are initially {@code true}.
+         *
+         * @see Grid#findTrueCells()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<short[]> TRUE_CELLS = StableValue
+                .supplier(() -> getBaseGrid().findTrueCells());
+
+        /**
+         * A lazily computed lookup table where {@code MASK[i]} is a bitmask representing which of
+         * the {@link #TRUE_CELLS} are adjacent to cell {@code i}.
+         *
+         * @see #computeClickToTrueCellMask()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<long[]> CLICK_TO_TRUE_CELL_MASK = StableValue
+                .supplier(() -> computeClickToTrueCellMask());
+
+        /**
+         * A lazily computed bitmask where all bits corresponding to a {@code true} cell are set to
+         * 1. This is the expected result of the final XOR sum for a valid combination.
+         *
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<Long> EXPECTED_MASK = StableValue
+                .supplier(() -> (1L << TRUE_CELLS.get().length) - 1);
+
+        /**
+         * A lazily computed, sorted array of cell indices that have an odd-numbered adjacency
+         * relationship with the first {@code true} cell.
+         *
+         * @see Grid#findFirstTrueAdjacents()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<short[]> ODD_CLICK_INDICES = StableValue
+                .supplier(() -> BASE_GRID.orElseThrow().findFirstTrueAdjacents());
+
+        /**
+         * A lazily computed, sorted array of cell indices that have an even-numbered (or zero)
+         * adjacency relationship with the first {@code true} cell.
+         *
+         * @see Grid#invertCombination(short[])
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<short[]> EVEN_CLICK_INDICES = StableValue
+                .supplier(() -> Grid.invertCombination(ODD_CLICK_INDICES.get()));
+
+        /**
+         * A lazily computed lookup table of "suffix OR masks" used for {@code O(1)} pruning in the
+         * generator.
+         *
+         * @see #computeSuffixOrMasks()
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<long[]> SUFFIX_OR_MASKS = StableValue
+                .supplier(() -> computeSuffixOrMasks());
+
+        /**
+         * A lazily computed lookup table to find the starting index for final clicks in the
+         * {@link #ODD_CLICK_INDICES} array.
+         *
+         * @see #computeStartIndices(short[])
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<int[]> ODD_START_INDICES = StableValue
+                .supplier(() -> computeStartIndices(ODD_CLICK_INDICES.get()));
+
+        /**
+         * A lazily computed lookup table to find the starting index for final clicks in the
+         * {@link #EVEN_CLICK_INDICES} array.
+         *
+         * @see #computeStartIndices(short[])
+         * @since 2025.12 - Global Configuration Refactor
+         * @threading Thread-safe via {@link StableValue#supplier(Supplier)}.
+         */
+        public static final Supplier<int[]> EVEN_START_INDICES = StableValue
+                .supplier(() -> computeStartIndices(EVEN_CLICK_INDICES.get()));
+
+        /**
+         * Private constructor to prevent instantiation.
+         */
+        private GlobalConfig() {}
+
+        /**
+         * Checks if all core configuration values have been initialized.
+         * 
+         * @return {@code true} if {@link #NUM_CLICKS}, {@link #NUM_THREADS}, and {@link #BASE_GRID}
+         *         are all set; {@code false} otherwise.
+         * @see #isBaseGridSet()
+         * @see #isNumClicksSet()
+         * @see #isNumThreadsSet()
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} checks.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static boolean isInitialized() {
+            return NUM_CLICKS.isSet() && NUM_THREADS.isSet() && BASE_GRID.isSet();
+        }
+
+        /**
+         * Checks if the {@link #NUM_CLICKS} configuration value has been initialized.
+         * 
+         * @return {@code true} if {@link #NUM_CLICKS} is set; {@code false} otherwise.
+         * @see #isBaseGridSet()
+         * @see #isInitialized()
+         * @see #isNumThreadsSet()
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} check.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static boolean isNumClicksSet() {
+            return NUM_CLICKS.isSet();
+        }
+
+        /**
+         * Checks if the {@link #NUM_THREADS} configuration value has been initialized.
+         * 
+         * @return {@code true} if {@link #NUM_THREADS} is set; {@code false} otherwise.
+         * @see #isBaseGridSet()
+         * @see #isInitialized()
+         * @see #isNumClicksSet()
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} check.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static boolean isNumThreadsSet() {
+            return NUM_THREADS.isSet();
+        }
+
+        /**
+         * Checks if the {@link #BASE_GRID} configuration value has been initialized.
+         * 
+         * @return {@code true} if {@link #BASE_GRID} is set; {@code false} otherwise.
+         * @see #isInitialized()
+         * @see #isNumClicksSet()
+         * @see #isNumThreadsSet()
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} check.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static boolean isBaseGridSet() {
+            return BASE_GRID.isSet();
+        }
+
+        /**
+         * Initializes the global configuration values. This method is designed to be called once
+         * from the main thread at startup. While this method could be synchronized to allow
+         *
+         * @param numClicks  The number of clicks to test.
+         * @param numThreads The total number of threads to use.
+         * @param baseGrid   The initial grid instance for the puzzle.
+         * @throws IllegalArgumentException if any arguments are invalid.
+         * @see #BASE_GRID
+         * @see #NUM_CLICKS
+         * @see #NUM_THREADS
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignments.
+         * @threading Thread-safe when called from a single thread at startup.
+         * @memory Allocates two {@link Integer} objects for primitive boxing.
+         */
+        static void initialize(int numClicks, int numThreads, Grid baseGrid) {
+            if (numClicks < 1 || numThreads < 1 || baseGrid == null) {
+                throw new IllegalArgumentException("Invalid arguments to initialize GlobalConfig.");
+            }
+
+            NUM_CLICKS.setOrThrow(numClicks);
+            NUM_THREADS.setOrThrow(numThreads);
+            BASE_GRID.setOrThrow(baseGrid);
+        }
+
+        /**
+         * Sets the {@link ForkJoinPool} for the generators. This method should be called once after
+         * initialization.
+         *
+         * @param pool The {@link ForkJoinPool} to use for combination generation.
+         * @see #GENERATOR_POOL
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignment.
+         * @threading Thread-safe when called from a single thread after initialization.
+         * @memory Does not allocate.
+         */
+        public static void setGeneratorPool(ForkJoinPool pool) {
+            GENERATOR_POOL.setOrThrow(pool);
+        }
+
+        /**
+         * Retrieves the {@link ForkJoinPool} used for combination generation.
+         * 
+         * @return The configured {@link ForkJoinPool}.
+         * @see #GENERATOR_POOL
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} retrieval.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static ForkJoinPool getGeneratorPool() {
+            return GENERATOR_POOL.orElseThrow();
+        }
+
+        /**
+         * Retrieves the number of clicks to test for a solution.
+         * 
+         * @return The number of clicks.
+         * @see #NUM_CLICKS
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} retrieval.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static int getNumClicks() {
+            return NUM_CLICKS.orElseThrow();
+        }
+
+        /**
+         * Retrieves the total number of threads to use.
+         * 
+         * @return The number of threads.
+         * @see #NUM_THREADS
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} retrieval.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static int getNumThreads() {
+            return NUM_THREADS.orElseThrow();
+        }
+
+        /**
+         * Retrieves the base grid instance for the selected puzzle.
+         * 
+         * @return The base {@link Grid}.
+         * @see #BASE_GRID
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} retrieval.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static Grid getBaseGrid() {
+            return BASE_GRID.orElseThrow();
+        }
+
+        /**
+         * Computes the click-to-true-cell adjacency masks for all cells in the grid.
+         * 
+         * @return An array where {@code MASK[i]} is a bitmask of which {@code true} cells are
+         *         adjacent to cell {@code i}.
+         * @see #CLICK_TO_TRUE_CELL_MASK
+         * @see #TRUE_CELLS
+         * @see Grid#areAdjacent(short, short)
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(NUM_CELLS * T)} where {@code T} is the number of true cells.
+         * @threading Thread-safe; does not modify shared state.
+         * @memory Allocates an array of {@code long} of size {@code NUM_CELLS}.
+         */
+        private static long[] computeClickToTrueCellMask() {
+            final short[] trueCells = TRUE_CELLS.get();
+            final long[] masks = new long[Grid.NUM_CELLS]; // Use Grid.NUM_CELLS
+            for (short i = 0; i < Grid.NUM_CELLS; i++) { // Use Grid.NUM_CELLS
+                long mask = 0;
+                for (int j = 0; j < trueCells.length; j++) {
+                    if (Grid.areAdjacent(i, trueCells[j])) {
+                        mask |= (1L << j);
+                    }
+                }
+                masks[i] = mask;
+            }
+            return masks;
+        }
+
+        /**
+         * Computes the suffix OR masks for pruning in the generator.
+         * 
+         * @return An array where {@code MASK[i]} is the OR of all click-to-true-cell masks from
+         *         index {@code i} to the end.
+         * @see #CLICK_TO_TRUE_CELL_MASK
+         * @see #SUFFIX_OR_MASKS
+         * @see #computeClickToTrueCellMask()
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(NUM_CELLS)}.
+         * @threading Thread-safe; does not modify shared state.
+         * @memory Allocates an array of {@code long} of size {@code NUM_CELLS + 1}.
+         */
+        private static long[] computeSuffixOrMasks() {
+            final long[] cellMasks = CLICK_TO_TRUE_CELL_MASK.get();
+            final long[] orMasks = new long[Grid.NUM_CELLS + 1];
+
+            long cumulativeMask = 0;
+            for (int i = Grid.NUM_CELLS - 1; i >= 0; i--) {
+                cumulativeMask |= cellMasks[i];
+                orMasks[i] = cumulativeMask;
+            }
+
+            return orMasks;
+        }
+
+        /**
+         * Computes the start indices for valid clicks in the given array.
+         * 
+         * @param validClicks An array of valid click indices.
+         * @return An array where {@code START[i]} is the first index in {@code validClicks} greater
+         *         than {@code i}.
+         * @see #EVEN_CLICK_INDICES
+         * @see #EVEN_START_INDICES
+         * @see #ODD_CLICK_INDICES
+         * @see #ODD_START_INDICES
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(NUM_CELLS + V)} where {@code V} is the length of
+         *              {@code validClicks}.
+         * @threading Thread-safe; does not modify shared state.
+         * @memory Allocates an array of {@code int} of size {@code NUM_CELLS}.
+         */
+        private static int[] computeStartIndices(short[] validClicks) {
+            int[] result = new int[Grid.NUM_CELLS];
+            int clickIdx = 0;
+
+            for (int lastPrefixClick = 0; lastPrefixClick < Grid.NUM_CELLS; lastPrefixClick++) {
+                // Find first index where validClicks[idx] > lastPrefixClick
+                while (clickIdx < validClicks.length && validClicks[clickIdx] <= lastPrefixClick) {
+                    clickIdx++;
+                }
+                result[lastPrefixClick] = clickIdx;
+            }
+            return result;
         }
     }
 }

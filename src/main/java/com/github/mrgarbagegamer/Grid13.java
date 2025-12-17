@@ -53,7 +53,7 @@ public class Grid13 extends Grid {
      * @threading Not thread-safe; mutates instance state.
      * @memory Does not allocate.
      */
-    void initialize() {
+    public void initialize() {
         // Initialize for Q13/Kermit
 
         // set all cells to their initial state

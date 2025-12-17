@@ -883,7 +883,7 @@ public abstract class Grid {
      * @performance Implementation-dependent.
      * @threading Not thread-safe; this method modifies the instance's {@link #gridState}.
      */
-    abstract void initialize();
+    public abstract void initialize();
 
     /**
      * Sets the bit at the specified {@link ValueFormat#Index index} in the {@link #gridState grid

@@ -52,7 +52,7 @@ public class Grid35 extends Grid {
      * @threading Not thread-safe; mutates instance state.
      * @memory Does not allocate.
      */
-    void initialize() {
+    public void initialize() {
         // Initialize for Q35
 
         // set all cells to their initial state

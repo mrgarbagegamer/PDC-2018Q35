@@ -690,7 +690,7 @@ public class StartYourMonkeys {
          * @threading Thread-safe when called from a single thread at startup.
          * @memory Allocates two {@link Integer} objects for primitive boxing.
          */
-        static void initialize(int numClicks, int numThreads, Grid baseGrid) {
+        public static void initialize(int numClicks, int numThreads, Grid baseGrid) {
             if (numClicks < 1 || numThreads < 1 || baseGrid == null) {
                 throw new IllegalArgumentException("Invalid arguments to initialize GlobalConfig.");
             }

@@ -10,3 +10,4 @@ target
 *.jfr
 JFR/*
 .kilocode/mcp.json
+benchmarks/dependency-reduced-pom.xml

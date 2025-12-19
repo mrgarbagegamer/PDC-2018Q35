@@ -1,5 +1,5 @@
 # Classpath
--cp "target/classes;target/lib/*"
+-cp "core/target/classes;core/target/lib/*"
 
 # Existing JVM arguments
 --enable-preview

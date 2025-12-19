@@ -1,4 +1,4 @@
-package com.github.mrgarbagegamer.benchmarks;
+package com.github.mrgarbagegamer;
 
 import java.util.concurrent.TimeUnit;
 
@@ -16,11 +16,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Control;
-
-import com.github.mrgarbagegamer.CombinationQueue;
-import com.github.mrgarbagegamer.Grid35;
-import com.github.mrgarbagegamer.StartYourMonkeys;
-import com.github.mrgarbagegamer.WorkBatch;
 
 @State(Scope.Group)
 @BenchmarkMode(Mode.Throughput)

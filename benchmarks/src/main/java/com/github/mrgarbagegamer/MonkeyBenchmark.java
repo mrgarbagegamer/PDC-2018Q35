@@ -1,4 +1,4 @@
-package com.github.mrgarbagegamer.benchmarks;
+package com.github.mrgarbagegamer;
 
 import java.util.concurrent.TimeUnit;
 
@@ -14,11 +14,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
-
-import com.github.mrgarbagegamer.CombinationMessage;
-import com.github.mrgarbagegamer.Grid;
-import com.github.mrgarbagegamer.Grid35;
-import com.github.mrgarbagegamer.StartYourMonkeys;
 
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)

@@ -113,7 +113,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to the design of Log4j2.
      * @memory Fixed memory footprint of ~4 bytes as a reference.
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(CombinationGeneratorTask.class);
 
     /**
      * A thread-safe collection of all active {@link GeneratorContext} instances.

@@ -1024,7 +1024,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            isolation.
      * @memory Does not allocate; uses pre-computed {@code static} bitmasks.
      */
-    private boolean canPotentiallySatisfyConstraints(int startIdx) {
+    boolean canPotentiallySatisfyConstraints(int startIdx) {
         // OPTIMIZATION: Call ensureTrueCellMasks once in the root task to avoid a call here.
 
         // cachedAdjacencyState can only be -1 for the root task (which skips this check)

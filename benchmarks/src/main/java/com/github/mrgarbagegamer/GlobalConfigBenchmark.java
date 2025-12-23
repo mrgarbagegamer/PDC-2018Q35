@@ -50,13 +50,18 @@ import org.openjdk.jmh.annotations.Warmup;
 })
 public class GlobalConfigBenchmark {
     
-    @Setup(Level.Trial)
-    public void setup() {
-        // Initialize once per JVM (StableValue constraint)
+    private static final long[] BASELINE_MASKS;
+    
+    static {
+        // Ensure GlobalConfig is initialized before any benchmarks run so the 
         if (!StartYourMonkeys.GlobalConfig.isInitialized()) {
             StartYourMonkeys.GlobalConfig.initialize(17, 16, new Grid35());
         }
-        
+        BASELINE_MASKS = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
+    }
+    
+    @Setup(Level.Trial)
+    public void setup() {
         // Force lazy initialization of all derived config
         StartYourMonkeys.GlobalConfig.TRUE_CELLS.get();
         StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
@@ -117,8 +122,6 @@ public class GlobalConfigBenchmark {
      * Measures overhead vs. direct static final field access (baseline).
      * Compares GlobalConfig access to the old volatile-field approach.
      */
-    private static final long[] BASELINE_MASKS = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
-    
     @Benchmark
     public long[] baseline_staticFinalAccess() {
         return BASELINE_MASKS;

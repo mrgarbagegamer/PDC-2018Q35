@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer;
 
 import java.util.concurrent.TimeUnit;
 
+import org.jctools.queues.MpmcArrayQueue;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -46,6 +47,8 @@ public class QueueBenchmark {
 
     private CombinationQueue queue;
     private WorkBatch sharedBatch;
+    private MpmcArrayQueue<WorkBatch> centralPool;
+    private WorkBatch[] preallocatedBatches;
 
     @Setup(Level.Trial)
     public void setup() {
@@ -59,6 +62,19 @@ public class QueueBenchmark {
             // Ignore
         }
         sharedBatch = new WorkBatch();
+        
+        // Initialize central pool (Tier 1 benchmark)
+        int poolSize = 8 * 16; // 8 queues * 16 capacity each
+        centralPool = new MpmcArrayQueue<>(poolSize);
+        for (int i = 0; i < poolSize; i++) {
+            centralPool.offer(new WorkBatch());
+        }
+        
+        // Pre-allocate batches for consumer-side benchmarks
+        preallocatedBatches = new WorkBatch[1000];
+        for (int i = 0; i < preallocatedBatches.length; i++) {
+            preallocatedBatches[i] = new WorkBatch();
+        }
     }
 
     @Benchmark
@@ -75,5 +91,53 @@ public class QueueBenchmark {
         return queue.getWorkBatch();
     }
 
-    // TODO: Consider adding benchmarks for queue contention scenarios
+    /**
+     * Simulates producer pattern: continuously poll empty batches.
+     * Producers ONLY poll from the central pool (never offer back to it).
+     * Uses relaxedPoll() to match production behavior.
+     */
+    @Benchmark
+    @Group("centralPoolContention")
+    @GroupThreads(8)
+    public WorkBatch producerPattern_pollEmpty() {
+        return centralPool.relaxedPoll();
+    }
+
+    /**
+     * Simulates consumer pattern: continuously offer cleared batches.
+     * Consumers poll from their queues and ONLY offer back to the central pool.
+     */
+    @Benchmark
+    @Group("centralPoolContention")
+    @GroupThreads(8)
+    public void consumerPattern_offerEmpty() {
+        int idx = Thread.currentThread().hashCode() % preallocatedBatches.length;
+        WorkBatch batch = preallocatedBatches[idx];
+        batch.clear();
+        centralPool.offer(batch);
+    }
+
+    /**
+     * Realistic mixed workload: 4 producers polling, 4 consumers offering.
+     * This simulates actual runtime: producers drain the pool, consumers refill it.
+     */
+    @Benchmark
+    @Group("mixedPoolAccess")
+    @GroupThreads(4)
+    public WorkBatch producerSide_poll() {
+        WorkBatch batch = centralPool.relaxedPoll();
+        if (batch != null) {
+            batch.clear();
+        }
+        return batch;
+    }
+
+    @Benchmark
+    @Group("mixedPoolAccess")
+    @GroupThreads(4)
+    public void consumerSide_offer() {
+        int idx = Thread.currentThread().hashCode() % preallocatedBatches.length;
+        WorkBatch batch = preallocatedBatches[idx];
+        centralPool.offer(batch);
+    }
 }

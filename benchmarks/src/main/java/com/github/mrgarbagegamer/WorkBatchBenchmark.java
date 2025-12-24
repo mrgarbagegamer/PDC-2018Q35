@@ -15,6 +15,15 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
+/**
+ * {@link Benchmark}s for the {@link WorkBatch} class, focusing on adding work and iterating
+ * over work items.
+ * 
+ * <p>
+ * These benchmarks take ~1m30s in total to run (3 forks x (5 warmup + 5 measurement) x 3
+ * benchmarks).
+ * </p>
+ */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)

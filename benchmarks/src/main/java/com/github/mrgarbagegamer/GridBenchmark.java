@@ -14,31 +14,33 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
+/**
+ * {@link Benchmark}s for the {@link Grid} implementations.
+ * 
+ * <p>
+ * These benchmarks take ~3m in total to run (3 forks x (5 warmup + 5 measurement) x 6 benchmarks).
+ * </p>
+ */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
-@Fork(value = 3, jvmArgsAppend = {
-    "--enable-preview",
-    "-XX:+UseG1GC",
-    "-Xms2g", "-Xmx8g",
-    "-XX:GCTimeRatio=19",
-    "-XX:MaxInlineSize=70", "-XX:FreqInlineSize=650",
-    "-XX:InlineSmallCode=5000", "-XX:MaxInlineLevel=20",
-    "-XX:CompileThreshold=5000", "-XX:Tier3CompileThreshold=1000", "-XX:Tier4CompileThreshold=7500",
-    "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableVectorSupport", "-XX:+EnableVectorReboxing", "-XX:+EnableVectorAggressiveReboxing",
-    "-XX:MaxVectorSize=32", "-XX:+AlignVector",
-    "-XX:+UseTLAB", "-XX:TLABSize=512k", "-XX:+ResizeTLAB", "-XX:TLABWasteTargetPercent=5",
-    "-XX:+AlwaysPreTouch",
-    "-XX:+EliminateAllocations", "-XX:+EliminateAutoBox", "-XX:EliminateAllocationArraySizeLimit=128",
-    "-XX:MaxGCPauseMillis=100", "-XX:G1NewSizePercent=40", "-XX:G1MaxNewSizePercent=80",
-    "-XX:G1HeapRegionSize=16m", "-XX:G1MixedGCCountTarget=4", "-XX:+G1UseAdaptiveIHOP",
-    "-XX:+UseThreadPriorities", "-XX:+UseCriticalCompilerThreadPriority",
-    "-XX:+UseDynamicNumberOfCompilerThreads", "-XX:CICompilerCount=16",
-    "-XX:PerMethodTrapLimit=200", "-XX:PerBytecodeTrapLimit=8", "-XX:PerMethodRecompilationCutoff=800",
-    "-XX:+UseCountLeadingZerosInstruction", "-XX:+UseCountTrailingZerosInstruction"
-})
+@Fork(value = 3, jvmArgsAppend = {"--enable-preview", "-XX:+UseG1GC", "-Xms2g", "-Xmx8g",
+        "-XX:GCTimeRatio=19", "-XX:MaxInlineSize=70", "-XX:FreqInlineSize=650",
+        "-XX:InlineSmallCode=5000", "-XX:MaxInlineLevel=20", "-XX:CompileThreshold=5000",
+        "-XX:Tier3CompileThreshold=1000", "-XX:Tier4CompileThreshold=7500",
+        "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableVectorSupport", "-XX:+EnableVectorReboxing",
+        "-XX:+EnableVectorAggressiveReboxing", "-XX:MaxVectorSize=32", "-XX:+AlignVector",
+        "-XX:+UseTLAB", "-XX:TLABSize=512k", "-XX:+ResizeTLAB", "-XX:TLABWasteTargetPercent=5",
+        "-XX:+AlwaysPreTouch", "-XX:+EliminateAllocations", "-XX:+EliminateAutoBox",
+        "-XX:EliminateAllocationArraySizeLimit=128", "-XX:MaxGCPauseMillis=100",
+        "-XX:G1NewSizePercent=40", "-XX:G1MaxNewSizePercent=80", "-XX:G1HeapRegionSize=16m",
+        "-XX:G1MixedGCCountTarget=4", "-XX:+G1UseAdaptiveIHOP", "-XX:+UseThreadPriorities",
+        "-XX:+UseCriticalCompilerThreadPriority", "-XX:+UseDynamicNumberOfCompilerThreads",
+        "-XX:CICompilerCount=16", "-XX:PerMethodTrapLimit=200", "-XX:PerBytecodeTrapLimit=8",
+        "-XX:PerMethodRecompilationCutoff=800", "-XX:+UseCountLeadingZerosInstruction",
+        "-XX:+UseCountTrailingZerosInstruction"})
 public class GridBenchmark {
 
     private Grid grid;
@@ -50,8 +52,8 @@ public class GridBenchmark {
     public void setup() {
         grid = new Grid35();
         // A dummy combination for testing click performance
-        combination = new short[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-        prefix = new short[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+        combination = new short[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+        prefix = new short[] {0, 1, 2, 3, 4, 5, 6, 7, 8};
         finalClick = 9;
     }
 
@@ -79,13 +81,13 @@ public class GridBenchmark {
         // This forces the lazy recalculation of trueCellsCount.
         grid.click(prefix, finalClick);
         boolean solved = grid.isSolved();
-        
+
         // Reset state by initializing.
         grid.initialize();
-        
+
         return solved;
     }
-    
+
     @Benchmark
     public int getTrueCount_Clean() {
         // Since we don't modify the grid in this benchmark, the dirty flag remains false
@@ -98,10 +100,10 @@ public class GridBenchmark {
         // This measures the cost of a click PLUS the cost of recalculation.
         grid.click(combination); // Dirty it
         int count = grid.getTrueCount(); // Recalculate
-        
+
         // Reset state by clicking again (XOR undo)
         grid.click(combination);
-        
+
         return count;
     }
 }

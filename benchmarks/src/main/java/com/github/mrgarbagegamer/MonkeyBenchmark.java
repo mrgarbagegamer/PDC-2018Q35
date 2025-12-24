@@ -14,31 +14,33 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
+/**
+ * {@link Benchmark}s for the fast pruning logic in {@link TestClickCombination}.
+ * 
+ * <p>
+ * These benchmarks take ~1m in total to run (3 forks x (5 warmup + 5 measurement) x 2 benchmarks).
+ * </p>
+ */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
-@Fork(value = 3, jvmArgsAppend = {
-    "--enable-preview",
-    "-XX:+UseG1GC",
-    "-Xms2g", "-Xmx8g",
-    "-XX:GCTimeRatio=19",
-    "-XX:MaxInlineSize=70", "-XX:FreqInlineSize=650",
-    "-XX:InlineSmallCode=5000", "-XX:MaxInlineLevel=20",
-    "-XX:CompileThreshold=5000", "-XX:Tier3CompileThreshold=1000", "-XX:Tier4CompileThreshold=7500",
-    "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableVectorSupport", "-XX:+EnableVectorReboxing", "-XX:+EnableVectorAggressiveReboxing",
-    "-XX:MaxVectorSize=32", "-XX:+AlignVector",
-    "-XX:+UseTLAB", "-XX:TLABSize=512k", "-XX:+ResizeTLAB", "-XX:TLABWasteTargetPercent=5",
-    "-XX:+AlwaysPreTouch",
-    "-XX:+EliminateAllocations", "-XX:+EliminateAutoBox", "-XX:EliminateAllocationArraySizeLimit=128",
-    "-XX:MaxGCPauseMillis=100", "-XX:G1NewSizePercent=40", "-XX:G1MaxNewSizePercent=80",
-    "-XX:G1HeapRegionSize=16m", "-XX:G1MixedGCCountTarget=4", "-XX:+G1UseAdaptiveIHOP",
-    "-XX:+UseThreadPriorities", "-XX:+UseCriticalCompilerThreadPriority",
-    "-XX:+UseDynamicNumberOfCompilerThreads", "-XX:CICompilerCount=16",
-    "-XX:PerMethodTrapLimit=200", "-XX:PerBytecodeTrapLimit=8", "-XX:PerMethodRecompilationCutoff=800",
-    "-XX:+UseCountLeadingZerosInstruction", "-XX:+UseCountTrailingZerosInstruction"
-})
+@Fork(value = 3, jvmArgsAppend = {"--enable-preview", "-XX:+UseG1GC", "-Xms2g", "-Xmx8g",
+        "-XX:GCTimeRatio=19", "-XX:MaxInlineSize=70", "-XX:FreqInlineSize=650",
+        "-XX:InlineSmallCode=5000", "-XX:MaxInlineLevel=20", "-XX:CompileThreshold=5000",
+        "-XX:Tier3CompileThreshold=1000", "-XX:Tier4CompileThreshold=7500",
+        "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableVectorSupport", "-XX:+EnableVectorReboxing",
+        "-XX:+EnableVectorAggressiveReboxing", "-XX:MaxVectorSize=32", "-XX:+AlignVector",
+        "-XX:+UseTLAB", "-XX:TLABSize=512k", "-XX:+ResizeTLAB", "-XX:TLABWasteTargetPercent=5",
+        "-XX:+AlwaysPreTouch", "-XX:+EliminateAllocations", "-XX:+EliminateAutoBox",
+        "-XX:EliminateAllocationArraySizeLimit=128", "-XX:MaxGCPauseMillis=100",
+        "-XX:G1NewSizePercent=40", "-XX:G1MaxNewSizePercent=80", "-XX:G1HeapRegionSize=16m",
+        "-XX:G1MixedGCCountTarget=4", "-XX:+G1UseAdaptiveIHOP", "-XX:+UseThreadPriorities",
+        "-XX:+UseCriticalCompilerThreadPriority", "-XX:+UseDynamicNumberOfCompilerThreads",
+        "-XX:CICompilerCount=16", "-XX:PerMethodTrapLimit=200", "-XX:PerBytecodeTrapLimit=8",
+        "-XX:PerMethodRecompilationCutoff=800", "-XX:+UseCountLeadingZerosInstruction",
+        "-XX:+UseCountTrailingZerosInstruction"})
 public class MonkeyBenchmark {
 
     // Mirroring the static fields in TestClickCombination for the benchmark
@@ -65,9 +67,9 @@ public class MonkeyBenchmark {
         MASKS = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
         EXPECTED = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
-        prefix = new short[] { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+        prefix = new short[] {0, 1, 2, 3, 4, 5, 6, 7, 8};
         finalClick = 9;
-        
+
         // Pre-calculate mask for satisfiesOddAdjacency benchmark
         prefixMask = 0;
         for (short click : prefix) {

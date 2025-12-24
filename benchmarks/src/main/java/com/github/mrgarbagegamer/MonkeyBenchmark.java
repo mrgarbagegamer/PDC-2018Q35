@@ -13,7 +13,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.infra.Blackhole;
 
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -49,7 +48,6 @@ public class MonkeyBenchmark {
     private short[] prefix;
     private short finalClick;
     private long prefixMask;
-    private StringBuilder logBuffer;
 
     @Setup(Level.Trial)
     public void setup() {
@@ -75,8 +73,6 @@ public class MonkeyBenchmark {
         for (short click : prefix) {
             prefixMask ^= MASKS[click];
         }
-
-        logBuffer = new StringBuilder(256);
     }
 
     @Benchmark
@@ -91,37 +87,5 @@ public class MonkeyBenchmark {
     @Benchmark
     public boolean satisfiesOddAdjacency() {
         return (prefixMask ^ MASKS[finalClick]) == EXPECTED;
-    }
-
-    @Benchmark
-    public void simulateLoggingMessage(Blackhole bh) {
-        // Simulate the cost of creating a log message and formatting it.
-        // We don't log to Log4j to avoid I/O, but we measure the construction cost.
-        
-        // 1. Array copy (simulating what TestClickCombination does before logging)
-        short[] winningCombination = new short[prefix.length + 1];
-        System.arraycopy(prefix, 0, winningCombination, 0, prefix.length);
-        winningCombination[prefix.length] = finalClick;
-
-        // 2. Message creation
-        CombinationMessage message = new CombinationMessage(winningCombination, Grid.ValueFormat.Index);
-
-        // 3. Formatting (what Log4j would do asynchronously, but construction happens on hot thread)
-        bh.consume(message);
-    }
-    
-    @Benchmark
-    public void simulateLoggingMessage_formatTo() {
-        // This benchmarks the formatting cost itself, which happens on the background thread.
-        // Useful to know if the background thread can keep up.
-        short[] winningCombination = new short[prefix.length + 1];
-        System.arraycopy(prefix, 0, winningCombination, 0, prefix.length);
-        winningCombination[prefix.length] = finalClick;
-        
-        CombinationMessage message = new CombinationMessage(winningCombination, Grid.ValueFormat.Index);
-        
-        // Reset buffer
-        logBuffer.setLength(0);
-        message.formatTo(logBuffer);
     }
 }

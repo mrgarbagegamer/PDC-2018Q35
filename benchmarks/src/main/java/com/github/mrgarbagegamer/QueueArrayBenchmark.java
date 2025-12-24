@@ -54,6 +54,7 @@ public class QueueArrayBenchmark {
     private CombinationQueue[] emptyQueues;
     private WorkBatch sharedBatch;
     private ThreadLocalRandom random;
+    private WorkBatch[] batchInventory;
     
     @Setup(Level.Trial)
     public void setup() {
@@ -75,11 +76,34 @@ public class QueueArrayBenchmark {
         }
         
         sharedBatch = new WorkBatch();
+
+        batchInventory = new WorkBatch[100];
+        for (int i = 0; i < 100; i++) {
+            batchInventory[i] = new WorkBatch();
+        }
     }
     
     @Setup(Level.Iteration)
     public void setupIteration() {
         random = ThreadLocalRandom.current();
+    }
+
+    @Setup(Level.Iteration)
+    public void setupWorkStealingState() {
+        // Drain queues[0] to ensure it is empty
+        while (queues[0].getWorkBatch() != null) {
+            // Drain
+        }
+
+        // Populate queues[1] with batches from batchInventory (fill to ~half capacity, e.g., 8 items)
+        // First drain it to ensure clean state
+        while (queues[1].getWorkBatch() != null) {
+            // Drain
+        }
+
+        for (int i = 0; i < 8; i++) {
+            queues[1].add(batchInventory[i]);
+        }
     }
     
     /**
@@ -124,9 +148,11 @@ public class QueueArrayBenchmark {
         }
         
         // Try to steal from others (linear scan like TestClickCombination.getWork())
-        for (int i = 0; i < queues.length; i++) {
+        for (int i = 1; i < queues.length; i++) {
             batch = queues[i].getWorkBatch();
             if (batch != null) {
+                // Maintain steady state by adding a random batch back to queues[1]
+                queues[1].add(batchInventory[random.nextInt(batchInventory.length)]);
                 return batch;
             }
         }

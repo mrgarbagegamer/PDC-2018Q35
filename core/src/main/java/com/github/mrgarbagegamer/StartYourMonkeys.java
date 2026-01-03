@@ -772,6 +772,21 @@ public class StartYourMonkeys {
         }
 
         /**
+         * Retrieves the first {@code true} cell index from the base grid.
+         * 
+         * @return The index of the first {@code true} cell.
+         * @see #getBaseGrid()
+         * @see Grid#findFirstTrueCell()
+         * @since 2026.01 - Utility Method Addition
+         * @performance {@code O(1)} retrieval.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Does not allocate.
+         */
+        public static short getFirstTrueCell() {
+            return getBaseGrid().findFirstTrueCell();
+        }
+
+        /**
          * Computes the click-to-true-cell adjacency masks for all cells in the grid.
          * 
          * @return An array where {@code MASK[i]} is a bitmask of which {@code true} cells are

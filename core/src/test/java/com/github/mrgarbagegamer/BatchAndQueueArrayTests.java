@@ -1,6 +1,8 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomCombination;
+import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomPrefixOfEvenParity;
+import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomPrefixOfOddParity;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,10 +18,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Random;
 
-import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
-import com.github.mrgarbagegamer.WorkBatch.Parity;
-import com.github.mrgarbagegamer.WorkBatch.WorkItem;
-
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.ClassOrderer;
@@ -29,6 +27,12 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestClassOrder;
 import org.junit.jupiter.api.TestMethodOrder;
+
+import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
+import com.github.mrgarbagegamer.WorkBatch.Parity;
+import com.github.mrgarbagegamer.WorkBatch.WorkItem;
+
+// TODO: Consider adding the Assumptions API to ensure preconditions for tests are met.
 
 /**
  * Unit tests for the {@link WorkBatch} and {@link CombinationQueueArray} classes. This class
@@ -124,13 +128,14 @@ public class BatchAndQueueArrayTests {
         @Test
         void testAddWorkWhenFull() {
             final WorkBatch batch = new WorkBatch(1);
-            final short[] prefix = generateRandomCombination(TEST_NUM_CLICKS - 1);
+            final short[] prefix = generateRandomPrefixOfOddParity(TEST_NUM_CLICKS - 1);
 
             assertTrue(batch.addWork(prefix, (short) (prefix[prefix.length - 1] + 1), true),
-                    "Should be able to add work when not full.");
+                    "Should be able to add work when not full. Final click is: "
+                            + (short) (prefix[prefix.length - 1] + 1));
             assertTrue(batch.isFull(), "Batch should be full.");
 
-            final short[] extraPrefix = generateRandomCombination(TEST_NUM_CLICKS - 1);
+            final short[] extraPrefix = generateRandomPrefixOfEvenParity(TEST_NUM_CLICKS - 1);
             assertFalse(batch.addWork(extraPrefix,
                     (short) (extraPrefix[extraPrefix.length - 1] + 1), false),
                     "Should not be able to add work when full.");
@@ -154,7 +159,7 @@ public class BatchAndQueueArrayTests {
         @Test
         void testWorkItemClear() {
             final WorkItem item = new WorkItem();
-            final short[] prefix = generateRandomCombination(TEST_NUM_CLICKS - 1);
+            final short[] prefix = generateRandomPrefixOfOddParity(TEST_NUM_CLICKS - 1);
             item.set(prefix, Parity.ODD, 1);
 
             item.clear();
@@ -190,7 +195,8 @@ public class BatchAndQueueArrayTests {
         @Test
         void testIteratorHasNextEmptyBatch() {
             final WorkBatch batch = new WorkBatch(5);
-            assertFalse(batch.iterator().hasNext(), "Iterator on empty batch should have no next.");
+            assertFalse(batch.iterator().hasNext(),
+                    "Iterator on empty batch should have no next.");
         }
 
         /**
@@ -211,7 +217,7 @@ public class BatchAndQueueArrayTests {
         @Test
         void testIteratorNextBeyondEnd() {
             final WorkBatch batch = new WorkBatch(1);
-            final short[] prefix = generateRandomCombination(TEST_NUM_CLICKS - 1);
+            final short[] prefix = generateRandomPrefixOfOddParity(TEST_NUM_CLICKS - 1);
             batch.addWork(prefix, (short) (prefix[prefix.length - 1] + 1), true);
 
             final Iterator<WorkItem> iterator = batch.iterator();
@@ -251,7 +257,8 @@ public class BatchAndQueueArrayTests {
         void testSingletonInstance() {
             final CombinationQueueArray instance1 = CombinationQueueArray.getInstance();
             final CombinationQueueArray instance2 = CombinationQueueArray.getInstance();
-            assertSame(instance1, instance2, "getInstance should always return the same instance.");
+            assertSame(instance1, instance2,
+                    "getInstance should always return the same instance.");
         }
 
         /**
@@ -327,7 +334,7 @@ public class BatchAndQueueArrayTests {
             final WorkBatch batch = queueArray.getWorkBatchPool().poll();
             assertNotNull(batch, "Should get a batch from the pool.");
 
-            final short[] prefix = generateRandomCombination(TEST_NUM_CLICKS - 1);
+            final short[] prefix = generateRandomPrefixOfEvenParity(TEST_NUM_CLICKS - 1);
             batch.addWork(prefix, (short) (prefix[prefix.length - 1] + 1), false);
             assertTrue(queue.add(batch), "Should be able to offer a batch to a queue.");
 

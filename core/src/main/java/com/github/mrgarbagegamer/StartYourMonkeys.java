@@ -623,7 +623,7 @@ public class StartYourMonkeys {
          * @memory Does not allocate.
          */
         public static boolean isInitialized() {
-            return NUM_CLICKS.isSet() && NUM_THREADS.isSet() && BASE_GRID.isSet();
+            return isNumClicksSet() && isNumThreadsSet() && isBaseGridSet();
         }
 
         /**
@@ -691,13 +691,91 @@ public class StartYourMonkeys {
          * @memory Allocates two {@link Integer} objects for primitive boxing.
          */
         public static void initialize(int numClicks, int numThreads, Grid baseGrid) {
-            if (numClicks < 1 || numThreads < 1 || baseGrid == null) {
-                throw new IllegalArgumentException("Invalid arguments to initialize GlobalConfig.");
-            }
+            validateInitializationParams(numClicks, numThreads, baseGrid);
 
             NUM_CLICKS.setOrThrow(numClicks);
             NUM_THREADS.setOrThrow(numThreads);
             BASE_GRID.setOrThrow(baseGrid);
+        }
+
+        /**
+         * Validates the parameters for initialization. This logic is shared between
+         * {@link #initialize(int, int, Grid)}, {@link #tryInitialize(int, int, Grid)}, and
+         * {@link #ensureInitialized(int, int, Grid)}, so we extract it into a common method.
+         *
+         * @param numClicks  The number of clicks to test.
+         * @param numThreads The total number of threads to use.
+         * @param baseGrid   The initial grid instance for the puzzle.
+         * @throws IllegalArgumentException if any arguments are invalid.
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} checks.
+         * @threading Thread-safe; does not modify shared state.
+         * @memory Does not allocate.
+         */
+        private static void validateInitializationParams(int numClicks, int numThreads,
+                Grid baseGrid) {
+            if (numClicks < 1 || numThreads < 1 || baseGrid == null) {
+                throw new IllegalArgumentException(
+                        "Invalid arguments to initialize GlobalConfig.");
+            }
+        }
+
+        /**
+         * Attempts to initialize the global configuration values, setting any that are not yet set.
+         *
+         * @param numClicks  The number of clicks to test.
+         * @param numThreads The total number of threads to use.
+         * @param baseGrid   The initial grid instance for the puzzle.
+         * @return {@code true} if all values were successfully set; {@code false} if any were
+         *         already set.
+         * @throws IllegalArgumentException if any arguments are invalid.
+         * @see #BASE_GRID
+         * @see #NUM_CLICKS
+         * @see #NUM_THREADS
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignments.
+         * @threading Thread-safe when called from multiple threads.
+         * @memory Allocates two {@link Integer} objects for primitive boxing.
+         */
+        public static boolean tryInitialize(int numClicks, int numThreads, Grid baseGrid) {
+            validateInitializationParams(numClicks, numThreads, baseGrid);
+
+            return NUM_CLICKS.trySet(numClicks) & NUM_THREADS.trySet(numThreads)
+                    & BASE_GRID.trySet(baseGrid);
+        }
+
+        /**
+         * Ensures that the global configuration values are initialized with the specified values.
+         * If they are already initialized, verifies that the existing values match the provided
+         * ones.
+         * 
+         * @param numClicks  The number of clicks to test.
+         * @param numThreads The total number of threads to use.
+         * @param baseGrid   The initial grid instance for the puzzle.
+         * @return {@code true} if the values are now initialized and match; {@code false} if they
+         *         were already initialized with different values.
+         * @throws IllegalArgumentException if any arguments are invalid.
+         * @see #BASE_GRID
+         * @see #NUM_CLICKS
+         * @see #NUM_THREADS
+         * @since 2025.12 - Global Configuration Refactor
+         * @performance {@code O(1)} assignments and comparisons.
+         * @threading Thread-safe when called from multiple threads.
+         * @memory Allocates two {@link Integer} objects for primitive boxing.
+         */
+        public static boolean ensureInitialized(int numClicks, int numThreads, Grid baseGrid) {
+            validateInitializationParams(numClicks, numThreads, baseGrid);
+
+            if (tryInitialize(numClicks, numThreads, baseGrid)) {
+                return true;
+            } else {
+                // Verify existing values match
+                if (getNumClicks() != numClicks || getNumThreads() != numThreads
+                        || !getBaseGrid().equals(baseGrid)) {
+                    return false;
+                }
+                return true;
+            }
         }
 
         /**

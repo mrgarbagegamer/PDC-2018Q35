@@ -48,14 +48,12 @@ public class BatchAndQueueArrayTests {
     /**
      * Initializes the {@link GlobalConfig} singleton once for all tests in this class. This ensures
      * that all components that rely on global configuration can be instantiated and tested
-     * correctly.
+     * correctly. If {@link GlobalConfig} is already initialized, this method will have no effect.
      */
     @BeforeAll
     static void initializeGlobalConfig() {
-        // Initialize GlobalConfig once for all tests in this class.
-        if (!GlobalConfig.isInitialized()) {
-            GlobalConfig.initialize(TEST_NUM_CLICKS, TEST_NUM_THREADS, new Grid35());
-        }
+        // Attempt to initialize GlobalConfig once for all tests in this class.
+        GlobalConfig.ensureInitialized(TEST_NUM_CLICKS, TEST_NUM_THREADS, new Grid35());
     }
 
     /**

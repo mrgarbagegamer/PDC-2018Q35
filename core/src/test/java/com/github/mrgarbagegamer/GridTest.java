@@ -72,8 +72,8 @@ class GridTest {
      */
     @Test
     void testPackedToIndex() {
-        for (int idx = 0; idx < validPackedInts.length; idx++) {
-            short packed = validPackedInts[idx];
+        for (int idx = 0; idx < validPackedInts.size(); idx++) {
+            short packed = validPackedInts.getShort(idx);
             short expectedIndex = (short) idx;
             short actualIndex = Grid.packedToIndex(packed);
             assertEquals(expectedIndex, actualIndex,
@@ -102,8 +102,8 @@ class GridTest {
      */
     @Test
     void testIndexToPacked() {
-        for (int idx = 0; idx < validPackedInts.length; idx++) {
-            short expectedPacked = validPackedInts[idx];
+        for (int idx = 0; idx < validPackedInts.size(); idx++) {
+            short expectedPacked = validPackedInts.getShort(idx);
             short index = (short) idx;
             short actualPacked = Grid.indexToPacked(index);
             assertEquals(expectedPacked, actualPacked,

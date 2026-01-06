@@ -28,25 +28,48 @@ public class TestingUtils {
     }
 
     /**
-     * A predefined array of valid cell indices.
+     * A predefined ShortImmutableList of valid cell indices.
      */
-    public static final short[] validIndices = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
-            15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36,
-            37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58,
-            59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80,
-            81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
-            102, 103, 104, 105, 106, 107, 108};
+    public static final ShortList validIndices = ShortList.of((short) 0, (short) 1, (short) 2,
+            (short) 3, (short) 4, (short) 5, (short) 6, (short) 7, (short) 8, (short) 9,
+            (short) 10, (short) 11, (short) 12, (short) 13, (short) 14, (short) 15, (short) 16,
+            (short) 17, (short) 18, (short) 19, (short) 20, (short) 21, (short) 22, (short) 23,
+            (short) 24, (short) 25, (short) 26, (short) 27, (short) 28, (short) 29, (short) 30,
+            (short) 31, (short) 32, (short) 33, (short) 34, (short) 35, (short) 36, (short) 37,
+            (short) 38, (short) 39, (short) 40, (short) 41, (short) 42, (short) 43, (short) 44,
+            (short) 45, (short) 46, (short) 47, (short) 48, (short) 49, (short) 50, (short) 51,
+            (short) 52, (short) 53, (short) 54, (short) 55, (short) 56, (short) 57, (short) 58,
+            (short) 59, (short) 60, (short) 61, (short) 62, (short) 63, (short) 64, (short) 65,
+            (short) 66, (short) 67, (short) 68, (short) 69, (short) 70, (short) 71, (short) 72,
+            (short) 73, (short) 74, (short) 75, (short) 76, (short) 77, (short) 78, (short) 79,
+            (short) 80, (short) 81, (short) 82, (short) 83, (short) 84, (short) 85, (short) 86,
+            (short) 87, (short) 88, (short) 89, (short) 90, (short) 91, (short) 92, (short) 93,
+            (short) 94, (short) 95, (short) 96, (short) 97, (short) 98, (short) 99, (short) 100,
+            (short) 101, (short) 102, (short) 103, (short) 104, (short) 105, (short) 106,
+            (short) 107, (short) 108);
 
     /**
-     * A predefined array of valid packed integer representations of cell indices.
+     * A predefined ShortImmutableList of valid packed integer representations of cell indices.
      */
-    public static final short[] validPackedInts = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
-            14, 15, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 200,
-            201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 300, 301,
-            302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 400, 401, 402, 403,
-            404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 500, 501, 502, 503, 504,
-            505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 600, 601, 602, 603, 604, 605, 606,
-            607, 608, 609, 610, 611, 612, 613, 614, 615};
+    public static final ShortList validPackedInts = ShortList.of((short) 0, (short) 1, (short) 2,
+            (short) 3, (short) 4, (short) 5, (short) 6, (short) 7, (short) 8, (short) 9,
+            (short) 10, (short) 11, (short) 12, (short) 13, (short) 14, (short) 15, (short) 100,
+            (short) 101, (short) 102, (short) 103, (short) 104, (short) 105, (short) 106,
+            (short) 107, (short) 108, (short) 109, (short) 110, (short) 111, (short) 112,
+            (short) 113, (short) 114, (short) 200, (short) 201, (short) 202, (short) 203,
+            (short) 204, (short) 205, (short) 206, (short) 207, (short) 208, (short) 209,
+            (short) 210, (short) 211, (short) 212, (short) 213, (short) 214, (short) 215,
+            (short) 300, (short) 301, (short) 302, (short) 303, (short) 304, (short) 305,
+            (short) 306, (short) 307, (short) 308, (short) 309, (short) 310, (short) 311,
+            (short) 312, (short) 313, (short) 314, (short) 400, (short) 401, (short) 402,
+            (short) 403, (short) 404, (short) 405, (short) 406, (short) 407, (short) 408,
+            (short) 409, (short) 410, (short) 411, (short) 412, (short) 413, (short) 414,
+            (short) 415, (short) 500, (short) 501, (short) 502, (short) 503, (short) 504,
+            (short) 505, (short) 506, (short) 507, (short) 508, (short) 509, (short) 510,
+            (short) 511, (short) 512, (short) 513, (short) 514, (short) 600, (short) 601,
+            (short) 602, (short) 603, (short) 604, (short) 605, (short) 606, (short) 607,
+            (short) 608, (short) 609, (short) 610, (short) 611, (short) 612, (short) 613,
+            (short) 614, (short) 615);
 
     /**
      * Generates a random combination of unique shorts in {@link Grid.ValueFormat#Index Index
@@ -61,7 +84,7 @@ public class TestingUtils {
             short upperBound) {
         validateBounds(numClicks, lowerBound, upperBound);
 
-        return generateFromArray(validIndices, numClicks, lowerBound, upperBound);
+        return generateFromList(validIndices, numClicks, lowerBound, upperBound);
     }
 
     /**
@@ -232,7 +255,7 @@ public class TestingUtils {
 
     /**
      * Overload for {@link #generateRandomCombination(int, short)} using the default
-     * {@link Grid#NUM_CELLS} + 1 as the upper bound.
+     * {@link Grid#NUM_CELLS} as the upper bound.
      * 
      * @param numClicks The number of unique shorts to generate.
      * @return An array of unique shorts.
@@ -246,23 +269,23 @@ public class TestingUtils {
      * PackedInt format} within the grid range.
      * 
      * @param numClicks  The number of unique shorts to generate.
-     * @param upperBound The inclusive upper bound for the random shorts.
+     * @param upperBound The exclusive upper bound for the random shorts.
      * @return An array of unique shorts.
      */
     public static short[] generateRandomCombinationPackedInt(int numClicks, short upperBound) {
-        return generateFromArray(validPackedInts, numClicks, upperBound + 1);
+        return generateFromList(validPackedInts, numClicks, upperBound);
     }
 
     /**
      * Overload for {@link #generateRandomCombinationPackedInt(int, short)} using the maximum valid
-     * PackedInt as the upper bound.
+     * PackedInt + 1 as the upper bound.
      * 
      * @param numClicks The number of unique shorts to generate.
      * @return An array of unique shorts.
      */
     public static short[] generateRandomCombinationPackedInt(int numClicks) {
         return generateRandomCombinationPackedInt(numClicks,
-                validPackedInts[validPackedInts.length - 1]);
+                validPackedInts.getShort(validPackedInts.size() - 1) + 1);
     }
 
     /**
@@ -270,7 +293,7 @@ public class TestingUtils {
      * (for convenience).
      * 
      * @param numClicks  The number of unique shorts to generate.
-     * @param upperBound The inclusive upper bound for the random shorts.
+     * @param upperBound The exclusive upper bound for the random shorts.
      * @return An array of unique shorts.
      */
     public static short[] generateRandomCombinationPackedInt(int numClicks, int upperBound) {
@@ -392,14 +415,7 @@ public class TestingUtils {
      * @return An array of even click indices.
      */
     public static short[] getEvenClickIndices(short firstTrueCell) {
-        ShortSortedSet oddClickIndices = new ShortAVLTreeSet(getOddClickIndices(firstTrueCell));
-        ShortSortedSet evenClickSet = new ShortAVLTreeSet();
-        for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
-            if (!oddClickIndices.contains(cell)) {
-                evenClickSet.add(cell);
-            }
-        }
-        return evenClickSet.toShortArray();
+        return Grid.invertCombination(getOddClickIndices(firstTrueCell));
     }
 
     /**

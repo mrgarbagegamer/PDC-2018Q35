@@ -374,6 +374,14 @@ public class TestingUtils {
         return bitmask;
     }
 
+    public static short[] convertIndexToPackedInt(short[] indexArray) {
+        short[] packedArray = new short[indexArray.length];
+        for (int i = 0; i < indexArray.length; i++) {
+            packedArray[i] = Grid.indexToPacked(indexArray[i]);
+        }
+        return packedArray;
+    }
+
     /**
      * Shuffles the elements of the given array randomly (without modifying the original array).
      * 
@@ -840,27 +848,10 @@ public class TestingUtils {
 
     public static short[] generateRandomPrefix(int prefixLength, short lowerBound,
             short upperBound) {
-        return generateRandomCombination(prefixLength, lowerBound, upperBound);
-    }
-
-    public static short[] generateRandomPrefix(int prefixLength, int lowerBound, int upperBound) {
-        return generateRandomCombination(prefixLength, lowerBound, upperBound);
-    }
-
-    public static short[] generateRandomPrefix(int prefixLength, short upperBound) {
-        return generateRandomCombination(prefixLength, upperBound);
-    }
-
-    public static short[] generateRandomPrefix(int prefixLength) {
-        return generateRandomCombination(prefixLength);
-    }
-
-    public static short[] generateRandomPrefixPackedInt(int prefixLength, short upperBound) {
-        return generateRandomCombinationPackedInt(prefixLength, upperBound);
-    }
-
-    public static short[] generateRandomPrefixPackedInt(int prefixLength) {
-        return generateRandomCombinationPackedInt(prefixLength);
+        final Random random = new Random();
+        boolean prefixParity = random.nextBoolean();
+        return prefixParity ? generateRandomPrefixOfOddParity(prefixLength, lowerBound, upperBound)
+                : generateRandomPrefixOfEvenParity(prefixLength, lowerBound, upperBound);
     }
 
     public static short[] generateRandomPrefixOfEvenParity(int prefixLength, short firstTrueCell,
@@ -1048,5 +1039,25 @@ public class TestingUtils {
 
     public static short[] generateRandomPrefixOfOddParity(int prefixLength) {
         return generateRandomPrefixOfOddParity(prefixLength, getFirstTrueCell());
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, int lowerBound, int upperBound) {
+        return generateRandomCombination(prefixLength, lowerBound, upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, short upperBound) {
+        return generateRandomCombination(prefixLength, upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength) {
+        return generateRandomCombination(prefixLength);
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, short upperBound) {
+        return convertIndexToPackedInt(generateRandomPrefix(prefixLength, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength) {
+        return generateRandomCombinationPackedInt(prefixLength);
     }
 }

@@ -775,7 +775,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private final void computeLeafCombinations(GeneratorContext ctx) {
         // REDESIGNED: Offload combination generation to the WorkBatch iterator.
         // This method now only defines the *range* of work.
-        final short lastPrefixClick = prefix[prefixLength - 1];
+        final short lastPrefixClick = (short) (prefix[prefixLength - 1] + 1);
 
         // 1. Add the work range to the batch.
         WorkBatch batch = ctx.getOrCreateBatch();

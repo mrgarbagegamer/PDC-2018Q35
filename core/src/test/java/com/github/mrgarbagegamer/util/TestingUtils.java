@@ -31,45 +31,45 @@ public class TestingUtils {
      * A predefined ShortImmutableList of valid cell indices.
      */
     public static final ShortList validIndices = ShortList.of((short) 0, (short) 1, (short) 2,
-            (short) 3, (short) 4, (short) 5, (short) 6, (short) 7, (short) 8, (short) 9,
-            (short) 10, (short) 11, (short) 12, (short) 13, (short) 14, (short) 15, (short) 16,
-            (short) 17, (short) 18, (short) 19, (short) 20, (short) 21, (short) 22, (short) 23,
-            (short) 24, (short) 25, (short) 26, (short) 27, (short) 28, (short) 29, (short) 30,
-            (short) 31, (short) 32, (short) 33, (short) 34, (short) 35, (short) 36, (short) 37,
-            (short) 38, (short) 39, (short) 40, (short) 41, (short) 42, (short) 43, (short) 44,
-            (short) 45, (short) 46, (short) 47, (short) 48, (short) 49, (short) 50, (short) 51,
-            (short) 52, (short) 53, (short) 54, (short) 55, (short) 56, (short) 57, (short) 58,
-            (short) 59, (short) 60, (short) 61, (short) 62, (short) 63, (short) 64, (short) 65,
-            (short) 66, (short) 67, (short) 68, (short) 69, (short) 70, (short) 71, (short) 72,
-            (short) 73, (short) 74, (short) 75, (short) 76, (short) 77, (short) 78, (short) 79,
-            (short) 80, (short) 81, (short) 82, (short) 83, (short) 84, (short) 85, (short) 86,
-            (short) 87, (short) 88, (short) 89, (short) 90, (short) 91, (short) 92, (short) 93,
-            (short) 94, (short) 95, (short) 96, (short) 97, (short) 98, (short) 99, (short) 100,
-            (short) 101, (short) 102, (short) 103, (short) 104, (short) 105, (short) 106,
-            (short) 107, (short) 108);
+            (short) 3, (short) 4, (short) 5, (short) 6, (short) 7, (short) 8, (short) 9, (short) 10,
+            (short) 11, (short) 12, (short) 13, (short) 14, (short) 15, (short) 16, (short) 17,
+            (short) 18, (short) 19, (short) 20, (short) 21, (short) 22, (short) 23, (short) 24,
+            (short) 25, (short) 26, (short) 27, (short) 28, (short) 29, (short) 30, (short) 31,
+            (short) 32, (short) 33, (short) 34, (short) 35, (short) 36, (short) 37, (short) 38,
+            (short) 39, (short) 40, (short) 41, (short) 42, (short) 43, (short) 44, (short) 45,
+            (short) 46, (short) 47, (short) 48, (short) 49, (short) 50, (short) 51, (short) 52,
+            (short) 53, (short) 54, (short) 55, (short) 56, (short) 57, (short) 58, (short) 59,
+            (short) 60, (short) 61, (short) 62, (short) 63, (short) 64, (short) 65, (short) 66,
+            (short) 67, (short) 68, (short) 69, (short) 70, (short) 71, (short) 72, (short) 73,
+            (short) 74, (short) 75, (short) 76, (short) 77, (short) 78, (short) 79, (short) 80,
+            (short) 81, (short) 82, (short) 83, (short) 84, (short) 85, (short) 86, (short) 87,
+            (short) 88, (short) 89, (short) 90, (short) 91, (short) 92, (short) 93, (short) 94,
+            (short) 95, (short) 96, (short) 97, (short) 98, (short) 99, (short) 100, (short) 101,
+            (short) 102, (short) 103, (short) 104, (short) 105, (short) 106, (short) 107,
+            (short) 108);
 
     /**
      * A predefined ShortImmutableList of valid packed integer representations of cell indices.
      */
     public static final ShortList validPackedInts = ShortList.of((short) 0, (short) 1, (short) 2,
-            (short) 3, (short) 4, (short) 5, (short) 6, (short) 7, (short) 8, (short) 9,
-            (short) 10, (short) 11, (short) 12, (short) 13, (short) 14, (short) 15, (short) 100,
-            (short) 101, (short) 102, (short) 103, (short) 104, (short) 105, (short) 106,
-            (short) 107, (short) 108, (short) 109, (short) 110, (short) 111, (short) 112,
-            (short) 113, (short) 114, (short) 200, (short) 201, (short) 202, (short) 203,
-            (short) 204, (short) 205, (short) 206, (short) 207, (short) 208, (short) 209,
-            (short) 210, (short) 211, (short) 212, (short) 213, (short) 214, (short) 215,
-            (short) 300, (short) 301, (short) 302, (short) 303, (short) 304, (short) 305,
-            (short) 306, (short) 307, (short) 308, (short) 309, (short) 310, (short) 311,
-            (short) 312, (short) 313, (short) 314, (short) 400, (short) 401, (short) 402,
-            (short) 403, (short) 404, (short) 405, (short) 406, (short) 407, (short) 408,
-            (short) 409, (short) 410, (short) 411, (short) 412, (short) 413, (short) 414,
-            (short) 415, (short) 500, (short) 501, (short) 502, (short) 503, (short) 504,
-            (short) 505, (short) 506, (short) 507, (short) 508, (short) 509, (short) 510,
-            (short) 511, (short) 512, (short) 513, (short) 514, (short) 600, (short) 601,
-            (short) 602, (short) 603, (short) 604, (short) 605, (short) 606, (short) 607,
-            (short) 608, (short) 609, (short) 610, (short) 611, (short) 612, (short) 613,
-            (short) 614, (short) 615);
+            (short) 3, (short) 4, (short) 5, (short) 6, (short) 7, (short) 8, (short) 9, (short) 10,
+            (short) 11, (short) 12, (short) 13, (short) 14, (short) 15, (short) 100, (short) 101,
+            (short) 102, (short) 103, (short) 104, (short) 105, (short) 106, (short) 107,
+            (short) 108, (short) 109, (short) 110, (short) 111, (short) 112, (short) 113,
+            (short) 114, (short) 200, (short) 201, (short) 202, (short) 203, (short) 204,
+            (short) 205, (short) 206, (short) 207, (short) 208, (short) 209, (short) 210,
+            (short) 211, (short) 212, (short) 213, (short) 214, (short) 215, (short) 300,
+            (short) 301, (short) 302, (short) 303, (short) 304, (short) 305, (short) 306,
+            (short) 307, (short) 308, (short) 309, (short) 310, (short) 311, (short) 312,
+            (short) 313, (short) 314, (short) 400, (short) 401, (short) 402, (short) 403,
+            (short) 404, (short) 405, (short) 406, (short) 407, (short) 408, (short) 409,
+            (short) 410, (short) 411, (short) 412, (short) 413, (short) 414, (short) 415,
+            (short) 500, (short) 501, (short) 502, (short) 503, (short) 504, (short) 505,
+            (short) 506, (short) 507, (short) 508, (short) 509, (short) 510, (short) 511,
+            (short) 512, (short) 513, (short) 514, (short) 600, (short) 601, (short) 602,
+            (short) 603, (short) 604, (short) 605, (short) 606, (short) 607, (short) 608,
+            (short) 609, (short) 610, (short) 611, (short) 612, (short) 613, (short) 614,
+            (short) 615);
 
     /**
      * Generates a random combination of unique shorts in {@link Grid.ValueFormat#Index Index
@@ -175,8 +175,7 @@ public class TestingUtils {
         return generateFromSet(source, numClicks, (short) lowerBound, (short) upperBound);
     }
 
-    private static short[] generateFromSet(ShortSortedSet source, int numClicks,
-            short upperBound) {
+    private static short[] generateFromSet(ShortSortedSet source, int numClicks, short upperBound) {
         return generateFromSet(source, numClicks, source.firstShort(), upperBound);
     }
 
@@ -210,9 +209,8 @@ public class TestingUtils {
         return generateFromArray(source, numClicks, (short) upperBound);
     }
 
-    @SuppressWarnings("unused")
     private static short[] generateFromArray(short[] source, int numClicks) {
-        return generateFromArray(source, numClicks, source.length);
+        return generateFromArray(source, numClicks, source[source.length - 1] + 1);
     }
 
     /**
@@ -224,8 +222,7 @@ public class TestingUtils {
      * @param upperBound The exclusive upper bound for the random shorts.
      * @return An array of unique shorts.
      */
-    public static short[] generateRandomCombination(int numClicks, int lowerBound,
-            int upperBound) {
+    public static short[] generateRandomCombination(int numClicks, int lowerBound, int upperBound) {
         return generateRandomCombination(numClicks, (short) lowerBound, (short) upperBound);
     }
 
@@ -559,34 +556,32 @@ public class TestingUtils {
         // Basic validation
         validateBounds(numClicks, lowerBound, upperBound);
 
-        final short[] oddClickIndices = getOddClickIndices(firstTrueCell);
-        final short[] evenClickIndices = getEvenClickIndices(firstTrueCell);
+        final short[] oddClicksInRange = trimArrayToRange(getOddClickIndices(firstTrueCell),
+                lowerBound, upperBound);
+        final short[] evenClicksInRange = trimArrayToRange(getEvenClickIndices(firstTrueCell),
+                lowerBound, upperBound);
 
         // Evaluate feasibility
-        checkEvenFeasibility(numClicks, lowerBound, upperBound, oddClickIndices);
+        checkEvenFeasibility(numClicks, lowerBound, upperBound, oddClicksInRange);
 
         // Generate combination
         final int oddsToGenerate = generateRandomEvenNumber(0,
-                Math.min(numClicks, oddClickIndices.length) + 1);
+                Math.min(numClicks, oddClicksInRange.length));
         final int evensToGenerate = numClicks - oddsToGenerate;
 
         // Generate odd clicks
-        final short[] oddClicks = generateFromArray(oddClickIndices, oddsToGenerate, lowerBound,
-                upperBound);
+        final short[] oddClicks = generateFromArray(oddClicksInRange, oddsToGenerate);
 
         // Generate even clicks
-        final short[] evenClicks = generateFromArray(evenClickIndices, evensToGenerate, lowerBound,
-                upperBound);
+        final short[] evenClicks = generateFromArray(evenClicksInRange, evensToGenerate);
 
         // Combine and return
         return combineArrays(oddClicks, evenClicks);
     }
 
     private static void checkEvenFeasibility(int numClicks, short lowerBound, short upperBound,
-            final short[] oddClickIndices) {
+            final short[] oddClicksInRange) {
         // Count odds and evens in range
-        final short[] oddClicksInRange = trimArrayToRange(oddClickIndices, lowerBound, upperBound);
-
         final int oddsInRange = oddClicksInRange.length;
         final int evensInRange = (upperBound - lowerBound) - oddsInRange;
 
@@ -707,34 +702,32 @@ public class TestingUtils {
         // Basic validation
         validateBounds(numClicks, lowerBound, upperBound);
 
-        final short[] oddClickIndices = getOddClickIndices(firstTrueCell);
-        final short[] evenClickIndices = getEvenClickIndices(firstTrueCell);
+        final short[] oddClicksInRange = trimArrayToRange(getOddClickIndices(firstTrueCell),
+                lowerBound, upperBound);
+        final short[] evenClicksInRange = trimArrayToRange(getEvenClickIndices(firstTrueCell),
+                lowerBound, upperBound);
 
         // Evaluate feasibility
-        checkOddFeasibility(numClicks, lowerBound, upperBound, oddClickIndices);
+        checkOddFeasibility(numClicks, lowerBound, upperBound, oddClicksInRange);
 
         // Generate combination
         final int oddsToGenerate = generateRandomOddNumber(1,
-                Math.min(numClicks, oddClickIndices.length) + 1);
+                Math.min(numClicks, oddClicksInRange.length));
         final int evensToGenerate = numClicks - oddsToGenerate;
 
         // Generate odd clicks
-        final short[] oddClicks = generateFromArray(oddClickIndices, oddsToGenerate, lowerBound,
-                upperBound);
+        final short[] oddClicks = generateFromArray(oddClicksInRange, oddsToGenerate);
 
         // Generate even clicks
-        final short[] evenClicks = generateFromArray(evenClickIndices, evensToGenerate, lowerBound,
-                upperBound);
+        final short[] evenClicks = generateFromArray(evenClicksInRange, evensToGenerate);
 
         // Combine and return
         return combineArrays(oddClicks, evenClicks);
     }
 
     private static void checkOddFeasibility(int numClicks, short lowerBound, short upperBound,
-            final short[] oddClickIndices) {
+            final short[] oddClicksInRange) {
         // Count odds and evens in range
-        final short[] oddClicksInRange = trimArrayToRange(oddClickIndices, lowerBound, upperBound);
-
         final int oddsInRange = oddClicksInRange.length;
         final int evensInRange = (upperBound - lowerBound) - oddsInRange;
 
@@ -823,8 +816,7 @@ public class TestingUtils {
                 (short) 0, (short) upperBound);
     }
 
-    public static short[] generateRandomCombinationOfOddParity(int numClicks,
-            short firstTrueCell) {
+    public static short[] generateRandomCombinationOfOddParity(int numClicks, short firstTrueCell) {
         return generateRandomCombinationOfOddParity(numClicks, firstTrueCell,
                 (short) Grid.NUM_CELLS);
     }
@@ -846,12 +838,15 @@ public class TestingUtils {
 
     // Prefix generating utilities
 
-    public static short[] generateRandomPrefix(int prefixLength, short lowerBound,
-            short upperBound) {
+    public static short[] generateRandomPrefix(int prefixLength, short firstTrueCell,
+            short lowerBound, short upperBound) {
         final Random random = new Random();
         boolean prefixParity = random.nextBoolean();
-        return prefixParity ? generateRandomPrefixOfOddParity(prefixLength, lowerBound, upperBound)
-                : generateRandomPrefixOfEvenParity(prefixLength, lowerBound, upperBound);
+        return prefixParity
+                ? generateRandomPrefixOfOddParity(prefixLength, firstTrueCell, lowerBound,
+                        upperBound)
+                : generateRandomPrefixOfEvenParity(prefixLength, firstTrueCell, lowerBound,
+                        upperBound);
     }
 
     public static short[] generateRandomPrefixOfEvenParity(int prefixLength, short firstTrueCell,
@@ -898,8 +893,7 @@ public class TestingUtils {
 
     public static short[] generateRandomPrefixOfEvenParity(int prefixLength, short firstTrueCell,
             short upperBound) {
-        return generateRandomPrefixOfEvenParity(prefixLength, firstTrueCell, (short) 0,
-                upperBound);
+        return generateRandomPrefixOfEvenParity(prefixLength, firstTrueCell, (short) 0, upperBound);
     }
 
     public static short[] generateRandomPrefixOfEvenParity(int prefixLength, short firstTrueCell,
@@ -933,8 +927,7 @@ public class TestingUtils {
         final short[] oddFinalClicks = getOddClickIndices(firstTrueCell);
         final short maxOddFinalClick = oddFinalClicks[oddFinalClicks.length - 1];
 
-        return generateRandomCombinationOfEvenParity(prefixLength, firstTrueCell,
-                maxOddFinalClick);
+        return generateRandomCombinationOfEvenParity(prefixLength, firstTrueCell, maxOddFinalClick);
     }
 
     public static short[] generateRandomPrefixOfEvenParity(int prefixLength, int firstTrueCell) {
@@ -1007,14 +1000,14 @@ public class TestingUtils {
 
     public static short[] generateRandomPrefixOfOddParity(int prefixLength,
             StableValue<Short> firstTrueCell, short upperBound) {
-        return generateRandomPrefixOfOddParity(prefixLength, firstTrueCell.orElseThrow(),
-                (short) 0, upperBound);
+        return generateRandomPrefixOfOddParity(prefixLength, firstTrueCell.orElseThrow(), (short) 0,
+                upperBound);
     }
 
     public static short[] generateRandomPrefixOfOddParity(int prefixLength,
             StableValue<Short> firstTrueCell, int upperBound) {
-        return generateRandomPrefixOfOddParity(prefixLength, firstTrueCell.orElseThrow(),
-                (short) 0, (short) upperBound);
+        return generateRandomPrefixOfOddParity(prefixLength, firstTrueCell.orElseThrow(), (short) 0,
+                (short) upperBound);
     }
 
     public static short[] generateRandomPrefixOfOddParity(int prefixLength, short firstTrueCell) {
@@ -1024,8 +1017,7 @@ public class TestingUtils {
         final short[] evenFinalClicks = getEvenClickIndices(firstTrueCell);
         final short maxEvenFinalClick = evenFinalClicks[evenFinalClicks.length - 1];
 
-        return generateRandomCombinationOfOddParity(prefixLength, firstTrueCell,
-                maxEvenFinalClick);
+        return generateRandomCombinationOfOddParity(prefixLength, firstTrueCell, maxEvenFinalClick);
     }
 
     public static short[] generateRandomPrefixOfOddParity(int prefixLength, int firstTrueCell) {
@@ -1041,20 +1033,141 @@ public class TestingUtils {
         return generateRandomPrefixOfOddParity(prefixLength, getFirstTrueCell());
     }
 
-    public static short[] generateRandomPrefix(int prefixLength, int lowerBound, int upperBound) {
-        return generateRandomCombination(prefixLength, lowerBound, upperBound);
+    public static short[] generateRandomPrefix(int prefixLength, short firstTrueCell,
+            int lowerBound, int upperBound) {
+        return generateRandomPrefix(prefixLength, firstTrueCell, (short) lowerBound,
+                (short) upperBound);
     }
 
-    public static short[] generateRandomPrefix(int prefixLength, short upperBound) {
-        return generateRandomCombination(prefixLength, upperBound);
+    public static short[] generateRandomPrefix(int prefixLength, int firstTrueCell, int lowerBound,
+            int upperBound) {
+        return generateRandomPrefix(prefixLength, (short) firstTrueCell, (short) lowerBound,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, StableValue<Short> firstTrueCell,
+            short lowerBound, short upperBound) {
+        return generateRandomPrefix(prefixLength, firstTrueCell.orElseThrow(), lowerBound,
+                upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, StableValue<Short> firstTrueCell,
+            int lowerBound, int upperBound) {
+        return generateRandomPrefix(prefixLength, firstTrueCell.orElseThrow(), (short) lowerBound,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, short firstTrueCell,
+            short upperBound) {
+        return generateRandomPrefix(prefixLength, firstTrueCell, (short) 0, upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, short firstTrueCell,
+            int upperBound) {
+        return generateRandomPrefix(prefixLength, firstTrueCell, (short) 0, (short) upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, int firstTrueCell,
+            int upperBound) {
+        return generateRandomPrefix(prefixLength, (short) firstTrueCell, (short) 0,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, StableValue<Short> firstTrueCell,
+            short upperBound) {
+        return generateRandomPrefix(prefixLength, firstTrueCell.orElseThrow(), (short) 0,
+                upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, StableValue<Short> firstTrueCell,
+            int upperBound) {
+        return generateRandomPrefix(prefixLength, firstTrueCell.orElseThrow(), (short) 0,
+                (short) upperBound);
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, short firstTrueCell) {
+        return generateRandomPrefix(prefixLength, firstTrueCell, (short) (Grid.NUM_CELLS - 1));
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, int firstTrueCell) {
+        return generateRandomPrefix(prefixLength, (short) firstTrueCell,
+                (short) (Grid.NUM_CELLS - 1));
+    }
+
+    public static short[] generateRandomPrefix(int prefixLength, StableValue<Short> firstTrueCell) {
+        return generateRandomPrefix(prefixLength, firstTrueCell.orElseThrow(),
+                (short) (Grid.NUM_CELLS - 1));
     }
 
     public static short[] generateRandomPrefix(int prefixLength) {
-        return generateRandomCombination(prefixLength);
+        return generateRandomPrefix(prefixLength, getFirstTrueCell());
     }
 
-    public static short[] generateRandomPrefixPackedInt(int prefixLength, short upperBound) {
-        return convertIndexToPackedInt(generateRandomPrefix(prefixLength, upperBound));
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, short firstTrueCell,
+            short lowerBound, short upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, lowerBound, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, int firstTrueCell,
+            int lowerBound, int upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, lowerBound, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength,
+            StableValue<Short> firstTrueCell, short lowerBound, short upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, lowerBound, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength,
+            StableValue<Short> firstTrueCell, int lowerBound, int upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, lowerBound, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, short firstTrueCell,
+            short upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, short firstTrueCell,
+            int upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, int firstTrueCell,
+            int upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength,
+            StableValue<Short> firstTrueCell, short upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength,
+            StableValue<Short> firstTrueCell, int upperBound) {
+        return convertIndexToPackedInt(
+                generateRandomPrefix(prefixLength, firstTrueCell, upperBound));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, short firstTrueCell) {
+        return convertIndexToPackedInt(generateRandomPrefix(prefixLength, firstTrueCell));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength, int firstTrueCell) {
+        return convertIndexToPackedInt(generateRandomPrefix(prefixLength, firstTrueCell));
+    }
+
+    public static short[] generateRandomPrefixPackedInt(int prefixLength,
+            StableValue<Short> firstTrueCell) {
+        return convertIndexToPackedInt(generateRandomPrefix(prefixLength, firstTrueCell));
     }
 
     public static short[] generateRandomPrefixPackedInt(int prefixLength) {

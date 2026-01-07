@@ -1,5 +1,10 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.createFullWorkBatch;
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -50,24 +55,17 @@ public class WorkBatchBenchmark {
     private WorkBatch emptyBatch;
     private short[] prefix;
     private short lastPrefixClick;
+    private Random random;
 
     @Setup(Level.Trial)
     public void setup() {
-        if (!StartYourMonkeys.GlobalConfig.isInitialized()) {
-            StartYourMonkeys.GlobalConfig.initialize(17, 16, new Grid35());
-        }
+        setupGlobalConfig();
+        random = new Random(42);
 
-        prefix = new short[WorkBatch.getNumClicks() - 1];
-        for (short i = 0; i < prefix.length; i++) {
-            prefix[i] = i;
-        }
-        lastPrefixClick = (short) (prefix.length - 1);
+        prefix = generateRandomPrefix(16, random);
+        lastPrefixClick = (short) (prefix[prefix.length - 1] + 1);
 
-        fullBatch = new WorkBatch();
-        while (fullBatch.addWork(prefix, lastPrefixClick, false)) {
-            // Fill the batch to capacity
-        }
-
+        fullBatch = createFullWorkBatch(random);
         emptyBatch = new WorkBatch();
     }
 

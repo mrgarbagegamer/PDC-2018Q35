@@ -1,5 +1,10 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.createFullWorkBatch;
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -20,8 +25,7 @@ import org.openjdk.jmh.infra.Blackhole;
  * micro-benchmark optimizations hold in composite workflows.
  * 
  * <p>
- * These benchmarks take ~1m30s in total to run (3 forks x (5 warmup + 5 measurement) x 3
- * benchmarks).
+ * These benchmarks take ~2m in total to run (3 forks x (5 warmup + 5 measurement) x 4 benchmarks).
  * </p>
  * 
  * @since 2025.12 - JMH Benchmarking
@@ -51,45 +55,49 @@ public class CompositeBenchmark {
     private ArrayPool arrayPool;
     private WorkBatch fullBatch;
     private WorkBatch workBatch;
+    private CombinationQueue queue;
     private short[] testPrefix;
     private short lastClick;
+    private long[] masks;
+    private long expected;
+    private Random random;
 
     @Setup(Level.Trial)
     public void setup() {
-        if (!StartYourMonkeys.GlobalConfig.isInitialized()) {
-            StartYourMonkeys.GlobalConfig.initialize(17, 16, new Grid35());
-        }
+        setupGlobalConfig();
+        random = new Random(42);
 
         arrayPool = new ArrayPool(512);
+        queue = new CombinationQueue();
         workBatch = new WorkBatch();
-        fullBatch = new WorkBatch();
+        fullBatch = createFullWorkBatch(random);
 
-        testPrefix = new short[16];
-        for (short i = 0; i < 16; i++) {
-            testPrefix[i] = i;
-        }
-        lastClick = 16;
+        testPrefix = generateRandomPrefix(16, random);
+        lastClick = (short) (testPrefix[testPrefix.length - 1] + 1);
 
-        // Pre-fill fullBatch
-        while (!fullBatch.isFull()) {
-            fullBatch.addWork(testPrefix, lastClick, false);
-        }
+        // Cache masks for benchmark
+        masks = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
+        expected = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
     }
 
     /**
-     * Simulates a generator's leaf workflow: 1. Check if batch is full 2. Add work to batch 3. If
-     * full after add, prepare for flush
+     * Simulates a generator's leaf workflow:
+     * 
+     * <ol>
+     * <li>Check if batch is full</li>
+     * <li>If full, "flush" (clear) the batch</li>
+     * <li>Add work item to batch</li>
+     * </ol>
      */
     @Benchmark
     public boolean generatorLeaf_addWorkChain() {
         boolean wasFull = workBatch.isFull();
-        boolean added = false;
 
-        if (!wasFull) {
-            added = workBatch.addWork(testPrefix, lastClick, false);
+        if (wasFull) {
+            // Simulate "resetting" a new batch after flush
+            workBatch.clear();
         }
-
-        return added;
+        return workBatch.addWork(testPrefix, lastClick, true);
     }
 
     /**
@@ -98,7 +106,7 @@ public class CompositeBenchmark {
      * <ol>
      * <li>Iterate batch</li>
      * <li>Build parity mask for each item's prefix</li>
-     * <li>Check adjacency for a sample final click</li>
+     * <li>Check adjacency for each item's final clicks</li>
      * </ol>
      */
     @Benchmark
@@ -112,18 +120,16 @@ public class CompositeBenchmark {
 
             // Build parity mask (mimic TestClickCombination.buildParityMask)
             long mask = 0;
-            long[] masks = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
             for (short click : prefix) {
                 mask ^= masks[click];
             }
 
-            // Simulate one adjacency check
-            short finalClick = finalClicks[start];
-            boolean valid = (mask
-                    ^ masks[finalClick]) == StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
-
-            if (valid) {
-                checkCount++;
+            // Check all final clicks
+            for (int i = start; i < finalClicks.length; i++) {
+                short finalClick = finalClicks[i];
+                if ((mask ^ masks[finalClick]) == expected) {
+                    checkCount++;
+                }
             }
         }
 
@@ -150,5 +156,53 @@ public class CompositeBenchmark {
 
         // Return to pool
         arrayPool.put(prefix);
+    }
+
+    /**
+     * Realistic queue round-trip: producer offers batch, consumer polls and validates. This
+     * simulates the actual producer-consumer handoff pattern with offer/poll.
+     */
+    @Benchmark
+    public long queueRoundTripWithValidation() {
+        // Simulate producer: fill partial batch
+        WorkBatch batch = new WorkBatch();
+        int itemsAdded = 0;
+        while (itemsAdded < 4 && batch.addWork(testPrefix, lastClick, false)) {
+            itemsAdded++;
+        }
+
+        // Simulate producer: offer to queue
+        boolean offered = queue.add(batch);
+        if (!offered) {
+            return 0; // Queue full, back off
+        }
+
+        // Simulate consumer: poll from queue
+        WorkBatch polledBatch = queue.getWorkBatch();
+        if (polledBatch == null) {
+            return 0;
+        }
+
+        // Simulate consumer: iterate and validate
+        long validCount = 0;
+        for (WorkBatch.WorkItem item : polledBatch) {
+            short[] finalClicks = item.getFinalClicks();
+            int start = item.getStart();
+            short[] prefix = item.getPrefix();
+
+            long prefixMask = 0;
+            for (short click : prefix) {
+                prefixMask ^= masks[click];
+            }
+
+            // Validate all final clicks
+            for (int i = start; i < finalClicks.length; i++) {
+                short finalClick = finalClicks[i];
+                if ((prefixMask ^ masks[finalClick]) == expected) {
+                    validCount++;
+                }
+            }
+        }
+        return validCount;
     }
 }

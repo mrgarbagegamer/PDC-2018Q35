@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -60,9 +62,7 @@ public class QueueArrayBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        if (!StartYourMonkeys.GlobalConfig.isInitialized()) {
-            StartYourMonkeys.GlobalConfig.initialize(17, 16, new Grid35());
-        }
+        setupGlobalConfig();
 
         // Create queue array matching production (8 queues for 16 threads)
         int numQueues = 8;

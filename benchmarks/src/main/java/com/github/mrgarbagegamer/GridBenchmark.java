@@ -1,5 +1,9 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomCombination;
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -47,14 +51,19 @@ public class GridBenchmark {
     private short[] combination;
     private short finalClick;
     private short[] prefix;
+    private Random random;
 
     @Setup(Level.Trial)
     public void setup() {
+        setupGlobalConfig();
+        random = new Random(42);
+
         grid = new Grid35();
         // A dummy combination for testing click performance
-        combination = new short[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        prefix = new short[] {0, 1, 2, 3, 4, 5, 6, 7, 8};
-        finalClick = 9;
+        combination = generateRandomCombination(9, random);
+        prefix = new short[8];
+        System.arraycopy(combination, 0, prefix, 0, 8);
+        finalClick = combination[8];
     }
 
     @Benchmark

@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+
 import java.util.concurrent.TimeUnit;
 
 import org.jctools.queues.MpmcArrayQueue;
@@ -58,13 +60,7 @@ public class QueueBenchmark {
     public void setup() {
         queue = new CombinationQueue();
         // Initialize GlobalConfig for WorkBatch creation (if not already initialized)
-        try {
-            if (!StartYourMonkeys.GlobalConfig.isInitialized()) {
-                StartYourMonkeys.GlobalConfig.initialize(17, 16, new Grid35());
-            }
-        } catch (Exception e) {
-            // Ignore
-        }
+        setupGlobalConfig();
         sharedBatch = new WorkBatch();
 
         // Initialize central pool (Tier 1 benchmark)

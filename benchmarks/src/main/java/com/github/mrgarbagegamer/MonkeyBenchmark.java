@@ -1,5 +1,9 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -18,8 +22,25 @@ import org.openjdk.jmh.annotations.Warmup;
  * {@link Benchmark}s for the fast pruning logic in {@link TestClickCombination}.
  * 
  * <p>
- * These benchmarks take ~1m in total to run (3 forks x (5 warmup + 5 measurement) x 2 benchmarks).
+ * This class focuses on micro-benchmarking the hot-path methods used for validating combinations:
+ * <ul>
+ * <li><b>buildParityMask(short[]):</b> Computes the XOR sum of adjacency masks for a prefix.</li>
+ * <li><b>satisfiesOddAdjacency(long, short):</b> Checks if a full combination satisfies the
+ * constraint.</li>
+ * </ul>
  * </p>
+ * 
+ * <p>
+ * These benchmarks now use varied prefixes with different bit patterns to reflect realistic
+ * validation patterns, rather than pre-computed masks that hide the actual cost.
+ * </p>
+ * 
+ * <p>
+ * These benchmarks take ~1m30s in total to run (3 forks x (5 warmup + 5 measurement) x 3
+ * benchmarks).
+ * </p>
+ *
+ * @since 2025.12 - JMH Benchmarking
  */
 @State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
@@ -43,42 +64,55 @@ import org.openjdk.jmh.annotations.Warmup;
         "-XX:+UseCountTrailingZerosInstruction"})
 public class MonkeyBenchmark {
 
-    // Mirroring the static fields in TestClickCombination for the benchmark
     private static long[] MASKS;
     private static long EXPECTED;
 
-    private short[] prefix;
-    private short finalClick;
-    private long prefixMask;
+    private short[][] diversePrefixes;
+    private long[] diverseMasks;
+    private short[] testFinalClicks;
+    private long invocationCounter;
+    private Random random;
 
     @Setup(Level.Trial)
     public void setup() {
         // Initialize GlobalConfig to ensure static fields are populated
-        // We use dummy values since we only care about the derived static data (masks)
-        // Check if initialized to avoid re-initialization error if running multiple benchmarks
-        try {
-            if (!StartYourMonkeys.GlobalConfig.isInitialized()) {
-                StartYourMonkeys.GlobalConfig.initialize(17, 16, new Grid35());
-            }
-        } catch (Exception e) {
-            // Ignore if already initialized or other issues, we'll try to pull values anyway
-        }
+        setupGlobalConfig();
+        random = new Random(42);
 
         MASKS = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
         EXPECTED = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
-        prefix = new short[] {0, 1, 2, 3, 4, 5, 6, 7, 8};
-        finalClick = 9;
-
-        // Pre-calculate mask for satisfiesOddAdjacency benchmark
-        prefixMask = 0;
-        for (short click : prefix) {
-            prefixMask ^= MASKS[click];
+        // Generate diverse prefixes with different bit patterns
+        diversePrefixes = new short[100][];
+        testFinalClicks = new short[100];
+        for (int p = 0; p < 100; p++) {
+            diversePrefixes[p] = generateRandomPrefix(16, random);
+            testFinalClicks[p] = (short) (diversePrefixes[p][diversePrefixes[p].length - 1] + 1);
         }
+
+        // Build parity masks for satisfiesOddAdjacency benchmark
+        diverseMasks = new long[diversePrefixes.length];
+        for (int p = 0; p < diversePrefixes.length; p++) {
+            long mask = 0;
+            for (short click : diversePrefixes[p]) {
+                mask ^= MASKS[click];
+            }
+            diverseMasks[p] = mask;
+        }
+
+        invocationCounter = 0;
     }
 
+    /**
+     * Benchmarks parity mask computation with a varied prefix. Uses different prefixes each
+     * invocation to reflect realistic scenario where prefixes have diverse bit patterns, avoiding
+     * branch prediction bias from repetitive access patterns.
+     */
     @Benchmark
-    public long buildParityMask() {
+    public long buildParityMask_VariedPrefixes() {
+        // Cycle through diverse prefixes using a simple counter to avoid setup overhead
+        int prefixIndex = (int) ((invocationCounter++) % diversePrefixes.length);
+        short[] prefix = diversePrefixes[prefixIndex];
         long mask = 0;
         for (short click : prefix) {
             mask ^= MASKS[click];
@@ -86,8 +120,43 @@ public class MonkeyBenchmark {
         return mask;
     }
 
+    /**
+     * Benchmarks the satisfiesOddAdjacency check with pre-computed masks. This measures the
+     * validation check in isolation, which is the innermost loop operation.
+     */
     @Benchmark
     public boolean satisfiesOddAdjacency() {
+        int prefixIndex = (int) ((invocationCounter++) % diversePrefixes.length);
+        long prefixMask = diverseMasks[prefixIndex];
+        short finalClick = testFinalClicks[prefixIndex % testFinalClicks.length];
         return (prefixMask ^ MASKS[finalClick]) == EXPECTED;
+    }
+
+    /**
+     * Full monkey validation workflow: compute parity mask, then check multiple final clicks. This
+     * represents the actual hot path where a prefix is validated against several potential final
+     * clicks.
+     */
+    @Benchmark
+    public int fullMonkeyValidation() {
+        int prefixIndex = (int) ((invocationCounter++) % diversePrefixes.length);
+        short[] prefix = diversePrefixes[prefixIndex];
+        long prefixMask = 0;
+
+        // Build mask once for the prefix
+        for (short click : prefix) {
+            prefixMask ^= MASKS[click];
+        }
+
+        // Check multiple final clicks (simulating the range iteration)
+        int validCount = 0;
+        for (int i = prefix[prefix.length - 1] + 1; i < testFinalClicks.length; i++) {
+            short finalClick = testFinalClicks[(prefixIndex + i) % testFinalClicks.length];
+            if ((prefixMask ^ MASKS[finalClick]) == EXPECTED) {
+                validCount++;
+            }
+        }
+
+        return validCount;
     }
 }

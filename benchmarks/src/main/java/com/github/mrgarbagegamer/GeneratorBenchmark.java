@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+
 import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -87,11 +89,7 @@ public class GeneratorBenchmark {
     @Setup(Level.Trial)
     public void setup() {
         // 1. Initialize GlobalConfig, which is required by CombinationGeneratorTask
-        // We need to do this carefully as it's designed to be initialized once.
-        // JMH forks will create new JVMs, so this is safe.
-        if (!StartYourMonkeys.GlobalConfig.isInitialized()) {
-            StartYourMonkeys.GlobalConfig.initialize(17, 16, new Grid35());
-        }
+        setupGlobalConfig();
 
         // 2. Create and configure a task for the fast-path benchmark
         taskFastPath = CombinationGeneratorTask.createRootTask();

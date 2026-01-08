@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.createFullWorkBatch;
 import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
 import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
 
@@ -14,48 +13,30 @@ import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.infra.Blackhole;
 
 /**
- * {@link Benchmark}s for the {@link WorkBatch} class, focusing on adding work and iterating over
- * work items.
+ * Benchmarks the performance sensitivity to {@link ArrayPool} sizing.
  * 
  * <p>
- * These benchmarks take ~1m30s in total to run (3 forks x (5 warmup + 5 measurement) x 3
- * benchmarks).
+ * The {@link CombinationGeneratorTask#POOL_SIZE} is a critical tuning parameter. Too small and the
+ * pool exhausts frequently, causing fallback allocations. Too large and memory usage grows
+ * unnecessarily. This benchmark tests different pool sizes to identify the optimal value for a
+ * given workload.
  * </p>
- *
- * <h2>Profiling Recommendations</h2>
- *
+ * 
  * <p>
- * <b>TIER 3: ALLOCATION & MEMORY MANAGEMENT</b> - The iterator benchmark is particularly valuable
- * for validating zero-allocation design:
+ * These benchmarks take ~5m in total to run (3 forks x (5 warmup + 5 measurement) x 2 benchmarks x
+ * 5 pool sizes).
  * </p>
- *
- * <ul>
- * <li><b>gc (PRIMARY) - iterate() benchmark only:</b> Validate on-the-fly iterator produces zero
- * allocations.
  * 
- * <pre>
- * java -jar benchmarks/target/benchmarks.jar WorkBatchBenchmark.iterate -prof gc
- * </pre>
- * 
- * Allocation rate should be 0 B/op.</li>
- *
- * <li><b>Baseline (no profiler):</b>
- * 
- * <pre>
- * java -jar benchmarks/target/benchmarks.jar WorkBatchBenchmark
- * </pre>
- * 
- * </li>
- * </ul>
+ * @since 2025.12 - Pool Sizing Analysis
  */
-@State(Scope.Benchmark)
+@State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
@@ -75,12 +56,14 @@ import org.openjdk.jmh.infra.Blackhole;
         "-XX:CICompilerCount=16", "-XX:PerMethodTrapLimit=200", "-XX:PerBytecodeTrapLimit=8",
         "-XX:PerMethodRecompilationCutoff=800", "-XX:+UseCountLeadingZerosInstruction",
         "-XX:+UseCountTrailingZerosInstruction"})
-public class WorkBatchBenchmark {
+public class PoolSizingSensitivityBenchmark {
 
-    private WorkBatch fullBatch;
-    private WorkBatch emptyBatch;
-    private short[] prefix;
-    private short lastPrefixClick;
+    @Param({"64", "128", "256", "512", "1024"})
+    public int poolSize;
+
+    private ArrayPool pool;
+    private short[] testArray;
+    private long allocationCount;
     private Random random;
 
     @Setup(Level.Trial)
@@ -88,32 +71,45 @@ public class WorkBatchBenchmark {
         setupGlobalConfig();
         random = new Random(42);
 
-        prefix = generateRandomPrefix(16, random);
-        lastPrefixClick = (short) (prefix[prefix.length - 1] + 1);
-
-        fullBatch = createFullWorkBatch(random);
-        emptyBatch = new WorkBatch();
+        pool = new ArrayPool(poolSize);
+        testArray = generateRandomPrefix(16, random);
     }
 
-    @Setup(Level.Iteration)
-    public void resetEmptyBatch() {
-        emptyBatch.clear();
-    }
-
+    /**
+     * Measures get/put cycle performance across different pool sizes. Lower allocation counts
+     * indicate better pool hit rates. The optimal pool size minimizes both allocations and memory
+     * overhead.
+     */
     @Benchmark
-    public boolean addWork() {
-        return emptyBatch.addWork(prefix, lastPrefixClick, false);
-    }
-
-    @Benchmark
-    public boolean addWorkFullBatch() {
-        return fullBatch.addWork(prefix, lastPrefixClick, false); // Should be false
-    }
-
-    @Benchmark
-    public void iterate(Blackhole bh) {
-        for (WorkBatch.WorkItem item : fullBatch) {
-            bh.consume(item);
+    public long poolGetPutCycle() {
+        short[] array = pool.get();
+        if (array == null) {
+            allocationCount++;
+            array = new short[16];
         }
+        System.arraycopy(testArray, 0, array, 0, testArray.length);
+        pool.put(array);
+        return allocationCount;
+    }
+
+    /**
+     * Stress test: rapid cycling through many get/put operations. Measures pool exhaustion behavior
+     * under sustained load. Useful for identifying thresholds where pool size becomes a bottleneck.
+     */
+    @Benchmark
+    public long poolStressTest() {
+        long allocations = 0;
+
+        // Perform rapid get/put cycles
+        for (int i = 0; i < 256; i++) {
+            short[] array = pool.get();
+            if (array == null) {
+                allocations++;
+                array = new short[16];
+            }
+            pool.put(array);
+        }
+
+        return allocations;
     }
 }

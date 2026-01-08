@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.util.BenchmarkUtils.createFullWorkBatch;
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
 import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
 
 import java.util.Random;
@@ -14,50 +13,32 @@ import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.infra.Blackhole;
 
 /**
- * {@link Benchmark}s for the {@link WorkBatch} class, focusing on adding work and iterating over
- * work items.
+ * Benchmarks the impact of varying final-click ranges within a {@link WorkBatch}.
  * 
  * <p>
- * These benchmarks take ~1m30s in total to run (3 forks x (5 warmup + 5 measurement) x 3
- * benchmarks).
+ * While batches themselves are always filled before sending to queues, the actual work described by
+ * each work item varies. Specifically, each work item defines a range of final clicks to test. This
+ * benchmark measures how validation performance scales with different final click ranges,
+ * simulating the iteration patterns that consumers experience.
  * </p>
- *
- * <h2>Profiling Recommendations</h2>
- *
+ * 
  * <p>
- * <b>TIER 3: ALLOCATION & MEMORY MANAGEMENT</b> - The iterator benchmark is particularly valuable
- * for validating zero-allocation design:
+ * These benchmarks take ~2m30s in total to run (3 forks x (5 warmup + 5 measurement) x 1 benchmark
+ * x 5 ranges).
  * </p>
- *
- * <ul>
- * <li><b>gc (PRIMARY) - iterate() benchmark only:</b> Validate on-the-fly iterator produces zero
- * allocations.
  * 
- * <pre>
- * java -jar benchmarks/target/benchmarks.jar WorkBatchBenchmark.iterate -prof gc
- * </pre>
- * 
- * Allocation rate should be 0 B/op.</li>
- *
- * <li><b>Baseline (no profiler):</b>
- * 
- * <pre>
- * java -jar benchmarks/target/benchmarks.jar WorkBatchBenchmark
- * </pre>
- * 
- * </li>
- * </ul>
+ * @since 2025.12 - Batch Range Analysis
  */
-@State(Scope.Benchmark)
+@State(Scope.Thread)
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 @Fork(value = 3, jvmArgsAppend = {"--enable-preview", "-XX:+UseG1GC", "-Xms2g", "-Xmx8g",
@@ -75,12 +56,14 @@ import org.openjdk.jmh.infra.Blackhole;
         "-XX:CICompilerCount=16", "-XX:PerMethodTrapLimit=200", "-XX:PerBytecodeTrapLimit=8",
         "-XX:PerMethodRecompilationCutoff=800", "-XX:+UseCountLeadingZerosInstruction",
         "-XX:+UseCountTrailingZerosInstruction"})
-public class WorkBatchBenchmark {
+public class BatchSizeSensitivityBenchmark {
 
-    private WorkBatch fullBatch;
-    private WorkBatch emptyBatch;
-    private short[] prefix;
-    private short lastPrefixClick;
+    @Param({"32", "64", "128", "256", "512"})
+    public int batchSize;
+
+    private WorkBatch batch;
+    private long[] masks;
+    private long expected;
     private Random random;
 
     @Setup(Level.Trial)
@@ -88,32 +71,41 @@ public class WorkBatchBenchmark {
         setupGlobalConfig();
         random = new Random(42);
 
-        prefix = generateRandomPrefix(16, random);
-        lastPrefixClick = (short) (prefix[prefix.length - 1] + 1);
+        masks = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
+        expected = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
 
-        fullBatch = createFullWorkBatch(random);
-        emptyBatch = new WorkBatch();
+        // Fill a batch for iteration
+        batch = createFullWorkBatch(random);
     }
 
-    @Setup(Level.Iteration)
-    public void resetEmptyBatch() {
-        emptyBatch.clear();
-    }
-
+    /**
+     * Measures validation latency over a full batch with varying final-click ranges. Larger ranges
+     * require checking more potential final clicks per work item, simulating higher consumer load.
+     */
     @Benchmark
-    public boolean addWork() {
-        return emptyBatch.addWork(prefix, lastPrefixClick, false);
-    }
+    public long batchValidationVaryingRanges() {
+        long validCount = 0;
 
-    @Benchmark
-    public boolean addWorkFullBatch() {
-        return fullBatch.addWork(prefix, lastPrefixClick, false); // Should be false
-    }
+        for (WorkBatch.WorkItem item : batch) {
+            short[] finalClicks = item.getFinalClicks();
+            short[] prefix = item.getPrefix();
+            int start = item.getStart();
+            long prefixMask = 0;
 
-    @Benchmark
-    public void iterate(Blackhole bh) {
-        for (WorkBatch.WorkItem item : fullBatch) {
-            bh.consume(item);
+            // Build prefix mask once
+            for (short click : prefix) {
+                prefixMask ^= masks[click];
+            }
+
+            // Validate range of final clicks (size varies by parameter)
+            for (int i = start; i < finalClicks.length; i++) {
+                short finalClick = finalClicks[i];
+                if ((prefixMask ^ masks[finalClick]) == expected) {
+                    validCount++;
+                }
+            }
         }
+
+        return validCount;
     }
 }

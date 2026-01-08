@@ -37,14 +37,15 @@ pdc-2018q35/                 <-- Root project (parent POM)
     pom.xml
     src/main/java/com/github/mrgarbagegamer/
       GridBenchmark.java
-      MonkeyBenchmark.java
+      MonkeyBenchmark.java (UPDATED 2026.01)
       GeneratorBenchmark.java
       QueueBenchmark.java
       QueueArrayBenchmark.java
-      CompositeBenchmark.java
-      GlobalConfigBenchmark.java
-      ScalabilityBenchmark.java
-      PoolBenchmark.java
+      CompositeBenchmark.java (UPDATED 2026.01)
+      AllocationBenchmark.java (NEW 2026.01)
+      PoolSizingSensitivityBenchmark.java (NEW 2026.01)
+      BatchSizeSensitivityBenchmark.java (NEW 2026.01)
+      WorkStealingBenchmark.java (NEW 2026.01)
       WorkBatchBenchmark.java
 ```
 
@@ -52,23 +53,22 @@ pdc-2018q35/                 <-- Root project (parent POM)
 
 - **Same Package Structure**: Benchmarks use `com.github.mrgarbagegamer` to access package-private methods
 - **Dependency**: `benchmarks/pom.xml` depends on the `core` module artifact
-- **Build Simplification**: Running `mvn clean install` at root builds both modules in correct order
+- **Build Simplification**: Running `mvn clean package` at root builds both modules in correct order
 
 ---
 
 ## Benchmark Coverage
 
-### Existing Benchmarks (Original)
+### Core Component Benchmarks (Original)
 
 | Benchmark | Component | Coverage |
 | --------- | --------- | -------- |
 | [`GridBenchmark`](src/main/java/com/github/mrgarbagegamer/GridBenchmark.java) | [`Grid`](../core/src/main/java/com/github/mrgarbagegamer/Grid.java) | click operations, state management, caching |
 | [`GeneratorBenchmark`](src/main/java/com/github/mrgarbagegamer/GeneratorBenchmark.java) | [`CombinationGeneratorTask`](../core/src/main/java/com/github/mrgarbagegamer/CombinationGeneratorTask.java) | Pruning fast/slow paths |
-| [`MonkeyBenchmark`](src/main/java/com/github/mrgarbagegamer/MonkeyBenchmark.java) | [`TestClickCombination`](../core/src/main/java/com/github/mrgarbagegamer/TestClickCombination.java) | Parity mask building, adjacency checks, logging |
-| [`PoolBenchmark`](src/main/java/com/github/mrgarbagegamer/PoolBenchmark.java) | [`ArrayPool`](../core/src/main/java/com/github/mrgarbagegamer/ArrayPool.java), [`TaskPool`](../core/src/main/java/com/github/mrgarbagegamer/TaskPool.java) | get/put/roundtrip |
+| [`MonkeyBenchmark`](src/main/java/com/github/mrgarbagegamer/MonkeyBenchmark.java) (UPDATED 2026.01) | [`TestClickCombination`](../core/src/main/java/com/github/mrgarbagegamer/TestClickCombination.java) | Varied prefix patterns, parity mask, adjacency checks, full validation |
 | [`WorkBatchBenchmark`](src/main/java/com/github/mrgarbagegamer/WorkBatchBenchmark.java) | [`WorkBatch`](../core/src/main/java/com/github/mrgarbagegamer/WorkBatch.java) | add/iterate operations |
 
-### New Benchmarks (2025.12)
+### New & Enhanced Benchmarks (2026.01)
 
 #### Tier 1: Critical
 
@@ -94,20 +94,24 @@ pdc-2018q35/                 <-- Root project (parent POM)
    - `consumerProcessing_iterateAndCheck()` - Consumer's complete processing cycle
    - `producerFullCycle()` - Producer's array pool + batch add cycle
 
-2. **[`GlobalConfigBenchmark`](src/main/java/com/github/mrgarbagegamer/GlobalConfigBenchmark.java)** (New)
-   - **StableValue Validation**: Measures `GlobalConfig` access overhead
-   - `access_CLICK_TO_TRUE_CELL_MASK()` - Most frequently accessed field
-   - `access_EXPECTED_MASK()` - Used in every adjacency check
-   - `hotPathAccess_generatorConstraint()` - Multiple field access pattern
-   - `concurrentAccess_MASKS()` - 8-thread concurrent access
-   - `baseline_staticFinalAccess()` - Baseline for performance comparison
+#### Additional Benchmarks (2026.01 Enhancements)
 
-#### Tier 3: Nice to Have
+1. **[`AllocationBenchmark`](src/main/java/com/github/mrgarbagegamer/AllocationBenchmark.java)** (NEW)
+    - **Allocation Detection**: Validates "near-zero allocation" claim
+    - Tests array pool, task pool, batch operations, and exhaustion scenarios
+    - Run with `-prof gc` to measure allocation rates
 
-1. **[`ScalabilityBenchmark`](src/main/java/com/github/mrgarbagegamer/ScalabilityBenchmark.java)** (New)
-   - **Threading Analysis**: Characterizes scaling from 1 to 16 threads
-   - `poolThroughput_N_threads()` - Central pool scaling (1, 2, 4, 8, 16)
-   - `queueArrayThroughput_N_threads()` - Queue array scaling (1, 2, 4, 8, 16)
+2. **[`PoolSizingSensitivityBenchmark`](src/main/java/com/github/mrgarbagegamer/PoolSizingSensitivityBenchmark.java)** (NEW)
+    - **Pool Tuning**: Tests sizes [64, 128, 256, 512, 1024]
+    - Identifies optimal pool size minimizing allocations and memory waste
+
+3. **[`BatchSizeSensitivityBenchmark`](src/main/java/com/github/mrgarbagegamer/BatchSizeSensitivityBenchmark.java)** (NEW)
+    - **Batch Range Tuning**: Tests final-click ranges [10, 25, 50, 100]
+    - Analyzes iteration latency and cache effects vs range size
+
+4. **[`WorkStealingBenchmark`](src/main/java/com/github/mrgarbagegamer/WorkStealingBenchmark.java)** (NEW)
+    - **Load Balancing**: Analyzes work-stealing patterns and contention
+    - Tests preferred queue hit, stealing, and starvation scenarios
 
 ---
 
@@ -162,16 +166,15 @@ All queue operations use **relaxed variants** (`relaxedPoll()`, `add()`) that ma
 
 **Design Note**: Cannot benchmark forking methods (`computeIntermediateSubtasks*`) due to `ForkJoinPool` side effects. These contain `subtask.fork()` calls that would spawn real tasks and pollute results.
 
-### 3. MonkeyBenchmark
+### 3. MonkeyBenchmark (Updated 2026.01)
 
-**Goal**: Measure the "hot path" of consumer threads (`TestClickCombination`).
+**Goal**: Measure the "hot path" of consumer threads (`TestClickCombination`) with realistic prefix patterns.
 
 **Benchmarks**:
 
-- `buildParityMask`: Measure XOR accumulation loop
+- `buildParityMask_VariedPrefixes`: Measure XOR accumulation loop with diverse bit patterns
 - `satisfiesOddAdjacency`: Measure `(prefixMask ^ mask) == EXPECTED` check
-- `simulateLoggingMessage`: Measure log message construction overhead
-- `simulateLoggingMessage_formatTo`: Measure formatting cost on background thread
+- `fullMonkeyValidation`: Complete workflow testing multiple final clicks against a prefix
 
 ### 4. QueueBenchmark (Extended)
 
@@ -209,47 +212,7 @@ All queue operations use **relaxed variants** (`relaxedPoll()`, `add()`) that ma
 - `consumerProcessing_iterateAndCheck`: Simulates consumer's workflow (iterate → mask → check)
 - `producerFullCycle`: Full cycle (pool get → copy → add → pool put)
 
-### 7. GlobalConfigBenchmark (New - Tier 2)
-
-**Goal**: Validate `StableValue` refactoring performance.
-
-**Benchmarks**:
-
-- `access_CLICK_TO_TRUE_CELL_MASK`: Most frequently accessed (every `buildParityMask`)
-- `access_EXPECTED_MASK`: Used in every adjacency check
-- `hotPathAccess_generatorConstraint`: Simulates generator constraint checking
-- `concurrentAccess_MASKS`: 8-thread concurrent access (contention test)
-- `baseline_staticFinalAccess`: Baseline comparison for overhead measurement
-
-**Constraint**: Cannot benchmark "first access" (StableValue limitation). Only subsequent accesses are measured.
-
-### 8. ScalabilityBenchmark (New - Tier 3)
-
-**Goal**: Characterize scaling with thread count.
-
-**Benchmarks**:
-
-- `poolThroughput_1thread` through `poolThroughput_16threads`: Central pool scaling
-- `queueArrayThroughput_1thread` through `queueArrayThroughput_16threads`: Queue array scaling
-
-**Questions Answered**:
-
-- At what thread count does throughput plateau?
-- Where does contention start degrading performance?
-- Is 16 threads optimal, or should we use more/fewer?
-
-### 9. PoolBenchmark
-
-**Goal**: Measure object pooling overhead.
-
-**Benchmarks**:
-
-- `arrayPool_roundtrip`: Get + put cycle for `ArrayPool`
-- `taskPool_roundtrip`: Get + put cycle for `TaskPool`
-- `arrayPool_get` / `arrayPool_put`: Isolated operations
-- `taskPool_get` / `taskPool_put`: Isolated operations
-
-### 10. WorkBatchBenchmark
+### 7. WorkBatchBenchmark
 
 **Goal**: Measure custom batching system.
 
@@ -258,6 +221,51 @@ All queue operations use **relaxed variants** (`relaxedPoll()`, `add()`) that ma
 - `addWork`: Add work item to batch
 - `addWorkFullBatch`: Attempt to add to full batch (should return false)
 - `iterate`: Zero-allocation iterator over full batch
+
+### 8. AllocationBenchmark (New 2026.01)
+
+**Goal**: Validates "near-zero allocation" design goal by profiling memory patterns.
+
+**Benchmarks**:
+
+- `arrayPoolCycle()`: Array pool get/put effectiveness
+- `taskPoolCycle()`: Task pool recycling patterns
+- `workBatchAddWorkCycle()`: Batch operation allocation
+- `workBatchIterationAlloc()`: Iterator on-the-fly assembly (zero-alloc)
+- `poolExhaustionStress()`: Fallback allocation rates when pools depleted
+
+**Run with**: `-prof gc` to measure allocation rates
+
+### 9. PoolSizingSensitivityBenchmark (New 2026.01)
+
+**Goal**: Optimize pool size configuration.
+
+**Parameterized Configuration**: Tests sizes [64, 128, 256, 512, 1024]
+
+**Benchmarks**:
+
+- `poolGetPutCycle()`: Basic pool operation latency per size
+- `poolStressTest()`: Sustained load allocation patterns
+
+### 10. BatchSizeSensitivityBenchmark (New 2026.01)
+
+**Goal**: Optimize final-click batch range size.
+
+**Parameterized Configuration**: Tests ranges [10, 25, 50, 100]
+
+**Benchmarks**:
+
+- `batchValidationVaryingRanges()`: Full batch iteration with varied final-click counts
+
+### 11. WorkStealingBenchmark (New 2026.01)
+
+**Goal**: Analyze consumer load balancing and work-stealing effectiveness.
+
+**Benchmarks**:
+
+- `workSteal_PreferredQueueHit()`: Fast path when own queue has work
+- `workSteal_ScanAndSteal()`: Work-stealing with steady-state refill
+- `workSteal_FullScanStarvation()`: Worst case when all queues empty
 
 ---
 
@@ -285,7 +293,7 @@ All queue operations use **relaxed variants** (`relaxedPoll()`, `add()`) that ma
 | `-i N` | Measurement iterations | `-i 5` |
 | `-f N` | Number of forks | `-f 3` |
 | `-t N` | Number of threads | `-t 4` |
-| `-prof <profiler>` | Enable profiler | `-prof gc` (GC stats), `-prof async` (flame graph) |
+| `-prof <profiler>` | Enable profiler | `-prof gc`, `-prof perfnorm`, `-prof perfasm`, `-prof async` |
 | `-rf <format>` | Result format | `-rf json`, `-rf csv` |
 | `-rff <file>` | Result file | `-rff results.json` |
 
@@ -298,12 +306,210 @@ java -jar benchmarks/target/benchmarks.jar GridBenchmark.click -wi 2 -i 3 -f 1
 # With GC profiling
 java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark -prof gc
 
+# With perfnorm (performance counters, requires Linux perf)
+java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark -prof perfnorm
+
 # Save results to JSON
 java -jar benchmarks/target/benchmarks.jar -rf json -rff results.json
 
 # Run specific benchmark pattern
 java -jar benchmarks/target/benchmarks.jar ".*Queue.*"
 ```
+
+---
+
+## Profiling Recommendations by Profiler Type
+
+This section documents which benchmarks benefit most from specific profilers and which profilers are appropriate for each benchmark.
+
+### `perfnorm` (Performance Counters)
+
+**Requirements**: Linux with perf support, elevated privileges, or kernel perf event permissions.
+
+**Best For**: Measuring CPU-level metrics like cycles, branch prediction, cache behavior, and instruction-level parallelism.
+
+#### Tier 1: Critical Hot Paths (Highest Priority)
+
+These benchmarks execute billions of times during solving and represent the innermost algorithmic loops:
+
+1. **[`MonkeyBenchmark`](src/main/java/com/github/mrgarbagegamer/MonkeyBenchmark.java)**
+   - `buildParityMask_VariedPrefixes()` - XOR-based mask computation in tight loop
+   - `satisfiesOddAdjacency()` - Constraint validation check
+   - **Why**: Tests the consumer's validation inner loop. Perfnorm reveals branch prediction misses, cache line behavior of bitmask operations, and tight loop efficiency.
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark -prof perfnorm`
+   - **Key Metrics**: Cycles/op, branch-misses/cycles, cache-references, cache-misses
+
+2. **[`GridBenchmark`](src/main/java/com/github/mrgarbagegamer/GridBenchmark.java)**
+   - `click_and_isSolved()` - Combined click operation + state check
+   - **Why**: Simulates the actual validation loop interaction between XOR state mutation and truth count recalculation. Perfnorm reveals data dependency chains and memory latency patterns.
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar GridBenchmark.click_and_isSolved -prof perfnorm`
+   - **Key Metrics**: Cycles/op, L1/L2/L3 cache behavior, memory stalls
+
+3. **[`CompositeBenchmark`](src/main/java/com/github/mrgarbagegamer/CompositeBenchmark.java)**
+   - `consumerProcessing_iterateAndCheck()` - Full consumer validation workflow
+   - **Why**: Measures realistic producer-consumer handoff. Perfnorm reveals cache coherency overhead and thread contention.
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar CompositeBenchmark.consumerProcessing_iterateAndCheck -prof perfnorm`
+   - **Key Metrics**: Cycles/op, LLC-load-misses, memory-loads-aux
+
+#### Tier 2: Producer & Distribution (High Priority)
+
+4. **[`GeneratorBenchmark`](src/main/java/com/github/mrgarbagegamer/GeneratorBenchmark.java)**
+   - `canPotentiallySatisfyConstraints_SlowPath()` - Full pruning logic
+   - **Why**: Producer depends on fast pruning. Perfnorm reveals whether suffix mask lookups hit L1 cache and whether method is being properly inlined.
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar GeneratorBenchmark.canPotentiallySatisfyConstraints_SlowPath -prof perfnorm`
+   - **Key Metrics**: Cycles/op, branch-misses/cycles, instructions/cycle
+
+5. **[`WorkStealingBenchmark`](src/main/java/com/github/mrgarbagegamer/WorkStealingBenchmark.java)**
+   - `workSteal_ScanAndSteal()` - Work-stealing consumer pattern
+   - **Why**: Shows cost of queue scanning under consumer contention. Perfnorm reveals atomic instruction latency and memory fence overhead.
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar WorkStealingBenchmark.workSteal_ScanAndSteal -prof perfnorm`
+   - **Key Metrics**: Cycles/op, atomic-ops, memory-operations
+
+### `perfasm` (Assembly Analysis)
+
+**Requirements**: Linux with perf support, `hsdis` (HotSpot Disassembler) binary available.
+
+**Best For**: Understanding JIT compilation decisions, inlining behavior, and examining generated assembly code.
+
+#### Recommended Use Cases
+
+1. **[`GeneratorBenchmark`](src/main/java/com/github/mrgarbagegamer/GeneratorBenchmark.java)**
+   - **Why**: Validate that pruning methods are fully inlined and compiled efficiently
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar GeneratorBenchmark -prof perfasm`
+   - **Look For**: Method inlining, loop unrolling, and vectorization opportunities
+
+2. **[`MonkeyBenchmark`](src/main/java/com/github/mrgarbagegamer/MonkeyBenchmark.java) - `buildParityMask_VariedPrefixes()`**
+   - **Why**: Inspect the tight XOR loop and verify vectorization
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark.buildParityMask_VariedPrefixes -prof perfasm`
+   - **Look For**: SIMD instructions (AVX2), loop structure, branch predictions
+
+### `gc` (Garbage Collection & Allocation)
+
+**Requirements**: Standard JVM, no special kernel permissions needed.
+
+**Best For**: Measuring allocation rates, GC frequency, and validating "zero-allocation" design claims.
+
+#### Recommended Use Cases
+
+1. **[`AllocationBenchmark`](src/main/java/com/github/mrgarbagegamer/AllocationBenchmark.java)** ⭐ Primary
+   - **Why**: Specifically designed to validate allocation patterns
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar AllocationBenchmark -prof gc`
+   - **Look For**: Allocation rates (bytes/op), GC.alloc.rate.norm, churn rates
+
+2. **[`WorkBatchBenchmark`](src/main/java/com/github/mrgarbagegamer/WorkBatchBenchmark.java) - `workBatchIterationAlloc()`**
+   - **Why**: On-the-fly iterator should allocate zero bytes
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar WorkBatchBenchmark.workBatchIterationAlloc -prof gc`
+   - **Look For**: `GC.alloc.rate` should be 0 B/op or minimal
+
+3. **[`CompositeBenchmark`](src/main/java/com/github/mrgarbagegamer/CompositeBenchmark.java) - `producerFullCycle()`**
+   - **Why**: Validate that array pool cycle produces minimal allocations
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar CompositeBenchmark.producerFullCycle -prof gc`
+   - **Look For**: Allocation rate consistent with pool reuse
+
+### `jfr` (Java Flight Recorder)
+
+**Requirements**: Standard JVM with Java Flight Recorder support (JDK 11+).
+
+**Best For**: Detailed event tracing, method profiling, and identifying lock contention.
+
+#### Recommended Use Cases
+
+1. **[`QueueBenchmark`](src/main/java/com/github/mrgarbagegamer/QueueBenchmark.java)** - Group suites
+   - **Why**: Detect lock contention in multi-threaded producer-consumer patterns
+   - **Command**: `java -jar benchmarks/target/benchmarks.jar QueueBenchmark -prof jfr`
+   - **Look For**: Thread wait times, contention events
+
+### No Profiler (Baseline)
+
+**When to Use**: Establishing baseline performance without profiler overhead.
+
+#### Benchmarks to Run Without Profilers
+
+- **`PoolSizingSensitivityBenchmark`** - Needs clean runs to measure pool size sensitivity
+- **`BatchSizeSensitivityBenchmark`** - Needs clean runs to measure batch range sensitivity
+- **`QueueArrayBenchmark`** - General throughput baseline (run without profilers first)
+
+**Commands**:
+```bash
+java -jar benchmarks/target/benchmarks.jar PoolSizingSensitivityBenchmark
+java -jar benchmarks/target/benchmarks.jar BatchSizeSensitivityBenchmark
+```
+
+---
+
+## Profiling Strategy & Execution Plan
+
+### Phase 1: Establish Consumer Hot Path Characteristics (Session 1)
+
+Run these in sequence to understand consumer performance:
+
+```bash
+# Baseline performance (no profiler overhead)
+java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark
+
+# Performance counters - identify cycle/instruction characteristics
+java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark -prof perfnorm
+
+# Assembly inspection (if available) - verify inlining & vectorization
+java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark -prof perfasm
+```
+
+**Duration**: ~4m30s total (1m30s * 3 with profiler overhead)
+
+### Phase 2: Producer & Grid Performance (Session 2)
+
+```bash
+# Generator pruning performance
+java -jar benchmarks/target/benchmarks.jar GeneratorBenchmark -prof perfnorm
+
+# Grid click operations
+java -jar benchmarks/target/benchmarks.jar GridBenchmark -prof perfnorm
+
+# Grid allocation patterns
+java -jar benchmarks/target/benchmarks.jar GridBenchmark -prof gc
+```
+
+**Duration**: ~7 minutes total (1m + 3m + 3m with profiler overhead)
+
+### Phase 3: Allocation Validation (Session 3)
+
+```bash
+# Comprehensive allocation patterns
+java -jar benchmarks/target/benchmarks.jar AllocationBenchmark -prof gc
+```
+
+**Duration**: ~2m30s total
+
+### Phase 4: Queue & Contention Analysis (Session 4)
+
+```bash
+# Queue contention under asymmetric load
+java -jar benchmarks/target/benchmarks.jar QueueBenchmark -prof perfnorm
+
+# Work-stealing patterns
+java -jar benchmarks/target/benchmarks.jar WorkStealingBenchmark -prof perfnorm
+
+# Lock contention detection
+java -jar benchmarks/target/benchmarks.jar QueueBenchmark -prof jfr
+```
+
+**Duration**: ~7 minutes total (2m30s + 2m + 2m30s with profiler overhead)
+
+### Phase 5: Sensitivity & Tuning (Session 5+)
+
+```bash
+# Pool size optimization
+java -jar benchmarks/target/benchmarks.jar PoolSizingSensitivityBenchmark
+
+# Batch range optimization
+java -jar benchmarks/target/benchmarks.jar BatchSizeSensitivityBenchmark
+
+# Composite workflow validation
+java -jar benchmarks/target/benchmarks.jar CompositeBenchmark -prof perfnorm
+```
+
+**Duration**: ~9m30s minutes total (5m + 2m30s + 2m with profiler overhead)
+
 
 ---
 

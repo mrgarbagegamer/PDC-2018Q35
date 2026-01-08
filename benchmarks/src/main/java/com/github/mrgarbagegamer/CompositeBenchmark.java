@@ -27,7 +27,32 @@ import org.openjdk.jmh.infra.Blackhole;
  * <p>
  * These benchmarks take ~2m in total to run (3 forks x (5 warmup + 5 measurement) x 4 benchmarks).
  * </p>
+ *
+ * <h2>Profiling Recommendations</h2>
+ *
+ * <p>
+ * <b>TIER 1: CRITICAL HOT PATH</b> - The {@code consumerProcessing_iterateAndCheck()} benchmark
+ * measures the complete consumer validation workflow under realistic producer-consumer interaction:
+ * </p>
+ *
+ * <ul>
+ * <li><b>perfnorm (PRIMARY):</b> Reveals cache coherency overhead and thread contention effects.
  * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar CompositeBenchmark.consumerProcessing_iterateAndCheck -prof perfnorm
+ * </pre>
+ * 
+ * Key metrics: cycles/op, LLC-load-misses, memory-loads-aux</li>
+ *
+ * <li><b>Baseline (no profiler):</b>
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar CompositeBenchmark
+ * </pre>
+ * 
+ * </li>
+ * </ul>
+ *
  * @since 2025.12 - JMH Benchmarking
  */
 @State(Scope.Thread)

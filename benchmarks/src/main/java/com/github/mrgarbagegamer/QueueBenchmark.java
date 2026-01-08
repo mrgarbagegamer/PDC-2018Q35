@@ -28,6 +28,38 @@ import org.openjdk.jmh.infra.Control;
  * These benchmarks take ~2m30s in total to run (3 forks x (5 warmup + 5 measurement) x 3 groups of
  * benchmarks).
  * </p>
+ *
+ * <h2>Profiling Recommendations</h2>
+ *
+ * <p>
+ * <b>TIER 4: QUEUE & SYNCHRONIZATION</b> - These measure contention under throughput mode:
+ * </p>
+ *
+ * <ul>
+ * <li><b>perfnorm:</b> Reveals synchronization primitive overhead and lock-free queue efficiency.
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar QueueBenchmark -prof perfnorm
+ * </pre>
+ * 
+ * Key metrics: cycles/op, synchronization instruction costs</li>
+ *
+ * <li><b>jfr:</b> Detect lock contention via event tracing (Java Flight Recorder).
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar QueueBenchmark -prof jfr
+ * </pre>
+ * 
+ * Look for: thread wait times, contention events</li>
+ *
+ * <li><b>Baseline (no profiler):</b>
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar QueueBenchmark
+ * </pre>
+ * 
+ * </li>
+ * </ul>
  */
 @State(Scope.Group)
 @BenchmarkMode(Mode.Throughput)

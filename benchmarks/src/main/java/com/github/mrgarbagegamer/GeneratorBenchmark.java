@@ -31,10 +31,44 @@ import org.openjdk.jmh.annotations.Warmup;
  * clicks can satisfy the constraints.</li>
  * </ul>
  * </p>
- * 
+ *
  * <p>
  * These benchmarks take ~1m in total to run (3 forks x (5 warmup + 5 measurement) x 2 benchmarks).
  * </p>
+ *
+ * <h2>Profiling Recommendations</h2>
+ *
+ * <p>
+ * <b>TIER 2: PRODUCER & DISTRIBUTION</b> - Producer performance depends on efficient pruning. The
+ * slow path is most important for analysis:
+ * </p>
+ *
+ * <ul>
+ * <li><b>perfnorm:</b> Reveals whether suffix mask lookups hit L1 cache and if method inlining is
+ * effective.
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar GeneratorBenchmark.canPotentiallySatisfyConstraints_SlowPath -prof perfnorm
+ * </pre>
+ * 
+ * Key metrics: cycles/op, branch-misses/cycles, instructions/cycle</li>
+ *
+ * <li><b>perfasm:</b> Validate that pruning methods are fully inlined and compiled efficiently.
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar GeneratorBenchmark -prof perfasm
+ * </pre>
+ * 
+ * Look for: method inlining, loop unrolling</li>
+ *
+ * <li><b>Baseline (no profiler):</b>
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar GeneratorBenchmark
+ * </pre>
+ * 
+ * </li>
+ * </ul>
  *
  * @see CombinationGeneratorTask
  * @since 2025.12 - JMH Benchmarking

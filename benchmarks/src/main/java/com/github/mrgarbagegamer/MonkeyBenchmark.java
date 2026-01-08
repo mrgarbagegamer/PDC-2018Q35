@@ -40,6 +40,40 @@ import org.openjdk.jmh.annotations.Warmup;
  * benchmarks).
  * </p>
  *
+ * <h2>Profiling Recommendations</h2>
+ *
+ * <p>
+ * <b>TIER 1: CRITICAL HOT PATH</b> - These benchmarks represent the consumer's innermost validation
+ * loops, executed billions of times during solving. Ideal for detailed performance analysis:
+ * </p>
+ *
+ * <ul>
+ * <li><b>perfnorm (PRIMARY):</b> Identifies branch mispredictions, cache behavior, and loop
+ * efficiency.
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark -prof perfnorm
+ * </pre>
+ * 
+ * Key metrics: cycles/op, branch-misses/cycles, cache-references, cache-misses</li>
+ *
+ * <li><b>perfasm:</b> Inspect JIT compilation, method inlining, and vectorization.
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark -prof perfasm
+ * </pre>
+ * 
+ * Look for: SIMD instructions (AVX2), loop unrolling, branch strategy</li>
+ *
+ * <li><b>Baseline (no profiler):</b> Clean metrics without profiler overhead.
+ * 
+ * <pre>
+ * java -jar benchmarks/target/benchmarks.jar MonkeyBenchmark
+ * </pre>
+ * 
+ * </li>
+ * </ul>
+ *
  * @since 2025.12 - JMH Benchmarking
  */
 @State(Scope.Thread)

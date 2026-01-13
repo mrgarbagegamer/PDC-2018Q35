@@ -221,7 +221,7 @@ public class TestClickCombination extends Thread {
     public TestClickCombination(String name, CombinationQueue queue) {
         super(name);
         this.combinationQueue = queue;
-        this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid().clone();
+        this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid().copy();
     }
 
     /**

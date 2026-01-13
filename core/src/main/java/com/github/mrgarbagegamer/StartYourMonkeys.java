@@ -309,7 +309,7 @@ public class StartYourMonkeys {
         logger.info("{} - {}", queueArray.getWinningMonkey(), elapsedFormatted);
 
         // Verify solution
-        Grid puzzleGrid = baseGrid.clone();
+        Grid puzzleGrid = baseGrid.copy();
         puzzleGrid.click(winningCombination);
         logGrid(puzzleGrid);
 

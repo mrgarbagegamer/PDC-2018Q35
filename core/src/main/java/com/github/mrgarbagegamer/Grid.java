@@ -234,7 +234,9 @@ public abstract class Grid {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
      */
-    public static final short[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93};
+    public static final short[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93}; // TODO: Replace with a
+                                                                           // ShortImmutableList to
+                                                                           // ensure immutability
     /**
      * The total number of cells in the grid.
      *
@@ -257,7 +259,7 @@ public abstract class Grid {
     public static final int NUM_CELLS = 109;
 
     /**
-     * The state of the grid, represented as a 128-bit {@link ValueFormat#Bitmask bitmask} split
+     * The state of the grid, represented as a 109-bit {@link ValueFormat#Bitmask bitmask} split
      * across two {@code long} values.
      *
      * <p>
@@ -284,7 +286,8 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 16 bytes (2 {@code long}s) per instance.
      */
-    protected final long[] gridState = new long[2];
+    protected final long[] gridState; // TODO: Consider making this private and providing controlled
+                                      // accessors to enforce encapsulation
     /**
      * A cached count of the number of "on" ({@code true}) cells in the grid.
      *
@@ -300,7 +303,8 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
-    protected int trueCellsCount = 0;
+    protected int trueCellsCount = 0; // TODO: Consider making this private and providing controlled
+                                      // accessors to enforce encapsulation
     /**
      * A cached index of the first "on" ({@code true}) cell in the grid, in
      * {@link ValueFormat#Index} format.
@@ -319,7 +323,8 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 2 bytes as a primitive {@code short}.
      */
-    protected short firstTrueCell = -1;
+    protected short firstTrueCell = -1; // TODO: Consider making this private and providing
+                                        // controlled accessors to enforce encapsulation
     /**
      * A dirty flag indicating that the {@link #gridState grid state} has been modified and cached
      * values are stale.
@@ -337,7 +342,9 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 1 byte as a primitive {@code boolean}.
      */
-    protected boolean recalculationNeeded = false;
+    protected boolean recalculationNeeded = false; // TODO: Consider making this private and
+                                                   // providing controlled accessors to enforce
+                                                   // encapsulation
 
     /**
      * Pre-computed {@link ValueFormat#Bitmask bitmasks} representing the result of clicking each
@@ -847,7 +854,10 @@ public abstract class Grid {
     }
 
     /**
-     * Constructs a new {@code Grid} instance and initializes it to a specific starting state.
+     * Constructs a new {@code Grid} instance and initializes it to a specific starting state. We
+     * initialize the {@link #gridState grid state} here rather than at declaration to allow the
+     * {@link #Grid(Grid) copy constructor} to create deep copies efficiently, avoiding the need for
+     * a separate cloning method.
      *
      * <p>
      * As {@code Grid} is an {@code abstract} class, this constructor is implicitly called by
@@ -861,10 +871,83 @@ public abstract class Grid {
      * @performance {@code O(1)} complexity for construction, plus the complexity of
      *              {@link #initialize()}.
      * @threading Thread-safe; each instance is independent.
+     * @memory Allocates a new {@code Grid} instance and a new {@code long[2]} array for
+     *         {@link #gridState}.
      */
     public Grid() {
+        this.gridState = new long[2]; // All bits initialized to 0 (false)
         initialize();
     }
+
+    /**
+     * Constructs a new {@code Grid} instance as a deep copy of another {@code Grid}. This copy
+     * constructor duplicates the internal state, ensuring that modifications to the new instance do
+     * not affect the original. As an {@code abstract} class, {@code Grid} cannot be instantiated,
+     * so this constructor is meant to be called by concrete subclass copy constructors.
+     * 
+     * <p>
+     * While a {@link Object#clone() clone()} method could be implemented, it would introduce
+     * complexity with subclassing and type safety. Standard cloning convention requires acquiring
+     * an instance of the exact runtime type by calling {@code super.clone()}, but doing so would
+     * cause the resulting {@link #gridState} to reference the same array as the original, leading
+     * to shared mutable state. Fields declared as {@code final} cannot be mutated within a
+     * {@code clone()} method, so the reference cannot be corrected before returning.
+     * </p>
+     * 
+     * <p>
+     * Just calling {@link #Grid() new Grid()} to create a new instance would not work either, as
+     * {@code Grid} is {@code abstract} and cannot be instantiated directly. The only other
+     * alternatives involve using reflection (which is inefficient and still not type-safe) or
+     * requiring each subclass to implement its own {@code clone()} method (violating the DRY
+     * principle and risking inconsistent behavior).
+     * </p>
+     * 
+     * <p>
+     * Our original design used the reflective approach, requiring a
+     * {@code Grid newGrid = this.getClass().getDeclaredConstructor().newInstance()} call. However,
+     * this was inefficient and complicated error handling. A copy constructor like this carries all
+     * of the benefits of cloning without the downsides, providing a clear and efficient way to
+     * duplicate {@code Grid} instances.
+     * </p>
+     * 
+     * @param other The {@code Grid} instance to copy.
+     * @see #copy()
+     * @see Cloneable
+     * @since 2026.01 - Copy Constructor for {@code Grid} Cloning
+     * @performance {@code O(1)} copying of primitive fields and {@code O(n)} cloning of the
+     *              {@code gridState}.
+     * @threading Creates a new independent instance based on the state at the time of copying (not
+     *            subject to concurrent modifications). The resulting instance is thread-safe, but
+     *            the copying process itself is not.
+     * @memory Allocates a new {@code Grid} instance and a new {@code long[2]} array for
+     *         {@link #gridState}.
+     */
+    public Grid(Grid other) {
+        this.gridState = other.gridState.clone();
+        this.trueCellsCount = other.trueCellsCount;
+        this.firstTrueCell = other.firstTrueCell;
+        this.recalculationNeeded = other.recalculationNeeded;
+    }
+
+    /**
+     * Creates and returns a deep copy of this {@code Grid} instance.
+     *
+     * <p>
+     * This abstract method forces concrete subclasses to implement their own copying logic,
+     * typically by invoking a copy constructor. This approach avoids the pitfalls of
+     * {@link Cloneable} and reflection, ensuring type safety and proper state duplication.
+     * </p>
+     *
+     * @return A deep copy of this {@code Grid} instance.
+     * @see #Grid(Grid)
+     * @since 2026.01 - Copy Method Standardization
+     * @performance {@code O(1)} complexity.
+     * @threading Creates a new independent instance based on the state at the time of copying (not
+     *            subject to concurrent modifications). The resulting instance is thread-safe, but
+     *            the copying process itself is not.
+     * @memory Allocates a new {@code Grid} instance.
+     */
+    public abstract Grid copy();
 
     /**
      * Initializes the {@code Grid} instance to a specific starting state.
@@ -1680,48 +1763,6 @@ public abstract class Grid {
     }
 
     /**
-     * Creates and returns a deep copy of this {@code Grid} instance.
-     *
-     * <p>
-     * The cloned instance has its own independent copy of the grid state and cached values,
-     * ensuring that modifications to the clone do not affect the original. This method uses
-     * reflection to create a new instance of the same class, allowing for proper cloning of
-     * subclasses without requiring overrides in each subclass.
-     * </p>
-     *
-     * @return A deep copy of this {@code Grid} instance.
-     * @throws RuntimeException if the cloning process fails (e.g., due to reflection issues or an
-     *                          inaccessible constructor).
-     * @see #firstTrueCell
-     * @see #gridState
-     * @see #recalculationNeeded
-     * @see #trueCellsCount
-     * @see java.lang.Class#getDeclaredConstructor(Class...)
-     * @see java.lang.Cloneable
-     * @see java.lang.Object#clone()
-     * @see java.lang.Object#getClass()
-     * @see java.lang.reflect.Constructor#newInstance(Object...)
-     * @since 2025.03 - Cloning Introduction
-     * @performance {@code O(1)} complexity (fixed number of field copies).
-     * @threading Thread-safe, as it returns a new, independent instance.
-     * @memory Allocates a new {@code Grid} object and a new {@code long[2]} for its state.
-     */
-    public Grid clone() {
-        try {
-            Grid newGrid = this.getClass().getDeclaredConstructor().newInstance();
-            // Copy bitmask state
-            newGrid.gridState[0] = this.gridState[0];
-            newGrid.gridState[1] = this.gridState[1];
-            newGrid.trueCellsCount = this.trueCellsCount;
-            newGrid.firstTrueCell = this.firstTrueCell;
-            newGrid.recalculationNeeded = this.recalculationNeeded;
-            return newGrid;
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to clone Grid", e);
-        }
-    }
-
-    /**
      * Determines if a prospective click on a {@code clickCell} can affect or create a new
      * {@link #findFirstTrueCell() first true cell} in the grid.
      *
@@ -1931,13 +1972,15 @@ public abstract class Grid {
     }
 
     /**
-     * Compares this {@code Grid} instance to another object for equality.
+     * Compares this {@code Grid} instance to another object for equality. As subclasses of Grid
+     * only impact initialization behavior and not the core grid state, this method only compares
+     * the {@link #gridState grid state} arrays of both instances.
      * 
      * @param obj The object to compare with this instance.
-     * @return {@code true} if the other object is a {@code Grid} of the same concrete class with an
-     *         identical {@link #gridState grid state}; {@code false} otherwise.
-     * @see java.lang.Object#equals(Object)
-     * @see java.util.Arrays#equals(long[], long[])
+     * @return {@code true} if the other object is a {@code Grid} with an identical
+     *         {@link #gridState grid state}; {@code false} otherwise.
+     * @see Arrays#equals(long[], long[])
+     * @see Object#equals(Object)
      * @since 2025.11 - equals Method Addition
      * @performance {@code O(1)} complexity due to fixed-size array comparison.
      * @threading Not thread-safe; reads the mutable {@link #gridState}.

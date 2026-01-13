@@ -1068,19 +1068,20 @@ class GridTest {
     }
 
     /**
-     * Tests that cloning a {@link Grid} creates a new instance with an identical, but independent,
+     * Tests that copying a {@link Grid} creates a new instance with an identical, but independent,
      * state.
      */
     @Test
-    void testClone() {
+    void testCopy() {
         Grid original = new Grid13();
         short[] clicks = generateRandomCombination(10);
 
         original.click(clicks);
 
-        Grid clone = original.clone();
+        Grid clone = original.copy();
 
         // Verify that the clone has the same state as the original
+        assertTrue(clone instanceof Grid13, "Cloned grid should be of the same type as the original");
         assertArrayEquals(original.getGridState(), clone.getGridState(),
                 "Cloned grid state should match the original's state");
         assertEquals(original.getTrueCount(), clone.getTrueCount(),

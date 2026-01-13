@@ -34,6 +34,48 @@ package com.github.mrgarbagegamer;
  */
 public class Grid13 extends Grid {
     /**
+     * Default constructor for {@code Grid13}.
+     * 
+     * @since 2026.01 - Copy Constructor Standardization
+     * @performance {@code O(1)} initialization.
+     * @threading Thread-safe; each instance is independent.
+     * @memory Allocates a new {@code Grid13} instance.
+     */
+    public Grid13() {
+        super();
+    }
+    
+    /**
+     * Copy constructor for {@code Grid13}. Since this constructor does not limit the type of the
+     * {@code other} parameter to {@code Grid13}, it can be used to copy any subclass of
+     * {@link Grid}.
+     *
+     * <p>
+     * Initializes a new {@code Grid13} instance with the state of another {@code Grid} instance.
+     * This constructor delegates to the {@link Grid#Grid(Grid) superclass copy constructor} to copy
+     * the shared state.
+     * </p>
+     *
+     * @param other The {@code Grid13} instance to copy.
+     * @see #copy()
+     * @see Grid#Grid(Grid)
+     * @since 2026.01 - Copy Constructor Standardization
+     * @performance {@code O(1)} delegation.
+     * @threading Creates a new independent instance based on the state at the time of copying (not
+     *            subject to concurrent modifications). The resulting instance is thread-safe, but
+     *            the copying process itself is not.
+     * @memory Allocates a new {@code Grid13} instance.
+     */
+    public Grid13(Grid other) {
+        super(other);
+    }
+
+    @Override
+    public Grid13 copy() {
+        return new Grid13(this);
+    }
+    
+    /**
      * Loads the pre-computed state for the Q13 puzzle.
      *
      * <p>

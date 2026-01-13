@@ -288,6 +288,9 @@ public abstract class Grid {
      */
     protected final long[] gridState; // TODO: Consider making this private and providing controlled
                                       // accessors to enforce encapsulation
+                                      // TODO: Consider breaking into two separate longs for clarity
+                                      // and optimization (saving an object header + indirection
+                                      // costs)
     /**
      * A cached count of the number of "on" ({@code true}) cells in the grid.
      *

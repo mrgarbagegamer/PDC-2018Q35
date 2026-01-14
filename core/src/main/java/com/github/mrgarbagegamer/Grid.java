@@ -279,6 +279,8 @@ public abstract class Grid {
      * @see #getBit(int)
      * @see #getGridState()
      * @see #setBit(int)
+     * @see #setGridState(long, long)
+     * @see #setGridState(long, long, int, short)
      * @see #toString()
      * @since 2025.07 - Bitmasked Grid State
      * @performance {@code O(1)} accesses and modifications using bitwise operations.
@@ -286,11 +288,9 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 16 bytes (2 {@code long}s) per instance.
      */
-    protected final long[] gridState; // TODO: Consider making this private and providing controlled
-                                      // accessors to enforce encapsulation
-                                      // TODO: Consider breaking into two separate longs for clarity
-                                      // and optimization (saving an object header + indirection
-                                      // costs)
+    private final long[] gridState; // TODO: Consider breaking into two separate longs for clarity
+                                    // and optimization (saving an object header + indirection
+                                    // costs)
     /**
      * A cached count of the number of "on" ({@code true}) cells in the grid.
      *
@@ -306,8 +306,7 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
-    protected int trueCellsCount = 0; // TODO: Consider making this private and providing controlled
-                                      // accessors to enforce encapsulation
+    private int trueCellsCount = 0;
     /**
      * A cached index of the first "on" ({@code true}) cell in the grid, in
      * {@link ValueFormat#Index} format.
@@ -316,7 +315,8 @@ public abstract class Grid {
      * This value is critical for pruning the search space in the {@link CombinationGeneratorTask},
      * as any valid solution must interact with the first {@code true} cell. It is updated lazily
      * whenever {@link #findFirstTrueCell()} is called and {@link #recalculationNeeded} is
-     * {@code true}. A value of {@code -1} indicates no cells are {@code true}.
+     * {@code true}. A value of {@code -1} indicates no cells are {@code true}, provided that
+     * {@code recalculationNeeded} is {@code false}.
      * </p>
      *
      * @since 2025.07 - First True Cell Caching
@@ -326,8 +326,7 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 2 bytes as a primitive {@code short}.
      */
-    protected short firstTrueCell = -1; // TODO: Consider making this private and providing
-                                        // controlled accessors to enforce encapsulation
+    private short firstTrueCell = -1;
     /**
      * A dirty flag indicating that the {@link #gridState grid state} has been modified and cached
      * values are stale.
@@ -345,9 +344,7 @@ public abstract class Grid {
      *            without external synchronization.
      * @memory Fixed memory footprint of 1 byte as a primitive {@code boolean}.
      */
-    protected boolean recalculationNeeded = false; // TODO: Consider making this private and
-                                                   // providing controlled accessors to enforce
-                                                   // encapsulation
+    private boolean recalculationNeeded = false;
 
     /**
      * Pre-computed {@link ValueFormat#Bitmask bitmasks} representing the result of clicking each
@@ -1057,6 +1054,60 @@ public abstract class Grid {
         int longIndex = index / 64;
         int bitPosition = index % 64;
         return (gridState[longIndex] & (1L << bitPosition)) != 0;
+    }
+
+    /**
+     * Sets the entire {@link #gridState grid bitmask} to the specified values. This method can be
+     * used by subclasses to initialize the grid to a specific state, bypassing individual bit
+     * manipulations and ensuring the consistency of related fields.
+     * 
+     * <p>
+     * This overload allows setting the grid state along with the {@link #trueCellsCount} and
+     * {@link #firstTrueCell} in one operation, useful when the complete state is known upfront.
+     * </p>
+     * 
+     * @param state0         The first {@code long} representing bits 0-63 of the grid.
+     * @param state1         The second {@code long} representing bits 64-108 of the grid.
+     * @param trueCellsCount The total number of {@code true} cells in the grid.
+     * @param firstTrueCell  The index of the first {@code true} cell in the grid.
+     * @see #setGridState(long, long)
+     * @since 2026.01 - Grid Encapsulation Improvements
+     * @performance {@code O(1)} assignment operations.
+     * @threading Not thread-safe; modifies instance state.
+     * @memory Does not allocate.
+     */
+    protected final void setGridState(long state0, long state1, int trueCellsCount,
+            short firstTrueCell) {
+        this.gridState[0] = state0;
+        this.gridState[1] = state1;
+        this.trueCellsCount = trueCellsCount;
+        this.firstTrueCell = firstTrueCell;
+        this.recalculationNeeded = false; // State is now consistent
+    }
+
+    /**
+     * Sets the entire {@link #gridState grid bitmask} to the specified values. This method can be
+     * used by subclasses to initialize the grid to a specific state, bypassing individual bit
+     * manipulations.
+     * 
+     * <p>
+     * This overload only sets the {@link #gridState} and marks the grid as needing recalculation of
+     * {@link #trueCellsCount} and {@link #firstTrueCell}. It is useful when one knows the state
+     * they want to set, but doesn't have the derived values readily available.
+     * </p>
+     * 
+     * @param state0 The first {@code long} representing bits 0-63 of the grid.
+     * @param state1 The second {@code long} representing bits 64-108 of the grid.
+     * @see #setGridState(long, long, int, short)
+     * @since 2026.01 - Grid Encapsulation Improvements
+     * @performance {@code O(1)} assignment operations.
+     * @threading Not thread-safe; modifies instance state.
+     * @memory Does not allocate.
+     */
+    protected final void setGridState(long state0, long state1) {
+        this.gridState[0] = state0;
+        this.gridState[1] = state1;
+        this.recalculationNeeded = true; // Mark for recalculation
     }
 
     /**

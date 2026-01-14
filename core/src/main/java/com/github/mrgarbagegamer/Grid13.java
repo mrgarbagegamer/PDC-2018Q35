@@ -90,6 +90,7 @@ public class Grid13 extends Grid {
      * </p>
      * 
      * @see #getGridState()
+     * @see #setGridState(long, long, int, short)
      * @since 2025.04 - Adjacent Skipping Optimization
      * @performance {@code O(1)} - Direct assignment of pre-computed values.
      * @threading Not thread-safe; mutates instance state.
@@ -99,12 +100,7 @@ public class Grid13 extends Grid {
         // Initialize for Q13/Kermit
 
         // set all cells to their initial state
-        gridState[0] = -6917317925703516160L;
-        gridState[1] = 8191L;
-
-        firstTrueCell = 32; // Set the first true cell to bit index 32 (row 2, col 1)
-        trueCellsCount = 30;
-        recalculationNeeded = false;
+        setGridState(-6917317925703516160L, 8191L, 30, (short) 32);
 
         // Initial clicks for Q13 (pre computed in index format to avoid recalculations)
         // this.click((short)48); // row 3, col 0

@@ -89,6 +89,7 @@ public class Grid35 extends Grid {
      * </p>
      *
      * @see #getGridState()
+     * @see #setGridState(long, long, int, short)
      * @since 2025.03 - Concrete Class Introduction
      * @performance {@code O(1)} - Direct assignment of pre-computed values.
      * @threading Not thread-safe; mutates instance state.
@@ -98,11 +99,6 @@ public class Grid35 extends Grid {
         // Initialize for Q35
 
         // set all cells to their initial state
-        gridState[0] = 45036546029518848L;
-        gridState[1] = 32L;
-
-        firstTrueCell = 39; // Set the first true cell to bit index 39 (row 2, col 8)
-        trueCellsCount = 4;
-        recalculationNeeded = false;
+        setGridState(45036546029518848L, 32L, 4, (short)39);
     }
 }

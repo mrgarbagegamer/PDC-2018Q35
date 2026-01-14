@@ -90,6 +90,7 @@ public class Grid22 extends Grid {
      * </p>
      *
      * @see #getGridState()
+     * @see #setGridState(long, long, int, short)
      * @since 2025.03 - Concrete Class Introduction
      * @performance {@code O(1)} - Direct assignment of pre-computed values.
      * @threading Not thread-safe; mutates instance state.
@@ -99,12 +100,7 @@ public class Grid22 extends Grid {
         // Initialize for Q22/Shrek
 
         // set all cells to their initial state
-        gridState[0] = 3293960916490350006L;
-        gridState[1] = 15078939901952L;
-
-        firstTrueCell = 1; // Set the first true cell to bit index 1 (row 0, col 1)
-        trueCellsCount = 50;
-        recalculationNeeded = false;
+        setGridState(3293960916490350006L, 15078939901952L, 50, (short) 1);
 
         // Initial clicks for Q22 (pre computed in index format to avoid recalculations)
         // this.click((short)17); // row 1, col 1

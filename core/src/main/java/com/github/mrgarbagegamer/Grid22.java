@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+// TODO: Update Javadocs
 /**
  * A concrete {@link Grid} that provides the initial puzzle state for Q22 ("Shrek").
  *
@@ -42,7 +43,7 @@ public class Grid22 extends Grid {
      * @memory Allocates a new {@code Grid22} instance.
      */
     public Grid22() {
-        super();
+        super(3293960916490350006L, 15078939901952L, 50, (short) 1);
     }
     
     /**
@@ -73,50 +74,5 @@ public class Grid22 extends Grid {
     @Override
     public Grid22 copy() {
         return new Grid22(this);
-    }
-
-    /**
-     * Loads the pre-computed state for the Q22 puzzle.
-     *
-     * <p>
-     * This method directly assigns the bitmask representing the puzzle's initial state to the
-     * {@link #gridState} array. It also sets cached values for the first {@code true} cell and the
-     * total count of {@code true} cells for efficient processing.
-     * </p>
-     *
-     * <p>
-     * The commented-out clicks represent the known 15-click solution and can be used for testing or
-     * validation purposes.
-     * </p>
-     *
-     * @see #getGridState()
-     * @see #setGridState(long, long, int, short)
-     * @since 2025.03 - Concrete Class Introduction
-     * @performance {@code O(1)} - Direct assignment of pre-computed values.
-     * @threading Not thread-safe; mutates instance state.
-     * @memory Does not allocate.
-     */
-    public void initialize() {
-        // Initialize for Q22/Shrek
-
-        // set all cells to their initial state
-        setGridState(3293960916490350006L, 15078939901952L, 50, (short) 1);
-
-        // Initial clicks for Q22 (pre computed in index format to avoid recalculations)
-        // this.click((short)17); // row 1, col 1
-        // this.click((short)20); // row 1, col 4
-        // this.click((short)23); // row 1, col 7
-        // this.click((short)26); // row 1, col 10
-        // this.click((short)29); // row 1, col 13
-        // this.click((short)48); // row 3, col 1
-        // this.click((short)51); // row 3, col 4
-        // this.click((short)54); // row 3, col 7
-        // this.click((short)57); // row 3, col 10
-        // this.click((short)60); // row 3, col 13
-        // this.click((short)79); // row 5, col 1
-        // this.click((short)82); // row 5, col 4
-        // this.click((short)85); // row 5, col 7
-        // this.click((short)88); // row 5, col 10
-        // this.click((short)91); // row 5, col 13
     }
 }

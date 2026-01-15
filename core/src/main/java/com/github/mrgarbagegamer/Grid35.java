@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+// TODO: Update Javadocs
 /**
  * A concrete {@link Grid} that provides the initial puzzle state for Q35 ("Buttercup").
  *
@@ -42,7 +43,7 @@ public class Grid35 extends Grid {
      * @memory Allocates a new {@code Grid35} instance.
      */
     public Grid35() {
-        super();
+        super(45036546029518848L, 32L, 4, (short)39);
     }
     
     /**
@@ -73,32 +74,5 @@ public class Grid35 extends Grid {
     @Override
     public Grid35 copy() {
         return new Grid35(this);
-    }
-
-    /**
-     * Loads the pre-computed state for the Q35 puzzle.
-     *
-     * <p>
-     * This method directly assigns the bitmask representing the puzzle's initial state to the
-     * {@link #gridState} array. It also sets cached values for the first {@code true} cell and the
-     * total count of {@code true} cells for efficient processing.
-     * </p>
-     *
-     * <p>
-     * As the solution for Q35 is not known, no solution clicks are included.
-     * </p>
-     *
-     * @see #getGridState()
-     * @see #setGridState(long, long, int, short)
-     * @since 2025.03 - Concrete Class Introduction
-     * @performance {@code O(1)} - Direct assignment of pre-computed values.
-     * @threading Not thread-safe; mutates instance state.
-     * @memory Does not allocate.
-     */
-    public void initialize() {
-        // Initialize for Q35
-
-        // set all cells to their initial state
-        setGridState(45036546029518848L, 32L, 4, (short)39);
     }
 }

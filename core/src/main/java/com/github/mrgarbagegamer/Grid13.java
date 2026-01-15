@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+// TODO: Update Javadocs
 /**
  * A concrete {@link Grid} that provides the initial puzzle state for Q13 ("Kermit").
  *
@@ -42,7 +43,16 @@ public class Grid13 extends Grid {
      * @memory Allocates a new {@code Grid13} instance.
      */
     public Grid13() {
-        super();
+        super(-6917317925703516160L, 8191L, 30, (short) 32);
+
+        // Initial clicks for Q13 (pre computed in index format to avoid recalculations)
+        // this.click((short)48); // row 3, col 0
+        // this.click((short)50); // row 3, col 2
+        // this.click((short)52); // row 3, col 4
+        // this.click((short)54); // row 3, col 6
+        // this.click((short)56); // row 3, col 8
+        // this.click((short)58); // row 3, col 10
+        // this.click((short)60); // row 3, col 12
     }
     
     /**
@@ -73,42 +83,5 @@ public class Grid13 extends Grid {
     @Override
     public Grid13 copy() {
         return new Grid13(this);
-    }
-    
-    /**
-     * Loads the pre-computed state for the Q13 puzzle.
-     *
-     * <p>
-     * This method directly assigns the bitmask representing the puzzle's initial state to the
-     * {@link #gridState} array. It also sets cached values for the first {@code true} cell and the
-     * total count of {@code true} cells for efficient processing.
-     * </p>
-     *
-     * <p>
-     * The commented-out clicks represent the known 7-click solution and can be used for testing or
-     * validation purposes.
-     * </p>
-     * 
-     * @see #getGridState()
-     * @see #setGridState(long, long, int, short)
-     * @since 2025.04 - Adjacent Skipping Optimization
-     * @performance {@code O(1)} - Direct assignment of pre-computed values.
-     * @threading Not thread-safe; mutates instance state.
-     * @memory Does not allocate.
-     */
-    public void initialize() {
-        // Initialize for Q13/Kermit
-
-        // set all cells to their initial state
-        setGridState(-6917317925703516160L, 8191L, 30, (short) 32);
-
-        // Initial clicks for Q13 (pre computed in index format to avoid recalculations)
-        // this.click((short)48); // row 3, col 0
-        // this.click((short)50); // row 3, col 2
-        // this.click((short)52); // row 3, col 4
-        // this.click((short)54); // row 3, col 6
-        // this.click((short)56); // row 3, col 8
-        // this.click((short)58); // row 3, col 10
-        // this.click((short)60); // row 3, col 12
     }
 }

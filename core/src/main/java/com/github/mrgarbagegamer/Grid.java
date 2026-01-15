@@ -6,6 +6,7 @@ import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
+// TODO: Add documentation to the new methods and modify existing Javadoc accordingly
 /**
  * A structure that represents the core hexagonal grid for a "Lights Out" style puzzle.
  *
@@ -291,6 +292,11 @@ public abstract class Grid {
     private final long[] gridState; // TODO: Consider breaking into two separate longs for clarity
                                     // and optimization (saving an object header + indirection
                                     // costs)
+
+    private final long initialState0;
+    private final long initialState1;
+    private final int initialTrueCellsCount;
+    private final short initialFirstTrueCell;
     /**
      * A cached count of the number of "on" ({@code true}) cells in the grid.
      *
@@ -874,9 +880,23 @@ public abstract class Grid {
      * @memory Allocates a new {@code Grid} instance and a new {@code long[2]} array for
      *         {@link #gridState}.
      */
-    public Grid() {
-        this.gridState = new long[2]; // All bits initialized to 0 (false)
-        initialize();
+    protected Grid(long initialState0, long initialState1) {
+        this.initialState0 = initialState0;
+        this.initialState1 = initialState1;
+        this.gridState = new long[] {initialState0, initialState1};
+        this.initialFirstTrueCell = findFirstTrueCell();
+        this.initialTrueCellsCount = getTrueCount();
+    }
+
+    protected Grid(long initialState0, long initialState1, int initialTrueCellsCount,
+            short initialFirstTrueCell) {
+        this.initialState0 = initialState0;
+        this.initialState1 = initialState1;
+        this.gridState = new long[] {initialState0, initialState1};
+        this.initialFirstTrueCell = initialFirstTrueCell;
+        this.initialTrueCellsCount = initialTrueCellsCount;
+        this.firstTrueCell = initialFirstTrueCell;
+        this.trueCellsCount = initialTrueCellsCount;
     }
 
     /**
@@ -922,8 +942,12 @@ public abstract class Grid {
      * @memory Allocates a new {@code Grid} instance and a new {@code long[2]} array for
      *         {@link #gridState}.
      */
-    public Grid(Grid other) {
+    protected Grid(Grid other) {
         this.gridState = other.gridState.clone();
+        this.initialState0 = other.initialState0;
+        this.initialState1 = other.initialState1;
+        this.initialFirstTrueCell = other.initialFirstTrueCell;
+        this.initialTrueCellsCount = other.initialTrueCellsCount;
         this.trueCellsCount = other.trueCellsCount;
         this.firstTrueCell = other.firstTrueCell;
         this.recalculationNeeded = other.recalculationNeeded;
@@ -966,7 +990,9 @@ public abstract class Grid {
      * @performance Implementation-dependent.
      * @threading Not thread-safe; this method modifies the instance's {@link #gridState}.
      */
-    public abstract void initialize();
+    public void initialize() {
+        setGridState(initialState0, initialState1, initialTrueCellsCount, initialFirstTrueCell);
+    }
 
     /**
      * Sets the bit at the specified {@link ValueFormat#Index index} in the {@link #gridState grid
@@ -1253,7 +1279,7 @@ public abstract class Grid {
      *            intrinsics.
      * @memory Does not allocate.
      */
-    public short findFirstTrueCell(ValueFormat format) {
+    public final short findFirstTrueCell(ValueFormat format) {
         if (!recalculationNeeded && trueCellsCount == 0) {
             return -1;
         }
@@ -1808,7 +1834,7 @@ public abstract class Grid {
      * @threading Not thread-safe due to lazy evaluation of a mutable field.
      * @memory Does not allocate.
      */
-    public int getTrueCount() {
+    public final int getTrueCount() {
         if (recalculationNeeded) {
             trueCellsCount = Long.bitCount(gridState[0]) + Long.bitCount(gridState[1]);
             recalculationNeeded = false;
@@ -2076,5 +2102,153 @@ public abstract class Grid {
     @Override
     public final int hashCode() {
         return Arrays.hashCode(gridState);
+    }
+
+    private static final class CustomGrid extends Grid {
+        private CustomGrid(Builder builder) {
+            super(builder.initialState0, builder.initialState1);
+        }
+
+        private CustomGrid(Grid other) {
+            super(other);
+        }
+
+        @Override
+        public Grid copy() {
+            return new CustomGrid(this);
+        }
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static final class Builder {
+        private long initialState0 = 0L;
+        private long initialState1 = 0L;
+
+        protected Builder self() {
+            return this;
+        }
+
+        public Builder setInitialState(long state0, long state1) {
+            this.initialState0 = state0;
+            this.initialState1 = state1;
+            return self();
+        }
+
+        public Builder click(short cell) {
+            initialState0 ^= ADJACENCY_MASKS[cell][0];
+            initialState1 ^= ADJACENCY_MASKS[cell][1];
+            return self();
+        }
+
+        public Builder click(short cell1, short cell2) {
+            click(cell1);
+            click(cell2);
+            return self();
+        }
+
+        public Builder click(short cell1, short cell2, short cell3) {
+            click(cell1);
+            click(cell2);
+            click(cell3);
+            return self();
+        }
+
+        public Builder click(short cell1, short cell2, short cell3, short cell4) {
+            click(cell1);
+            click(cell2);
+            click(cell3);
+            click(cell4);
+            return self();
+        }
+
+        public Builder click(short cell1, short cell2, short cell3, short cell4, short cell5) {
+            click(cell1);
+            click(cell2);
+            click(cell3);
+            click(cell4);
+            click(cell5);
+            return self();
+        }
+
+        public Builder click(short... cells) {
+            for (short cell : cells) {
+                click(cell);
+            }
+            return self();
+        }
+
+        public Builder from(Grid other) {
+            this.initialState0 = other.gridState[0];
+            this.initialState1 = other.gridState[1];
+            return self();
+        }
+
+        public Builder from(long[] bitmask) {
+            if (bitmask.length != 2) {
+                throw new IllegalArgumentException("Bitmask must be of length 2.");
+            }
+            this.initialState0 = bitmask[0];
+            this.initialState1 = bitmask[1];
+            return self();
+        }
+
+        public Builder toggle(short cell) {
+            if (cell < 64) {
+                initialState0 ^= (1L << cell);
+            } else {
+                initialState1 ^= (1L << (cell - 64));
+            }
+
+            return self();
+        }
+
+        public Builder toggle(short cell1, short cell2) {
+            toggle(cell1);
+            toggle(cell2);
+            return self();
+        }
+
+        public Builder toggle(short cell1, short cell2, short cell3) {
+            toggle(cell1);
+            toggle(cell2);
+            toggle(cell3);
+            return self();
+        }
+
+        public Builder toggle(short cell1, short cell2, short cell3, short cell4) {
+            toggle(cell1);
+            toggle(cell2);
+            toggle(cell3);
+            toggle(cell4);
+            return self();
+        }
+
+        public Builder toggle(short cell1, short cell2, short cell3, short cell4, short cell5) {
+            toggle(cell1);
+            toggle(cell2);
+            toggle(cell3);
+            toggle(cell4);
+            toggle(cell5);
+            return self();
+        }
+
+        public Builder toggle(short... cells) {
+            for (short cell : cells) {
+                toggle(cell);
+            }
+            return self();
+        }
+
+        public Builder clear() {
+            setInitialState(0L, 0L);
+            return self();
+        }
+
+        public Grid build() {
+            return new CustomGrid(self());
+        }
     }
 }

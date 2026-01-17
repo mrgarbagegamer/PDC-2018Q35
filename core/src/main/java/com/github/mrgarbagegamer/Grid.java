@@ -2180,6 +2180,34 @@ public abstract class Grid {
             return self();
         }
 
+        public Builder click(int cell) {
+            return click((short) cell);
+        }
+
+        public Builder click(int cell1, int cell2) {
+            return click((short) cell1, (short) cell2);
+        }
+
+        public Builder click(int cell1, int cell2, int cell3) {
+            return click((short) cell1, (short) cell2, (short) cell3);
+        }
+
+        public Builder click(int cell1, int cell2, int cell3, int cell4) {
+            return click((short) cell1, (short) cell2, (short) cell3, (short) cell4);
+        }
+
+        public Builder click(int cell1, int cell2, int cell3, int cell4, int cell5) {
+            return click((short) cell1, (short) cell2, (short) cell3, (short) cell4,
+                    (short) cell5);
+        }
+
+        public Builder click(int... cells) {
+            for (int cell : cells) {
+                click((short) cell);
+            }
+            return self();
+        }
+
         public Builder from(Grid other) {
             this.initialState0 = other.gridState[0];
             this.initialState1 = other.gridState[1];
@@ -2238,6 +2266,34 @@ public abstract class Grid {
         public Builder toggle(short... cells) {
             for (short cell : cells) {
                 toggle(cell);
+            }
+            return self();
+        }
+
+        public Builder toggle(int cell) {
+            return toggle((short) cell);
+        }
+
+        public Builder toggle(int cell1, int cell2) {
+            return toggle((short) cell1, (short) cell2);
+        }
+
+        public Builder toggle(int cell1, int cell2, int cell3) {
+            return toggle((short) cell1, (short) cell2, (short) cell3);
+        }
+
+        public Builder toggle(int cell1, int cell2, int cell3, int cell4) {
+            return toggle((short) cell1, (short) cell2, (short) cell3, (short) cell4);
+        }
+
+        public Builder toggle(int cell1, int cell2, int cell3, int cell4, int cell5) {
+            return toggle((short) cell1, (short) cell2, (short) cell3, (short) cell4,
+                    (short) cell5);
+        }
+
+        public Builder toggle(int... cells) {
+            for (int cell : cells) {
+                toggle((short) cell);
             }
             return self();
         }

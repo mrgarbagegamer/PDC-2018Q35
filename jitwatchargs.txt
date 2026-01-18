@@ -1,5 +1,5 @@
 # Classpath
--cp "target/classes;target/lib/*"
+-cp "core/target/classes;core/target/lib/*"
 
 # Existing JVM arguments
 --enable-preview
@@ -74,3 +74,5 @@
 -Xlog:class+load=info
 -XX:+LogCompilation
 -XX:CompilerDirectivesFile=directives.txt
+-Xbatch
+-XX:PrintAssemblyOptions=intel

@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS;
+
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
@@ -36,7 +38,7 @@ import org.apache.logging.log4j.util.Unbox;
  * two key strategies:
  * <ul>
  * <li><b>Constraint Pruning:</b> At each branching point,
- * {@link #canPotentiallySatisfyConstraints(int)} uses bitmasks to check if a path can possibly lead
+ * {@link #constraintCheck(int)} uses bitmasks to check if a path can possibly lead
  * to a valid solution, pruning entire branches early.</li>
  * <li><b>Range-Based Batching:</b> Leaf tasks now define a range of work with a single
  * {@link WorkBatch#addWork(short[], short, boolean)} call, offloading the final combination
@@ -462,7 +464,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * This is a critical field for early-stage pruning. Instead of recomputing which {@code true}
      * cells are affected by a {@code prefix}, each task inherits the state from its parent and
      * updates it incrementally with a single {@code OR} operation. This state is then used in
-     * {@link #canPotentiallySatisfyConstraints(int)} to determine if the current path is viable. A
+     * {@link #constraintCheck(int)} to determine if the current path is viable. A
      * value of {@code -1} indicates an uninitialized state, used only by the root task.
      * </p>
      * 
@@ -471,9 +473,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@code true} cells, but all puzzles simulated in this project fall under this limit.
      * </p>
      * 
-     * @see #CLICK_TO_TRUE_CELL_MASK
+     * @see #TRUE_CELL_MASKS
      * @see #skipConstraintsCheck
-     * @see #canPotentiallySatisfyConstraints(int)
+     * @see #constraintCheck(int)
      * @see #init(short[], int, long, boolean, boolean)
      * @see Grid#areAdjacent(short, short)
      * @see Grid#findTrueCells()
@@ -483,14 +485,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            isolation.
      * @memory Minimal memory footprint of 8 bytes as a {@code long}.
      */
-    private long cachedAdjacencyState = -1;
+    private long currentAdjacenciesLower = -1;
+    private long currentAdjacenciesUpper = -1;
     /**
      * A boolean indicating the parity of clicks affecting the first initially {@code true} cell in
      * the {@link #prefix}. {@code true} indicates an odd number of toggles, {@code false} indicates
      * even.
      * 
      * <p>
-     * Like {@link #cachedAdjacencyState}, this value is incrementally built in the generator
+     * Like {@link #currentAdjacencies}, this value is incrementally built in the generator
      * threads to allow for {@code O(1)} checks in {@link #computeLeafCombinations(GeneratorContext)
      * leaf tasks}.
      * </p>
@@ -505,13 +508,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            isolation.
      * @memory Minimal memory footprint of 1 byte as a {@code boolean}.
      */
-    private boolean prefixParity;
+    private boolean isOdd;
     /**
      * A flag indicating that this task and all its descendants are guaranteed to satisfy the
      * constraints, allowing future checks to be skipped.
      * 
      * <p>
-     * This flag is set to {@code true} by {@link #canPotentiallySatisfyConstraints(int)} when a
+     * This flag is set to {@code true} by {@link #constraintCheck(int)} when a
      * {@link #prefix} is found to toggle every initially {@code true} cell. Because additional
      * clicks cannot "un-satisfy" this condition, all child tasks spawned from this point can
      * inherit this flag and bypass the expensive constraint check. This enables a much faster,
@@ -519,7 +522,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@link #computeIntermediateSubtasksSkipPath(GeneratorContext)}.
      * </p>
      * 
-     * @see #cachedAdjacencyState
+     * @see #currentAdjacencies
      * @see #computeIntermediateSubtasks(GeneratorContext)
      * @since 2025.08 - Reduced Branching Refactor
      * @performance {@code O(1)} for checks and updates.
@@ -531,7 +534,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     /**
      * A {@code static final} cache of
-     * {@link StartYourMonkeys.GlobalConfig#CLICK_TO_TRUE_CELL_MASK}, used for quick adjacency
+     * {@link StartYourMonkeys.GlobalConfig#TRUE_CELL_MASKS}, used for quick adjacency
      * checks. Through the use of {@link StableValue StableValues} and the ordering of class
      * initializations, this array is guaranteed to be initialized before any tasks are created and
      * can be treated as a constant.
@@ -541,8 +544,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of {@code Grid.NUM_CELLS * 8} bytes as a {@code long[]} array.
      */
-    private static final long[] CLICK_TO_TRUE_CELL_MASK = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK
-            .get();
+    private static final long[] TRUE_CELL_MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
+    private static final long[] TRUE_CELL_MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
     /**
      * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}, used for
      * quick pruning checks. Through the use of {@link StableValue StableValues} and the ordering of
@@ -554,7 +557,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 8 bytes as a {@code long}.
      */
-    private static final long EXPECTED_MASK = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
+    private static final long EXPECTED_MASK_LOWER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_LOWER.get();
+    private static final long EXPECTED_MASK_UPPER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_UPPER.get();
 
     public static CombinationGeneratorTask createRootTask() {
         final CombinationGeneratorTask rootTask = new CombinationGeneratorTask();
@@ -562,7 +566,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // Initialize instance fields
         rootTask.prefix = new short[NUM_CLICKS - 1];
         rootTask.prefixLength = 0;
-        rootTask.cachedAdjacencyState = -1;
+        rootTask.currentAdjacenciesLower = -1;
+        rootTask.currentAdjacenciesUpper = -1;
 
         return rootTask;
     }
@@ -674,31 +679,38 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 + 1);
 
         for (short i = start; i < max; i++) {
-            // Use context pools directly - no more ThreadLocal calls
-            short[] newPrefix = ctx.prefixArrayPool.get();
-            if (newPrefix == null)
-                newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
-
-            System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
-            newPrefix[prefixLength] = i;
-
-            // Get recycled task from context pool
-            CombinationGeneratorTask subtask = ctx.taskPool.get();
+            final long lowerMask = TRUE_CELL_MASKS_LOWER[i];
+            
+            final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
             // Identify the parity of this root subtask:
-            final boolean parity = (CLICK_TO_TRUE_CELL_MASK[i] & 1L) != 0; // Check against first
-                                                                           // true cell
+            final boolean parity = (lowerMask & 1L) != 0;
 
-            // Pass TRUE_CELL_ADJACENCY_MASKS[i] for correct initial state
-            subtask.init(newPrefix, prefixLength + 1, CLICK_TO_TRUE_CELL_MASK[i], false, parity);
-
-            // Fork the subtask - it will clean itself up
-            subtask.fork();
+            getAndForkSubtask(ctx, newPrefix, lowerMask, TRUE_CELL_MASKS_UPPER[i], false, parity);
         }
 
         helpQuiesce(); // Wait for all subtasks to complete before returning
         // This will ensure that the root task does not exit prematurely, keeping the main thread
         // parked
+    }
+
+    private short[] buildPrefixWithNewValue(GeneratorContext ctx, short newValue) {
+        short[] newPrefix = ctx.prefixArrayPool.get();
+        if (newPrefix == null)
+            newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
+        System.arraycopy(this.prefix, 0, newPrefix, 0, this.prefixLength);
+        newPrefix[this.prefixLength] = newValue;
+        return newPrefix;
+    }
+
+    private void getAndForkSubtask(GeneratorContext ctx, short[] newPrefix, long newAdjacencyLower,
+            long newAdjacencyUpper, boolean skipConstraints, boolean isOdd) {
+        final CombinationGeneratorTask subtask = ctx.taskPool.get();
+        subtask.init(newPrefix, this.prefixLength + 1, newAdjacencyLower, newAdjacencyUpper,
+                skipConstraints, isOdd);
+
+        // Fork the subtask - it will clean itself up
+        subtask.fork();
     }
 
     /**
@@ -721,7 +733,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * @param prefix               The prefix {@code short[]} for the new task.
      * @param prefixLength         The length of the {@code prefix}.
-     * @param parentAdjacencyState The {@link #cachedAdjacencyState} from the parent task.
+     * @param parentAdjacencyState The {@link #currentAdjacencies} from the parent task.
      * @param skipConstraints      A flag indicating if constraint checks can be skipped.
      * @param prefixParity         The parity of the {@code prefix} affecting the first {@code true}
      *                             cell.
@@ -730,14 +742,19 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Not thread-safe; must be called by only one thread at a time on a given task.
      * @memory Does not allocate; uses pooled resources.
      */
-    public void init(short[] prefix, int prefixLength, long parentAdjacencyState,
-            boolean skipConstraints, boolean prefixParity) {
+    public void init(short[] prefix, int prefixLength, long parentAdjacencyStateLower,
+            long parentAdjacencyStateUpper, boolean skipConstraints, boolean prefixParity) {
         this.prefix = prefix;
         this.prefixLength = prefixLength;
-        this.cachedAdjacencyState = parentAdjacencyState;
         this.skipConstraintsCheck = skipConstraints;
-        this.prefixParity = prefixParity;
+        this.isOdd = prefixParity;
+        this.currentAdjacenciesLower = parentAdjacencyStateLower;
         reinitialize();
+
+        if (USE_DUAL_MASKS.get()) { // Constant foldable by JIT (hopefully)
+            // Update the upper state
+            this.currentAdjacenciesUpper = parentAdjacencyStateUpper;
+        }
     }
 
     // LEAF TASK PATH:
@@ -775,7 +792,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private final void computeLeafCombinations(GeneratorContext ctx) {
         // REDESIGNED: Offload combination generation to the WorkBatch iterator.
         // This method now only defines the *range* of work.
-        final short lastPrefixClick = (short) (prefix[prefixLength - 1] + 1);
+        final short lastPrefixClick = (short) (this.prefix[this.prefixLength - 1] + 1);
 
         // 1. Add the work range to the batch.
         WorkBatch batch = ctx.getOrCreateBatch();
@@ -792,7 +809,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
 
         // Add the entire valid range as a single work item.
-        batch.addWork(prefix, lastPrefixClick, this.prefixParity);
+        batch.addWork(prefix, lastPrefixClick, this.isOdd);
     }
 
     /**
@@ -833,10 +850,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Does not allocate.
      */
     private void computeIntermediateSubtasks(GeneratorContext ctx) {
+        final short start = (short) (this.prefix[this.prefixLength - 1] + 1);
+        final short max = (short) (Grid.NUM_CELLS - (NUM_CLICKS - this.prefixLength) + 1);
+
         if (skipConstraintsCheck) {
-            computeIntermediateSubtasksSkipPath(ctx);
+            computeIntermediateSubtasksSkipPath(ctx, start, max);
         } else {
-            computeIntermediateSubtasksConstraintPath(ctx);
+            computeIntermediateSubtasksConstraintPath(ctx, start, max);
         }
     }
 
@@ -870,33 +890,23 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            isolation.
      * @memory Does not allocate unless pools are empty; uses pooled resources.
      */
-    private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx) {
-        final short start = (short) (prefix[prefixLength - 1] + 1);
-        final short max = (short) (Grid.NUM_CELLS - (NUM_CLICKS - prefixLength) + 1);
-        final ArrayPool prefixPool = ctx.prefixArrayPool;
-        final TaskPool taskPool = ctx.taskPool;
-        final boolean prefixParity = this.prefixParity; // Cache field read
-
+    private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx, short start, short max) {
         // Pure loop - no constraint checking, no mask loading, no conditionals
         for (short i = start; i < max; i++) {
-            short[] newPrefix = prefixPool.get();
-            if (newPrefix == null)
-                newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
+            final long lowerMask = TRUE_CELL_MASKS_LOWER[i];
 
-            System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
-            newPrefix[prefixLength] = i;
+            final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
             // Determine the parity of the new prefix based on the new click
-            final boolean iAdj = (CLICK_TO_TRUE_CELL_MASK[i] & 1L) != 0;
-            final boolean newPrefixParity = prefixParity ^ iAdj; // Update parity
+            final boolean newPrefixParity = getNewPrefixParity(lowerMask);
 
             // All parameters are constants - perfect for JIT optimization
-            CombinationGeneratorTask subtask = taskPool.get();
-            subtask.init(newPrefix, prefixLength + 1, -1L, true, newPrefixParity);
-
-            // Fork the subtask - it will clean itself up
-            subtask.fork();
+            getAndForkSubtask(ctx, newPrefix, -1L, -1L, true, newPrefixParity);
         }
+    }
+
+    private boolean getNewPrefixParity(long lowerMask) {
+        return this.isOdd ^ ((lowerMask & 1L) != 0);
     }
 
     // PURE HOT PATH 2:
@@ -908,14 +918,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * This is the "slow path" for intermediate tasks. It is invoked when the current task's
      * {@link #prefix} has not yet been proven to satisfy all constraints. Before forking subtasks,
      * it performs a critical pruning step by calling
-     * {@link #canPotentiallySatisfyConstraints(int)}. If that check determines that no possible
+     * {@link #constraintCheck(int)}. If that check determines that no possible
      * descendant of this task can form a valid solution, the entire branch is pruned, saving a
      * massive amount of wasted computation.
      * </p>
      * 
      * <p>
      * If the path is viable, the method proceeds to fork subtasks in a tight loop. For each new
-     * subtask, it incrementally updates the {@link #cachedAdjacencyState} with a single {@code OR}
+     * subtask, it incrementally updates the {@link #currentAdjacencies} with a single {@code OR}
      * operation and passes it down. It also propagates the {@link #skipConstraintsCheck} flag,
      * which may have been set to {@code true} inside {@code canPotentiallySatisfyConstraints},
      * allowing all subsequent children to use the "fast path" from this point forward. To keep the
@@ -935,48 +945,32 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            isolation.
      * @memory Does not allocate unless pools are empty; uses pooled resources.
      */
-    private void computeIntermediateSubtasksConstraintPath(GeneratorContext ctx) {
-        final short start = (short) (prefix[prefixLength - 1] + 1);
-        final short max = (short) (Grid.NUM_CELLS - (NUM_CLICKS - prefixLength) + 1);
-
+    private void computeIntermediateSubtasksConstraintPath(GeneratorContext ctx, short start,
+            short max) {
         // Early constraint check - happens ONCE per task, not per iteration
-        if (prefixLength >= 2 && !canPotentiallySatisfyConstraints(start)) {
+        if (prefixLength >= 2 && !constraintCheck(start)) {
             return; // Skip this entire branch if constraints cannot be satisfied
         }
 
-        // Pre-compute all loop-invariant values and cache array references
-        final long currentAdjacencyState = this.cachedAdjacencyState;
-        final ArrayPool prefixPool = ctx.prefixArrayPool;
-        final TaskPool taskPool = ctx.taskPool;
-        final long[] masks = CLICK_TO_TRUE_CELL_MASK;
-        final boolean skipConstraints = this.skipConstraintsCheck; // Cache field read
-        final boolean prefixParity = this.prefixParity; // Cache field read
-
         // Pure loop - no conditionals inside, all branching resolved outside loop
-        for (short i = start; i < max; i++) // loops from prefix[prefixLength - 1] + 1 to
-                                            // Grid.NUM_CELLS - (numClicks - prefixLength) + 1
-        {
-            short[] newPrefix = prefixPool.get();
-            if (newPrefix == null)
-                newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
-
-            System.arraycopy(prefix, 0, newPrefix, 0, prefixLength);
-            newPrefix[prefixLength] = i;
+        for (short i = start; i < max; i++) {
+            final long lowerMask = TRUE_CELL_MASKS_LOWER[i];
+            
+            final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
             // Determine the parity of the new prefix based on the new click
-            final boolean iAdj = (CLICK_TO_TRUE_CELL_MASK[i] & 1L) != 0;
-            final boolean newPrefixParity = prefixParity ^ iAdj; // Update parity
+            final boolean newPrefixParity = getNewPrefixParity(lowerMask);
 
-            // No conditional - pure OR calculation every time
-            long childAdjacencyState = currentAdjacencyState | masks[i];
+            // Update the adjacency state for the child task
+            final long childAdjacenciesLower = this.currentAdjacenciesLower
+                    | lowerMask;
+            final long childAdjacenciesUpper = this.currentAdjacenciesUpper
+                    | TRUE_CELL_MASKS_UPPER[i]; // Only used if dual masks are enabled, otherwise
+                                                // constant folded out
 
             // All parameters determined - perfect for JIT constant propagation
-            CombinationGeneratorTask subtask = taskPool.get();
-            subtask.init(newPrefix, prefixLength + 1, childAdjacencyState, skipConstraints,
-                    newPrefixParity);
-
-            // Fork the subtask - it will clean itself up
-            subtask.fork();
+            getAndForkSubtask(ctx, newPrefix, childAdjacenciesLower, childAdjacenciesUpper,
+                    this.skipConstraintsCheck, newPrefixParity);
         }
     }
 
@@ -996,7 +990,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * The check is performed in two stages, both using {@code O(1)} bitwise operations:
      * <ol>
      * <li><b>Direct Check:</b> It computes the {@code needed} bits by XORing the
-     * {@link #cachedAdjacencyState} (which {@code true} cells are toggled by the current prefix)
+     * {@link #currentAdjacencies} (which {@code true} cells are toggled by the current prefix)
      * with the {@link #EXPECTED_MASK} (all {@code true} cells). If {@code needed} is zero, the
      * constraint is already met. As an optimization, it sets {@link #skipConstraintsCheck} to
      * {@code true}, allowing all descendants to use a faster, check-free generation path.</li>
@@ -1014,7 +1008,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @param startIdx The starting index for the next click, used to look up the correct suffix
      *                 mask.
      * @return {@code true} if this path is still viable, {@code false} if it should be pruned.
-     * @see #CLICK_TO_TRUE_CELL_MASK
+     * @see #TRUE_CELL_MASKS
      * @see Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)
      * @see Grid#findTrueCells(Grid.ValueFormat)
      * @see Grid.ValueFormat#Bitmask
@@ -1024,38 +1018,58 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            isolation.
      * @memory Does not allocate; uses pre-computed {@code static} bitmasks.
      */
-    boolean canPotentiallySatisfyConstraints(int startIdx) {
-        // OPTIMIZATION: Call ensureTrueCellMasks once in the root task to avoid a call here.
+    boolean constraintCheck(int startIdx) {
+        if (USE_DUAL_MASKS.get()) { // Constant foldable by JIT (hopefully)
+            return constraintCheckDualMask(startIdx);
+        } else {
+            return constraintCheckSingleMask(startIdx);
+        }
+    }
 
+    private boolean constraintCheckSingleMask(int startIdx) {
         // cachedAdjacencyState can only be -1 for the root task (which skips this check)
         // Therefore, we can assume it is initialized here, saving a branch in our logic.
 
-        // Define the variables we'll use in this check.
-        final long target = EXPECTED_MASK;
-        final long currentAdjacencies = cachedAdjacencyState;
-        final long needed = currentAdjacencies ^ target; // XOR with target to find which bits need
-                                                         // to be flipped
+        // XOR with lower expected mask to find which bits need to be flipped
+        final long needed = this.currentAdjacenciesLower ^ EXPECTED_MASK_LOWER;
 
         // If no bits need to be flipped, we're already good.
         // OPTIMIZATION: Skip future checks by setting skipConstraintsCheck to true
         if (needed == 0L) {
-            skipConstraintsCheck = true; // Set flag separately to avoid side effects
-            return true;
+            return skipConstraintsCheck = true;
         }
 
         // Else, check if any of the available adjacencies can satisfy the needed bits
         // Use the pre-computed suffix OR masks for fast checking
-        long availableAdjacencies = SUFFIX_OR_MASKS[startIdx];
+        return (SUFFIX_MASKS_LOWER[startIdx] & needed) == needed;
+    }
 
-        return (availableAdjacencies & needed) == needed;
+    private boolean constraintCheckDualMask(int startIdx) {
+        // cachedAdjacencyState can only be -1 for the root task (which skips this check)
+        // Therefore, we can assume it is initialized here, saving a branch in our logic.
+
+        // XOR with expected masks to find which bits need to be flipped
+        final long neededLower = this.currentAdjacenciesLower ^ EXPECTED_MASK_LOWER;
+        final long neededUpper = this.currentAdjacenciesUpper ^ EXPECTED_MASK_UPPER;
+
+        // If no bits need to be flipped, we're already good.
+        // OPTIMIZATION: Skip future checks by setting skipConstraintsCheck to true
+        if (neededLower == 0L && neededUpper == 0L) {
+            return skipConstraintsCheck = true;
+        }
+
+        // Else, check if any of the available adjacencies can satisfy the needed bits
+        // Use the pre-computed suffix OR masks for fast checking
+        return (SUFFIX_MASKS_LOWER[startIdx] & neededLower) == neededLower
+                && (SUFFIX_MASKS_UPPER[startIdx] & neededUpper) == neededUpper;
     }
 
     /**
      * An array of pre-computed "suffix OR" bitmasks for {@code O(1)} constraint checking.
      * 
      * <p>
-     * This is a critical optimization for {@link #canPotentiallySatisfyConstraints(int)}. The mask
-     * at index {@code i} is the bitwise {@code OR} of all {@link #CLICK_TO_TRUE_CELL_MASK} from
+     * This is a critical optimization for {@link #constraintCheck(int)}. The mask
+     * at index {@code i} is the bitwise {@code OR} of all {@link #TRUE_CELL_MASKS} from
      * index {@code i} to the end of the grid.
      * </p>
      * <p>
@@ -1078,8 +1092,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of ~{@code 8 * Grid.NUM_CELLS} bytes as a {@code long} array.
      */
-    private static final long[] SUFFIX_OR_MASKS = StartYourMonkeys.GlobalConfig.SUFFIX_OR_MASKS
-            .get();
+    private static final long[] SUFFIX_MASKS_LOWER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_LOWER.get();
+    private static final long[] SUFFIX_MASKS_UPPER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_UPPER.get();
 
     /**
      * Flushes a {@link WorkBatch batch} of combinations to an available {@link CombinationQueue

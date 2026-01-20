@@ -170,7 +170,7 @@ public class TestClickCombination extends Thread {
     private final Grid puzzleGrid;
     /**
      * A {@code static final} cache of
-     * {@link StartYourMonkeys.GlobalConfig#CLICK_TO_TRUE_CELL_MASK}.
+     * {@link StartYourMonkeys.GlobalConfig#TRUE_CELL_MASKS}.
      *
      * <p>
      * By caching this as a {@code static final} field at class load time, we enable the JIT
@@ -183,7 +183,8 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private static final long[] MASKS = StartYourMonkeys.GlobalConfig.CLICK_TO_TRUE_CELL_MASK.get();
+    private static final long[] MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
+    private static final long[] MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
     /**
      * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}.
      *
@@ -198,7 +199,8 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 8 bytes for the primitive {@code long}.
      */
-    private static final long EXPECTED = StartYourMonkeys.GlobalConfig.EXPECTED_MASK.get();
+    private static final long EXPECTED_LOWER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_LOWER.get();
+    private static final long EXPECTED_UPPER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_UPPER.get();
 
     /**
      * Constructs a monkey thread.
@@ -221,7 +223,7 @@ public class TestClickCombination extends Thread {
     public TestClickCombination(String name, CombinationQueue queue) {
         super(name);
         this.combinationQueue = queue;
-        this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid().copy();
+        this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid();
     }
 
     /**
@@ -308,11 +310,12 @@ public class TestClickCombination extends Thread {
                 final int start = item.getStart();
                 final short[] prefix = item.getPrefix();
 
-                final long prefixMask = buildParityMask(prefix);
+                final long prefixMaskLower = buildParityMaskLower(prefix);
+                final long prefixMaskUpper = buildParityMaskUpper(prefix);
 
                 for (int i = start; i < finalClicks.length; i++) {
                     final short finalClick = finalClicks[i];
-                    if (satisfiesOddAdjacency(prefixMask, finalClick)) {
+                    if (satisfiesOddAdjacency(prefixMaskLower, prefixMaskUpper, finalClick)) {
                         puzzleGrid.click(prefix, finalClick);
 
                         if (puzzleGrid.isSolved()) {
@@ -463,41 +466,8 @@ public class TestClickCombination extends Thread {
         return true;
     }
 
-    /**
-     * Computes the "parity mask" for a given combination prefix.
-     *
-     * <p>
-     * This method is a critical part of the "odd adjacency" optimization. It calculates the
-     * cumulative effect of all clicks in the {@code combination} prefix by XORing their respective
-     * bitmasks from the {@link #MASKS} lookup table. The resulting {@code long} is a bitmask where
-     * the Nth bit is 1 if the Nth {@code true} cell was toggled an odd number of times by the
-     * prefix, and 0 otherwise.
-     * </p>
-     *
-     * <p>
-     * This pre-computed prefix mask is then used by {@link #satisfiesOddAdjacency(long, short)} to
-     * perform a final, {@code O(1)} check for each potential final click, avoiding a full
-     * re-computation for every complete combination.
-     * </p>
-     *
-     * <h3>Performance &amp; JIT Optimizations</h3>
-     * <p>
-     * The method is heavily optimized for the JIT compiler. It uses local {@code final} variables
-     * to cache array references and loop bounds, which encourages the JIT to perform optimizations
-     * like loop unrolling. The core logic is a tight loop of XOR operations, which is extremely
-     * fast on modern CPUs.
-     * </p>
-     *
-     * @param combination The combination prefix to build the mask for.
-     * @return The calculated parity mask as a {@code long}.
-     * @since 2025.11 - Range-Based WorkItem Refactor
-     * @performance {@code O(combination.length)} iteration, dominated by XOR operations.
-     * @threading Thread-safe; uses only {@code static final} data and local variables.
-     * @memory Does not allocate.
-     */
-    private final long buildParityMask(short[] combination) {
-        // JIT OPTIMIZATION: Cache array references and length to encourage optimization
-        final long[] masks = MASKS;
+    private static final long buildParityMaskLower(short[] combination) {
+        // JIT OPTIMIZATION: Cache length to encourage optimization
         final int combinationLength = combination.length;
 
         long trueCellCounts = 0L;
@@ -509,10 +479,33 @@ public class TestClickCombination extends Thread {
             final int click = combination[i];
 
             // JIT OPTIMIZATION: Single XOR operation instead of two
-            trueCellCounts ^= masks[click];
+            trueCellCounts ^= MASKS_LOWER[click];
         }
 
         return trueCellCounts;
+    }
+
+    private static final long buildParityMaskUpper(short[] combination) {
+        if (!StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get()) {
+            return 0L;
+        } else {
+            // JIT OPTIMIZATION: Cache length to encourage optimization
+            final int combinationLength = combination.length;
+
+            long trueCellCounts = 0L;
+
+            // JIT OPTIMIZATION: Use counted loop pattern that JIT prefers for unrolling
+            // The final variables and predictable loop bounds encourage aggressive optimization
+            for (int i = 0; i < combinationLength; i++) {
+                // JIT OPTIMIZATION: Use local variable to avoid repeated array access
+                final int click = combination[i];
+
+                // JIT OPTIMIZATION: Single XOR operation instead of two
+                trueCellCounts ^= MASKS_UPPER[click];
+            }
+
+            return trueCellCounts;
+        }
     }
 
     /**
@@ -534,7 +527,13 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe; uses only static data.
      * @memory Does not allocate.
      */
-    private boolean satisfiesOddAdjacency(long prefixMask, short finalClick) {
-        return (prefixMask ^ MASKS[finalClick]) == EXPECTED;
+    private boolean satisfiesOddAdjacency(long prefixMaskLower, long prefixMaskUpper,
+            short finalClick) {
+        if (!StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get()) {
+            return (prefixMaskLower ^ MASKS_LOWER[finalClick]) == EXPECTED_LOWER;
+        } else {
+            return (prefixMaskLower ^ MASKS_LOWER[finalClick]) == EXPECTED_LOWER
+                    && (prefixMaskUpper ^ MASKS_UPPER[finalClick]) == EXPECTED_UPPER;
+        }
     }
 }

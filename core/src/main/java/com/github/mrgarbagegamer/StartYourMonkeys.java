@@ -1,11 +1,10 @@
 package com.github.mrgarbagegamer;
 
-import java.lang.StableValue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
-import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
 /**
@@ -383,7 +382,7 @@ public class StartYourMonkeys {
      * {@link #BASE_GRID} are set once at application startup using
      * {@link StableValue#setOrThrow(Object)}.</li>
      * <li><b>Derived Configuration:</b> Values like {@link #TRUE_CELLS} and
-     * {@link #CLICK_TO_TRUE_CELL_MASK} are computed lazily and safely on first access using
+     * {@link #TRUE_CELL_MASKS} are computed lazily and safely on first access using
      * {@link StableValue#supplier(Supplier)}.</li>
      * </ul>
      * <p>
@@ -469,6 +468,22 @@ public class StartYourMonkeys {
                 .supplier(() -> getBaseGrid().findTrueCells());
 
         /**
+         * A lazily computed {@link Boolean} indicating whether to use dual-mask (128-bit)
+         * representations for {@link ClickMask} instances, based on the number of {@code true}
+         * cells in the grid. If there are more than 64 {@code true} cells, dual-long masks are
+         * required, otherwise single-long masks suffice.
+         *
+         * @see #TRUE_CELLS
+         * @see ClickMask
+         * @since 2026.01 - Dual-mask System Introduction
+         * @performance {@code O(1)} retrieval with JIT constant-folding opportunities.
+         * @threading Thread-safe via {@link StableValue}.
+         * @memory Minimal overhead for storing an {@code Boolean} reference.
+         */
+        public static final Supplier<Boolean> USE_DUAL_MASKS = StableValue
+                .supplier(() -> getBaseGrid().getTrueCount() > 64);
+
+        /**
          * A lazily computed lookup table where {@code MASK[i]} is a bitmask representing which of
          * the {@link #TRUE_CELLS} are adjacent to cell {@code i}. This is used in
          * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} for
@@ -482,15 +497,18 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code long} of size {@code NUM_CELLS} on first access.
          *         Returns the same array reference thereafter.
          */
-        public static final Supplier<long[]> CLICK_TO_TRUE_CELL_MASK = StableValue
-                .supplier(() -> computeClickToTrueCellMask());
+        public static final Supplier<long[]> TRUE_CELL_MASKS_LOWER = StableValue
+                .supplier(() -> computeTrueCellMasksLower());
+
+        public static final Supplier<long[]> TRUE_CELL_MASKS_UPPER = StableValue
+                .supplier(() -> computeTrueCellMasksUpper());
 
         /**
          * A lazily computed bitmask where all bits corresponding to a {@code true} cell are set to
          * {@code 1}. This is the expected result of the final XOR sum for a valid combination, and
          * is used in both {@link CombinationGeneratorTask generators} and
          * {@link TestClickCombination monkeys} for pruning checks in combination with
-         * {@link #CLICK_TO_TRUE_CELL_MASK}.
+         * {@link #TRUE_CELL_MASKS}.
          *
          * @see #TRUE_CELLS
          * @since 2025.12 - Global Configuration Refactor
@@ -500,8 +518,11 @@ public class StartYourMonkeys {
          * @memory Allocates a single {@link Long} on first access. Returns the same reference
          *         thereafter.
          */
-        public static final Supplier<Long> EXPECTED_MASK = StableValue
-                .supplier(() -> (1L << TRUE_CELLS.get().length) - 1);
+        public static final Supplier<Long> EXPECTED_MASK_LOWER = StableValue
+                .supplier(() -> computeExpectedMaskLower());
+
+        public static final Supplier<Long> EXPECTED_MASK_UPPER = StableValue
+                .supplier(() -> computeExpectedMaskUpper());
 
         /**
          * A lazily computed, sorted array of cell indices that have an odd-numbered adjacency
@@ -542,7 +563,7 @@ public class StartYourMonkeys {
         /**
          * A lazily computed lookup table of "suffix OR masks" used for {@code O(1)} pruning in the
          * generator. Each entry {@code SUFFIX_OR_MASKS[i]} is the bitwise OR of all
-         * {@link #CLICK_TO_TRUE_CELL_MASK} values from index {@code i} to the end of the array.
+         * {@link #TRUE_CELL_MASKS} values from index {@code i} to the end of the array.
          * This allows quick determination by the {@link CombinationGeneratorTask generators} of
          * whether any remaining clicks can potentially touch the untoggled {@code true} cells.
          *
@@ -554,9 +575,11 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code long} of size {@code NUM_CLICKS} on first access.
          *         Returns the same array reference thereafter.
          */
-        public static final Supplier<long[]> SUFFIX_OR_MASKS = StableValue
-                .supplier(() -> computeSuffixOrMasks());
+        public static final Supplier<long[]> SUFFIX_MASKS_LOWER = StableValue
+                .supplier(() -> computeSuffixMasksLower());
 
+        public static final Supplier<long[]> SUFFIX_MASKS_UPPER = StableValue
+                .supplier(() -> computeSuffixMasksUpper());
         /**
          * A lazily computed lookup table to find the starting index for final clicks in the
          * {@link #ODD_CLICK_INDICES} array. This is used by {@link WorkBatch} to quickly convert
@@ -677,6 +700,7 @@ public class StartYourMonkeys {
         /**
          * Initializes the global configuration values. This method is designed to be called once
          * from the main thread at startup. While this method could be synchronized to allow
+         * multi-threaded calls, doing so would add unnecessary overhead to the common case.
          *
          * @param numClicks  The number of clicks to test.
          * @param numThreads The total number of threads to use.
@@ -695,7 +719,7 @@ public class StartYourMonkeys {
 
             NUM_CLICKS.setOrThrow(numClicks);
             NUM_THREADS.setOrThrow(numThreads);
-            BASE_GRID.setOrThrow(baseGrid);
+            BASE_GRID.setOrThrow(baseGrid.copy());
         }
 
         /**
@@ -713,10 +737,10 @@ public class StartYourMonkeys {
          * @memory Does not allocate.
          */
         private static void validateInitializationParams(int numClicks, int numThreads,
-                Grid baseGrid) {
+                Grid baseGrid) { // TODO: Consider importing Guava's Preconditions for argument
+                                 // validation.
             if (numClicks < 1 || numThreads < 1 || baseGrid == null) {
-                throw new IllegalArgumentException(
-                        "Invalid arguments to initialize GlobalConfig.");
+                throw new IllegalArgumentException("Invalid arguments to initialize GlobalConfig.");
             }
         }
 
@@ -836,17 +860,17 @@ public class StartYourMonkeys {
         }
 
         /**
-         * Retrieves the base grid instance for the selected puzzle.
+         * Retrieves a defensive copy of the base grid instance.
          * 
-         * @return The base {@link Grid}.
+         * @return A copy of the base {@link Grid} instance.
          * @see #BASE_GRID
          * @since 2025.12 - Global Configuration Refactor
          * @performance {@code O(1)} retrieval.
          * @threading Thread-safe via {@link StableValue}.
-         * @memory Does not allocate.
+         * @memory Allocates a new {@link Grid} instance via {@link Grid#copy()}.
          */
         public static Grid getBaseGrid() {
-            return BASE_GRID.orElseThrow();
+            return BASE_GRID.orElseThrow().copy();
         }
 
         /**
@@ -864,58 +888,104 @@ public class StartYourMonkeys {
             return getBaseGrid().findFirstTrueCell();
         }
 
-        /**
-         * Computes the click-to-true-cell adjacency masks for all cells in the grid.
-         * 
-         * @return An array where {@code MASK[i]} is a bitmask of which {@code true} cells are
-         *         adjacent to cell {@code i}.
-         * @see #CLICK_TO_TRUE_CELL_MASK
-         * @see #TRUE_CELLS
-         * @see Grid#areAdjacent(short, short)
-         * @since 2025.12 - Global Configuration Refactor
-         * @performance {@code O(NUM_CELLS * T)} where {@code T} is the number of true cells.
-         * @threading Thread-safe; does not modify shared state.
-         * @memory Allocates an array of {@code long} of size {@code NUM_CELLS}.
-         */
-        private static long[] computeClickToTrueCellMask() {
-            final short[] trueCells = TRUE_CELLS.get();
-            final long[] masks = new long[Grid.NUM_CELLS]; // Use Grid.NUM_CELLS
-            for (short i = 0; i < Grid.NUM_CELLS; i++) { // Use Grid.NUM_CELLS
+        private static long computeExpectedMaskLower() {
+            final long mask = (1L << TRUE_CELLS.get().length) - 1;
+            return mask;
+        }
+
+        private static long computeExpectedMaskUpper() {
+            // Let this method short-circuit if not using dual masks
+            if (!USE_DUAL_MASKS.get()) {
+                return 0L;
+            }
+
+            final long mask = (1L << (TRUE_CELLS.get().length - 64)) - 1;
+            return mask;
+        }
+
+        private static long[] computeTrueCellMasksLower() {
+            // Trim this array to only the lower 64 bits
+            final short[] trueCells = subarray(TRUE_CELLS.get(), 0, 64);
+            
+            final long[] masks = new long[Grid.NUM_CELLS];
+            for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
                 long mask = 0;
                 for (int j = 0; j < trueCells.length; j++) {
-                    if (Grid.areAdjacent(i, trueCells[j])) {
+                    if (Grid.areAdjacent(cell, trueCells[j])) {
                         mask |= (1L << j);
                     }
                 }
-                masks[i] = mask;
+                masks[cell] = mask;
             }
             return masks;
         }
 
-        /**
-         * Computes the suffix OR masks for pruning in the generator.
-         * 
-         * @return An array where {@code MASK[i]} is the OR of all click-to-true-cell masks from
-         *         index {@code i} to the end.
-         * @see #CLICK_TO_TRUE_CELL_MASK
-         * @see #SUFFIX_OR_MASKS
-         * @see #computeClickToTrueCellMask()
-         * @since 2025.12 - Global Configuration Refactor
-         * @performance {@code O(NUM_CELLS)}.
-         * @threading Thread-safe; does not modify shared state.
-         * @memory Allocates an array of {@code long} of size {@code NUM_CELLS + 1}.
-         */
-        private static long[] computeSuffixOrMasks() {
-            final long[] cellMasks = CLICK_TO_TRUE_CELL_MASK.get();
-            final long[] orMasks = new long[Grid.NUM_CELLS + 1];
+        private static short[] subarray(short[] array, int start, int end) {
+            int length = end - start;
+            if (length <= 0) {
+                return new short[0];
+            } else if (length > array.length - start) {
+                length = array.length - start;
+            }
+            short[] result = new short[length];
+            System.arraycopy(array, start, result, 0, length);
+            return result;
+        }
 
-            long cumulativeMask = 0;
-            for (int i = Grid.NUM_CELLS - 1; i >= 0; i--) {
-                cumulativeMask |= cellMasks[i];
-                orMasks[i] = cumulativeMask;
+        private static long[] computeTrueCellMasksUpper() {
+            // Let this method short-circuit if not using dual masks
+            if (!USE_DUAL_MASKS.get()) {
+                return new long[Grid.NUM_CELLS];
             }
 
-            return orMasks;
+            // Trim this array to only the upper bits beyond 64
+            final short[] trueCells = subarray(TRUE_CELLS.get(), 64, TRUE_CELLS.get().length);
+
+            final long[] masks = new long[Grid.NUM_CELLS];
+            for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
+                long mask = 0;
+                for (int j = 0; j < trueCells.length; j++) {
+                    if (Grid.areAdjacent(cell, trueCells[j])) {
+                        mask |= (1L << j);
+                    }
+                }
+                masks[cell] = mask;
+            }
+
+            return masks;
+        }
+
+        private static long[] computeSuffixMasksLower() {
+            final long[] suffixMasks = new long[Grid.NUM_CELLS];
+            for (short cell = (short) (Grid.NUM_CELLS - 1); cell >= 0; cell--) {
+                final long clickMask = TRUE_CELL_MASKS_LOWER.get()[cell];
+                if (cell == Grid.NUM_CELLS - 1) {
+                    suffixMasks[cell] = clickMask;
+                } else {
+                    final long nextSuffixMask = suffixMasks[cell + 1];
+                    suffixMasks[cell] = clickMask | nextSuffixMask;
+                }
+            }
+            return suffixMasks;
+        }
+
+        private static long[] computeSuffixMasksUpper() {
+            // Let this method short-circuit if not using dual masks
+            if (!USE_DUAL_MASKS.get()) {
+                return new long[Grid.NUM_CELLS];
+            }
+
+            final long[] suffixMasks = new long[Grid.NUM_CELLS];
+            for (short cell = (short) (Grid.NUM_CELLS - 1); cell >= 0; cell--) {
+                final long clickMask = TRUE_CELL_MASKS_UPPER.get()[cell];
+                if (cell == Grid.NUM_CELLS - 1) {
+                    suffixMasks[cell] = clickMask;
+                } else {
+                    final long nextSuffixMask = suffixMasks[cell + 1];
+                    suffixMasks[cell] = clickMask | nextSuffixMask;
+                }
+            }
+            return suffixMasks;
         }
 
         /**

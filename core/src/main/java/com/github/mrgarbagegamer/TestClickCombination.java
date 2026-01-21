@@ -278,8 +278,6 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        final int prefixLength = WorkBatch.getNumClicks() - 1; // Constant prefix length for all
-                                                               // items
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
@@ -319,7 +317,7 @@ public class TestClickCombination extends Thread {
                         puzzleGrid.click(prefix, finalClick);
 
                         if (puzzleGrid.isSolved()) {
-                            handleSuccess(prefix, prefixLength, finalClick);
+                            handleSuccess(prefix, finalClick);
                             return;
                         }
                         puzzleGrid.initialize(); // Reset for next test
@@ -327,12 +325,10 @@ public class TestClickCombination extends Thread {
                         failedCount++;
                         // TODO: Consider extracting this logging for easier compiler optimization
                         if (failedCount == LOG_EVERY_N_FAILURES) {
-                            final short[] winningCombination = new short[prefixLength + 1];
-                            System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);
-                            winningCombination[prefixLength] = finalClick;
+                            final short[] failedCombination = buildCombination(prefix, finalClick);
 
                             logger.debug("Tried and failed: {}", new CombinationMessage(
-                                    winningCombination, Grid.ValueFormat.Index));
+                                    failedCombination, Grid.ValueFormat.Index));
                             failedCount = 0;
                         }
                     }
@@ -358,16 +354,20 @@ public class TestClickCombination extends Thread {
      * @performance {@code O(prefixLength)} for array copy.
      * 
      */
-    private void handleSuccess(final short[] prefix, final int prefixLength,
-            final short finalClick) {
-        final short[] winningCombination = new short[prefixLength + 1];
-        System.arraycopy(prefix, 0, winningCombination, 0, prefixLength);
-        winningCombination[prefixLength] = finalClick;
+    private void handleSuccess(final short[] prefix, final short finalClick) {
+        final short[] winningCombination = buildCombination(prefix, finalClick);
         queueArray.solutionFound(this.getName(), winningCombination);
         logger.info("Found the solution as the following click combination: {}",
                 new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
 
         triggerGeneratorShutdown();
+    }
+
+    private static short[] buildCombination(short[] prefix, short finalClick) {
+        final short[] combination = new short[prefix.length + 1];
+        System.arraycopy(prefix, 0, combination, 0, prefix.length);
+        combination[prefix.length] = finalClick;
+        return combination;
     }
 
     /**

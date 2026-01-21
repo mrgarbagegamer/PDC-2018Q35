@@ -1146,7 +1146,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // Try each queue once and sleep if all are full
         while (true) {
             for (int i = 0; i < queues.length; i++) {
-                if (queues[(startIdx + i) % queues.length].add(batch))
+                if (queues[(startIdx + i) % queues.length].relaxedOffer(batch))
                     return true;
             }
 
@@ -1269,7 +1269,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         while (true) {
             for (int i = 0; i < queues.length; i++) {
-                if (queues[(startIdx + i) % queues.length].add(batch))
+                if (queues[(startIdx + i) % queues.length].offer(batch))
                     return;
             }
             try {

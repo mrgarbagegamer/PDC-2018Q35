@@ -114,7 +114,7 @@ public class WorkStealingBenchmark {
     public void setupIteration() {
         // Before each iteration, populate queue[1] with batches to allow stealing
         for (int i = 0; i < 8; i++) {
-            queues[1].add(batchInventory[i % batchInventory.length]);
+            queues[1].offer(batchInventory[i % batchInventory.length]);
         }
     }
 
@@ -124,7 +124,7 @@ public class WorkStealingBenchmark {
      */
     @Benchmark
     public WorkBatch workSteal_PreferredQueueHit() {
-        return queues[0].getWorkBatch();
+        return queues[0].relaxedPoll();
     }
 
     /**
@@ -135,17 +135,17 @@ public class WorkStealingBenchmark {
     @Benchmark
     public WorkBatch workSteal_ScanAndSteal() {
         // Try preferred queue (queue 0 is empty in this scenario)
-        WorkBatch batch = queues[0].getWorkBatch();
+        WorkBatch batch = queues[0].relaxedPoll();
         if (batch != null) {
             return batch;
         }
 
         // Scan other queues to steal (queue 1 has work)
         for (int i = 1; i < queues.length; i++) {
-            batch = queues[i].getWorkBatch();
+            batch = queues[i].relaxedPoll();
             if (batch != null) {
                 // Replenish queue[1] with a new batch to maintain steady state
-                queues[1].add(batchInventory[random.nextInt(batchInventory.length)]);
+                queues[1].relaxedOffer(batchInventory[random.nextInt(batchInventory.length)]);
                 return batch;
             }
         }
@@ -162,13 +162,13 @@ public class WorkStealingBenchmark {
         int queuesScanned = 0;
 
         // Try preferred queue
-        if (emptyQueues[0].getWorkBatch() == null) {
+        if (emptyQueues[0].relaxedPoll() == null) {
             queuesScanned++;
         }
 
         // Scan all others (all guaranteed empty in this scenario)
         for (int i = 1; i < emptyQueues.length; i++) {
-            if (emptyQueues[i].getWorkBatch() == null) {
+            if (emptyQueues[i].relaxedPoll() == null) {
                 queuesScanned++;
             }
         }

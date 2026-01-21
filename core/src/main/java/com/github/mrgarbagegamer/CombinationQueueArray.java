@@ -292,7 +292,7 @@ public class CombinationQueueArray {
         int totalWorkQueueCapacity = 0;
         for (int i = 0; i < numConsumers; i++) {
             queues[i] = new CombinationQueue();
-            totalWorkQueueCapacity += queues[i].getCapacity();
+            totalWorkQueueCapacity += queues[i].capacity();
         }
         // Set the recycle pool size to match the total work queue capacity
         this.workBatchPool = new MpmcArrayQueue<>(totalWorkQueueCapacity);

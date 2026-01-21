@@ -425,7 +425,7 @@ public class TestClickCombination extends Thread {
      */
     private WorkBatch getWork() {
         // Try my own queue first
-        WorkBatch batch = combinationQueue.getWorkBatch();
+        WorkBatch batch = combinationQueue.relaxedPoll();
         if (batch != null) {
             return batch;
         }
@@ -433,7 +433,7 @@ public class TestClickCombination extends Thread {
         // My queue is empty, try to steal
         CombinationQueue[] queues = queueArray.getAllQueues();
         for (int i = 0; i < queues.length; i++) {
-            batch = queues[i].getWorkBatch();
+            batch = queues[i].relaxedPoll();
             if (batch != null) {
                 return batch;
             }

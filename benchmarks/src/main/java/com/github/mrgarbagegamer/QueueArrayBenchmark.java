@@ -93,19 +93,21 @@ public class QueueArrayBenchmark {
     @Setup(Level.Iteration)
     public void setupWorkStealingState() {
         // Drain queues[0] to ensure it is empty
-        while (queues[0].getWorkBatch() != null) {
+        while (!queues[0].isEmpty()) {
             // Drain
+            queues[0].poll();
         }
 
         // Populate queues[1] with batches from batchInventory (fill to ~half capacity, e.g., 8
         // items)
         // First drain it to ensure clean state
-        while (queues[1].getWorkBatch() != null) {
+        while (!queues[1].isEmpty()) {
             // Drain
+            queues[1].poll();
         }
 
         for (int i = 0; i < 8; i++) {
-            queues[1].add(batchInventory[i]);
+            queues[1].offer(batchInventory[i]);
         }
     }
 
@@ -130,7 +132,7 @@ public class QueueArrayBenchmark {
         // Try each queue once (like flushBatchFast)
         for (int i = 0; i < queues.length; i++) {
             int idx = (startIdx + i) % queues.length;
-            if (queues[idx].add(sharedBatch)) {
+            if (queues[idx].relaxedOffer(sharedBatch)) {
                 return true;
             }
         }
@@ -145,17 +147,17 @@ public class QueueArrayBenchmark {
     @Benchmark
     public WorkBatch consumerWorkStealing_linearScan() {
         // Try preferred queue first (simulated as queue 0)
-        WorkBatch batch = queues[0].getWorkBatch();
+        WorkBatch batch = queues[0].relaxedPoll();
         if (batch != null) {
             return batch;
         }
 
         // Try to steal from others (linear scan like TestClickCombination.getWork())
         for (int i = 1; i < queues.length; i++) {
-            batch = queues[i].getWorkBatch();
+            batch = queues[i].relaxedPoll();
             if (batch != null) {
                 // Maintain steady state by adding a random batch back to queues[1]
-                queues[1].add(batchInventory[random.nextInt(batchInventory.length)]);
+                queues[1].relaxedOffer(batchInventory[random.nextInt(batchInventory.length)]);
                 return batch;
             }
         }
@@ -169,14 +171,14 @@ public class QueueArrayBenchmark {
     @Benchmark
     public WorkBatch workStealing_allEmptyWorstCase() {
         // Try preferred queue first (guaranteed to be empty)
-        WorkBatch batch = emptyQueues[0].getWorkBatch();
+        WorkBatch batch = emptyQueues[0].relaxedPoll();
         if (batch != null) {
             return batch;
         }
 
         // Now scan all others (all guaranteed empty)
         for (int i = 0; i < emptyQueues.length; i++) {
-            batch = emptyQueues[i].getWorkBatch();
+            batch = emptyQueues[i].relaxedPoll();
             if (batch != null) {
                 return batch;
             }
@@ -197,7 +199,7 @@ public class QueueArrayBenchmark {
         while (attempts < 10 && !success) {
             int startIdx = random.nextInt(queues.length);
             for (int i = 0; i < queues.length && !success; i++) {
-                if (queues[(startIdx + i) % queues.length].add(sharedBatch)) {
+                if (queues[(startIdx + i) % queues.length].relaxedOffer(sharedBatch)) {
                     success = true;
                 }
             }

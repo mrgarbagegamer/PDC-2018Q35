@@ -334,9 +334,9 @@ public class BatchAndQueueArrayTests {
 
             final short[] prefix = generateRandomPrefixOfEvenParity(TEST_NUM_CLICKS - 1);
             batch.addWork(prefix, (short) (prefix[prefix.length - 1] + 1), false);
-            assertTrue(queue.add(batch), "Should be able to offer a batch to a queue.");
+            assertTrue(queue.offer(batch), "Should be able to offer a batch to a queue.");
 
-            final WorkBatch polledBatch = queue.getWorkBatch();
+            final WorkBatch polledBatch = queue.poll();
             assertNotNull(polledBatch, "Should be able to poll a batch from the queue.");
             assertSame(batch, polledBatch, "Polled batch should be the same instance.");
         }
@@ -350,7 +350,7 @@ public class BatchAndQueueArrayTests {
         void testPollEmptyQueue() {
             final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
             final CombinationQueue queue = queueArray.getQueue(0);
-            assertNull(queue.getWorkBatch(), "Polling from an empty queue should return null.");
+            assertNull(queue.poll(), "Polling from an empty queue should return null.");
         }
     }
 }

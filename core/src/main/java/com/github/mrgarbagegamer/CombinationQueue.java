@@ -39,6 +39,8 @@ import org.jctools.queues.MpmcArrayQueue;
  * @memory Fixed memory overhead for the queue structure.
  */
 public class CombinationQueue {
+    // TODO: Update Javadocs for new methods
+    // TODO: Consider allowing DI of queues for testing/customization purposes.
     /**
      * The fixed capacity of the queue.
      *
@@ -102,47 +104,36 @@ public class CombinationQueue {
      * @threading Thread-safe; returns an immutable field.
      * @memory Does not allocate.
      */
-    public int getCapacity() {
+    public int capacity() {
         return QUEUE_SIZE;
     }
 
-    /**
-     * Offers a {@link WorkBatch} to the queue using a non-blocking, relaxed operation.
-     *
-     * <p>
-     * This method may occasionally fail (return {@code false}) even if the queue is not full, which
-     * is an acceptable trade-off for higher throughput.
-     * </p>
-     *
-     * @param workBatch the batch to add.
-     * @return {@code true} if the batch was successfully added, {@code false} otherwise.
-     * @see MpmcArrayQueue#relaxedOffer(Object)
-     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} amortized enqueue operation.
-     * @threading Thread-safe via JCTools "magic".
-     * @memory Does not allocate; uses pre-allocated queue slots.
-     */
-    public boolean add(WorkBatch workBatch) {
+    public boolean offer(WorkBatch workBatch) {
+        return queue.offer(workBatch);
+    }
+
+    public WorkBatch poll() {
+        return queue.poll();
+    }
+
+    public WorkBatch peek() {
+        return queue.peek();
+    }
+
+    public boolean relaxedOffer(WorkBatch workBatch) {
         return queue.relaxedOffer(workBatch);
     }
 
-    /**
-     * Retrieves a {@link WorkBatch} from the queue using a non-blocking, relaxed operation.
-     *
-     * <p>
-     * This method may occasionally fail (return {@code null}) even if the queue is not empty, which
-     * is an acceptable trade-off for higher throughput.
-     * </p>
-     *
-     * @return a {@link WorkBatch} if one was available, or {@code null} otherwise.
-     * @see MpmcArrayQueue#relaxedPoll()
-     * @since 2025.07 - Enqueuing {@code WorkBatch} Objects
-     * @performance {@code O(1)} amortized dequeue operation.
-     * @threading Thread-safe via JCTools "magic".
-     * @memory Does not allocate; returns references to existing objects.
-     */
-    public WorkBatch getWorkBatch() {
+    public WorkBatch relaxedPoll() {
         return queue.relaxedPoll();
+    }
+
+    public WorkBatch relaxedPeek() {
+        return queue.relaxedPeek();
+    }
+
+    public int size() {
+        return queue.size();
     }
 
     /**

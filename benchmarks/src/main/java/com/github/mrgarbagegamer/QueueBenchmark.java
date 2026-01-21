@@ -113,14 +113,14 @@ public class QueueBenchmark {
     @Group("throughput")
     @GroupThreads(4)
     public boolean addToQueue(Control control) {
-        return queue.add(sharedBatch);
+        return queue.relaxedOffer(sharedBatch);
     }
 
     @Benchmark
     @Group("throughput")
     @GroupThreads(4)
     public WorkBatch getFromQueue(Control control) {
-        return queue.getWorkBatch();
+        return queue.relaxedPoll();
     }
 
     /**

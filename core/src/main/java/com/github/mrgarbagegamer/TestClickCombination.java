@@ -281,18 +281,10 @@ public class TestClickCombination extends Thread {
         while (!queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
-            // TODO: Consider extracting idle wait logic for easier compiler optimization
             if (workBatch == null) {
-                if (queueArray.isSolutionFound() || allQueuesEmpty())
-                    break; // Exit if solution found or generation is done and all queues are empty
-                try {
-                    Thread.sleep(1);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    logger.debug("Thread interrupted while waiting for work");
-                    break; // Exit on interruption (from pool shutdown)
-                }
-                continue; // Retry getting a combination
+                if (idleAfterNoWork())
+                    break; // Exit if solution found or all queues empty
+                continue; // Retry getting work
             }
 
             // NEW: Iterate over WorkItems and use pre-computed prefix masks.
@@ -335,6 +327,21 @@ public class TestClickCombination extends Thread {
             // After processing, recycle the batch
             queueArray.getWorkBatchPool().offer(workBatch);
         }
+    }
+
+    private static boolean idleAfterNoWork() {
+        if (queueArray.isSolutionFound() || allQueuesEmpty()) {
+            return true;
+        } else {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.debug("Thread interrupted while waiting for work");
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -454,7 +461,7 @@ public class TestClickCombination extends Thread {
      *            queue.
      * @memory Does not allocate.
      */
-    private boolean allQueuesEmpty() {
+    private static boolean allQueuesEmpty() {
         // Short-circuit if generation is not complete (which should be the case most of the time)
         if (!queueArray.isGenerationComplete()) {
             return false; // Generation not complete, so queues may still get work

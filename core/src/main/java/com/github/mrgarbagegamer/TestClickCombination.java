@@ -283,11 +283,8 @@ public class TestClickCombination extends Thread {
 
             // TODO: Consider extracting idle wait logic for easier compiler optimization
             if (workBatch == null) {
-                // TODO: Consider placing the isGenerationComplete() check inside allQueuesEmpty()
-                if (queueArray.isSolutionFound()
-                        || (queueArray.isGenerationComplete() && allQueuesEmpty())) {
+                if (queueArray.isSolutionFound() || allQueuesEmpty())
                     break; // Exit if solution found or generation is done and all queues are empty
-                }
                 try {
                     Thread.sleep(1);
                 } catch (InterruptedException e) {
@@ -458,6 +455,11 @@ public class TestClickCombination extends Thread {
      * @memory Does not allocate.
      */
     private boolean allQueuesEmpty() {
+        // Short-circuit if generation is not complete (which should be the case most of the time)
+        if (!queueArray.isGenerationComplete()) {
+            return false; // Generation not complete, so queues may still get work
+        }
+
         for (CombinationQueue q : queueArray.getAllQueues()) {
             if (!q.isEmpty()) {
                 return false;

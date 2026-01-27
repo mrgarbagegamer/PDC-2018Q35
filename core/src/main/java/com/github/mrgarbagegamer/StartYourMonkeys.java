@@ -7,6 +7,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.longs.LongList;
+import it.unimi.dsi.fastutil.shorts.ShortList;
+
 /**
  * The main application entry point and orchestrator for the Lights Out puzzle solver.
  *
@@ -497,10 +501,10 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code long} of size {@code NUM_CELLS} on first access.
          *         Returns the same array reference thereafter.
          */
-        public static final Supplier<long[]> TRUE_CELL_MASKS_LOWER = StableValue
+        public static final Supplier<LongList> TRUE_CELL_MASKS_LOWER = StableValue
                 .supplier(() -> computeTrueCellMasksLower());
 
-        public static final Supplier<long[]> TRUE_CELL_MASKS_UPPER = StableValue
+        public static final Supplier<LongList> TRUE_CELL_MASKS_UPPER = StableValue
                 .supplier(() -> computeTrueCellMasksUpper());
 
         /**
@@ -539,8 +543,8 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code short} on first access. Returns the same array
          *         reference thereafter.
          */
-        public static final Supplier<short[]> ODD_CLICK_INDICES = StableValue
-                .supplier(() -> BASE_GRID.orElseThrow().findFirstTrueAdjacents());
+        public static final Supplier<ShortList> ODD_CLICK_INDICES = StableValue
+                .supplier(() -> ShortList.of(BASE_GRID.orElseThrow().findFirstTrueAdjacents()));
 
         /**
          * A lazily computed, sorted array of cell indices that have an even-numbered (or zero)
@@ -557,8 +561,8 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code short} on first access. Returns the same array
          *         reference thereafter.
          */
-        public static final Supplier<short[]> EVEN_CLICK_INDICES = StableValue
-                .supplier(() -> Grid.invertCombination(ODD_CLICK_INDICES.get()));
+        public static final Supplier<ShortList> EVEN_CLICK_INDICES = StableValue
+                .supplier(() -> ShortList.of(Grid.invertCombination(ODD_CLICK_INDICES.get().toShortArray())));
 
         /**
          * A lazily computed lookup table of "suffix OR masks" used for {@code O(1)} pruning in the
@@ -575,10 +579,10 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code long} of size {@code NUM_CLICKS} on first access.
          *         Returns the same array reference thereafter.
          */
-        public static final Supplier<long[]> SUFFIX_MASKS_LOWER = StableValue
+        public static final Supplier<LongList> SUFFIX_MASKS_LOWER = StableValue
                 .supplier(() -> computeSuffixMasksLower());
 
-        public static final Supplier<long[]> SUFFIX_MASKS_UPPER = StableValue
+        public static final Supplier<LongList> SUFFIX_MASKS_UPPER = StableValue
                 .supplier(() -> computeSuffixMasksUpper());
         /**
          * A lazily computed lookup table to find the starting index for final clicks in the
@@ -599,7 +603,7 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code int} on first access. Returns the same array
          *         reference thereafter.
          */
-        public static final Supplier<int[]> ODD_START_INDICES = StableValue
+        public static final Supplier<IntList> ODD_START_INDICES = StableValue
                 .supplier(() -> computeStartIndices(ODD_CLICK_INDICES.get()));
 
         /**
@@ -622,7 +626,7 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code int} on first access. Returns the same array
          *         reference thereafter.
          */
-        public static final Supplier<int[]> EVEN_START_INDICES = StableValue
+        public static final Supplier<IntList> EVEN_START_INDICES = StableValue
                 .supplier(() -> computeStartIndices(EVEN_CLICK_INDICES.get()));
 
         /**
@@ -903,7 +907,7 @@ public class StartYourMonkeys {
             return mask;
         }
 
-        private static long[] computeTrueCellMasksLower() {
+        private static LongList computeTrueCellMasksLower() {
             // Trim this array to only the lower 64 bits
             final short[] trueCells = subarray(TRUE_CELLS.get(), 0, 64);
             
@@ -917,7 +921,7 @@ public class StartYourMonkeys {
                 }
                 masks[cell] = mask;
             }
-            return masks;
+            return LongList.of(masks);
         }
 
         private static short[] subarray(short[] array, int start, int end) {
@@ -932,10 +936,12 @@ public class StartYourMonkeys {
             return result;
         }
 
-        private static long[] computeTrueCellMasksUpper() {
+        private static LongList computeTrueCellMasksUpper() {
             // Let this method short-circuit if not using dual masks
             if (!USE_DUAL_MASKS.get()) {
-                return new long[Grid.NUM_CELLS];
+                // Make a LongList of zeros for compatibility
+                final long[] zeroMasks = new long[Grid.NUM_CELLS];
+                return LongList.of(zeroMasks);
             }
 
             // Trim this array to only the upper bits beyond 64
@@ -952,13 +958,13 @@ public class StartYourMonkeys {
                 masks[cell] = mask;
             }
 
-            return masks;
+            return LongList.of(masks);
         }
 
-        private static long[] computeSuffixMasksLower() {
+        private static LongList computeSuffixMasksLower() {
             final long[] suffixMasks = new long[Grid.NUM_CELLS];
             for (short cell = (short) (Grid.NUM_CELLS - 1); cell >= 0; cell--) {
-                final long clickMask = TRUE_CELL_MASKS_LOWER.get()[cell];
+                final long clickMask = TRUE_CELL_MASKS_LOWER.get().getLong(cell);
                 if (cell == Grid.NUM_CELLS - 1) {
                     suffixMasks[cell] = clickMask;
                 } else {
@@ -966,18 +972,18 @@ public class StartYourMonkeys {
                     suffixMasks[cell] = clickMask | nextSuffixMask;
                 }
             }
-            return suffixMasks;
+            return LongList.of(suffixMasks);
         }
 
-        private static long[] computeSuffixMasksUpper() {
+        private static LongList computeSuffixMasksUpper() {
             // Let this method short-circuit if not using dual masks
             if (!USE_DUAL_MASKS.get()) {
-                return new long[Grid.NUM_CELLS];
+                return LongList.of();
             }
 
             final long[] suffixMasks = new long[Grid.NUM_CELLS];
             for (short cell = (short) (Grid.NUM_CELLS - 1); cell >= 0; cell--) {
-                final long clickMask = TRUE_CELL_MASKS_UPPER.get()[cell];
+                final long clickMask = TRUE_CELL_MASKS_UPPER.get().getLong(cell);
                 if (cell == Grid.NUM_CELLS - 1) {
                     suffixMasks[cell] = clickMask;
                 } else {
@@ -985,7 +991,7 @@ public class StartYourMonkeys {
                     suffixMasks[cell] = clickMask | nextSuffixMask;
                 }
             }
-            return suffixMasks;
+            return LongList.of(suffixMasks);
         }
 
         /**
@@ -1004,18 +1010,18 @@ public class StartYourMonkeys {
          * @threading Thread-safe; does not modify shared state.
          * @memory Allocates an array of {@code int} of size {@code NUM_CELLS}.
          */
-        private static int[] computeStartIndices(short[] validClicks) {
+        private static IntList computeStartIndices(ShortList validClicks) {
             int[] result = new int[Grid.NUM_CELLS];
             int clickIdx = 0;
 
             for (int lastPrefixClick = 0; lastPrefixClick < Grid.NUM_CELLS; lastPrefixClick++) {
                 // Find first index where validClicks[idx] > lastPrefixClick
-                while (clickIdx < validClicks.length && validClicks[clickIdx] <= lastPrefixClick) {
+                while (clickIdx < validClicks.size() && validClicks.getShort(clickIdx) <= lastPrefixClick) {
                     clickIdx++;
                 }
                 result[lastPrefixClick] = clickIdx;
             }
-            return result;
+            return IntList.of(result);
         }
     }
 }

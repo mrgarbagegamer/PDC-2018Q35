@@ -16,6 +16,8 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.util.Unbox;
 
+import it.unimi.dsi.fastutil.longs.LongList;
+
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
  *
@@ -408,7 +410,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
     private static final int MAX_FIRST_CLICK_INDEX = StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES
-            .get()[StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES.get().length - 1];
+            .get().getShort(StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES.get().size() - 1);
 
     // Cached data between tasks
     /**
@@ -545,8 +547,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of {@code Grid.NUM_CELLS * 8} bytes as a {@code long[]} array.
      */
-    private static final long[] TRUE_CELL_MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
-    private static final long[] TRUE_CELL_MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
+    private static final LongList TRUE_CELL_MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
+    private static final LongList TRUE_CELL_MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
     /**
      * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}, used for
      * quick pruning checks. Through the use of {@link StableValue StableValues} and the ordering of
@@ -680,14 +682,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 + 1);
 
         for (short i = start; i < max; i++) {
-            final long lowerMask = TRUE_CELL_MASKS_LOWER[i];
+            final long lowerMask = TRUE_CELL_MASKS_LOWER.getLong(i);
             
             final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
             // Identify the parity of this root subtask:
             final boolean parity = (lowerMask & 1L) != 0;
 
-            getAndForkSubtask(ctx, newPrefix, lowerMask, TRUE_CELL_MASKS_UPPER[i], false, parity);
+            getAndForkSubtask(ctx, newPrefix, lowerMask, TRUE_CELL_MASKS_UPPER.getLong(i), false, parity);
         }
 
         helpQuiesce(); // Wait for all subtasks to complete before returning
@@ -894,7 +896,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx, short start, short max) {
         // Pure loop - no constraint checking, no mask loading, no conditionals
         for (short i = start; i < max; i++) {
-            final long lowerMask = TRUE_CELL_MASKS_LOWER[i];
+            final long lowerMask = TRUE_CELL_MASKS_LOWER.getLong(i);
 
             final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
@@ -955,7 +957,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         // Pure loop - no conditionals inside, all branching resolved outside loop
         for (short i = start; i < max; i++) {
-            final long lowerMask = TRUE_CELL_MASKS_LOWER[i];
+            final long lowerMask = TRUE_CELL_MASKS_LOWER.getLong(i);
             
             final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
@@ -968,7 +970,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
             // TODO: Extract this to a separate method that checks if dual masks are enabled for
             // better JIT constant folding
             final long childAdjacenciesUpper = this.currentAdjacenciesUpper
-                    | TRUE_CELL_MASKS_UPPER[i]; // Only used if dual masks are enabled, otherwise
+                    | TRUE_CELL_MASKS_UPPER.getLong(i); // Only used if dual masks are enabled, otherwise
                                                 // constant folded out
 
             // All parameters determined - perfect for JIT constant propagation
@@ -1044,7 +1046,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         // Else, check if any of the available adjacencies can satisfy the needed bits
         // Use the pre-computed suffix OR masks for fast checking
-        return (SUFFIX_MASKS_LOWER[startIdx] & needed) == needed;
+        return (SUFFIX_MASKS_LOWER.getLong(startIdx) & needed) == needed;
     }
 
     private boolean constraintCheckDualMask(int startIdx) {
@@ -1063,8 +1065,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         // Else, check if any of the available adjacencies can satisfy the needed bits
         // Use the pre-computed suffix OR masks for fast checking
-        return (SUFFIX_MASKS_LOWER[startIdx] & neededLower) == neededLower
-                && (SUFFIX_MASKS_UPPER[startIdx] & neededUpper) == neededUpper;
+        return (SUFFIX_MASKS_LOWER.getLong(startIdx) & neededLower) == neededLower
+                && (SUFFIX_MASKS_UPPER.getLong(startIdx) & neededUpper) == neededUpper;
     }
 
     /**
@@ -1095,8 +1097,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of ~{@code 8 * Grid.NUM_CELLS} bytes as a {@code long} array.
      */
-    private static final long[] SUFFIX_MASKS_LOWER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_LOWER.get();
-    private static final long[] SUFFIX_MASKS_UPPER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_UPPER.get();
+    private static final LongList SUFFIX_MASKS_LOWER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_LOWER.get();
+    private static final LongList SUFFIX_MASKS_UPPER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_UPPER.get();
 
     /**
      * Flushes a {@link WorkBatch batch} of combinations to an available {@link CombinationQueue

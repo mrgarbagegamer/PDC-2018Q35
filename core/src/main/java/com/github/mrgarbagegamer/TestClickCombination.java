@@ -5,6 +5,9 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import it.unimi.dsi.fastutil.longs.LongList;
+import it.unimi.dsi.fastutil.shorts.ShortList;
+
 /**
  * An optimized worker thread that tests potential puzzle solutions from a shared work queue.
  *
@@ -183,8 +186,8 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private static final long[] MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
-    private static final long[] MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
+    private static final LongList MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
+    private static final LongList MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
     /**
      * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}.
      *
@@ -293,15 +296,15 @@ public class TestClickCombination extends Thread {
                 if (queueArray.isSolutionFound())
                     break;
 
-                final short[] finalClicks = item.getFinalClicks();
+                final ShortList finalClicks = item.getFinalClicks();
                 final int start = item.getStart();
                 final short[] prefix = item.getPrefix();
 
                 final long prefixMaskLower = buildParityMaskLower(prefix);
                 final long prefixMaskUpper = buildParityMaskUpper(prefix);
 
-                for (int i = start; i < finalClicks.length; i++) {
-                    final short finalClick = finalClicks[i];
+                for (int i = start; i < finalClicks.size(); i++) {
+                    final short finalClick = finalClicks.getShort(i);
                     if (satisfiesOddAdjacency(prefixMaskLower, prefixMaskUpper, finalClick)) {
                         puzzleGrid.click(prefix, finalClick);
 
@@ -488,7 +491,7 @@ public class TestClickCombination extends Thread {
             final int click = combination[i];
 
             // JIT OPTIMIZATION: Single XOR operation instead of two
-            trueCellCounts ^= MASKS_LOWER[click];
+            trueCellCounts ^= MASKS_LOWER.getLong(click);
         }
 
         return trueCellCounts;
@@ -510,7 +513,7 @@ public class TestClickCombination extends Thread {
                 final int click = combination[i];
 
                 // JIT OPTIMIZATION: Single XOR operation instead of two
-                trueCellCounts ^= MASKS_UPPER[click];
+                trueCellCounts ^= MASKS_UPPER.getLong(click);
             }
 
             return trueCellCounts;
@@ -539,10 +542,10 @@ public class TestClickCombination extends Thread {
     private boolean satisfiesOddAdjacency(long prefixMaskLower, long prefixMaskUpper,
             short finalClick) {
         if (!StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get()) {
-            return (prefixMaskLower ^ MASKS_LOWER[finalClick]) == EXPECTED_LOWER;
+            return (prefixMaskLower ^ MASKS_LOWER.getLong(finalClick)) == EXPECTED_LOWER;
         } else {
-            return (prefixMaskLower ^ MASKS_LOWER[finalClick]) == EXPECTED_LOWER
-                    && (prefixMaskUpper ^ MASKS_UPPER[finalClick]) == EXPECTED_UPPER;
+            return (prefixMaskLower ^ MASKS_LOWER.getLong(finalClick)) == EXPECTED_LOWER
+                    && (prefixMaskUpper ^ MASKS_UPPER.getLong(finalClick)) == EXPECTED_UPPER;
         }
     }
 }

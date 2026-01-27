@@ -5,6 +5,9 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
 
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.shorts.ShortList;
+
 /**
  * A high-performance, reusable, and iterable container for batching puzzle combinations.
  *
@@ -115,7 +118,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Thread-safe as a final array reference.
          * @memory Fixed memory footprint for the array reference.
          */
-        private final short[] finalClicks;
+        private final ShortList finalClicks;
         /**
          * A reference to the pre-computed start index lookup table associated with this parity,
          * pulled from {@link StartYourMonkeys.GlobalConfig}.
@@ -126,7 +129,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Thread-safe as a final array reference.
          * @memory Fixed memory footprint for the array reference.
          */
-        private final int[] startIndices;
+        private final IntList startIndices;
 
         /**
          * Constructs a {@code Parity} enum constant, loading its arrays from the provided
@@ -139,7 +142,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Thread-safe during enum initialization.
          * @memory Does not allocate, apart from the enum constant itself.
          */
-        private Parity(Supplier<short[]> clicksSupplier, Supplier<int[]> indicesSupplier) {
+        private Parity(Supplier<ShortList> clicksSupplier, Supplier<IntList> indicesSupplier) {
             this.finalClicks = clicksSupplier.get();
             this.startIndices = indicesSupplier.get();
         }
@@ -154,7 +157,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Thread-safe.
          * @memory Does not allocate; returns reference to existing array.
          */
-        public short[] getFinalClicks() {
+        public ShortList getFinalClicks() {
             return finalClicks;
         }
 
@@ -170,7 +173,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory Does not allocate.
          */
         public int getStartIndex(int lastPrefixClick) {
-            return startIndices[lastPrefixClick];
+            return startIndices.getInt(lastPrefixClick);
         }
 
         /**
@@ -463,7 +466,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Does not allocate; returns reference to existing array.
          */
-        public short[] getFinalClicks() {
+        public ShortList getFinalClicks() {
             return finalClickParity != null ? finalClickParity.getFinalClicks() : null;
         }
 
@@ -509,9 +512,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
 
             // Get the final clicks starting from 'start' to the end
             if (finalClickParity != null) {
-                short[] clicks = finalClickParity.getFinalClicks();
-                if (start >= 0 && start < clicks.length) {
-                    sb.append(Arrays.toString(Arrays.copyOfRange(clicks, start, clicks.length)));
+                ShortList clicks = finalClickParity.getFinalClicks();
+                if (start >= 0 && start < clicks.size()) {
+                    sb.append(Arrays.toString(Arrays.copyOfRange(clicks.toShortArray(), start, clicks.size())));
                 } else {
                     sb.append("empty");
                 }
@@ -801,13 +804,13 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         }
 
         final Parity finalClickParity = Parity.fromBoolean(prefixParity);
-        final short[] validClicks = finalClickParity.getFinalClicks(); // Get arrays from Parity
+        final ShortList validClicks = finalClickParity.getFinalClicks(); // Get arrays from Parity
                                                                        // enum
 
         // O(1) lookup instead of O(log n) binary search
         final int startIdx = finalClickParity.getStartIndex(lastPrefixClick);
 
-        if (startIdx >= validClicks.length) {
+        if (startIdx >= validClicks.size()) {
             return false;
         }
 

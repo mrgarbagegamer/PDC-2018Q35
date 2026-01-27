@@ -181,7 +181,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * @threading Thread-safe due to immutability after initialization.
          * @memory Minimal memory footprint of ~20 bytes as a {@code String}.
          */
-        private final String threadName = Thread.currentThread().getName();
+        private final String name;
 
         /**
          * Gets the {@link #threadName name} of the thread owning this context. Used for logging
@@ -194,8 +194,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
          * @threading Thread-safe, as it returns an immutable field.
          * @memory Does not allocate; returns a reference to an existing {@code String}.
          */
-        public String getThreadName() {
-            return threadName;
+        public String getName() {
+            return name;
         }
 
         /**
@@ -215,7 +215,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
          *            {@link ConcurrentLinkedQueue thread-safe queue}.
          * @memory Does not allocate, apart from the instance itself.
          */
-        GeneratorContext() {
+        GeneratorContext(String name) {
+            this.name = name;
             allContexts.add(this);
         }
 
@@ -964,6 +965,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
             // Update the adjacency state for the child task
             final long childAdjacenciesLower = this.currentAdjacenciesLower
                     | lowerMask;
+            // TODO: Extract this to a separate method that checks if dual masks are enabled for
+            // better JIT constant folding
             final long childAdjacenciesUpper = this.currentAdjacenciesUpper
                     | TRUE_CELL_MASKS_UPPER[i]; // Only used if dual masks are enabled, otherwise
                                                 // constant folded out
@@ -1234,7 +1237,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
             WorkBatch batch = ctx.currentBatch;
             if (batch != null && !batch.isEmpty()) {
                 logger.debug("Flushing final batch of size {} from {}.", Unbox.box(batch.size()),
-                        ctx.getThreadName());
+                        ctx.getName());
                 flushBatchBlocking(batch);
                 ctx.currentBatch = null;
             }
@@ -1319,7 +1322,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
          */
         GeneratorWorkerThread(ForkJoinPool pool) {
             super(pool);
-            this.context = new GeneratorContext();
+            this.context = new GeneratorContext(this.getName());
         }
     }
 

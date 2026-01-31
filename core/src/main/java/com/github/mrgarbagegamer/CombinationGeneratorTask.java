@@ -2,22 +2,14 @@ package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
 import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.ForkJoinWorkerThread;
-import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.util.Unbox;
-
 import it.unimi.dsi.fastutil.longs.LongList;
 
+// TODO: Update Javadoc
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
  *
@@ -33,9 +25,9 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * <h2>Execution Model</h2>
  * <p>
  * The generation process is a tree-based, divide-and-conquer algorithm. Each task represents a
- * {@link #prefix} of clicks. The root task {@link #computeRootSubtasks(GeneratorContext) forks
+ * {@link #prefix} of clicks. The root task {@link #computeRootSubtasks(DefaultGeneratorContext) forks
  * subtasks} for each possible first click, and these subtasks recursively
- * {@link #computeIntermediateSubtasks(GeneratorContext) fork children} until the desired
+ * {@link #computeIntermediateSubtasks(DefaultGeneratorContext) fork children} until the desired
  * {@link #NUM_CLICKS combination length} is reached. To optimize performance, this class implements
  * two key strategies:
  * <ul>
@@ -53,7 +45,7 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * To avoid performance degradation from excessive garbage collection, this class adheres to a
  * strict "don't allocate" policy in its hot paths. All critical resources, including
  * {@code short[]} {@code prefix} arrays and the tasks themselves, are recycled using
- * {@link ThreadLocal thread-local} pools managed by the {@link GeneratorContext GeneratorContext}.
+ * {@link ThreadLocal thread-local} pools managed by the {@link DefaultGeneratorContext GeneratorContext}.
  * This design reduces heap allocations to nearly zero during the main generation loop.
  * </p>
  * 
@@ -63,301 +55,17 @@ import it.unimi.dsi.fastutil.longs.LongList;
  *              aggressive bitmask-based pruning and parallel execution significantly reduce the
  *              practical workload.
  * @threading Tasks are isolated by the {@code ForkJoinTask} framework. Shared resources are managed
- *            via a {@link GeneratorWorkerThread#context thread-local} {@link GeneratorContext
+ *            via a {@link GeneratorWorkerThread#context thread-local} {@link DefaultGeneratorContext
  *            GeneratorContext} to ensure thread safety and eliminate contention.
  * @algorithm A recursive, divide-and-conquer approach. Tasks form a generation tree where each node
- *            is a click prefix. Subtasks are {@link #computeIntermediateSubtasks(GeneratorContext)
+ *            is a click prefix. Subtasks are {@link #computeIntermediateSubtasks(DefaultGeneratorContext)
  *            forked} until a {@link #NUM_CLICKS target length} is reached. Leaf tasks
- *            {@link #computeLeafCombinations(GeneratorContext) generate} work items, which are
+ *            {@link #computeLeafCombinations(DefaultGeneratorContext) generate} work items, which are
  *            {@link #flushBatchFast(WorkBatch) queued} for validation.
  * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
  *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
  */
 public class CombinationGeneratorTask extends RecursiveAction {
-    /**
-     * The pre-allocated size of the {@link ThreadLocal thread-local} resource pools in
-     * {@link GeneratorContext}.
-     * 
-     * <p>
-     * To avoid heap allocations in the hot path, this class relies on object pooling for both
-     * {@code prefix} arrays (via {@link ArrayPool}) and {@code CombinationGeneratorTask} objects
-     * (via {@link TaskPool}). This constant defines the capacity of those pools.
-     * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The pool size balances memory footprint against pool misses.
-     * <ul>
-     * <li><b>Larger pools:</b> Reduce the chance of a pool miss (which would force a new
-     * allocation) at the cost of higher upfront memory usage.</li>
-     * <li><b>Smaller pools:</b> Conserve memory but risk contention or misses if the task recursion
-     * depth exceeds the pool capacity.</li>
-     * </ul>
-     * The value {@value} was chosen as a safe capacity that prevents pool misses under typical
-     * conditions without excessive memory overhead.
-     * </p>
-     * 
-     * @since 2025.06 - Array Pooling Introduction
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Minimal memory footprint of 4 bytes as an {@code int}.
-     */
-    private static final int POOL_SIZE = 512;
-
-    /**
-     * The {@link Logger logger} for this class.
-     * 
-     * @see #flushAllPendingBatches()
-     * @see Logger#debug(String, Object, Object)
-     * @see Logger#info(String)
-     * @see Logger#info(String, Object)
-     * @see LogManager#getLogger()
-     * @since 2025.10 - Final Flush Refactor
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe due to the design of Log4j2.
-     * @memory Fixed memory footprint of ~4 bytes as a reference.
-     */
-    private static final Logger logger = LogManager.getLogger(CombinationGeneratorTask.class);
-
-    /**
-     * A thread-safe collection of all active {@link GeneratorContext} instances.
-     * 
-     * <p>
-     * This is the key to solving the final flush problem. Each time a {@link GeneratorContext
-     * GeneratorContext} is {@link GeneratorContext#GeneratorContext() created} for a new thread, it
-     * adds itself to this {@code static}, concurrent queue. When {@link #flushAllPendingBatches()}
-     * is called, it can safely iterate over this queue to access every thread's context and flush
-     * any remaining partial batches. We use a {@link ConcurrentLinkedQueue} to ensure thread-safe
-     * additions and safe iteration without locking.
-     * </p>
-     *
-     * @see ConcurrentLinkedQueue
-     * @see ConcurrentLinkedQueue#ConcurrentLinkedQueue()
-     * @see Queue
-     * @since 2025.10 - Final Flush Refactor
-     * @performance {@code O(1)} amortized insertion time; {@code O(n)} iteration time for flushing.
-     * @threading Thread-safe due to the use of {@link ConcurrentLinkedQueue}.
-     * @memory Grows with the number of generator threads; each entry has a minimal footprint of 4
-     *         bytes as a reference.
-     */
-    private static final Queue<GeneratorContext> allContexts = new ConcurrentLinkedQueue<>();
-
-    /**
-     * A container for all {@link ThreadLocal thread-local} resources used by a generator.
-     *
-     * <p>
-     * This class is a key part of the resource management strategy. It consolidates all expensive,
-     * thread-specific objects into a single container. An instance of this context is stored in a
-     * {@link GeneratorWorkerThread#context field}, ensuring that each thread in the
-     * {@link ForkJoinPool} has its own set of resource pools and a dedicated {@link WorkBatch}.
-     * </p>
-     *
-     * <h2>Optimization Strategy</h2>
-     * <p>
-     * By fetching this context object only once per task via {@code context.get()}, we avoid the
-     * performance penalty of multiple {@code ThreadLocal} lookups in the hot path. The context is
-     * then passed as a parameter to downstream methods, providing fast, contention-free access to:
-     * <ul>
-     * <li>An {@link #prefixArrayPool} for recycling {@code short[]} arrays.</li>
-     * <li>A {@link #taskPool} for recycling {@code CombinationGeneratorTask} objects.</li>
-     * <li>The {@link #currentBatch} being filled by the thread.</li>
-     * </ul>
-     * This pattern is crucial for achieving near-zero allocation during combination generation.
-     * </p>
-     *
-     * @since 2025.07 - {@code GeneratorContext} Introduction
-     * @performance {@code O(1)} access time after initial allocation.
-     * @threading This class is NOT thread-safe, but is intended to be used in a thread-local
-     *            manner.
-     * @memory Minimal memory footprint of two fixed-capacity pools and a batch reference.
-     */
-    static class GeneratorContext {
-        /**
-         * The name of the thread owning this context, for logging purposes.
-         *
-         * @see #allContexts
-         * @see CombinationGeneratorTask#flushAllPendingBatches()
-         * @see Thread#getName()
-         * @since 2025.10 - Final Flush Refactor
-         * @performance {@code O(1)} access time.
-         * @threading Thread-safe due to immutability after initialization.
-         * @memory Minimal memory footprint of ~20 bytes as a {@code String}.
-         */
-        private final String name;
-
-        /**
-         * Gets the {@link #threadName name} of the thread owning this context. Used for logging
-         * purposes.
-         * 
-         * @return The name of the this context's thread.
-         * @see CombinationGeneratorTask#flushAllPendingBatches()
-         * @since 2025.10 - Final Flush Refactor
-         * @performance {@code O(1)} access time.
-         * @threading Thread-safe, as it returns an immutable field.
-         * @memory Does not allocate; returns a reference to an existing {@code String}.
-         */
-        public String getName() {
-            return name;
-        }
-
-        /**
-         * Initializes a new {@link GeneratorContext} and registers it in the {@link #allContexts
-         * global context list}.
-         * 
-         * <p>
-         * This constructor is meant to be called only by the {@link GeneratorWorkerThread}'s
-         * {@link GeneratorWorkerThread#GeneratorWorkerThread(ForkJoinPool) initializer}, and
-         * {@link ConcurrentLinkedQueue#add(Object) adds} the context to the global list for the
-         * {@link CombinationGeneratorTask#flushAllPendingBatches() final flush}.
-         * </p>
-         * 
-         * @since 2025.10 - Final Flush Refactor
-         * @performance {@code O(1)} amortized insertion time into the global context list.
-         * @threading Thread-safe by nature of construction and use of a
-         *            {@link ConcurrentLinkedQueue thread-safe queue}.
-         * @memory Does not allocate, apart from the instance itself.
-         */
-        GeneratorContext(String name) {
-            this.name = name;
-            allContexts.add(this);
-        }
-
-        /**
-         * A {@link ThreadLocal thread-local} {@link ArrayPool pool} for recycling {@code short[]}
-         * arrays used for {@code prefix}es.
-         * 
-         * @see ArrayPool
-         * @since 2025.07 - {@code GeneratorContext} Introduction
-         * @performance {@code O(1)} amortized access time for {@link ArrayPool#get()} and
-         *              {@link ArrayPool#put(short[])}.
-         * @threading Not thread-safe, should be used in a thread-local manner.
-         * @memory Fixed footprint of ~4 bytes as a reference.
-         */
-        final ArrayPool prefixArrayPool = new ArrayPool(POOL_SIZE);
-        /**
-         * A {@link ThreadLocal thread-local} {@link TaskPool pool} for recycling
-         * {@link CombinationGeneratorTask} instances.
-         * 
-         * @since 2025.07 - {@code GeneratorContext} Introduction
-         * @performance {@code O(1)} amortized access time for {@link TaskPool#get()} and
-         *              {@link TaskPool#put(CombinationGeneratorTask)}.
-         * @threading Not thread-safe, should be used in a thread-local manner.
-         * @memory Fixed footprint of ~4 bytes as a reference.
-         */
-        final TaskPool taskPool = new TaskPool(POOL_SIZE / 4);
-        /**
-         * The {@link WorkBatch} currently being filled by this thread.
-         * 
-         * <p>
-         * Each generator thread works on its own batch, which is preserved across multiple tasks
-         * executed by that thread. When the batch is full, it is flushed to a queue, and a new,
-         * clean batch is obtained from a central pool. Storing the batch here, within the
-         * {@link ThreadLocal thread-local} context, eliminates contention and simplifies batch
-         * management.
-         * </p>
-         * 
-         * @see WorkBatch#BATCH_SIZE
-         * @see #getOrCreateBatch()
-         * @since 2025.07 - {@code WorkBatch} Introduction
-         * @performance {@code O(1)} access and update time.
-         * @threading Not thread-safe. References to this batch should not be kept after flushing.
-         * @memory Fixed footprint of ~4 bytes as a reference.
-         */
-        WorkBatch currentBatch = null;
-
-        /**
-         * Returns the {@link #currentBatch current} {@link WorkBatch} for this thread,
-         * {@link #getNewBatchBlocking() obtaining} a new one from
-         * {@link CombinationQueueArray#getWorkBatchPool() the central pool} if one doesn't exist.
-         * 
-         * <p>
-         * This method ensures a generator task always has a valid batch to write to. It performs a
-         * fast {@code null} check and, if needed, calls the blocking {@code getNewBatchBlocking()}
-         * method to retrieve a recycled batch instance.
-         * </p>
-         * 
-         * @return The current {@code WorkBatch}, or {@code null} if interrupted while obtaining a
-         *         batch.
-         * @since 2025.07 - {@code GeneratorContext} Introduction
-         * @performance {@code O(1)} null check and amortized {@code O(1)} for batch retrieval.
-         * @threading Not thread-safe. Each thread should manage its own context instance.
-         */
-        WorkBatch getOrCreateBatch() {
-            if (currentBatch == null) {
-                currentBatch = getNewBatchBlocking();
-            }
-            return currentBatch;
-        }
-
-        /**
-         * Retrieves a new {@link WorkBatch} from the
-         * {@link CombinationQueueArray#getWorkBatchPool() global pool}, blocking until one is
-         * available.
-         *
-         * <p>
-         * When a {@link TestClickCombination monkey} finishes with a {@code WorkBatch}, it returns
-         * it to a central pool for recycling. This method retrieves a batch from that pool. It uses
-         * a lightweight loop with a {@link org.jctools.queues.MpmcArrayQueue#relaxedPoll()
-         * relaxedPoll()} to ensure the generator thread remains responsive to cancellation signals
-         * from the {@link ForkJoinPool}, which a standard {@link Thread#onSpinWait()} call would
-         * prevent.
-         * </p>
-         *
-         * <p>
-         * The loop now properly checks for thread interruption, allowing the {@link ForkJoinPool}
-         * to shutdown generator threads when a solution is found. If the thread is interrupted
-         * during the spin loop, the method returns {@code null} to signal shutdown. The thread also
-         * {@link LockSupport#parkNanos(long) parks} briefly to reduce CPU usage during the wait.
-         * </p>
-         *
-         * @return A clean, recycled {@code WorkBatch}, or {@code null} if the thread was
-         *         interrupted.
-         * @see CombinationQueueArray#getWorkBatchPool()
-         * @see TestClickCombination#triggerGeneratorShutdown()
-         * @since 2025.07 - {@code GeneratorContext} Introduction
-         * @performance {@code O(1)} amortized access time, spinning if necessary.
-         * @threading Thread-safe interactions with the global pool, but the method itself is not
-         *            thread-safe.
-         * @memory Does not allocate; reuses existing batches in the pool.
-         */
-        private WorkBatch getNewBatchBlocking() {
-            WorkBatch batch;
-            while ((batch = QUEUE_ARRAY.getWorkBatchPool().relaxedPoll()) == null) {
-                // Check for thread interruption to allow proper shutdown when solution is found
-                if (Thread.currentThread().isInterrupted()) {
-                    return null; // Exit gracefully when interrupted
-                }
-                LockSupport.parkNanos(1);
-                // NOTE: Thread.onSpinWait() can not be used here since it doesn't respond to
-                // cancellation.
-            }
-            batch.clear(); // Ensure the recycled batch is clean before use
-            return batch;
-        }
-
-        /**
-         * Replaces the {@link #currentBatch} with a new one obtained from the
-         * {@link CombinationQueueArray#getWorkBatchPool() central pool}.
-         * 
-         * <p>
-         * This is called after the current {@link WorkBatch batch} is successfully
-         * {@link CombinationGeneratorTask#flushBatchFast(WorkBatch) flushed}. It discards the
-         * reference to the old batch and retrieves a new, clean one, ensuring the generator thread
-         * can immediately start filling it.
-         * </p>
-         * 
-         * @return The new {@code WorkBatch} or {@code null} if interrupted.
-         * @see #getNewBatchBlocking()
-         * @since 2025.07 - {@code GeneratorContext} Introduction
-         * @performance {@code O(1)} amortized access time, spinning if necessary.
-         * @threading Not thread-safe. Each thread should manage its own context instance.
-         * @memory Does not allocate; reuses existing batches in the pool.
-         */
-        WorkBatch resetBatch() {
-            return currentBatch = getNewBatchBlocking();
-        }
-    }
-
     // Static fields
     /**
      * The target length of the combinations to be generated.
@@ -418,21 +126,21 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * Each task is defined by its {@code prefix}. For an intermediate task, it will
-     * {@link #computeIntermediateSubtasks(GeneratorContext) fork new tasks} by appending a new
+     * {@link #computeIntermediateSubtasks(DefaultGeneratorContext) fork new tasks} by appending a new
      * click to this {@code prefix}. For a leaf task, it will
-     * {@link #computeLeafCombinations(GeneratorContext) generate final combinations} by appending a
+     * {@link #computeLeafCombinations(DefaultGeneratorContext) generate final combinations} by appending a
      * final click. The {@code short[]} holding the {@code prefix} is obtained from a pre-allocated
      * {@link ArrayPool} to prevent heap allocation. To prevent array resizing, we always allocate
      * arrays of size {@code NUM_CLICKS - 1}, tracking the current length of the {@code prefix} with
      * {@link #prefixLength}.
      * </p>
      * 
-     * @see #recycleOwnResources(GeneratorContext)
+     * @see #recycleOwnResources(DefaultGeneratorContext)
      * @see ArrayPool
      * @see ArrayPool#get()
      * @see ArrayPool#put(short[])
-     * @see GeneratorContext
-     * @see GeneratorContext#prefixArrayPool
+     * @see DefaultGeneratorContext
+     * @see DefaultGeneratorContext#prefixArrayPool
      * @since 2025.06 - Fork Join Refactor
      * @performance {@code O(1)} for adding clicks, {@code O(prefixLength)} for copying to subtasks.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
@@ -497,12 +205,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * Like {@link #currentAdjacencies}, this value is incrementally built in the generator
-     * threads to allow for {@code O(1)} checks in {@link #computeLeafCombinations(GeneratorContext)
+     * threads to allow for {@code O(1)} checks in {@link #computeLeafCombinations(DefaultGeneratorContext)
      * leaf tasks}.
      * </p>
      * 
-     * @see #computeIntermediateSubtasksConstraintPath(GeneratorContext)
-     * @see #computeIntermediateSubtasksSkipPath(GeneratorContext)
+     * @see #computeIntermediateSubtasksConstraintPath(DefaultGeneratorContext)
+     * @see #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)
      * @see #init(short[], int, long, boolean, boolean)
      * @since 2025.10 - Prefix Parity Pre-computation
      * @performance {@code O(1)} for updates during task initialization, which avoids a previously
@@ -522,11 +230,11 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * clicks cannot "un-satisfy" this condition, all child tasks spawned from this point can
      * inherit this flag and bypass the expensive constraint check. This enables a much faster,
      * branch-free generation path in
-     * {@link #computeIntermediateSubtasksSkipPath(GeneratorContext)}.
+     * {@link #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)}.
      * </p>
      * 
      * @see #currentAdjacencies
-     * @see #computeIntermediateSubtasks(GeneratorContext)
+     * @see #computeIntermediateSubtasks(DefaultGeneratorContext)
      * @since 2025.08 - Reduced Branching Refactor
      * @performance {@code O(1)} for checks and updates.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
@@ -599,15 +307,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@link #prefixLength} and delegating to the appropriate computation path:
      * <ul>
      * <li><b>Root Task</b> ({@code prefixLength == 0}): Invokes
-     * {@link #computeRootSubtasks(GeneratorContext)}.</li>
+     * {@link #computeRootSubtasks(DefaultGeneratorContext)}.</li>
      * <li><b>Leaf Task</b> ({@code prefixLength == numClicks - 1}): Invokes
-     * {@link #computeLeafCombinations(GeneratorContext)}.</li>
+     * {@link #computeLeafCombinations(DefaultGeneratorContext)}.</li>
      * <li><b>Intermediate Task</b> (otherwise): Invokes
-     * {@link #computeIntermediateSubtasks(GeneratorContext)}.</li>
+     * {@link #computeIntermediateSubtasks(DefaultGeneratorContext)}.</li>
      * </ul>
-     * A {@code finally} block ensures that {@link #recycleOwnResources(GeneratorContext)} is always
+     * A {@code finally} block ensures that {@link #recycleOwnResources(DefaultGeneratorContext)} is always
      * called to return the task and its prefix array to their respective pools. The
-     * {@link GeneratorContext context} is {@link ThreadLocal#get() fetched} once at the start to
+     * {@link DefaultGeneratorContext context} is {@link ThreadLocal#get() fetched} once at the start to
      * minimize {@link ThreadLocal} access overhead.
      * </p>
      * 
@@ -620,7 +328,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     @Override
     protected void compute() {
         // Fetch the context from the custom ForkJoinWorkerThread subclass
-        final GeneratorContext ctx = ((GeneratorWorkerThread) Thread.currentThread()).context;
+        final GeneratorContext ctx = ((GeneratorThread) Thread.currentThread()).getContext();
 
         try {
             // Path for the root task
@@ -667,8 +375,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * ensure the entire computation tree finishes before the program exits.
      * </p>
      * 
-     * @param ctx The thread-local {@link GeneratorContext}.
-     * @see #recycleOwnResources(GeneratorContext)
+     * @param ctx The thread-local {@link DefaultGeneratorContext}.
+     * @see #recycleOwnResources(DefaultGeneratorContext)
      * @see StartYourMonkeys#main(String[])
      * @since 2025.08 - Reduced Branching Refactor
      * @performance {@code O(N)} where {@code N} is the number of valid first clicks.
@@ -698,7 +406,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     }
 
     private short[] buildPrefixWithNewValue(GeneratorContext ctx, short newValue) {
-        short[] newPrefix = ctx.prefixArrayPool.get();
+        short[] newPrefix = ctx.getArrayPool().get();
         if (newPrefix == null)
             newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
         System.arraycopy(this.prefix, 0, newPrefix, 0, this.prefixLength);
@@ -708,7 +416,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     private void getAndForkSubtask(GeneratorContext ctx, short[] newPrefix, long newAdjacencyLower,
             long newAdjacencyUpper, boolean skipConstraints, boolean isOdd) {
-        final CombinationGeneratorTask subtask = ctx.taskPool.get();
+        final CombinationGeneratorTask subtask = ctx.getTaskPool().get();
         subtask.init(newPrefix, this.prefixLength + 1, newAdjacencyLower, newAdjacencyUpper,
                 skipConstraints, isOdd);
 
@@ -782,8 +490,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * and loop-related costs, making it significantly more efficient than an iterative approach.
      * </p>
      *
-     * @param ctx The thread-local {@link GeneratorContext}.
-     * @see GeneratorContext#getOrCreateBatch()
+     * @param ctx The thread-local {@link DefaultGeneratorContext}.
+     * @see DefaultGeneratorContext#getOrCreateBatch()
      * @since 2025.07 - Splitting the Compute Method Into Paths
      * @performance {@code O(1)} for the start index lookup.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
@@ -798,7 +506,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final short lastPrefixClick = (short) (this.prefix[this.prefixLength - 1] + 1);
 
         // 1. Add the work range to the batch.
-        WorkBatch batch = ctx.getOrCreateBatch();
+        WorkBatch batch = ctx.getCurrentBatch();
         if (batch == null)
             return; // Exit if interrupted
 
@@ -833,9 +541,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * check. Instead of handling this with an {@code if} statement inside a single, large method,
      * we use two separate methods:
      * <ul>
-     * <li>{@link #computeIntermediateSubtasksConstraintPath(GeneratorContext)}: The "slow" path
+     * <li>{@link #computeIntermediateSubtasksConstraintPath(DefaultGeneratorContext)}: The "slow" path
      * that includes the pruning check.</li>
-     * <li>{@link #computeIntermediateSubtasksSkipPath(GeneratorContext)}: The "fast" path that
+     * <li>{@link #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)}: The "fast" path that
      * omits the check entirely.</li>
      * </ul>
      * This dispatcher creates a <strong>monomorphic call site</strong> for each path. The JIT
@@ -845,7 +553,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * intermediate tasks without an additional conditional.
      * </p>
      * 
-     * @param ctx The thread-local {@link GeneratorContext}.
+     * @param ctx The thread-local {@link DefaultGeneratorContext}.
      * @since 2025.08 - Reduced Branching Refactor
      * @performance {@code O(1)} for dispatching.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
@@ -883,9 +591,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * array if the {@link ArrayPool} is exhausted, though this is not expected in normal operation
      * and could be removed for a slight performance gain at the cost of robustness.
      * 
-     * @param ctx The thread-local {@link GeneratorContext} containing the resource pools.
+     * @param ctx The thread-local {@link DefaultGeneratorContext} containing the resource pools.
      * @see #skipConstraintsCheck
-     * @see #computeIntermediateSubtasksConstraintPath(GeneratorContext)
+     * @see #computeIntermediateSubtasksConstraintPath(DefaultGeneratorContext)
      * @since 2025.08 - Specialized Subtask Paths
      * @performance {@code O(Grid.NUM_CELLS - numClicks + prefixLength - prefix[prefixLength - 1] + 1)}
      *              for iterating over possible next clicks.
@@ -937,8 +645,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * safeguard for the {@link ArrayPool} also exists here.
      * </p>
      * 
-     * @param ctx The thread-local {@link GeneratorContext} containing the resource pools.
-     * @see #computeIntermediateSubtasksSkipPath(GeneratorContext)
+     * @param ctx The thread-local {@link DefaultGeneratorContext} containing the resource pools.
+     * @see #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)
      * @since 2025.08 - Specialized Subtask Paths
      * @performance {@code O(1)} for the early constraint check,
      *              <code>O({@link Grid#NUM_CELLS} - {@link #NUM_CLICKS} + {@link #prefixLength} -
@@ -1167,7 +875,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     /**
      * Recycles the {@link #prefix} and the {@code CombinationGeneratorTask} instance back to their
-     * respective pools within the provided {@link GeneratorContext}.
+     * respective pools within the provided {@link DefaultGeneratorContext}.
      * 
      * <p>
      * This method is invoked by each {@code CombinationGeneratorTask} upon completion of its
@@ -1182,7 +890,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * pauses.
      * </p>
      * 
-     * @param ctx The thread-local {@link GeneratorContext} containing the {@link ArrayPool} and
+     * @param ctx The thread-local {@link DefaultGeneratorContext} containing the {@link ArrayPool} and
      *            {@link TaskPool}.
      * @see ArrayPool
      * @see ArrayPool#put(short[])
@@ -1198,157 +906,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // No ThreadLocal access needed - use passed context
 
         // Recycle prefix array to context pool
-        ctx.prefixArrayPool.put(prefix);
-        prefix = null;
+        ctx.getArrayPool().put(this.prefix);
+        this.prefix = null;
 
         // Recycle task to context pool
-        ctx.taskPool.put(this);
-    }
-
-    /**
-     * Flushes any remaining pending {@link WorkBatch batches} from a single thread's
-     * {@link GeneratorContext} to the {@link CombinationQueueArray}.
-     * 
-     * <p>
-     * This method is called once by the main thread after all generator tasks have completed. Its
-     * purpose is to ensure that any partially filled {@code WorkBatch}es, which might not have
-     * reached {@link WorkBatch#BATCH_SIZE} and thus weren't flushed during normal operation, are
-     * nonetheless processed.
-     * </p>
-     * 
-     * <p>
-     * It iterates through all known {@code GeneratorContext} instances (tracked in
-     * {@link #allContexts}), checks if they have a {@link WorkBatch#isEmpty() non-empty} current
-     * batch, and {@link #flushBatchBlocking(WorkBatch) flushes it} using a blocking strategy to
-     * guarantee delivery. It also logs the start and completion of the flush process for
-     * transparency.
-     * </p>
-     * 
-     * @see GeneratorWorkerThread#context
-     * @since 2025.06 - Flush Batches when Full (or on Completion)
-     * @performance {@code O(numQueues)} for the flushing operation.
-     * @threading Synchronized to prevent concurrent invocations.
-     * @memory Does not allocate, apart from some logging overhead.
-     */
-    public static synchronized void flushAllPendingBatches() {
-        logger.info(
-                "Starting final, single-threaded flush of all pending batches from {} contexts...",
-                Unbox.box(allContexts.size()));
-
-        for (GeneratorContext ctx : allContexts) {
-            WorkBatch batch = ctx.currentBatch;
-            if (batch != null && !batch.isEmpty()) {
-                logger.debug("Flushing final batch of size {} from {}.", Unbox.box(batch.size()),
-                        ctx.getName());
-                flushBatchBlocking(batch);
-                ctx.currentBatch = null;
-            }
-        }
-
-        logger.info("Final flush completed.");
-        allContexts.clear();
-    }
-
-    /**
-     * Flushes a {@link WorkBatch} to the {@link CombinationQueueArray}, {@link Thread#sleep(long)
-     * blocking} if necessary until successful.
-     * 
-     * <p>
-     * This method is similar to {@link #flushBatchFast(WorkBatch)}, but it employs a blocking
-     * strategy to ensure that the batch is eventually flushed, even if all queues are temporarily
-     * full. It is used during the final flush of pending batches to guarantee that no combinations
-     * are lost.
-     * </p>
-     * 
-     * @throws InterruptedException if the thread is interrupted while sleeping.
-     * @see #flushAllPendingBatches()
-     * @since 2025.10 - Guaranteed Flush for Final Batches
-     * @performance {@code O(numQueues)} per attempt, with a brief sleep if all queues are full.
-     * @threading Thread-safe due to local queue access and atomic operations within
-     *            {@link CombinationQueue#add(WorkBatch)}.
-     * @memory Does not allocate.
-     */
-    private static void flushBatchBlocking(WorkBatch batch) {
-        CombinationQueue[] queues = QUEUE_ARRAY.getAllQueues();
-        int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
-
-        while (true) {
-            for (int i = 0; i < queues.length; i++) {
-                if (queues[(startIdx + i) % queues.length].offer(batch))
-                    return;
-            }
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-    }
-
-    /**
-     * A custom {@link ForkJoinWorkerThread} that holds a direct, {@code final} reference to its own
-     * {@link GeneratorContext}.
-     *
-     * <p>
-     * This optimization eliminates the need for a {@link ThreadLocal#get()} lookup in the hot path
-     * of {@link #compute()}, as the context can be accessed directly from the current thread
-     * instance. This provides a small but meaningful performance improvement by reducing access
-     * overhead.
-     * </p>
-     *
-     * @see ForkJoinWorkerThreadFactory
-     * @since 2025.12 - Custom Worker Thread Optimization
-     * @threading Instances are confined to their respective threads.
-     */
-    private static class GeneratorWorkerThread extends ForkJoinWorkerThread {
-        /**
-         * The {@link GeneratorContext} unique to this worker thread.
-         * 
-         * @since 2025.12 - Custom Worker Thread Optimization
-         * @performance {@code final} reference for direct access.
-         * @threading Thread-local confinement.
-         * @memory One instance per worker thread.
-         */
-        final GeneratorContext context;
-
-        /**
-         * Constructs a new worker thread for the given pool, creating its unique
-         * {@link GeneratorContext}.
-         *
-         * @param pool The pool this thread is joining.
-         * @since 2025.12 - Custom Worker Thread Optimization
-         * @performance {@code O(1)} for construction.
-         * @threading Confined to the creating thread.
-         * @memory Allocates one {@link GeneratorContext}.
-         */
-        GeneratorWorkerThread(ForkJoinPool pool) {
-            super(pool);
-            this.context = new GeneratorContext(this.getName());
-        }
-    }
-
-    /**
-     * A factory for creating {@link GeneratorWorkerThread} instances for the {@link ForkJoinPool}.
-     *
-     * @see ForkJoinWorkerThread
-     * @since 2025.12 - Custom Worker Thread Optimization
-     * @threading Stateless and thread-safe.
-     */
-    public static class GeneratorWorkerThreadFactory implements ForkJoinWorkerThreadFactory {
-        /**
-         * Creates and returns a new {@link GeneratorWorkerThread}.
-         *
-         * @param pool The pool in which the new thread will operate.
-         * @return The new worker thread.
-         * @since 2025.12 - Custom Worker Thread Optimization
-         * @performance {@code O(1)} for thread creation.
-         * @threading Thread-safe.
-         * @memory Allocates one {@link GeneratorWorkerThread}.
-         */
-        @Override
-        public ForkJoinWorkerThread newThread(ForkJoinPool pool) {
-            return new GeneratorWorkerThread(pool);
-        }
+        ctx.getTaskPool().put(this);
     }
 }

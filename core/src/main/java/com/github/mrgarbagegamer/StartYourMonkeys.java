@@ -243,8 +243,9 @@ public class StartYourMonkeys {
         }
 
         // Create generator pool and submit root task
+        final ContextRegistry registry = new ContextRegistry();
         final ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
-                new CombinationGeneratorTask.GeneratorWorkerThreadFactory(), null, false);
+                GeneratorFactory.ofDefault(queueArray, registry), null, false);
         GlobalConfig.setGeneratorPool(generatorPool);
 
         try {
@@ -253,7 +254,7 @@ public class StartYourMonkeys {
         } finally {
             // Flush any remaining batches only if no solution found
             if (!queueArray.isSolutionFound()) {
-                CombinationGeneratorTask.flushAllPendingBatches();
+                registry.flushAllPendingBatches();
             }
 
             // Mark generation complete

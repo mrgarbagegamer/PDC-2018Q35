@@ -1,4 +1,3 @@
-src/main/java/com/github/mrgarbagegamer/test.java
 .vscode/*
 *.class
 *.jar
@@ -11,3 +10,4 @@ target
 JFR/*
 .kilocode/mcp.json
 benchmarks/dependency-reduced-pom.xml
+/core/src/main/java/com/github/mrgarbagegamer/test.java

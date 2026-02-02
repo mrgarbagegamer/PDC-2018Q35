@@ -1,13 +1,20 @@
 package com.github.mrgarbagegamer;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-import java.util.function.Supplier;
+
+import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
 
 import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
+import it.unimi.dsi.fastutil.shorts.ShortConsumer;
 import it.unimi.dsi.fastutil.shorts.ShortList;
+import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
 
+// TODO: Update Javadocs
 /**
  * A high-performance, reusable, and iterable container for batching puzzle combinations.
  *
@@ -66,141 +73,144 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * @threading Not thread-safe; ownership is transferred via queues.
  */
 public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
+    public record Parity(ShortList finalClicks, IntList startIndices) {
+        private static final ShortConsumer ENSURE_VALID_INDEX = cell -> {
+            if (cell < 0 || cell >= Grid.NUM_CELLS) {
+                throw new IllegalArgumentException("Click index out of valid range: " + cell);
+            }
+        };
 
-    /**
-     * An enum representing the parity of a combination's prefix, which determines whether the final
-     * click should be chosen from the set of indices adjacent ({@link Parity#ODD ODD}) or
-     * not-adjacent ({@link Parity#EVEN EVEN}) to the first {@code true} cell in the grid.
-     *
-     * <p>
-     * This {@code enum} encapsulates the logic for selecting the correct final click array. It
-     * improves type safety and reduces memory usage per {@code WorkItem} by holding references to
-     * the final click arrays and start index lookup tables, which are pulled from
-     * {@link StartYourMonkeys.GlobalConfig} at class load time.
-     * </p>
-     *
-     * @since 2025.12 - Parity Enum Refactor
-     * @performance {@code O(1)} access to final clicks and start indices.
-     * @threading Thread-safe as enum constants.
-     * @memory Fixed memory footprint per enum constant.
-     */
-    public enum Parity {
-        /**
-         * Represents an even-parity prefix, requiring a final click from the odd-indexed array.
-         * 
-         * @see StartYourMonkeys.GlobalConfig#ODD_CLICK_INDICES
-         * @see StartYourMonkeys.GlobalConfig#ODD_START_INDICES
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance {@code O(1)} access to final clicks and start indices.
-         * @threading Thread-safe as enum constants.
-         */
-        EVEN(StartYourMonkeys.GlobalConfig.ODD_CLICK_INDICES,
-                StartYourMonkeys.GlobalConfig.ODD_START_INDICES),
-        /**
-         * Represents an odd-parity prefix, requiring a final click from the even-indexed array.
-         * 
-         * @see StartYourMonkeys.GlobalConfig#EVEN_CLICK_INDICES
-         * @see StartYourMonkeys.GlobalConfig#EVEN_START_INDICES
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance {@code O(1)} access to final clicks and start indices.
-         * @threading Thread-safe as enum constants.
-         */
-        ODD(StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES,
-                StartYourMonkeys.GlobalConfig.EVEN_START_INDICES);
+        private static void ensureUniqueAndAscending(ShortList list) {
+            // A list of size 0 or 1 is trivially valid
+            if (list.size() <= 1) {
+                return;
+            }
 
-        /**
-         * A reference to the pre-computed array of final click indices associated with this parity,
-         * pulled from {@link StartYourMonkeys.GlobalConfig}.
-         *
-         * @see #getFinalClicks()
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance O(1) access.
-         * @threading Thread-safe as a final array reference.
-         * @memory Fixed memory footprint for the array reference.
-         */
-        private final ShortList finalClicks;
-        /**
-         * A reference to the pre-computed start index lookup table associated with this parity,
-         * pulled from {@link StartYourMonkeys.GlobalConfig}.
-         *
-         * @see #getStartIndex(int)
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance O(1) access.
-         * @threading Thread-safe as a final array reference.
-         * @memory Fixed memory footprint for the array reference.
-         */
-        private final IntList startIndices;
+            short previous = list.getShort(0);
+            for (int i = 1; i < list.size(); i++) {
+                short current = list.getShort(i);
+                if (current <= previous) {
+                    if (current == previous) {
+                        throw new IllegalArgumentException(
+                                "List contains duplicate element: " + current);
+                    } else {
+                        throw new IllegalArgumentException(
+                                "List is not in ascending order: " + current + " < " + previous);
+                    }
+                }
+                previous = current;
+            }
+        }
+        
+        public Parity {
+            // TODO: Consider importing Guava's Preconditions for null checks
+            requireNonNull(finalClicks, "finalClicks cannot be null");
+            requireNonNull(startIndices, "startIndices cannot be null");
 
-        /**
-         * Constructs a {@code Parity} enum constant, loading its arrays from the provided
-         * suppliers, which should point to {@link StartYourMonkeys.GlobalConfig}.
-         *
-         * @param clicksSupplier  A {@link Supplier} for the array of final click indices.
-         * @param indicesSupplier A {@link Supplier} for the start index lookup table.
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance O(1) construction.
-         * @threading Thread-safe during enum initialization.
-         * @memory Does not allocate, apart from the enum constant itself.
-         */
-        private Parity(Supplier<ShortList> clicksSupplier, Supplier<IntList> indicesSupplier) {
-            this.finalClicks = clicksSupplier.get();
-            this.startIndices = indicesSupplier.get();
+            // Ensure that finalClicks is valid
+            finalClicks.forEach(ENSURE_VALID_INDEX);
+            if (finalClicks.size() < 2 || finalClicks.size() > (Grid.NUM_CELLS - 2)) {
+                throw new IllegalArgumentException("finalClicks size must be between 2 and " 
+                        + (Grid.NUM_CELLS - 2) + ", but was: " + finalClicks.size());
+            }
+            ensureUniqueAndAscending(finalClicks);
+
+            // Ensure that startIndices is valid
+            if (startIndices.size() != Grid.NUM_CELLS) {
+                throw new IllegalArgumentException("startIndices size must be " 
+                        + Grid.NUM_CELLS + ", but was: " + startIndices.size());
+            }
+            for (int i = 0; i < startIndices.size(); i++) {
+                int index = startIndices.getInt(i);
+                if (index < 0 || index > finalClicks.size()) {
+                    throw new IllegalArgumentException("startIndices contains invalid index at position " 
+                            + i + ": " + index);
+                }
+            }
+            for (int i = 1; i < startIndices.size(); i++) {
+                int current = startIndices.getInt(i);
+                int previous = startIndices.getInt(i - 1);
+                if (current < previous) {
+                    throw new IllegalArgumentException("startIndices is not in ascending order at position " 
+                            + i + ": " + current + " < " + previous);
+                }
+            }
         }
 
-        /**
-         * Returns the {@link #finalClicks array of final click indices} associated with this
-         * parity.
-         *
-         * @return The {@code short[]} array of final clicks.
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance O(1) access.
-         * @threading Thread-safe.
-         * @memory Does not allocate; returns reference to existing array.
-         */
-        public ShortList getFinalClicks() {
-            return finalClicks;
-        }
-
-        /**
-         * Returns the {@link #startIndices pre-calculated} starting index within the
-         * {@link #finalClicks final clicks array} for a given last prefix click.
-         *
-         * @param lastPrefixClick The last (highest) click in the prefix.
-         * @return The starting index for the final click search.
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance O(1) lookup.
-         * @threading Thread-safe.
-         * @memory Does not allocate.
-         */
         public int getStartIndex(int lastPrefixClick) {
             return startIndices.getInt(lastPrefixClick);
         }
 
-        /**
-         * Checks if this parity is odd.
-         *
-         * @return {@code true} if this is {@link #ODD}, {@code false} otherwise.
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance O(1) comparison.
-         * @threading Thread-safe.
-         * @memory Does not allocate.
-         */
-        public boolean isOdd() {
-            return this == ODD;
+        public static Parity even(SolverConfiguration config) {
+            return new Parity(config.getOddClickIndices(), config.getOddStartIndices());
         }
 
-        /**
-         * Converts a {@code boolean} indicating oddness into the corresponding {@code Parity} enum.
-         *
-         * @param isOdd Whether the prefix is odd.
-         * @return The corresponding {@code Parity} enum constant.
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance O(1) conversion.
-         * @threading Thread-safe.
-         * @memory Does not allocate.
-         */
+        public static Parity even() {
+            return new Parity(GlobalConfig.ODD_CLICK_INDICES.get(), GlobalConfig.ODD_START_INDICES.get());
+        }
+
+        // public static Parity odd(SolverConfiguration config) {
+        //     return new Parity(config.getEvenClickIndices(), config.getEvenStartIndices());
+        // }
+
+        public static Parity odd() {
+            return new Parity(GlobalConfig.EVEN_CLICK_INDICES.get(), GlobalConfig.EVEN_START_INDICES.get());
+        }
+
+        // public static Parity fromBoolean(boolean isOdd, SolverConfiguration config) {
+        //     return isOdd ? odd(config) : even(config);
+        // }
+
         public static Parity fromBoolean(boolean isOdd) {
-            return isOdd ? ODD : EVEN;
+            return isOdd ? odd() : even();
+        }
+
+        // public static ParityPair pair(SolverConfiguration config) {
+        //     return new ParityPair(odd(config), even(config));
+        // }
+
+        public static ParityPair pair() {
+            return new ParityPair(odd(), even());
+        }
+
+        public record ParityPair(Parity odd, Parity even) {
+            private static void ensureDisjoint(Parity odd, Parity even) {
+                // Ensure non-nullity
+                requireNonNull(odd, "odd parity cannot be null");
+                requireNonNull(even, "even parity cannot be null");
+
+                // Get the lists:
+                final ShortList oddClicks = odd.finalClicks();
+                final ShortList evenClicks = even.finalClicks();
+
+                // Check for overlap by combining the two lists into a set and
+                // comparing sizes
+                final ShortSortedSet combinedSet = new ShortAVLTreeSet(oddClicks);
+                combinedSet.addAll(evenClicks);
+                if (combinedSet.size() < (oddClicks.size() + evenClicks.size())) {
+                    throw new IllegalArgumentException("Odd and even parity finalClicks must be disjoint.");
+                }
+            }
+            
+            public ParityPair {
+                requireNonNull(odd, "odd parity cannot be null");
+                requireNonNull(even, "even parity cannot be null");
+
+                // Ensure that the finalClicks lists are disjoint
+                ensureDisjoint(odd, even);
+            }
+
+            public Parity get(boolean isOdd) {
+                return isOdd ? odd : even;
+            }
+
+            public Parity odd() {
+                return odd;
+            }
+
+            public Parity even() {
+                return even;
+            }
         }
     }
 
@@ -223,6 +233,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @memory Fixed memory footprint of 4 bytes for the primitive {@code int}.
      */
     public static final int BATCH_SIZE = 256;
+
+    private final Parity.ParityPair parities;
 
     /**
      * The internal, pre-allocated pool of {@link WorkItem} objects.
@@ -336,7 +348,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory Fixed memory footprint of {@code 2 * (numClicks - 1)} bytes for the
          *         {@code short[]} array.
          */
-        private short[] prefix; // TODO: Consider making this final.
+        private short[] prefix;
         /**
          * The {@link Parity} of the prefix, which determines whether to use
          * {@link StartYourMonkeys.GlobalConfig#ODD_CLICK_INDICES} or
@@ -350,7 +362,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Minimal footprint for an enum reference.
          */
-        private Parity finalClickParity;
+        private Parity prefixParity;
         /**
          * The starting index within the final clicks array (retrieved via
          * {@link #getFinalClicks()}) from which the {@link TestClickCombination monkey} should
@@ -375,10 +387,14 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Allocates memory for the {@code prefix} array.
          */
-        WorkItem() {
-            prefix = new short[WorkBatch.getNumClicks() - 1];
-            finalClickParity = null;
+        WorkItem(int numClicks) {
+            prefix = new short[numClicks - 1];
+            prefixParity = null;
             start = -1;
+        }
+
+        WorkItem(SolverConfiguration config) {
+            this(config.numClicks());
         }
 
         /**
@@ -392,21 +408,17 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * </p>
          *
          * @param prefix           The common prefix for this range of combinations.
-         * @param finalClickParity The {@link Parity} indicating which set of final clicks to use.
+         * @param prefixParity The {@link Parity} indicating which set of final clicks to use.
          * @param start            The starting index in the {@code finalClicks} array.
          * @since 2025.11 - Range-Based WorkItem Refactor
          * @performance {@code O(prefixLength)} for array copy; {@code O(1)} for field assignments.
          * @threading Not thread-safe.
          * @memory Does not allocate; reuses internal arrays.
          */
-        void set(short[] prefix, Parity finalClickParity, int start) {
-            System.arraycopy(prefix, 0, this.prefix, 0, this.prefix.length); // TODO: Consider
-                                                                             // changing
-                                                                             // this.prefix.length
-                                                                             // to
-                                                                             // NUM_CLICKS.orElseThrow()
-                                                                             // - 1
-            this.finalClickParity = finalClickParity;
+        void set(short[] prefix, Parity prefixParity, int start) {
+            // TODO: Consider swapping the array reference instead of copying for performance gain.
+            System.arraycopy(prefix, 0, this.prefix, 0, this.prefix.length);
+            this.prefixParity = prefixParity;
             this.start = start;
         }
 
@@ -426,7 +438,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         void clear() {
             // Avoid nulling the prefix reference to allow reuse
-            this.finalClickParity = null;
+            this.prefixParity = null;
             this.start = -1;
         }
 
@@ -458,7 +470,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
 
         /**
          * Returns the array of possible final clicks for this work range by retrieving it from the
-         * {@link #finalClickParity} enum.
+         * {@link #prefixParity} enum.
          *
          * @return The array of final clicks, or {@code null} if parity is not set.
          * @since 2025.12 - Parity Enum Refactor
@@ -467,7 +479,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory Does not allocate; returns reference to existing array.
          */
         public ShortList getFinalClicks() {
-            return finalClickParity != null ? finalClickParity.getFinalClicks() : null;
+            return prefixParity != null ? prefixParity.finalClicks() : null;
         }
 
         /**
@@ -511,8 +523,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             sb.append(", finalClicks=");
 
             // Get the final clicks starting from 'start' to the end
-            if (finalClickParity != null) {
-                ShortList clicks = finalClickParity.getFinalClicks();
+            if (prefixParity != null) {
+                ShortList clicks = prefixParity.finalClicks();
                 if (start >= 0 && start < clicks.size()) {
                     sb.append(Arrays.toString(Arrays.copyOfRange(clicks.toShortArray(), start, clicks.size())));
                 } else {
@@ -530,7 +542,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          *
          * <p>
          * Two {@code WorkItem}s are considered equal if their {@link #prefix},
-         * {@link #finalClickParity}, and {@link #start} fields are all equal.
+         * {@link #prefixParity}, and {@link #start} fields are all equal.
          * </p>
          *
          * @param obj The {@code Object} to compare with.
@@ -547,7 +559,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 return true;
             if (obj instanceof WorkItem other) {
                 return Arrays.equals(this.prefix, other.prefix)
-                        && this.finalClickParity == other.finalClickParity
+                        && this.prefixParity == other.prefixParity
                         && this.start == other.start;
             }
             return false;
@@ -558,7 +570,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          *
          * <p>
          * The hash code is calculated based on the contents of the {@link #prefix} array, the
-         * {@link #finalClickParity} enum, as well as the {@link #start} index.
+         * {@link #prefixParity} enum, as well as the {@link #start} index.
          * </p>
          *
          * @return A hash code value for this object.
@@ -571,7 +583,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         public int hashCode() {
             // Since prefixLength is derived from prefix, we don't include it in hashCode
             int result = Arrays.hashCode(prefix);
-            result = 31 * result + (finalClickParity != null ? finalClickParity.hashCode() : 0);
+            result = 31 * result + (prefixParity != null ? prefixParity.hashCode() : 0);
             result = 31 * result + start;
             return result;
         }
@@ -703,19 +715,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     }
 
     /**
-     * Constructs a new {@code WorkBatch} with the default capacity of {@link #BATCH_SIZE}.
-     *
-     * @see #WorkBatch(int)
-     * @since 2025.11 - Range-Based WorkItem Refactor
-     * @performance {@code O(BATCH_SIZE)} due to delegation and {@code WorkItem} pre-allocation.
-     * @threading Not thread-safe.
-     * @memory Allocates a {@code WorkItem} array of size {@code BATCH_SIZE}.
-     */
-    public WorkBatch() {
-        this(BATCH_SIZE);
-    }
-
-    /**
      * Constructs a new {@code WorkBatch} with a specific capacity, pre-allocating the
      * {@link #workItems internal WorkItem pool}.
      *
@@ -730,15 +729,32 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Thread-safe by nature of construction.
      * @memory Allocates the {@code workItems} array and all {@code WorkItem} instances within it.
      */
-    public WorkBatch(int capacity) {
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("capacity must be a positive integer.");
+    // public WorkBatch(SolverConfiguration config) {
+    //     requireNonNull(config);
+
+    //     if (config.batchSize() <= 0) {
+    //         throw new IllegalArgumentException("capacity must be a positive integer.");
+    //     }
+
+    //     this.capacity = config.batchSize();
+    //     this.parities = Parity.pair(config);
+    //     this.workItems = new WorkItem[capacity];
+    //     for (int i = 0; i < capacity; i++) {
+    //         this.workItems[i] = new WorkItem(config);
+    //     }
+    // }
+
+    public WorkBatch() {
+        if (!GlobalConfig.isInitialized()) {
+            throw new IllegalStateException(
+                    "GlobalConfig must be initialized before using the no-arg constructor.");
         }
 
-        this.capacity = capacity;
+        this.capacity = BATCH_SIZE;
+        this.parities = Parity.pair();
         this.workItems = new WorkItem[capacity];
         for (int i = 0; i < capacity; i++) {
-            this.workItems[i] = new WorkItem();
+            this.workItems[i] = new WorkItem(GlobalConfig.getNumClicks());
         }
     }
 
@@ -757,20 +773,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     }
 
     /**
-     * Gets the configured number of clicks per combination from the central
-     * {@link StartYourMonkeys.GlobalConfig}.
-     *
-     * @return The number of clicks per combination.
-     * @since 2025.11 - Range-Based WorkItem Refactor
-     * @performance {@code O(1)} field access.
-     * @threading Thread-safe.
-     * @memory Does not allocate.
-     */
-    public static int getNumClicks() {
-        return StartYourMonkeys.GlobalConfig.getNumClicks();
-    }
-
-    /**
      * Adds a new work range to the batch.
      *
      * <p>
@@ -786,7 +788,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      *
      * @param prefix          The common combination prefix.
      * @param lastPrefixClick The value of the last click in the prefix.
-     * @param prefixParity    {@code true} if the prefix has odd parity, determining which final
+     * @param isPrefixOdd    {@code true} if the prefix has odd parity, determining which final
      *                        click array to use ({@link Parity#EVEN} for odd parity,
      *                        {@link Parity#ODD} for even).
      * @return {@code true} if the work item was added, {@code false} if the batch is full or no
@@ -797,25 +799,23 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Not thread-safe.
      * @memory Does not allocate.
      */
-    public boolean addWork(short[] prefix, short lastPrefixClick, boolean prefixParity) {
+    public boolean addWork(short[] prefix, short lastPrefixClick, boolean isPrefixOdd) {
         // TODO: Consider removing this check for performance if the caller guarantees capacity.
         if (isFull()) {
             return false;
         }
 
-        final Parity finalClickParity = Parity.fromBoolean(prefixParity);
-        final ShortList validClicks = finalClickParity.getFinalClicks(); // Get arrays from Parity
-                                                                       // enum
-
-        // O(1) lookup instead of O(log n) binary search
-        final int startIdx = finalClickParity.getStartIndex(lastPrefixClick);
+        // Use cached parities instead of enum
+        final Parity prefixParity = parities.get(isPrefixOdd);
+        final ShortList validClicks = prefixParity.finalClicks();
+        final int startIdx = prefixParity.getStartIndex(lastPrefixClick);
 
         if (startIdx >= validClicks.size()) {
             return false;
         }
 
         final WorkItem item = workItems[workItemCount++];
-        item.set(prefix, finalClickParity, startIdx);
+        item.set(prefix, prefixParity, startIdx);
         return true;
     }
 
@@ -908,6 +908,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     public void clear() {
         // This loop is a safeguard but may be unnecessary if the logic guarantees
         // that used WorkItems are always overwritten before being read.
+        // TODO: Test for false sharing impact if this loop is removed and consider padding WorkBatch.
         for (int i = 0; i < workItemCount; i++) {
             workItems[i].clear();
         }

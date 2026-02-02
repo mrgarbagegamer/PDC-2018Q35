@@ -1,25 +1,26 @@
 package com.github.mrgarbagegamer;
 
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.createFullWorkBatch;
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+// import static com.github.mrgarbagegamer.util.BenchmarkUtils.createFullWorkBatch;
+// import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
+// import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
 
-import java.util.Random;
+// import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Level;
+// import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
+// import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
-import org.openjdk.jmh.infra.Blackhole;
+// import org.openjdk.jmh.infra.Blackhole;
 
+// TODO: Modify benchmarks as necessary to reflect recent changes to codebase
 /**
  * {@link Benchmark}s for the {@link WorkBatch} class, focusing on adding work and iterating over
  * work items.
@@ -77,43 +78,43 @@ import org.openjdk.jmh.infra.Blackhole;
         "-XX:+UseCountTrailingZerosInstruction"})
 public class WorkBatchBenchmark {
 
-    private WorkBatch fullBatch;
-    private WorkBatch emptyBatch;
-    private short[] prefix;
-    private short lastPrefixClick;
-    private Random random;
+    // private WorkBatch fullBatch;
+    // private WorkBatch emptyBatch;
+    // private short[] prefix;
+    // private short lastPrefixClick;
+    // private Random random;
 
-    @Setup(Level.Trial)
-    public void setup() {
-        setupGlobalConfig();
-        random = new Random(42);
+    // @Setup(Level.Trial)
+    // public void setup() {
+    //     setupGlobalConfig();
+    //     random = new Random(42);
 
-        prefix = generateRandomPrefix(16, random);
-        lastPrefixClick = (short) (prefix[prefix.length - 1] + 1);
+    //     prefix = generateRandomPrefix(16, random);
+    //     lastPrefixClick = (short) (prefix[prefix.length - 1] + 1);
 
-        fullBatch = createFullWorkBatch(random);
-        emptyBatch = new WorkBatch();
-    }
+    //     fullBatch = createFullWorkBatch(random);
+    //     emptyBatch = new WorkBatch();
+    // }
 
-    @Setup(Level.Iteration)
-    public void resetEmptyBatch() {
-        emptyBatch.clear();
-    }
+    // @Setup(Level.Iteration)
+    // public void resetEmptyBatch() {
+    //     emptyBatch.clear();
+    // }
 
-    @Benchmark
-    public boolean addWork() {
-        return emptyBatch.addWork(prefix, lastPrefixClick, false);
-    }
+    // @Benchmark
+    // public boolean addWork() {
+    //     return emptyBatch.addWork(prefix, lastPrefixClick, false);
+    // }
 
-    @Benchmark
-    public boolean addWorkFullBatch() {
-        return fullBatch.addWork(prefix, lastPrefixClick, false); // Should be false
-    }
+    // @Benchmark
+    // public boolean addWorkFullBatch() {
+    //     return fullBatch.addWork(prefix, lastPrefixClick, false); // Should be false
+    // }
 
-    @Benchmark
-    public void iterate(Blackhole bh) {
-        for (WorkBatch.WorkItem item : fullBatch) {
-            bh.consume(item);
-        }
-    }
+    // @Benchmark
+    // public void iterate(Blackhole bh) {
+    //     for (WorkBatch.WorkItem item : fullBatch) {
+    //         bh.consume(item);
+    //     }
+    // }
 }

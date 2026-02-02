@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.LogManager;
@@ -101,7 +103,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe per Log4j2 design.
      * @memory Fixed memory footprint of 4 bytes for the {@code static} reference.
      */
-    private static final Logger logger = LogManager.getLogger();
+    private final Logger logger;
     /**
      * A constant defining the frequency of logging for failed attempts.
      *
@@ -153,7 +155,7 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe through use of {@code volatile} flags and concurrent queues.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private static final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
+    private final CombinationQueueArray queueArray;
     /**
      * The monkey's dedicated {@link Grid} instance for testing combinations.
      *
@@ -172,8 +174,7 @@ public class TestClickCombination extends Thread {
      */
     private final Grid puzzleGrid;
     /**
-     * A {@code static final} cache of
-     * {@link StartYourMonkeys.GlobalConfig#TRUE_CELL_MASKS}.
+     * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#TRUE_CELL_MASKS}.
      *
      * <p>
      * By caching this as a {@code static final} field at class load time, we enable the JIT
@@ -186,8 +187,8 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 4 bytes for the reference.
      */
-    private static final LongList MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
-    private static final LongList MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
+    private final LongList masksLower;
+    private final LongList masksUpper;
     /**
      * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}.
      *
@@ -202,8 +203,10 @@ public class TestClickCombination extends Thread {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 8 bytes for the primitive {@code long}.
      */
-    private static final long EXPECTED_LOWER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_LOWER.get();
-    private static final long EXPECTED_UPPER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_UPPER.get();
+    private final long expectedLower;
+    private final long expectedUpper;
+    private final boolean useDualMasks;
+    private final ForkJoinPool generatorPool;
 
     /**
      * Constructs a monkey thread.
@@ -224,9 +227,32 @@ public class TestClickCombination extends Thread {
      * @memory Allocates a new {@link Grid} clone for this thread.
      */
     public TestClickCombination(String name, CombinationQueue queue) {
-        super(name);
-        this.combinationQueue = queue;
+        super(name); // The constructor for Thread handles null checks for the name
+        this.combinationQueue = requireNonNull(queue);
         this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid();
+        this.queueArray = CombinationQueueArray.getInstance();
+        this.logger = LogManager.getLogger(TestClickCombination.class);
+        this.masksLower = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
+        this.masksUpper = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
+        this.expectedLower = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_LOWER.get();
+        this.expectedUpper = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_UPPER.get();
+        this.useDualMasks = StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get();
+        this.generatorPool = StartYourMonkeys.GlobalConfig.getGeneratorPool();
+    }
+
+    public TestClickCombination(String name, SolverConfiguration config, CombinationQueue queue,
+            CombinationQueueArray queueArray, ForkJoinPool generatorPool) {
+        super(name); // The constructor for Thread handles null checks for the name
+        this.combinationQueue = requireNonNull(queue);
+        this.puzzleGrid = config.baseGrid(); // Copy of the base grid
+        this.queueArray = requireNonNull(queueArray);
+        this.logger = requireNonNull(config.getLogger(TestClickCombination.class));
+        this.masksLower = requireNonNull(config.getTrueCellMasksLower());
+        this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
+        this.expectedLower = requireNonNull(config.getExpectedMaskLower());
+        this.expectedUpper = requireNonNull(config.getExpectedMaskUpper());
+        this.useDualMasks = config.getUseDualMasks();
+        this.generatorPool = requireNonNull(generatorPool);
     }
 
     /**
@@ -281,7 +307,7 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        while (!queueArray.isSolutionFound()) {
+        while (!this.queueArray.isSolutionFound()) {
             WorkBatch workBatch = getWork();
 
             if (workBatch == null) {
@@ -293,7 +319,7 @@ public class TestClickCombination extends Thread {
             // NEW: Iterate over WorkItems and use pre-computed prefix masks.
             for (WorkBatch.WorkItem item : workBatch) {
                 // TODO: Look at removing this redundant check
-                if (queueArray.isSolutionFound())
+                if (this.queueArray.isSolutionFound())
                     break;
 
                 final ShortList finalClicks = item.getFinalClicks();
@@ -306,20 +332,20 @@ public class TestClickCombination extends Thread {
                 for (int i = start; i < finalClicks.size(); i++) {
                     final short finalClick = finalClicks.getShort(i);
                     if (satisfiesOddAdjacency(prefixMaskLower, prefixMaskUpper, finalClick)) {
-                        puzzleGrid.click(prefix, finalClick);
+                        this.puzzleGrid.click(prefix, finalClick);
 
-                        if (puzzleGrid.isSolved()) {
+                        if (this.puzzleGrid.isSolved()) {
                             handleSuccess(prefix, finalClick);
                             return;
                         }
-                        puzzleGrid.initialize(); // Reset for next test
+                        this.puzzleGrid.initialize(); // Reset for next test
 
                         failedCount++;
                         // TODO: Consider extracting this logging for easier compiler optimization
                         if (failedCount == LOG_EVERY_N_FAILURES) {
                             final short[] failedCombination = buildCombination(prefix, finalClick);
 
-                            logger.debug("Tried and failed: {}", new CombinationMessage(
+                            this.logger.debug("Tried and failed: {}", new CombinationMessage(
                                     failedCombination, Grid.ValueFormat.Index));
                             failedCount = 0;
                         }
@@ -328,19 +354,19 @@ public class TestClickCombination extends Thread {
             }
 
             // After processing, recycle the batch
-            queueArray.getWorkBatchPool().offer(workBatch);
+            this.queueArray.getWorkBatchPool().offer(workBatch);
         }
     }
 
-    private static boolean idleAfterNoWork() {
-        if (queueArray.isSolutionFound() || allQueuesEmpty()) {
+    private boolean idleAfterNoWork() {
+        if (this.queueArray.isSolutionFound() || allQueuesEmpty()) {
             return true;
         } else {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                logger.debug("Thread interrupted while waiting for work");
+                this.logger.debug("Thread interrupted while waiting for work");
                 return true;
             }
         }
@@ -363,8 +389,8 @@ public class TestClickCombination extends Thread {
      */
     private void handleSuccess(final short[] prefix, final short finalClick) {
         final short[] winningCombination = buildCombination(prefix, finalClick);
-        queueArray.solutionFound(this.getName(), winningCombination);
-        logger.info("Found the solution as the following click combination: {}",
+        this.queueArray.solutionFound(this.getName(), winningCombination);
+        this.logger.info("Found the solution as the following click combination: {}",
                 new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
 
         triggerGeneratorShutdown();
@@ -394,12 +420,9 @@ public class TestClickCombination extends Thread {
      * @memory Does not allocate (except for logging).
      */
     private void triggerGeneratorShutdown() {
-        // Access the generator pool from CombinationGeneratorTask if stored there,
-        // or use a different mechanism to signal shutdown
-        final ForkJoinPool generatorPool = StartYourMonkeys.GlobalConfig.getGeneratorPool();
-        if (generatorPool != null && !generatorPool.isShutdown()) {
-            logger.debug("Triggering generator pool shutdown from {}", getName());
-            generatorPool.shutdownNow(); // Immediate shutdown with interruption
+        if (!this.generatorPool.isShutdown()) {
+            this.logger.debug("Triggering generator pool shutdown from {}", getName());
+            this.generatorPool.shutdownNow(); // Immediate shutdown with interruption
         }
     }
 
@@ -428,13 +451,13 @@ public class TestClickCombination extends Thread {
      */
     private WorkBatch getWork() {
         // Try my own queue first
-        WorkBatch batch = combinationQueue.relaxedPoll();
+        WorkBatch batch = this.combinationQueue.relaxedPoll();
         if (batch != null) {
             return batch;
         }
 
         // My queue is empty, try to steal
-        CombinationQueue[] queues = queueArray.getAllQueues();
+        CombinationQueue[] queues = this.queueArray.getAllQueues();
         for (int i = 0; i < queues.length; i++) {
             batch = queues[i].relaxedPoll();
             if (batch != null) {
@@ -464,13 +487,13 @@ public class TestClickCombination extends Thread {
      *            queue.
      * @memory Does not allocate.
      */
-    private static boolean allQueuesEmpty() {
+    private boolean allQueuesEmpty() {
         // Short-circuit if generation is not complete (which should be the case most of the time)
-        if (!queueArray.isGenerationComplete()) {
+        if (!this.queueArray.isGenerationComplete()) {
             return false; // Generation not complete, so queues may still get work
         }
 
-        for (CombinationQueue q : queueArray.getAllQueues()) {
+        for (CombinationQueue q : this.queueArray.getAllQueues()) {
             if (!q.isEmpty()) {
                 return false;
             }
@@ -478,7 +501,7 @@ public class TestClickCombination extends Thread {
         return true;
     }
 
-    private static final long buildParityMaskLower(short[] combination) {
+    private final long buildParityMaskLower(short[] combination) {
         // JIT OPTIMIZATION: Cache length to encourage optimization
         final int combinationLength = combination.length;
 
@@ -491,14 +514,14 @@ public class TestClickCombination extends Thread {
             final int click = combination[i];
 
             // JIT OPTIMIZATION: Single XOR operation instead of two
-            trueCellCounts ^= MASKS_LOWER.getLong(click);
+            trueCellCounts ^= this.masksLower.getLong(click);
         }
 
         return trueCellCounts;
     }
 
-    private static final long buildParityMaskUpper(short[] combination) {
-        if (!StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get()) {
+    private final long buildParityMaskUpper(short[] combination) {
+        if (!this.useDualMasks) {
             return 0L;
         } else {
             // JIT OPTIMIZATION: Cache length to encourage optimization
@@ -513,7 +536,7 @@ public class TestClickCombination extends Thread {
                 final int click = combination[i];
 
                 // JIT OPTIMIZATION: Single XOR operation instead of two
-                trueCellCounts ^= MASKS_UPPER.getLong(click);
+                trueCellCounts ^= this.masksUpper.getLong(click);
             }
 
             return trueCellCounts;
@@ -541,11 +564,12 @@ public class TestClickCombination extends Thread {
      */
     private boolean satisfiesOddAdjacency(long prefixMaskLower, long prefixMaskUpper,
             short finalClick) {
-        if (!StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get()) {
-            return (prefixMaskLower ^ MASKS_LOWER.getLong(finalClick)) == EXPECTED_LOWER;
+        if (!this.useDualMasks) {
+            return (prefixMaskLower ^ this.masksLower.getLong(finalClick)) == this.expectedLower;
         } else {
-            return (prefixMaskLower ^ MASKS_LOWER.getLong(finalClick)) == EXPECTED_LOWER
-                    && (prefixMaskUpper ^ MASKS_UPPER.getLong(finalClick)) == EXPECTED_UPPER;
+            return (prefixMaskLower ^ this.masksLower.getLong(finalClick)) == this.expectedLower
+                    && (prefixMaskUpper
+                            ^ this.masksUpper.getLong(finalClick)) == this.expectedUpper;
         }
     }
 }

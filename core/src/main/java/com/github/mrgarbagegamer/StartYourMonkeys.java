@@ -234,6 +234,13 @@ public class StartYourMonkeys {
         // ForkJoinPool, there is effectively only one thread generating combinations)
         final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
 
+        // Create the context registry and generator pool BEFORE starting monkeys to
+        // ensure proper registration
+        final ContextRegistry registry = new ContextRegistry();
+        final ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
+                GeneratorFactory.ofDefault(queueArray, registry), null, false);
+        GlobalConfig.setGeneratorPool(generatorPool);
+
         // Start consumer threads BEFORE generation
         final TestClickCombination[] monkeys = new TestClickCombination[numThreads
                 - numGeneratorThreads];
@@ -241,12 +248,6 @@ public class StartYourMonkeys {
             monkeys[i] = new TestClickCombination("Monkey-" + i, queueArray.getQueue(i));
             monkeys[i].start();
         }
-
-        // Create generator pool and submit root task
-        final ContextRegistry registry = new ContextRegistry();
-        final ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
-                GeneratorFactory.ofDefault(queueArray, registry), null, false);
-        GlobalConfig.setGeneratorPool(generatorPool);
 
         try {
             // Invoke root task - no need to keep reference since we use awaitQuiescence

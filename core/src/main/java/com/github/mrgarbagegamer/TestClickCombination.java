@@ -207,6 +207,7 @@ public class TestClickCombination extends Thread {
     private final long expectedUpper;
     private final boolean useDualMasks;
     private final ForkJoinPool generatorPool;
+    private final SolutionHandler solutionHandler;
 
     /**
      * Constructs a monkey thread.
@@ -238,22 +239,34 @@ public class TestClickCombination extends Thread {
         this.expectedUpper = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_UPPER.get();
         this.useDualMasks = StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get();
         this.generatorPool = StartYourMonkeys.GlobalConfig.getGeneratorPool();
+        this.solutionHandler = (prefix, finalClick, queueArray, generatorPool, logger) -> {
+            final short[] winningCombination = buildCombination(prefix, finalClick);
+            queueArray.solutionFound(this.getName(), winningCombination);
+            logger.info("Found the solution as the following click combination: {}",
+                    new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
+
+            if (!generatorPool.isShutdown()) {
+                logger.debug("Triggering generator pool shutdown from {}", getName());
+                generatorPool.shutdownNow(); // Immediate shutdown with interruption
+            }
+        };
     }
 
-    public TestClickCombination(String name, SolverConfiguration config, CombinationQueue queue,
-            CombinationQueueArray queueArray, ForkJoinPool generatorPool) {
-        super(name); // The constructor for Thread handles null checks for the name
-        this.combinationQueue = requireNonNull(queue);
-        this.puzzleGrid = config.baseGrid(); // Copy of the base grid
-        this.queueArray = requireNonNull(queueArray);
-        this.logger = requireNonNull(config.getLogger(TestClickCombination.class));
-        this.masksLower = requireNonNull(config.getTrueCellMasksLower());
-        this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
-        this.expectedLower = requireNonNull(config.getExpectedMaskLower());
-        this.expectedUpper = requireNonNull(config.getExpectedMaskUpper());
-        this.useDualMasks = config.getUseDualMasks();
-        this.generatorPool = requireNonNull(generatorPool);
-    }
+    // public TestClickCombination(String name, SolverConfiguration config, CombinationQueue queue,
+    //         CombinationQueueArray queueArray, ForkJoinPool generatorPool) {
+    //     super(name); // The constructor for Thread handles null checks for the name
+    //     this.combinationQueue = requireNonNull(queue);
+    //     this.puzzleGrid = config.baseGrid(); // Copy of the base grid
+    //     this.queueArray = requireNonNull(queueArray);
+    //     this.logger = requireNonNull(config.getLogger(TestClickCombination.class));
+    //     this.masksLower = requireNonNull(config.getTrueCellMasksLower());
+    //     this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
+    //     this.expectedLower = requireNonNull(config.getExpectedMaskLower());
+    //     this.expectedUpper = requireNonNull(config.getExpectedMaskUpper());
+    //     this.useDualMasks = config.getUseDualMasks();
+    //     this.generatorPool = requireNonNull(generatorPool);
+    //     this.solutionHandler = config.solutionHandler();
+    // }
 
     /**
      * The main execution loop for the monkey thread.
@@ -335,7 +348,8 @@ public class TestClickCombination extends Thread {
                         this.puzzleGrid.click(prefix, finalClick);
 
                         if (this.puzzleGrid.isSolved()) {
-                            handleSuccess(prefix, finalClick);
+                            solutionHandler.handleSolution(prefix, finalClick, this.queueArray,
+                                    this.generatorPool, this.logger);
                             return;
                         }
                         this.puzzleGrid.initialize(); // Reset for next test
@@ -373,57 +387,11 @@ public class TestClickCombination extends Thread {
         return false;
     }
 
-    /**
-     * Handles the successful discovery of a solution, logging it and
-     * {@link #triggerGeneratorShutdown() triggering a shutdown}. By extracting this logic from the
-     * {@link #run()} method, we improve JIT optimization opportunities in the hot loop.
-     * 
-     * @param prefix       The combination prefix leading up to the final click.
-     * @param prefixLength The length of the prefix.
-     * @param finalClick   The final click that completes the solution.
-     * @see CombinationQueueArray#solutionFound(String, short[])
-     * @see System#arraycopy(Object, int, Object, int, int)
-     * @since 2025.11 - Success Handling Extraction
-     * @performance {@code O(prefixLength)} for array copy.
-     * 
-     */
-    private void handleSuccess(final short[] prefix, final short finalClick) {
-        final short[] winningCombination = buildCombination(prefix, finalClick);
-        this.queueArray.solutionFound(this.getName(), winningCombination);
-        this.logger.info("Found the solution as the following click combination: {}",
-                new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
-
-        triggerGeneratorShutdown();
-    }
-
     private static short[] buildCombination(short[] prefix, short finalClick) {
         final short[] combination = new short[prefix.length + 1];
         System.arraycopy(prefix, 0, combination, 0, prefix.length);
         combination[prefix.length] = finalClick;
         return combination;
-    }
-
-    /**
-     * Triggers an immediate shutdown of the generator {@link ForkJoinPool}.
-     *
-     * <p>
-     * When a solution is found, this method is called to halt the creation of new work. It directly
-     * invokes {@link ForkJoinPool#shutdownNow()} on the {@code static} pool instance held by
-     * {@link CombinationGeneratorTask}. This is more efficient than relying on cancellation flags,
-     * as it uses the {@code ForkJoinPool}'s built-in, low-overhead mechanism to interrupt all
-     * active generator tasks.
-     * </p>
-     *
-     * @since 2025.07.23 - Explicit Cancellation Checks Removal
-     * @performance {@code O(1)} shutdown signaling.
-     * @threading Thread-safe as per {@code ForkJoinPool} design.
-     * @memory Does not allocate (except for logging).
-     */
-    private void triggerGeneratorShutdown() {
-        if (!this.generatorPool.isShutdown()) {
-            this.logger.debug("Triggering generator pool shutdown from {}", getName());
-            this.generatorPool.shutdownNow(); // Immediate shutdown with interruption
-        }
     }
 
     /**
@@ -571,5 +539,12 @@ public class TestClickCombination extends Thread {
                     && (prefixMaskUpper
                             ^ this.masksUpper.getLong(finalClick)) == this.expectedUpper;
         }
+    }
+
+    // TODO: Remove this functional interface in favor of the one in SolverConfiguration
+    @FunctionalInterface
+    public interface SolutionHandler {
+        void handleSolution(short[] prefix, short finalClick,
+                CombinationQueueArray queueArray, ForkJoinPool generatorPool, Logger logger);
     }
 }

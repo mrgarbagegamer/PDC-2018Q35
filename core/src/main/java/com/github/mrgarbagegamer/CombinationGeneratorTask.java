@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer;
 
-import static com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS;
+import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
 
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
@@ -25,15 +25,15 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * <h2>Execution Model</h2>
  * <p>
  * The generation process is a tree-based, divide-and-conquer algorithm. Each task represents a
- * {@link #prefix} of clicks. The root task {@link #computeRootSubtasks(DefaultGeneratorContext) forks
- * subtasks} for each possible first click, and these subtasks recursively
+ * {@link #prefix} of clicks. The root task {@link #computeRootSubtasks(DefaultGeneratorContext)
+ * forks subtasks} for each possible first click, and these subtasks recursively
  * {@link #computeIntermediateSubtasks(DefaultGeneratorContext) fork children} until the desired
- * {@link #NUM_CLICKS combination length} is reached. To optimize performance, this class implements
+ * {@link #numClicks combination length} is reached. To optimize performance, this class implements
  * two key strategies:
  * <ul>
- * <li><b>Constraint Pruning:</b> At each branching point,
- * {@link #constraintCheck(int)} uses bitmasks to check if a path can possibly lead
- * to a valid solution, pruning entire branches early.</li>
+ * <li><b>Constraint Pruning:</b> At each branching point, {@link #constraintCheck(int)} uses
+ * bitmasks to check if a path can possibly lead to a valid solution, pruning entire branches
+ * early.</li>
  * <li><b>Range-Based Batching:</b> Leaf tasks now define a range of work with a single
  * {@link WorkBatch#addWork(short[], short, boolean)} call, offloading the final combination
  * enumeration to the monkeys. This significantly reduces CPU load on the generator threads.</li>
@@ -45,8 +45,9 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * To avoid performance degradation from excessive garbage collection, this class adheres to a
  * strict "don't allocate" policy in its hot paths. All critical resources, including
  * {@code short[]} {@code prefix} arrays and the tasks themselves, are recycled using
- * {@link ThreadLocal thread-local} pools managed by the {@link DefaultGeneratorContext GeneratorContext}.
- * This design reduces heap allocations to nearly zero during the main generation loop.
+ * {@link ThreadLocal thread-local} pools managed by the {@link DefaultGeneratorContext
+ * GeneratorContext}. This design reduces heap allocations to nearly zero during the main generation
+ * loop.
  * </p>
  * 
  * @see java.util.concurrent.ForkJoinTask
@@ -55,13 +56,15 @@ import it.unimi.dsi.fastutil.longs.LongList;
  *              aggressive bitmask-based pruning and parallel execution significantly reduce the
  *              practical workload.
  * @threading Tasks are isolated by the {@code ForkJoinTask} framework. Shared resources are managed
- *            via a {@link GeneratorWorkerThread#context thread-local} {@link DefaultGeneratorContext
- *            GeneratorContext} to ensure thread safety and eliminate contention.
+ *            via a {@link GeneratorWorkerThread#context thread-local}
+ *            {@link DefaultGeneratorContext GeneratorContext} to ensure thread safety and eliminate
+ *            contention.
  * @algorithm A recursive, divide-and-conquer approach. Tasks form a generation tree where each node
- *            is a click prefix. Subtasks are {@link #computeIntermediateSubtasks(DefaultGeneratorContext)
- *            forked} until a {@link #NUM_CLICKS target length} is reached. Leaf tasks
- *            {@link #computeLeafCombinations(DefaultGeneratorContext) generate} work items, which are
- *            {@link #flushBatchFast(WorkBatch) queued} for validation.
+ *            is a click prefix. Subtasks are
+ *            {@link #computeIntermediateSubtasks(DefaultGeneratorContext) forked} until a
+ *            {@link #numClicks target length} is reached. Leaf tasks
+ *            {@link #computeLeafCombinations(DefaultGeneratorContext) generate} work items, which
+ *            are {@link #flushBatchFast(WorkBatch) queued} for validation.
  * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
  *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
  */
@@ -84,7 +87,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    private static final CombinationQueueArray QUEUE_ARRAY = CombinationQueueArray.getInstance();
+    private final CombinationQueueArray queueArray;
     /**
      * The target length of the combinations to be generated, pulled from
      * {@link StartYourMonkeys.GlobalConfig}. Through the use of {@link StableValue StableValues}
@@ -96,7 +99,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    private static final int NUM_CLICKS = StartYourMonkeys.GlobalConfig.getNumClicks();
+    private final int numClicks;
 
     /**
      * The maximum index allowed for the first click, used for pruning.
@@ -117,8 +120,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 4 bytes as an {@code int}.
      */
-    private static final int MAX_FIRST_CLICK_INDEX = StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES
-            .get().getShort(StartYourMonkeys.GlobalConfig.EVEN_CLICK_INDICES.get().size() - 1);
+    private final int maxFirstClickIndex;
 
     // Cached data between tasks
     /**
@@ -126,13 +128,13 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * Each task is defined by its {@code prefix}. For an intermediate task, it will
-     * {@link #computeIntermediateSubtasks(DefaultGeneratorContext) fork new tasks} by appending a new
-     * click to this {@code prefix}. For a leaf task, it will
-     * {@link #computeLeafCombinations(DefaultGeneratorContext) generate final combinations} by appending a
-     * final click. The {@code short[]} holding the {@code prefix} is obtained from a pre-allocated
-     * {@link ArrayPool} to prevent heap allocation. To prevent array resizing, we always allocate
-     * arrays of size {@code NUM_CLICKS - 1}, tracking the current length of the {@code prefix} with
-     * {@link #prefixLength}.
+     * {@link #computeIntermediateSubtasks(DefaultGeneratorContext) fork new tasks} by appending a
+     * new click to this {@code prefix}. For a leaf task, it will
+     * {@link #computeLeafCombinations(DefaultGeneratorContext) generate final combinations} by
+     * appending a final click. The {@code short[]} holding the {@code prefix} is obtained from a
+     * pre-allocated {@link ArrayPool} to prevent heap allocation. To prevent array resizing, we
+     * always allocate arrays of size {@code NUM_CLICKS - 1}, tracking the current length of the
+     * {@code prefix} with {@link #prefixLength}.
      * </p>
      * 
      * @see #recycleOwnResources(DefaultGeneratorContext)
@@ -175,8 +177,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * This is a critical field for early-stage pruning. Instead of recomputing which {@code true}
      * cells are affected by a {@code prefix}, each task inherits the state from its parent and
      * updates it incrementally with a single {@code OR} operation. This state is then used in
-     * {@link #constraintCheck(int)} to determine if the current path is viable. A
-     * value of {@code -1} indicates an uninitialized state, used only by the root task.
+     * {@link #constraintCheck(int)} to determine if the current path is viable. A value of
+     * {@code -1} indicates an uninitialized state, used only by the root task.
      * </p>
      * 
      * <p>
@@ -204,8 +206,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * even.
      * 
      * <p>
-     * Like {@link #currentAdjacencies}, this value is incrementally built in the generator
-     * threads to allow for {@code O(1)} checks in {@link #computeLeafCombinations(DefaultGeneratorContext)
+     * Like {@link #currentAdjacencies}, this value is incrementally built in the generator threads
+     * to allow for {@code O(1)} checks in {@link #computeLeafCombinations(DefaultGeneratorContext)
      * leaf tasks}.
      * </p>
      * 
@@ -225,12 +227,11 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * constraints, allowing future checks to be skipped.
      * 
      * <p>
-     * This flag is set to {@code true} by {@link #constraintCheck(int)} when a
-     * {@link #prefix} is found to toggle every initially {@code true} cell. Because additional
-     * clicks cannot "un-satisfy" this condition, all child tasks spawned from this point can
-     * inherit this flag and bypass the expensive constraint check. This enables a much faster,
-     * branch-free generation path in
-     * {@link #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)}.
+     * This flag is set to {@code true} by {@link #constraintCheck(int)} when a {@link #prefix} is
+     * found to toggle every initially {@code true} cell. Because additional clicks cannot
+     * "un-satisfy" this condition, all child tasks spawned from this point can inherit this flag
+     * and bypass the expensive constraint check. This enables a much faster, branch-free generation
+     * path in {@link #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)}.
      * </p>
      * 
      * @see #currentAdjacencies
@@ -244,19 +245,18 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private boolean skipConstraintsCheck = false;
 
     /**
-     * A {@code static final} cache of
-     * {@link StartYourMonkeys.GlobalConfig#TRUE_CELL_MASKS}, used for quick adjacency
-     * checks. Through the use of {@link StableValue StableValues} and the ordering of class
-     * initializations, this array is guaranteed to be initialized before any tasks are created and
-     * can be treated as a constant.
+     * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#TRUE_CELL_MASKS}, used
+     * for quick adjacency checks. Through the use of {@link StableValue StableValues} and the
+     * ordering of class initializations, this array is guaranteed to be initialized before any
+     * tasks are created and can be treated as a constant.
      * 
      * @since 2025.12 - GlobalConfig Refactor
      * @performance {@code O(1)} access time.
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of {@code Grid.NUM_CELLS * 8} bytes as a {@code long[]} array.
      */
-    private static final LongList TRUE_CELL_MASKS_LOWER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
-    private static final LongList TRUE_CELL_MASKS_UPPER = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
+    private final LongList trueCellMasksLower;
+    private final LongList trueCellMasksUpper;
     /**
      * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}, used for
      * quick pruning checks. Through the use of {@link StableValue StableValues} and the ordering of
@@ -268,14 +268,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Minimal memory footprint of 8 bytes as a {@code long}.
      */
-    private static final long EXPECTED_MASK_LOWER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_LOWER.get();
-    private static final long EXPECTED_MASK_UPPER = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_UPPER.get();
+    private final long expectedMaskLower;
+    private final long expectedMaskUpper;
+    private final boolean useDualMasks;
 
     public static CombinationGeneratorTask createRootTask() {
         final CombinationGeneratorTask rootTask = new CombinationGeneratorTask();
 
         // Initialize instance fields
-        rootTask.prefix = new short[NUM_CLICKS - 1];
+        rootTask.prefix = new short[rootTask.numClicks - 1];
         rootTask.prefixLength = 0;
         rootTask.currentAdjacenciesLower = -1;
         rootTask.currentAdjacenciesUpper = -1;
@@ -297,7 +298,47 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Isolated by the {@link java.util.concurrent.ForkJoinTask ForkJoinTask} framework.
      * @memory Allocates a {@code CombinationGeneratorTask} instance.
      */
-    protected CombinationGeneratorTask() {}
+    protected CombinationGeneratorTask() {
+        this.queueArray = CombinationQueueArray.getInstance();
+        this.numClicks = GlobalConfig.getNumClicks();
+        this.maxFirstClickIndex = GlobalConfig.EVEN_CLICK_INDICES.get()
+                .getShort(GlobalConfig.EVEN_CLICK_INDICES.get().size() - 1);
+        this.trueCellMasksLower = GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
+        this.trueCellMasksUpper = GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
+        this.expectedMaskLower = GlobalConfig.EXPECTED_MASK_LOWER.get();
+        this.expectedMaskUpper = GlobalConfig.EXPECTED_MASK_UPPER.get();
+        this.suffixMasksLower = GlobalConfig.SUFFIX_MASKS_LOWER.get();
+        this.suffixMasksUpper = GlobalConfig.SUFFIX_MASKS_UPPER.get();
+        this.useDualMasks = GlobalConfig.USE_DUAL_MASKS.get();
+    }
+
+    // public static CombinationGeneratorTask createRootTask(SolverConfiguration config,
+    //         CombinationQueueArray queueArray) {
+    //     final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(config, queueArray);
+
+    //     // Initialize instance fields
+    //     rootTask.prefix = new short[rootTask.numClicks - 1];
+    //     rootTask.prefixLength = 0;
+    //     rootTask.currentAdjacenciesLower = -1;
+    //     rootTask.currentAdjacenciesUpper = -1;
+
+    //     return rootTask;
+    // }
+
+    // protected CombinationGeneratorTask(SolverConfiguration config,
+    //         CombinationQueueArray queueArray) {
+    //     this.queueArray = queueArray;
+    //     this.numClicks = config.numClicks();
+    //     this.maxFirstClickIndex = config.getEvenClickIndices()
+    //             .getShort(config.getEvenClickIndices().size() - 1);
+    //     this.trueCellMasksLower = config.getTrueCellMasksLower();
+    //     this.trueCellMasksUpper = config.getTrueCellMasksUpper();
+    //     this.expectedMaskLower = config.getExpectedMaskLower();
+    //     this.expectedMaskUpper = config.getExpectedMaskUpper();
+    //     this.suffixMasksLower = config.getSuffixMasksLower();
+    //     this.suffixMasksUpper = config.getSuffixMasksUpper();
+    //     this.useDualMasks = config.getUseDualMasks();
+    // }
 
     /**
      * The main computation method for the {@link RecursiveAction}.
@@ -313,10 +354,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <li><b>Intermediate Task</b> (otherwise): Invokes
      * {@link #computeIntermediateSubtasks(DefaultGeneratorContext)}.</li>
      * </ul>
-     * A {@code finally} block ensures that {@link #recycleOwnResources(DefaultGeneratorContext)} is always
-     * called to return the task and its prefix array to their respective pools. The
-     * {@link DefaultGeneratorContext context} is {@link ThreadLocal#get() fetched} once at the start to
-     * minimize {@link ThreadLocal} access overhead.
+     * A {@code finally} block ensures that {@link #recycleOwnResources(DefaultGeneratorContext)} is
+     * always called to return the task and its prefix array to their respective pools. The
+     * {@link DefaultGeneratorContext context} is {@link ThreadLocal#get() fetched} once at the
+     * start to minimize {@link ThreadLocal} access overhead.
      * </p>
      * 
      * @since 2025.06 - Work-stealing introduction
@@ -332,11 +373,11 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         try {
             // Path for the root task
-            if (prefixLength == 0)
+            if (this.prefixLength == 0)
                 computeRootSubtasks(ctx);
 
             // Path for leaf tasks
-            else if (prefixLength == NUM_CLICKS - 1) {
+            else if (this.prefixLength == this.numClicks - 1) {
                 computeLeafCombinations(ctx);
             }
 
@@ -355,7 +396,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * 
      * <p>
      * This method iterates through all valid first clicks, creating and forking a new subtask for
-     * each one. The range of iteration is limited by {@link #MAX_FIRST_CLICK_INDEX} as a pruning
+     * each one. The range of iteration is limited by {@link #maxFirstClickIndex} as a pruning
      * optimization.
      * </p>
      * 
@@ -386,18 +427,18 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private void computeRootSubtasks(GeneratorContext ctx) {
         final short start = 0;
-        final short max = (short) (Math.min(Grid.NUM_CELLS - NUM_CLICKS, MAX_FIRST_CLICK_INDEX)
-                + 1);
+        final short max = (short) (Math.min(Grid.NUM_CELLS - numClicks, maxFirstClickIndex) + 1);
 
         for (short i = start; i < max; i++) {
-            final long lowerMask = TRUE_CELL_MASKS_LOWER.getLong(i);
-            
+            final long lowerMask = this.trueCellMasksLower.getLong(i);
+
             final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
             // Identify the parity of this root subtask:
             final boolean parity = (lowerMask & 1L) != 0;
 
-            getAndForkSubtask(ctx, newPrefix, lowerMask, TRUE_CELL_MASKS_UPPER.getLong(i), false, parity);
+            getAndForkSubtask(ctx, newPrefix, lowerMask, this.trueCellMasksUpper.getLong(i), false,
+                    parity);
         }
 
         helpQuiesce(); // Wait for all subtasks to complete before returning
@@ -408,7 +449,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private short[] buildPrefixWithNewValue(GeneratorContext ctx, short newValue) {
         short[] newPrefix = ctx.getArrayPool().get();
         if (newPrefix == null)
-            newPrefix = new short[NUM_CLICKS - 1]; // Safeguard if pool is empty
+            newPrefix = new short[this.numClicks - 1]; // Safeguard if pool is empty
         System.arraycopy(this.prefix, 0, newPrefix, 0, this.prefixLength);
         newPrefix[this.prefixLength] = newValue;
         return newPrefix;
@@ -462,7 +503,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         this.currentAdjacenciesLower = parentAdjacencyStateLower;
         reinitialize();
 
-        if (USE_DUAL_MASKS.get()) { // Constant foldable by JIT (hopefully)
+        if (this.useDualMasks) {
             // Update the upper state
             this.currentAdjacenciesUpper = parentAdjacencyStateUpper;
         }
@@ -541,10 +582,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * check. Instead of handling this with an {@code if} statement inside a single, large method,
      * we use two separate methods:
      * <ul>
-     * <li>{@link #computeIntermediateSubtasksConstraintPath(DefaultGeneratorContext)}: The "slow" path
-     * that includes the pruning check.</li>
-     * <li>{@link #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)}: The "fast" path that
-     * omits the check entirely.</li>
+     * <li>{@link #computeIntermediateSubtasksConstraintPath(DefaultGeneratorContext)}: The "slow"
+     * path that includes the pruning check.</li>
+     * <li>{@link #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)}: The "fast" path
+     * that omits the check entirely.</li>
      * </ul>
      * This dispatcher creates a <strong>monomorphic call site</strong> for each path. The JIT
      * compiler can more aggressively optimize these separate, branch-free methods than it could a
@@ -562,7 +603,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private void computeIntermediateSubtasks(GeneratorContext ctx) {
         final short start = (short) (this.prefix[this.prefixLength - 1] + 1);
-        final short max = (short) (Grid.NUM_CELLS - (NUM_CLICKS - this.prefixLength) + 1);
+        final short max = (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);
 
         if (skipConstraintsCheck) {
             computeIntermediateSubtasksSkipPath(ctx, start, max);
@@ -604,7 +645,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx, short start, short max) {
         // Pure loop - no constraint checking, no mask loading, no conditionals
         for (short i = start; i < max; i++) {
-            final long lowerMask = TRUE_CELL_MASKS_LOWER.getLong(i);
+            final long lowerMask = this.trueCellMasksLower.getLong(i);
 
             final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
@@ -628,10 +669,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <p>
      * This is the "slow path" for intermediate tasks. It is invoked when the current task's
      * {@link #prefix} has not yet been proven to satisfy all constraints. Before forking subtasks,
-     * it performs a critical pruning step by calling
-     * {@link #constraintCheck(int)}. If that check determines that no possible
-     * descendant of this task can form a valid solution, the entire branch is pruned, saving a
-     * massive amount of wasted computation.
+     * it performs a critical pruning step by calling {@link #constraintCheck(int)}. If that check
+     * determines that no possible descendant of this task can form a valid solution, the entire
+     * branch is pruned, saving a massive amount of wasted computation.
      * </p>
      * 
      * <p>
@@ -649,7 +689,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @see #computeIntermediateSubtasksSkipPath(DefaultGeneratorContext)
      * @since 2025.08 - Specialized Subtask Paths
      * @performance {@code O(1)} for the early constraint check,
-     *              <code>O({@link Grid#NUM_CELLS} - {@link #NUM_CLICKS} + {@link #prefixLength} -
+     *              <code>O({@link Grid#NUM_CELLS} - {@link #numClicks} + {@link #prefixLength} -
      *              {@link #prefix}[prefixLength - 1] + 1)</code> for iterating over possible next
      *              clicks.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
@@ -659,27 +699,26 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private void computeIntermediateSubtasksConstraintPath(GeneratorContext ctx, short start,
             short max) {
         // Early constraint check - happens ONCE per task, not per iteration
-        if (prefixLength >= 2 && !constraintCheck(start)) {
+        if (this.prefixLength >= 2 && !constraintCheck(start)) {
             return; // Skip this entire branch if constraints cannot be satisfied
         }
 
         // Pure loop - no conditionals inside, all branching resolved outside loop
         for (short i = start; i < max; i++) {
-            final long lowerMask = TRUE_CELL_MASKS_LOWER.getLong(i);
-            
+            final long lowerMask = this.trueCellMasksLower.getLong(i);
+
             final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
 
             // Determine the parity of the new prefix based on the new click
             final boolean newPrefixParity = getNewPrefixParity(lowerMask);
 
             // Update the adjacency state for the child task
-            final long childAdjacenciesLower = this.currentAdjacenciesLower
-                    | lowerMask;
+            final long childAdjacenciesLower = this.currentAdjacenciesLower | lowerMask;
             // TODO: Extract this to a separate method that checks if dual masks are enabled for
             // better JIT constant folding
             final long childAdjacenciesUpper = this.currentAdjacenciesUpper
-                    | TRUE_CELL_MASKS_UPPER.getLong(i); // Only used if dual masks are enabled, otherwise
-                                                // constant folded out
+                    | this.trueCellMasksUpper.getLong(i); // Only used if dual masks are enabled,
+                                                          // otherwise constant folded out
 
             // All parameters determined - perfect for JIT constant propagation
             getAndForkSubtask(ctx, newPrefix, childAdjacenciesLower, childAdjacenciesUpper,
@@ -703,8 +742,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * The check is performed in two stages, both using {@code O(1)} bitwise operations:
      * <ol>
      * <li><b>Direct Check:</b> It computes the {@code needed} bits by XORing the
-     * {@link #currentAdjacencies} (which {@code true} cells are toggled by the current prefix)
-     * with the {@link #EXPECTED_MASK} (all {@code true} cells). If {@code needed} is zero, the
+     * {@link #currentAdjacencies} (which {@code true} cells are toggled by the current prefix) with
+     * the {@link #EXPECTED_MASK} (all {@code true} cells). If {@code needed} is zero, the
      * constraint is already met. As an optimization, it sets {@link #skipConstraintsCheck} to
      * {@code true}, allowing all descendants to use a faster, check-free generation path.</li>
      * <li><b>Potential Check:</b> If the constraint is not yet met, it checks if it's still
@@ -732,7 +771,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @memory Does not allocate; uses pre-computed {@code static} bitmasks.
      */
     boolean constraintCheck(int startIdx) {
-        if (USE_DUAL_MASKS.get()) { // Constant foldable by JIT (hopefully)
+        if (this.useDualMasks) {
             return constraintCheckDualMask(startIdx);
         } else {
             return constraintCheckSingleMask(startIdx);
@@ -744,17 +783,17 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // Therefore, we can assume it is initialized here, saving a branch in our logic.
 
         // XOR with lower expected mask to find which bits need to be flipped
-        final long needed = this.currentAdjacenciesLower ^ EXPECTED_MASK_LOWER;
+        final long needed = this.currentAdjacenciesLower ^ this.expectedMaskLower;
 
         // If no bits need to be flipped, we're already good.
         // OPTIMIZATION: Skip future checks by setting skipConstraintsCheck to true
         if (needed == 0L) {
-            return skipConstraintsCheck = true;
+            return this.skipConstraintsCheck = true;
         }
 
         // Else, check if any of the available adjacencies can satisfy the needed bits
         // Use the pre-computed suffix OR masks for fast checking
-        return (SUFFIX_MASKS_LOWER.getLong(startIdx) & needed) == needed;
+        return (this.suffixMasksLower.getLong(startIdx) & needed) == needed;
     }
 
     private boolean constraintCheckDualMask(int startIdx) {
@@ -762,28 +801,28 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // Therefore, we can assume it is initialized here, saving a branch in our logic.
 
         // XOR with expected masks to find which bits need to be flipped
-        final long neededLower = this.currentAdjacenciesLower ^ EXPECTED_MASK_LOWER;
-        final long neededUpper = this.currentAdjacenciesUpper ^ EXPECTED_MASK_UPPER;
+        final long neededLower = this.currentAdjacenciesLower ^ this.expectedMaskLower;
+        final long neededUpper = this.currentAdjacenciesUpper ^ this.expectedMaskUpper;
 
         // If no bits need to be flipped, we're already good.
         // OPTIMIZATION: Skip future checks by setting skipConstraintsCheck to true
         if (neededLower == 0L && neededUpper == 0L) {
-            return skipConstraintsCheck = true;
+            return this.skipConstraintsCheck = true;
         }
 
         // Else, check if any of the available adjacencies can satisfy the needed bits
         // Use the pre-computed suffix OR masks for fast checking
-        return (SUFFIX_MASKS_LOWER.getLong(startIdx) & neededLower) == neededLower
-                && (SUFFIX_MASKS_UPPER.getLong(startIdx) & neededUpper) == neededUpper;
+        return (this.suffixMasksLower.getLong(startIdx) & neededLower) == neededLower
+                && (this.suffixMasksUpper.getLong(startIdx) & neededUpper) == neededUpper;
     }
 
     /**
      * An array of pre-computed "suffix OR" bitmasks for {@code O(1)} constraint checking.
      * 
      * <p>
-     * This is a critical optimization for {@link #constraintCheck(int)}. The mask
-     * at index {@code i} is the bitwise {@code OR} of all {@link #TRUE_CELL_MASKS} from
-     * index {@code i} to the end of the grid.
+     * This is a critical optimization for {@link #constraintCheck(int)}. The mask at index
+     * {@code i} is the bitwise {@code OR} of all {@link #TRUE_CELL_MASKS} from index {@code i} to
+     * the end of the grid.
      * </p>
      * <p>
      * In effect, {@code SUFFIX_OR_MASKS[i]} represents every {@code true} cell that can possibly be
@@ -805,8 +844,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Thread-safe due to immutability after initialization.
      * @memory Fixed memory footprint of ~{@code 8 * Grid.NUM_CELLS} bytes as a {@code long} array.
      */
-    private static final LongList SUFFIX_MASKS_LOWER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_LOWER.get();
-    private static final LongList SUFFIX_MASKS_UPPER = StartYourMonkeys.GlobalConfig.SUFFIX_MASKS_UPPER.get();
+    private final LongList suffixMasksLower;
+    private final LongList suffixMasksUpper;
 
     /**
      * Flushes a {@link WorkBatch batch} of combinations to an available {@link CombinationQueue
@@ -822,7 +861,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <h3>Algorithm</h3>
      * <p>
      * The method attempts to add the {@code WorkBatch} to a {@link ThreadLocalRandom#nextInt(int)
-     * randomly selected queue} from the {@link #QUEUE_ARRAY}. To minimize contention, it tries each
+     * randomly selected queue} from the {@link #queueArray}. To minimize contention, it tries each
      * queue once in a round-robin fashion. If all queues are full, the thread
      * {@link Thread#sleep(long, int) sleeps} briefly (0.5ms) to avoid busy-waiting, then retries.
      * This loop continues indefinitely until the batch is successfully enqueued or the thread is
@@ -853,7 +892,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
      *            {@link CombinationQueue#add(WorkBatch)}.
      */
     private final boolean flushBatchFast(WorkBatch batch) {
-        CombinationQueue[] queues = QUEUE_ARRAY.getAllQueues();
+        CombinationQueue[] queues = queueArray.getAllQueues();
         int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
 
         // Try each queue once and sleep if all are full
@@ -890,8 +929,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * pauses.
      * </p>
      * 
-     * @param ctx The thread-local {@link DefaultGeneratorContext} containing the {@link ArrayPool} and
-     *            {@link TaskPool}.
+     * @param ctx The thread-local {@link DefaultGeneratorContext} containing the {@link ArrayPool}
+     *            and {@link TaskPool}.
      * @see ArrayPool
      * @see ArrayPool#put(short[])
      * @see GeneratorWorkerThread#context

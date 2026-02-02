@@ -5,6 +5,7 @@ import static java.util.Objects.requireNonNull;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
 
@@ -101,7 +102,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 previous = current;
             }
         }
-        
+
         public Parity {
             // TODO: Consider importing Guava's Preconditions for null checks
             requireNonNull(finalClicks, "finalClicks cannot be null");
@@ -110,29 +111,40 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             // Ensure that finalClicks is valid
             finalClicks.forEach(ENSURE_VALID_INDEX);
             if (finalClicks.size() < 2 || finalClicks.size() > (Grid.NUM_CELLS - 2)) {
-                throw new IllegalArgumentException("finalClicks size must be between 2 and " 
+                throw new IllegalArgumentException("finalClicks size must be between 2 and "
                         + (Grid.NUM_CELLS - 2) + ", but was: " + finalClicks.size());
             }
             ensureUniqueAndAscending(finalClicks);
 
             // Ensure that startIndices is valid
             if (startIndices.size() != Grid.NUM_CELLS) {
-                throw new IllegalArgumentException("startIndices size must be " 
-                        + Grid.NUM_CELLS + ", but was: " + startIndices.size());
+                throw new IllegalArgumentException("startIndices size must be " + Grid.NUM_CELLS
+                        + ", but was: " + startIndices.size());
             }
             for (int i = 0; i < startIndices.size(); i++) {
-                int index = startIndices.getInt(i);
+                final int index = startIndices.getInt(i);
                 if (index < 0 || index > finalClicks.size()) {
-                    throw new IllegalArgumentException("startIndices contains invalid index at position " 
-                            + i + ": " + index);
+                    throw new IllegalArgumentException(
+                            "startIndices contains invalid index at position " + i + ": " + index);
+                }
+
+                // Additional check for ascending order (to avoid an extra loop here):
+                if (i > 0) {
+                    final int previous = startIndices.getInt(i - 1);
+                    if (index < previous) {
+                        throw new IllegalArgumentException(
+                                "startIndices is not in ascending order at position " + i + ": "
+                                        + index + " < " + previous);
+                    }
                 }
             }
             for (int i = 1; i < startIndices.size(); i++) {
                 int current = startIndices.getInt(i);
                 int previous = startIndices.getInt(i - 1);
                 if (current < previous) {
-                    throw new IllegalArgumentException("startIndices is not in ascending order at position " 
-                            + i + ": " + current + " < " + previous);
+                    throw new IllegalArgumentException(
+                            "startIndices is not in ascending order at position " + i + ": "
+                                    + current + " < " + previous);
                 }
             }
         }
@@ -146,28 +158,30 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         }
 
         public static Parity even() {
-            return new Parity(GlobalConfig.ODD_CLICK_INDICES.get(), GlobalConfig.ODD_START_INDICES.get());
+            return new Parity(GlobalConfig.ODD_CLICK_INDICES.get(),
+                    GlobalConfig.ODD_START_INDICES.get());
         }
 
-        // public static Parity odd(SolverConfiguration config) {
-        //     return new Parity(config.getEvenClickIndices(), config.getEvenStartIndices());
-        // }
+        public static Parity odd(SolverConfiguration config) {
+            return new Parity(config.getEvenClickIndices(), config.getEvenStartIndices());
+        }
 
         public static Parity odd() {
-            return new Parity(GlobalConfig.EVEN_CLICK_INDICES.get(), GlobalConfig.EVEN_START_INDICES.get());
+            return new Parity(GlobalConfig.EVEN_CLICK_INDICES.get(),
+                    GlobalConfig.EVEN_START_INDICES.get());
         }
 
-        // public static Parity fromBoolean(boolean isOdd, SolverConfiguration config) {
-        //     return isOdd ? odd(config) : even(config);
-        // }
+        public static Parity fromBoolean(boolean isOdd, SolverConfiguration config) {
+            return isOdd ? odd(config) : even(config);
+        }
 
         public static Parity fromBoolean(boolean isOdd) {
             return isOdd ? odd() : even();
         }
 
-        // public static ParityPair pair(SolverConfiguration config) {
-        //     return new ParityPair(odd(config), even(config));
-        // }
+        public static ParityPair pair(SolverConfiguration config) {
+            return new ParityPair(odd(config), even(config));
+        }
 
         public static ParityPair pair() {
             return new ParityPair(odd(), even());
@@ -188,10 +202,11 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 final ShortSortedSet combinedSet = new ShortAVLTreeSet(oddClicks);
                 combinedSet.addAll(evenClicks);
                 if (combinedSet.size() < (oddClicks.size() + evenClicks.size())) {
-                    throw new IllegalArgumentException("Odd and even parity finalClicks must be disjoint.");
+                    throw new IllegalArgumentException(
+                            "Odd and even parity finalClicks must be disjoint.");
                 }
             }
-            
+
             public ParityPair {
                 requireNonNull(odd, "odd parity cannot be null");
                 requireNonNull(even, "even parity cannot be null");
@@ -407,9 +422,9 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * internal array} to prevent external modifications from affecting this item.
          * </p>
          *
-         * @param prefix           The common prefix for this range of combinations.
+         * @param prefix       The common prefix for this range of combinations.
          * @param prefixParity The {@link Parity} indicating which set of final clicks to use.
-         * @param start            The starting index in the {@code finalClicks} array.
+         * @param start        The starting index in the {@code finalClicks} array.
          * @since 2025.11 - Range-Based WorkItem Refactor
          * @performance {@code O(prefixLength)} for array copy; {@code O(1)} for field assignments.
          * @threading Not thread-safe.
@@ -500,9 +515,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * Returns a {@link String} representation of the {@code WorkItem}, useful for debugging.
          *
          * <p>
-         * The format is {@code WorkItem{prefix=[...], prefixLength=..., finalClickParity=...}}. The
-         * final clicks portion only includes the elements from the {@link #start} index to the end
-         * of the array.
+         * The format is {@code WorkItem{prefix=[...], finalClickParity=...}}. The final clicks
+         * portion only includes the elements from the {@link #start} index to the end of the list.
          * </p>
          *
          * @return A {@code String} representation of the object.
@@ -518,15 +532,13 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             StringBuilder sb = new StringBuilder();
             sb.append("WorkItem{prefix=");
             sb.append(Arrays.toString(prefix));
-            sb.append(", prefixLength=");
-            sb.append(prefix.length);
             sb.append(", finalClicks=");
 
             // Get the final clicks starting from 'start' to the end
             if (prefixParity != null) {
                 ShortList clicks = prefixParity.finalClicks();
                 if (start >= 0 && start < clicks.size()) {
-                    sb.append(Arrays.toString(Arrays.copyOfRange(clicks.toShortArray(), start, clicks.size())));
+                    sb.append(clicks.subList(start, clicks.size()));
                 } else {
                     sb.append("empty");
                 }
@@ -558,9 +570,13 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             if (this == obj)
                 return true;
             if (obj instanceof WorkItem other) {
-                return Arrays.equals(this.prefix, other.prefix)
-                        && this.prefixParity == other.prefixParity
-                        && this.start == other.start;
+                // Compare the fields in the order of cheapest to most expensive to check. Note that
+                // since prefixParity is now a record (but can be null if unset), we need to use
+                // Objects.equals to safely compare it.
+                return this.start == other.start
+                        && Objects.equals(this.prefixParity, other.prefixParity)
+                        && Arrays.equals(this.prefix, other.prefix);
+                        
             }
             return false;
         }
@@ -581,7 +597,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         @Override
         public int hashCode() {
-            // Since prefixLength is derived from prefix, we don't include it in hashCode
             int result = Arrays.hashCode(prefix);
             result = 31 * result + (prefixParity != null ? prefixParity.hashCode() : 0);
             result = 31 * result + start;
@@ -788,7 +803,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      *
      * @param prefix          The common combination prefix.
      * @param lastPrefixClick The value of the last click in the prefix.
-     * @param isPrefixOdd    {@code true} if the prefix has odd parity, determining which final
+     * @param isPrefixOdd     {@code true} if the prefix has odd parity, determining which final
      *                        click array to use ({@link Parity#EVEN} for odd parity,
      *                        {@link Parity#ODD} for even).
      * @return {@code true} if the work item was added, {@code false} if the batch is full or no
@@ -908,7 +923,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     public void clear() {
         // This loop is a safeguard but may be unnecessary if the logic guarantees
         // that used WorkItems are always overwritten before being read.
-        // TODO: Test for false sharing impact if this loop is removed and consider padding WorkBatch.
+        // TODO: Test for false sharing impact if this loop is removed and consider padding
+        // WorkBatch.
         for (int i = 0; i < workItemCount; i++) {
             workItems[i].clear();
         }

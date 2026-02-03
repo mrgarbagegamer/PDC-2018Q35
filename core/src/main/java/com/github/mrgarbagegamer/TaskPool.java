@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * A non-thread-safe, high-performance object pool for recycling {@link CombinationGeneratorTask}
  * instances.
@@ -173,31 +175,21 @@ public class TaskPool {
      */
     private int size = 0;
 
-    /**
-     * Constructs a {@code TaskPool} with the specified {@code capacity} and pre-allocates tasks.
-     *
-     * @param capacity The maximum number of tasks the pool can hold. Must be greater than 0.
-     * @throws IllegalArgumentException if capacity is not positive.
-     * @see #arrays
-     * @see #capacity
-     * @since 2025.07 - {@code TaskPool} Introduction
-     * @performance {@code O(capacity)} pre-allocation of tasks.
-     * @threading Thread-safe by nature of construction.
-     * @memory Allocates a {@code CombinationGeneratorTask[capacity]}.
-     */
-    public TaskPool(int capacity) {
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("Capacity must be greater than 0");
-        }
-        this.capacity = capacity;
+    // Used for the allocation fallback in get()
+    private final SolverConfiguration config;
+    private final CombinationQueueArray queueArray;
+
+    public TaskPool(SolverConfiguration config, CombinationQueueArray queueArray) {
+        this.config = requireNonNull(config, "config cannot be null");
+        this.queueArray = requireNonNull(queueArray, "queueArray cannot be null");
+
+        this.capacity = config.taskPoolSize();
         this.arrays = new CombinationGeneratorTask[capacity];
 
         // Pre-allocate all tasks
         for (int i = 0; i < capacity; i++) {
-            this.arrays[i] = new CombinationGeneratorTask();
+            this.arrays[i] = new CombinationGeneratorTask(config, queueArray);
         }
-
-        this.size = capacity;
     }
 
     /**
@@ -228,8 +220,9 @@ public class TaskPool {
      * @memory Only allocates if the pool is empty, otherwise reuses existing tasks.
      */
     public CombinationGeneratorTask get() {
+        // The allocation fallback:
         if (size == 0) {
-            return new CombinationGeneratorTask(); // Return a new task if the pool is empty
+            return new CombinationGeneratorTask(config, queueArray);
         }
 
         CombinationGeneratorTask task = arrays[head];

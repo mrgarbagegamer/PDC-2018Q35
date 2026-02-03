@@ -7,6 +7,8 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.github.mrgarbagegamer.SolverConfiguration.SolutionHandler;
+
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
@@ -209,64 +211,21 @@ public class TestClickCombination extends Thread {
     private final ForkJoinPool generatorPool;
     private final SolutionHandler solutionHandler;
 
-    /**
-     * Constructs a monkey thread.
-     *
-     * <p>
-     * The constructor is now simplified, requiring only a name and its preferred queue. All other
-     * configuration, including the {@link #puzzleGrid} to clone and the shared {@link #queueArray}
-     * instance, is retrieved directly from the central {@link StartYourMonkeys.GlobalConfig}.
-     * </p>
-     *
-     * @param name  The unique name for this monkey thread, used for logging.
-     * @param queue The monkey's preferred work queue.
-     * @see StartYourMonkeys.GlobalConfig#getBaseGrid()
-     * @see CombinationQueueArray#getInstance()
-     * @since 2025.04 - Monkey Thread Introduction
-     * @performance {@code O(1)} assignments plus the cost of cloning the grid.
-     * @threading Thread-safe by nature of construction.
-     * @memory Allocates a new {@link Grid} clone for this thread.
-     */
-    public TestClickCombination(String name, CombinationQueue queue) {
+    public TestClickCombination(String name, SolverConfiguration config, CombinationQueue queue,
+            CombinationQueueArray queueArray, ForkJoinPool generatorPool) {
         super(name); // The constructor for Thread handles null checks for the name
         this.combinationQueue = requireNonNull(queue);
-        this.puzzleGrid = StartYourMonkeys.GlobalConfig.getBaseGrid();
-        this.queueArray = CombinationQueueArray.getInstance();
-        this.logger = LogManager.getLogger(TestClickCombination.class);
-        this.masksLower = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
-        this.masksUpper = StartYourMonkeys.GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
-        this.expectedLower = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_LOWER.get();
-        this.expectedUpper = StartYourMonkeys.GlobalConfig.EXPECTED_MASK_UPPER.get();
-        this.useDualMasks = StartYourMonkeys.GlobalConfig.USE_DUAL_MASKS.get();
-        this.generatorPool = StartYourMonkeys.GlobalConfig.getGeneratorPool();
-        this.solutionHandler = (prefix, finalClick, queueArray, generatorPool, logger) -> {
-            final short[] winningCombination = buildCombination(prefix, finalClick);
-            queueArray.solutionFound(this.getName(), winningCombination);
-            logger.info("Found the solution as the following click combination: {}",
-                    new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
-
-            if (!generatorPool.isShutdown()) {
-                logger.debug("Triggering generator pool shutdown from {}", getName());
-                generatorPool.shutdownNow(); // Immediate shutdown with interruption
-            }
-        };
+        this.puzzleGrid = config.baseGrid(); // Copy of the base grid
+        this.queueArray = requireNonNull(queueArray);
+        this.logger = requireNonNull(config.getLogger(TestClickCombination.class));
+        this.masksLower = requireNonNull(config.getTrueCellMasksLower());
+        this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
+        this.expectedLower = requireNonNull(config.getExpectedMaskLower());
+        this.expectedUpper = requireNonNull(config.getExpectedMaskUpper());
+        this.useDualMasks = config.getUseDualMasks();
+        this.generatorPool = requireNonNull(generatorPool);
+        this.solutionHandler = config.solutionHandler();
     }
-
-    // public TestClickCombination(String name, SolverConfiguration config, CombinationQueue queue,
-    //         CombinationQueueArray queueArray, ForkJoinPool generatorPool) {
-    //     super(name); // The constructor for Thread handles null checks for the name
-    //     this.combinationQueue = requireNonNull(queue);
-    //     this.puzzleGrid = config.baseGrid(); // Copy of the base grid
-    //     this.queueArray = requireNonNull(queueArray);
-    //     this.logger = requireNonNull(config.getLogger(TestClickCombination.class));
-    //     this.masksLower = requireNonNull(config.getTrueCellMasksLower());
-    //     this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
-    //     this.expectedLower = requireNonNull(config.getExpectedMaskLower());
-    //     this.expectedUpper = requireNonNull(config.getExpectedMaskUpper());
-    //     this.useDualMasks = config.getUseDualMasks();
-    //     this.generatorPool = requireNonNull(generatorPool);
-    //     this.solutionHandler = config.solutionHandler();
-    // }
 
     /**
      * The main execution loop for the monkey thread.
@@ -539,12 +498,5 @@ public class TestClickCombination extends Thread {
                     && (prefixMaskUpper
                             ^ this.masksUpper.getLong(finalClick)) == this.expectedUpper;
         }
-    }
-
-    // TODO: Remove this functional interface in favor of the one in SolverConfiguration
-    @FunctionalInterface
-    public interface SolutionHandler {
-        void handleSolution(short[] prefix, short finalClick,
-                CombinationQueueArray queueArray, ForkJoinPool generatorPool, Logger logger);
     }
 }

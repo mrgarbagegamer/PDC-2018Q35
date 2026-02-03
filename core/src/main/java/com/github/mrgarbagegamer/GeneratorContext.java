@@ -5,7 +5,7 @@ public interface GeneratorContext {
     String getName();
 
     GeneratorContext newContext(String name, CombinationQueueArray queueArray,
-            ContextRegistry registry);
+            ContextRegistry registry, SolverConfiguration config);
 
     boolean hasBatch();
 
@@ -28,7 +28,7 @@ public interface GeneratorContext {
     SolverConfiguration getConfiguration();
 
     static GeneratorContext ofDefault(String name, CombinationQueueArray queueArray,
-            ContextRegistry registry) {
-        return new DefaultGeneratorContext(name, queueArray, registry);
+            ContextRegistry registry, SolverConfiguration config) {
+        return new DefaultGeneratorContext(name, queueArray, registry, config);
     }
 }

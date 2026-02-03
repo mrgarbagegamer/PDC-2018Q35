@@ -4,6 +4,7 @@ import org.apache.logging.log4j.message.AsynchronouslyFormattable;
 import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
 
+// TODO: Update Javadoc
 // TODO: Investigate reuse strategies to avoid allocating a new CombinationMessage for each log
 // event.
 /**
@@ -113,6 +114,10 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
         this.list = list;
         this.format = format;
 
+    }
+
+    public CombinationMessage(short[] list) {
+        this(list, Grid.ValueFormat.Index); // Default to Index format
     }
 
     /**

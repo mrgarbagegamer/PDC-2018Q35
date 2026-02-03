@@ -1,24 +1,25 @@
 package com.github.mrgarbagegamer;
 
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
+// import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomPrefix;
+// import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
 
-import java.util.Random;
+// import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import org.openjdk.jmh.annotations.Benchmark;
+// import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
-import org.openjdk.jmh.annotations.Level;
+// import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
+// import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
+// import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
+// TODO: Modify benchmarks as necessary to reflect recent changes to codebase
 /**
  * Benchmarks the performance sensitivity to {@link ArrayPool} sizing.
  * 
@@ -58,58 +59,58 @@ import org.openjdk.jmh.annotations.Warmup;
         "-XX:+UseCountTrailingZerosInstruction"})
 public class PoolSizingSensitivityBenchmark {
 
-    @Param({"64", "128", "256", "512", "1024"})
-    public int poolSize;
+    // @Param({"64", "128", "256", "512", "1024"})
+    // public int poolSize;
 
-    private ArrayPool pool;
-    private short[] testArray;
-    private long allocationCount;
-    private Random random;
+    // private ArrayPool pool;
+    // private short[] testArray;
+    // private long allocationCount;
+    // private Random random;
 
-    @Setup(Level.Trial)
-    public void setup() {
-        setupGlobalConfig();
-        random = new Random(42);
+    // @Setup(Level.Trial)
+    // public void setup() {
+    //     setupGlobalConfig();
+    //     random = new Random(42);
 
-        pool = new ArrayPool(poolSize);
-        testArray = generateRandomPrefix(16, random);
-    }
+    //     pool = new ArrayPool(poolSize);
+    //     testArray = generateRandomPrefix(16, random);
+    // }
 
-    /**
-     * Measures get/put cycle performance across different pool sizes. Lower allocation counts
-     * indicate better pool hit rates. The optimal pool size minimizes both allocations and memory
-     * overhead.
-     */
-    @Benchmark
-    public long poolGetPutCycle() {
-        short[] array = pool.get();
-        if (array == null) {
-            allocationCount++;
-            array = new short[16];
-        }
-        System.arraycopy(testArray, 0, array, 0, testArray.length);
-        pool.put(array);
-        return allocationCount;
-    }
+    // /**
+    //  * Measures get/put cycle performance across different pool sizes. Lower allocation counts
+    //  * indicate better pool hit rates. The optimal pool size minimizes both allocations and memory
+    //  * overhead.
+    //  */
+    // @Benchmark
+    // public long poolGetPutCycle() {
+    //     short[] array = pool.get();
+    //     if (array == null) {
+    //         allocationCount++;
+    //         array = new short[16];
+    //     }
+    //     System.arraycopy(testArray, 0, array, 0, testArray.length);
+    //     pool.put(array);
+    //     return allocationCount;
+    // }
 
-    /**
-     * Stress test: rapid cycling through many get/put operations. Measures pool exhaustion behavior
-     * under sustained load. Useful for identifying thresholds where pool size becomes a bottleneck.
-     */
-    @Benchmark
-    public long poolStressTest() {
-        long allocations = 0;
+    // /**
+    //  * Stress test: rapid cycling through many get/put operations. Measures pool exhaustion behavior
+    //  * under sustained load. Useful for identifying thresholds where pool size becomes a bottleneck.
+    //  */
+    // @Benchmark
+    // public long poolStressTest() {
+    //     long allocations = 0;
 
-        // Perform rapid get/put cycles
-        for (int i = 0; i < 256; i++) {
-            short[] array = pool.get();
-            if (array == null) {
-                allocations++;
-                array = new short[16];
-            }
-            pool.put(array);
-        }
+    //     // Perform rapid get/put cycles
+    //     for (int i = 0; i < 256; i++) {
+    //         short[] array = pool.get();
+    //         if (array == null) {
+    //             allocations++;
+    //             array = new short[16];
+    //         }
+    //         pool.put(array);
+    //     }
 
-        return allocations;
-    }
+    //     return allocations;
+    // }
 }

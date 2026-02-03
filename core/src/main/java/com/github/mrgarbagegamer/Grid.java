@@ -1984,6 +1984,17 @@ public abstract class Grid {
         return gridState.clone();
     }
 
+    public static ShortList invertCombination(ShortList clicks) {
+        final ShortList inverted = new ShortArrayList(NUM_CELLS - clicks.size());
+        for (short click = 0; click < NUM_CELLS; click++) {
+            if (!clicks.contains(click)) {
+                inverted.add(click);
+            }
+        }
+
+        return inverted;
+    }
+
     /**
      * Inverts a given combination of clicks, returning the complement set of clicks (i.e., all
      * cells not included in the original combination).
@@ -1998,14 +2009,7 @@ public abstract class Grid {
      * @memory Allocates a new {@link ShortArrayList} and resulting {@code short[]} array.
      */
     public static short[] invertCombination(short[] clicks) {
-        final ShortArrayList combination = ShortArrayList.wrap(clicks);
-        final ShortArrayList inverted = new ShortArrayList(NUM_CELLS - combination.size());
-        for (short click = 0; click < NUM_CELLS; click++) {
-            if (!combination.contains(click)) {
-                inverted.add(click);
-            }
-        }
-        return inverted.toShortArray();
+        return invertCombination(ShortList.of(clicks)).toShortArray();
     }
 
     /**

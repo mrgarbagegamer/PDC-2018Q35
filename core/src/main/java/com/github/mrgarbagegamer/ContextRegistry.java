@@ -30,6 +30,10 @@ public final class ContextRegistry {
         this(LogManager.getLogger(ContextRegistry.class), new ConcurrentLinkedQueue<>());
     }
 
+    public static ContextRegistry newRegistry(SolverConfiguration config) {
+        return new ContextRegistry(config.getLogger(ContextRegistry.class), config.registryQueue());
+    }
+
     public boolean registerContext(GeneratorContext context) {
         Objects.requireNonNull(context, "context cannot be null");
         return contexts.offer(context);

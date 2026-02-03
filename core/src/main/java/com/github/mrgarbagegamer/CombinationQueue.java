@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer;
 
 import org.jctools.queues.MpmcArrayQueue;
 
+// TODO: Update Javadoc
 /**
  * A thin, type-safe wrapper around a JCTools {@link MpmcArrayQueue} designed exclusively for
  * transferring {@link WorkBatch} objects between producer and consumer threads.
@@ -39,7 +40,6 @@ import org.jctools.queues.MpmcArrayQueue;
  * @memory Fixed memory overhead for the queue structure.
  */
 public class CombinationQueue {
-    // TODO: Update Javadocs for new methods
     // TODO: Consider allowing DI of queues for testing/customization purposes.
     /**
      * The fixed capacity of the queue.
@@ -68,7 +68,8 @@ public class CombinationQueue {
      * @threading Thread-safe; immutable field.
      * @memory Minimal footprint of 4 bytes as an {@code int}.
      */
-    private final int QUEUE_SIZE = 16;
+    private static final int QUEUE_SIZE = 16;
+    private final int capacity;
     /**
      * The underlying {@link MpmcArrayQueue JCTools queue} that holds {@link WorkBatch} objects.
      * 
@@ -92,7 +93,17 @@ public class CombinationQueue {
      * @memory Allocates memory for the underlying queue structure.
      */
     public CombinationQueue() {
-        queue = new MpmcArrayQueue<>(QUEUE_SIZE);
+        this.queue = new MpmcArrayQueue<>(QUEUE_SIZE);
+        this.capacity = QUEUE_SIZE;
+    }
+
+    public CombinationQueue(int capacity) {
+        this.queue = new MpmcArrayQueue<>(capacity);
+        this.capacity = capacity;
+    }
+
+    public CombinationQueue(SolverConfiguration config) {
+        this(config.queueSize());
     }
 
     /**
@@ -105,7 +116,7 @@ public class CombinationQueue {
      * @memory Does not allocate.
      */
     public int capacity() {
-        return QUEUE_SIZE;
+        return capacity;
     }
 
     public boolean offer(WorkBatch workBatch) {

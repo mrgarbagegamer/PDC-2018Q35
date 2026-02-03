@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+// TODO: Update Javadoc
 /**
  * A high-performance, non-thread-safe object pool for recycling fixed-size {@code short[]} arrays.
  *
@@ -139,16 +140,19 @@ public final class ArrayPool {
      * @performance {@code O(capacity * numClicks)} for pre-allocation.
      * @memory Allocates a {@code short[capacity][numClicks - 1]} buffer.
      */
-    public ArrayPool(int capacity) {
+    public ArrayPool(int capacity, int numClicks) {
         if (capacity <= 0) {
             throw new IllegalArgumentException("Capacity must be greater than 0.");
         }
 
         this.capacity = capacity;
-        final int numClicks = StartYourMonkeys.GlobalConfig.getNumClicks();
         this.arrays = new short[capacity][numClicks - 1];
         // Pre-allocated arrays are immediately available
         this.size = capacity;
+    }
+
+    public ArrayPool(SolverConfiguration config) {
+        this(config.arrayPoolSize(), config.numClicks());
     }
 
     /**

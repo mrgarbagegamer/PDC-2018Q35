@@ -1,7 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
-
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RecursiveAction;
@@ -272,8 +270,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private final long expectedMaskUpper;
     private final boolean useDualMasks;
 
-    public static CombinationGeneratorTask createRootTask() {
-        final CombinationGeneratorTask rootTask = new CombinationGeneratorTask();
+    public static CombinationGeneratorTask createRootTask(SolverConfiguration config,
+            CombinationQueueArray queueArray) {
+        final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(config, queueArray);
 
         // Initialize instance fields
         rootTask.prefix = new short[rootTask.numClicks - 1];
@@ -284,61 +283,20 @@ public class CombinationGeneratorTask extends RecursiveAction {
         return rootTask;
     }
 
-    /**
-     * A {@code protected} constructor for non-root tasks, used exclusively by the {@link TaskPool}.
-     * 
-     * <p>
-     * To prevent heap allocations, new tasks are never created directly. Instead, they are recycled
-     * from a {@link TaskPool}. This constructor is therefore made {@code protected} to enforce the
-     * pooling pattern. Task state is configured via the {@link #init} method.
-     * </p>
-     * 
-     * @since 2025.07 - Task Pool Introduction
-     * @performance {@code O(1)} allocation.
-     * @threading Isolated by the {@link java.util.concurrent.ForkJoinTask ForkJoinTask} framework.
-     * @memory Allocates a {@code CombinationGeneratorTask} instance.
-     */
-    protected CombinationGeneratorTask() {
-        this.queueArray = CombinationQueueArray.getInstance();
-        this.numClicks = GlobalConfig.getNumClicks();
-        this.maxFirstClickIndex = GlobalConfig.EVEN_CLICK_INDICES.get()
-                .getShort(GlobalConfig.EVEN_CLICK_INDICES.get().size() - 1);
-        this.trueCellMasksLower = GlobalConfig.TRUE_CELL_MASKS_LOWER.get();
-        this.trueCellMasksUpper = GlobalConfig.TRUE_CELL_MASKS_UPPER.get();
-        this.expectedMaskLower = GlobalConfig.EXPECTED_MASK_LOWER.get();
-        this.expectedMaskUpper = GlobalConfig.EXPECTED_MASK_UPPER.get();
-        this.suffixMasksLower = GlobalConfig.SUFFIX_MASKS_LOWER.get();
-        this.suffixMasksUpper = GlobalConfig.SUFFIX_MASKS_UPPER.get();
-        this.useDualMasks = GlobalConfig.USE_DUAL_MASKS.get();
+    protected CombinationGeneratorTask(SolverConfiguration config,
+            CombinationQueueArray queueArray) {
+        this.queueArray = queueArray;
+        this.numClicks = config.numClicks();
+        this.maxFirstClickIndex = config.getEvenClickIndices()
+                .getShort(config.getEvenClickIndices().size() - 1);
+        this.trueCellMasksLower = config.getTrueCellMasksLower();
+        this.trueCellMasksUpper = config.getTrueCellMasksUpper();
+        this.expectedMaskLower = config.getExpectedMaskLower();
+        this.expectedMaskUpper = config.getExpectedMaskUpper();
+        this.suffixMasksLower = config.getSuffixMasksLower();
+        this.suffixMasksUpper = config.getSuffixMasksUpper();
+        this.useDualMasks = config.getUseDualMasks();
     }
-
-    // public static CombinationGeneratorTask createRootTask(SolverConfiguration config,
-    //         CombinationQueueArray queueArray) {
-    //     final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(config, queueArray);
-
-    //     // Initialize instance fields
-    //     rootTask.prefix = new short[rootTask.numClicks - 1];
-    //     rootTask.prefixLength = 0;
-    //     rootTask.currentAdjacenciesLower = -1;
-    //     rootTask.currentAdjacenciesUpper = -1;
-
-    //     return rootTask;
-    // }
-
-    // protected CombinationGeneratorTask(SolverConfiguration config,
-    //         CombinationQueueArray queueArray) {
-    //     this.queueArray = queueArray;
-    //     this.numClicks = config.numClicks();
-    //     this.maxFirstClickIndex = config.getEvenClickIndices()
-    //             .getShort(config.getEvenClickIndices().size() - 1);
-    //     this.trueCellMasksLower = config.getTrueCellMasksLower();
-    //     this.trueCellMasksUpper = config.getTrueCellMasksUpper();
-    //     this.expectedMaskLower = config.getExpectedMaskLower();
-    //     this.expectedMaskUpper = config.getExpectedMaskUpper();
-    //     this.suffixMasksLower = config.getSuffixMasksLower();
-    //     this.suffixMasksUpper = config.getSuffixMasksUpper();
-    //     this.useDualMasks = config.getUseDualMasks();
-    // }
 
     /**
      * The main computation method for the {@link RecursiveAction}.

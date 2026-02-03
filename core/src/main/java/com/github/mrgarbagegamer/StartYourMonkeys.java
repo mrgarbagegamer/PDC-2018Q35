@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static java.util.Objects.requireNonNull;
+
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 
@@ -60,77 +62,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 public class StartYourMonkeys {
 
     /**
-     * The primary logger for the application, configured for high-performance, asynchronous
-     * logging.
-     *
-     * <p>
-     * In a highly concurrent application, standard synchronous logging (like
-     * {@link java.io.PrintStream#println(String) System.out.println}) can become a major
-     * bottleneck. To avoid this, we use Log4j2 with an asynchronous configuration. This allows
-     * application threads to offload log messages to a background thread with minimal blocking,
-     * preventing logging from impacting the performance of the core solving algorithm.
-     * </p>
-     *
-     * @see CombinationMessage
-     * @see Logger
-     * @see Logger#info(String)
-     * @see Logger#info(String, Object)
-     * @see Logger#info(String, Object, Object)
-     * @see LogManager
-     * @see LogManager#getLogger()
-     * @see LogManager#shutdown()
-     * @see <a href="https://logging.apache.org/log4j/2.x/manual/async.html">Log4j2 Asynchronous
-     *      Logging</a>
-     * @since 2025.05 - Log4j2 Integration
-     * @performance {@code O(1)} for logging operations.
-     * @threading Thread-safe; designed for concurrent use.
-     * @memory Fixed overhead for asynchronous logging buffers.
-     */
-    private static final Logger logger = LogManager.getLogger();
-
-    /**
-     * The default number of clicks to test for a solution.
-     *
-     * <p>
-     * Based on prior analysis, no solution with 16 or fewer clicks exists for the primary target,
-     * Q35. This default is set to the next logical step in the brute-force search.
-     * </p>
-     * 
-     * @see #main(String[])
-     * @since 2025.08 - Enhanced Documentation of Codebase
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
-     */
-    private static final int DEFAULT_NUM_CLICKS = 17;
-    /**
-     * The default number of threads to use for both generators and workers.
-     *
-     * <p>
-     * This value is tuned for a high-core-count development machine (16+ cores). The application
-     * allocates half of these threads to the {@link ForkJoinPool} for the
-     * {@link CombinationGeneratorTask generators} and the other half to the
-     * {@link TestClickCombination monkeys}.
-     * </p>
-     * 
-     * @see #main(String[])
-     * @since 2025.08 - Enhanced Documentation of Codebase
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
-     */
-    private static final int DEFAULT_NUM_THREADS = 16;
-    /**
-     * The default puzzle to solve, corresponding to the hardest variant (Q35).
-     * 
-     * @see #main(String[])
-     * @since 2025.08 - Enhanced Documentation of Codebase
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe as a {@code static final} constant.
-     */
-    private static final int DEFAULT_QUESTION_NUMBER = 35;
-
-    /**
      * The main entry point for the solver application.
      *
      * <p>
@@ -183,196 +114,195 @@ public class StartYourMonkeys {
      * @memory Pre-allocates several shared resources to minimize runtime overhead.
      */
     public static void main(String[] args) {
-        int parsedNumClicks = DEFAULT_NUM_CLICKS;
-        int parsedNumThreads = DEFAULT_NUM_THREADS;
-        int parsedQuestionNumber = DEFAULT_QUESTION_NUMBER;
+        // Parse user inputs with defaults
+        final SolverConfiguration config = createConfigFromInputs(args);
 
-        // retrieve the arguments if any or set a default value
-        try {
-            parsedNumClicks = Integer.parseInt(args[0]);
-            parsedNumThreads = Integer.parseInt(args[1]);
-            parsedQuestionNumber = Integer.parseInt(args[2]);
-        } catch (Exception e) {
-            // Keep defaults
-        }
+        // Dispatch to the solver:
+        final Solver solver = Solver.ofConfig(config);
+        solver.solve();
+        solver.reportResults();
+    }
 
-        // Exception handling for invalid arguments
-        if (parsedNumClicks < 1 || parsedNumClicks > 109) {
-            throw new IllegalArgumentException(
-                    "Number of clicks must be between 1 and 109 (inclusive).");
-        }
-        if (parsedNumThreads < 1) {
-            throw new IllegalArgumentException("Number of threads must be greater than 0.");
-        }
-        if (parsedQuestionNumber != 13 && parsedQuestionNumber != 22
-                && parsedQuestionNumber != 35) {
-            throw new IllegalArgumentException(
-                    "Invalid question number. Must be one of: 13, 22, or 35.");
-        }
-
-        final int numClicks = parsedNumClicks;
-        final int numThreads = parsedNumThreads;
-        final int questionNumber = parsedQuestionNumber;
-
-        // start generating different click combinations
-        Grid baseGrid;
-
-        if (questionNumber == 35) {
-            baseGrid = new Grid35();
-        } else if (questionNumber == 13) {
-            baseGrid = new Grid13();
-        } else {
-            baseGrid = new Grid22();
-        }
-
-        // Initialize the global configuration values.
-        GlobalConfig.initialize(numClicks, numThreads, baseGrid);
-
-        final int numGeneratorThreads = numThreads / 2; // Rounds down in the case of odd numbers
-
-        // Tell the queue how many generators we have on startup (since we will be using
-        // ForkJoinPool, there is effectively only one thread generating combinations)
-        final CombinationQueueArray queueArray = CombinationQueueArray.getInstance();
-
-        // Create the context registry and generator pool BEFORE starting monkeys to
-        // ensure proper registration
-        final ContextRegistry registry = new ContextRegistry();
-        final ForkJoinPool generatorPool = new ForkJoinPool(numGeneratorThreads,
-                GeneratorFactory.ofDefault(queueArray, registry), null, false);
-        GlobalConfig.setGeneratorPool(generatorPool);
-
-        // Start consumer threads BEFORE generation
-        final TestClickCombination[] monkeys = new TestClickCombination[numThreads
-                - numGeneratorThreads];
-        for (int i = 0; i < monkeys.length; i++) {
-            monkeys[i] = new TestClickCombination("Monkey-" + i, queueArray.getQueue(i));
-            monkeys[i].start();
-        }
+    private static SolverConfiguration createConfigFromInputs(String[] userInput) {
+        final SolverConfiguration.Builder configBuilder = SolverConfiguration.builder();
 
         try {
-            // Invoke root task - no need to keep reference since we use awaitQuiescence
-            generatorPool.invoke(CombinationGeneratorTask.createRootTask());
-        } finally {
-            // Flush any remaining batches only if no solution found
-            if (!queueArray.isSolutionFound()) {
-                registry.flushAllPendingBatches();
-            }
-
-            // Mark generation complete
-            queueArray.generationComplete();
-
-            // Wait for worker threads to finish
-            for (TestClickCombination worker : monkeys) {
-                try {
-                    worker.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+            switch (userInput.length) {
+                case 3:
+                    configBuilder.baseGrid(SolverConfiguration
+                            .createGridForPuzzle(Integer.parseInt(userInput[2])));
+                case 2:
+                    configBuilder.numThreads(Integer.parseInt(userInput[1]));
+                case 1:
+                    configBuilder.numClicks(Integer.parseInt(userInput[0]));
+                case 0:
                     break;
-                }
+                default:
+                    throw new IllegalArgumentException(
+                            "Too many arguments provided. Expected up to 3 arguments.");
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "Invalid input format. Please provide integers only.", e);
+        }
+
+        // We let the builder methods handle both defaults and validation
+        return configBuilder.build();
+    }
+
+    public static record Solver(SolverConfiguration config, Logger logger,
+            CombinationQueueArray queueArray) {
+
+        public Solver {
+            requireNonNull(config, "config cannot be null");
+            requireNonNull(logger, "logger cannot be null");
+            requireNonNull(queueArray, "queueArray cannot be null");
+        }
+
+        public static Solver ofConfig(SolverConfiguration config) {
+            return new Solver(config, config.getLogger(Solver.class),
+                    new CombinationQueueArray(config));
+        }
+
+        public void solve() {
+            // Acquire the logger for an initial message:
+            this.logger.info("Starting solver with {} clicks, {} threads, and the following grid:",
+                    Unbox.box(this.config.numClicks()), Unbox.box(this.config.numThreads()));
+            logGrid(this.config.baseGrid(), this.logger);
+
+            final int numGenerators = this.config.numThreads() / 2; // Rounds down in the case of
+                                                                    // odd numbers
+            final int numMonkeys = this.config.numThreads() - numGenerators; // Rounds up if odd
+
+            // Create the context registry and generator pool
+            final ContextRegistry registry = ContextRegistry.newRegistry(config);
+            final ForkJoinPool generatorPool = new ForkJoinPool(numGenerators,
+                    GeneratorFactory.ofDefault(config, queueArray, registry), null, false);
+
+            // Create the monkeys
+            final TestClickCombination[] monkeys = new TestClickCombination[numMonkeys];
+            for (int i = 0; i < monkeys.length; i++) {
+                // Use the large constructor:
+                final String monkeyName = "Monkey-" + i;
+                monkeys[i] = new TestClickCombination(monkeyName, config, queueArray.getQueue(i),
+                        queueArray, generatorPool);
+                monkeys[i].start();
             }
 
-            // Shutdown generator pool
-            generatorPool.shutdown();
+            try {
+                generatorPool.invoke(CombinationGeneratorTask.createRootTask(config, queueArray));
+            } finally {
+                // Flush any remaining batches only if no solution found
+                if (!queueArray.isSolutionFound()) {
+                    registry.flushAllPendingBatches();
+                }
+
+                // Mark generation complete
+                queueArray.generationComplete();
+
+                // Wait for worker threads to finish
+                for (TestClickCombination worker : monkeys) {
+                    try {
+                        worker.join();
+                    } catch (InterruptedException ignored) {
+                    }
+                }
+
+                // Shutdown generator pool immediately, if not already
+                generatorPool.shutdownNow();
+            }
         }
 
-        // Process results
-        long runtimeMillis = queueArray.getEndTime() - queueArray.getStartTime();
-        if (runtimeMillis <= 0) {
-            throw new IllegalStateException(
-                    "Program marked as complete but recorded non-positive runtime.");
+        private void reportResults() {
+            final long runtimeMillis = queueArray.getEndTime() - queueArray.getStartTime();
+            if (runtimeMillis <= 0) {
+                throw new IllegalStateException(
+                        "Program marked as complete but recorded non-positive runtime.");
+            }
+
+            final String elapsedFormatted = formatElapsedTime(runtimeMillis);
+
+            // Sleep for logger flush
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                logger.error("Interrupted while waiting for logger flush", e);
+            }
+
+            final String lineSeparator = System.lineSeparator();
+            logger.info("{}--------------------------------------{}", lineSeparator, lineSeparator);
+
+            if (!queueArray.isSolutionFound()) {
+                logger.info("No solution in {} clicks was found.",
+                        Unbox.box(this.config.numClicks()));
+                logger.info(elapsedFormatted);
+            } else {
+                final short[] winningCombination = queueArray.getWinningCombination();
+
+                // Display results as a click combination
+                logger.info("{} - Found the solution as the following click combination: {}",
+                        queueArray.getWinningMonkey(),
+                        new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
+                logger.info("{} - {}", queueArray.getWinningMonkey(), elapsedFormatted);
+
+                // Verify solution
+                final Grid puzzleGrid = this.config.baseGrid(); // baseGrid() performs a copy
+                puzzleGrid.click(winningCombination);
+                logGrid(puzzleGrid, this.logger);
+            }
+
+            logger.info("{}--------------------------------------{}", lineSeparator, lineSeparator);
         }
-        String elapsedFormatted = formatElapsedTime(runtimeMillis);
 
-        // Sleep for logger flush
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        /**
+         * {@link String#format(String, Object...) Formats} a millisecond duration into a
+         * human-readable "Elapsed time: Xh Ym Zs Wms" {@link String string}.
+         *
+         * @param millis The elapsed time in milliseconds.
+         * @return A formatted {@link String} representing the duration.
+         * @see System#currentTimeMillis()
+         * @see StringBuilder
+         * @see StringBuilder#toString()
+         * @since 2025.06 - Millisecond Precision to Elapsed Time Formatting
+         * @performance {@code O(1)} operations and string formatting.
+         * @threading Thread-safe; does not modify shared state.
+         * @memory Allocates a small, fixed-size {@link StringBuilder} for formatting and returns a
+         *         new {@link String}.
+         */
+        private static String formatElapsedTime(long millis) {
+            long seconds = millis / 1000;
+            long minutes = seconds / 60;
+            long hours = minutes / 60;
+
+            // Calculate remainder values
+            long remainingMillis = millis % 1000;
+            seconds = seconds % 60;
+            minutes = minutes % 60;
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("Elapsed time: ");
+            if (hours > 0)
+                sb.append(hours).append("h ");
+            if (minutes > 0 || hours > 0)
+                sb.append(minutes).append("m ");
+            sb.append(seconds).append("s ");
+            sb.append(String.format("%03d", remainingMillis)).append("ms");
+
+            return sb.toString();
         }
 
-        logger.info("\n\n--------------------------------------\n");
-
-        if (!queueArray.isSolutionFound()) {
-            logger.info("No solution to Q{} in {} clicks was found.", Unbox.box(questionNumber),
-                    Unbox.box(numClicks));
-            logger.info(elapsedFormatted);
-            logger.info("\n\n--------------------------------------\n");
-            LogManager.shutdown();
-            return;
-        }
-
-        short[] winningCombination = queueArray.getWinningCombination();
-        short[] winningCombinationCopy = winningCombination.clone();
-
-        // Convert to packed int format and display results
-        for (int i = 0; i < winningCombinationCopy.length; i++) {
-            winningCombinationCopy[i] = (short) Grid.indexToPacked(winningCombinationCopy[i]);
-        }
-
-        logger.info("{} - Found the solution as the following click combination: {}",
-                queueArray.getWinningMonkey(), winningCombinationCopy);
-        logger.info("{} - {}", queueArray.getWinningMonkey(), elapsedFormatted);
-
-        // Verify solution
-        Grid puzzleGrid = baseGrid.copy();
-        puzzleGrid.click(winningCombination);
-        logGrid(puzzleGrid);
-
-        logger.info("\n\n--------------------------------------\n");
-        LogManager.shutdown();
-    }
-
-    /**
-     * {@link String#format(String, Object...) Formats} a millisecond duration into a human-readable
-     * "Elapsed time: Xh Ym Zs Wms" {@link String string}.
-     *
-     * @param millis The elapsed time in milliseconds.
-     * @return A formatted {@link String} representing the duration.
-     * @see System#currentTimeMillis()
-     * @see StringBuilder
-     * @see StringBuilder#toString()
-     * @since 2025.06 - Millisecond Precision to Elapsed Time Formatting
-     * @performance {@code O(1)} operations and string formatting.
-     * @threading Thread-safe; does not modify shared state.
-     * @memory Allocates a small, fixed-size {@link StringBuilder} for formatting and returns a new
-     *         {@link String}.
-     */
-    private static String formatElapsedTime(long millis) {
-        long seconds = millis / 1000;
-        long minutes = seconds / 60;
-        long hours = minutes / 60;
-
-        // Calculate remainder values
-        long remainingMillis = millis % 1000;
-        seconds = seconds % 60;
-        minutes = minutes % 60;
-
-        StringBuilder sb = new StringBuilder();
-        sb.append("Elapsed time: ");
-        if (hours > 0)
-            sb.append(hours).append("h ");
-        if (minutes > 0 || hours > 0)
-            sb.append(minutes).append("m ");
-        sb.append(seconds).append("s ");
-        sb.append(String.format("%03d", remainingMillis)).append("ms");
-
-        return sb.toString();
-    }
-
-    /**
-     * Logs the {@link Grid}'s string representation line-by-line to avoid logging issues.
-     * 
-     * @param grid The {@link Grid} to log.
-     * @since 2025.11 - Grid Logging Utility Introduction
-     * @performance {@code O(NUM_ROWS)} for splitting and logging each line.
-     * @threading Thread-safe; does not modify the {@link Grid}.
-     * @memory Allocates a temporary array of {@link String} lines for logging.
-     */
-    private static void logGrid(Grid grid) {
-        // Break the toString into multiple lines to fix logging issues
-        String[] lines = grid.toString().split("\n");
-        for (String line : lines) {
-            logger.info(line);
+        /**
+         * Logs the {@link Grid}'s string representation line-by-line to avoid logging issues.
+         * 
+         * @param grid The {@link Grid} to log.
+         * @since 2025.11 - Grid Logging Utility Introduction
+         * @performance {@code O(NUM_ROWS)} for splitting and logging each line.
+         * @threading Thread-safe; does not modify the {@link Grid}.
+         * @memory Allocates a temporary array of {@link String} lines for logging.
+         */
+        private static void logGrid(Grid grid, Logger logger) {
+            // Use this Java 11+ method to stream the lines directly to the logger
+            grid.toString().lines().forEach(logger::info);
         }
     }
 
@@ -563,15 +493,15 @@ public class StartYourMonkeys {
          * @memory Allocates an array of {@code short} on first access. Returns the same array
          *         reference thereafter.
          */
-        public static final Supplier<ShortList> EVEN_CLICK_INDICES = StableValue
-                .supplier(() -> ShortList.of(Grid.invertCombination(ODD_CLICK_INDICES.get().toShortArray())));
+        public static final Supplier<ShortList> EVEN_CLICK_INDICES = StableValue.supplier(
+                () -> ShortList.of(Grid.invertCombination(ODD_CLICK_INDICES.get().toShortArray())));
 
         /**
          * A lazily computed lookup table of "suffix OR masks" used for {@code O(1)} pruning in the
          * generator. Each entry {@code SUFFIX_OR_MASKS[i]} is the bitwise OR of all
-         * {@link #TRUE_CELL_MASKS} values from index {@code i} to the end of the array.
-         * This allows quick determination by the {@link CombinationGeneratorTask generators} of
-         * whether any remaining clicks can potentially touch the untoggled {@code true} cells.
+         * {@link #TRUE_CELL_MASKS} values from index {@code i} to the end of the array. This allows
+         * quick determination by the {@link CombinationGeneratorTask generators} of whether any
+         * remaining clicks can potentially touch the untoggled {@code true} cells.
          *
          * @see #computeSuffixOrMasks()
          * @since 2025.12 - Global Configuration Refactor
@@ -912,7 +842,7 @@ public class StartYourMonkeys {
         private static LongList computeTrueCellMasksLower() {
             // Trim this array to only the lower 64 bits
             final short[] trueCells = subarray(TRUE_CELLS.get(), 0, 64);
-            
+
             final long[] masks = new long[Grid.NUM_CELLS];
             for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
                 long mask = 0;
@@ -1018,7 +948,8 @@ public class StartYourMonkeys {
 
             for (int lastPrefixClick = 0; lastPrefixClick < Grid.NUM_CELLS; lastPrefixClick++) {
                 // Find first index where validClicks[idx] > lastPrefixClick
-                while (clickIdx < validClicks.size() && validClicks.getShort(clickIdx) <= lastPrefixClick) {
+                while (clickIdx < validClicks.size()
+                        && validClicks.getShort(clickIdx) <= lastPrefixClick) {
                     clickIdx++;
                 }
                 result[lastPrefixClick] = clickIdx;

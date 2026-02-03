@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
-import java.util.Objects;
+import static java.util.Objects.requireNonNull;
+
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.locks.LockSupport;
 
@@ -34,37 +35,7 @@ import java.util.concurrent.locks.LockSupport;
  *            manner.
  * @memory Minimal memory footprint of two fixed-capacity pools and a batch reference.
  */
-public class DefaultGeneratorContext implements GeneratorContext {
-    /**
-     * The pre-allocated size of the {@link ThreadLocal thread-local} resource pools in
-     * {@link DefaultGeneratorContext}.
-     * 
-     * <p>
-     * To avoid heap allocations in the hot path, this class relies on object pooling for both
-     * {@code prefix} arrays (via {@link ArrayPool}) and {@code CombinationGeneratorTask} objects
-     * (via {@link TaskPool}). This constant defines the capacity of those pools.
-     * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The pool size balances memory footprint against pool misses.
-     * <ul>
-     * <li><b>Larger pools:</b> Reduce the chance of a pool miss (which would force a new
-     * allocation) at the cost of higher upfront memory usage.</li>
-     * <li><b>Smaller pools:</b> Conserve memory but risk contention or misses if the task recursion
-     * depth exceeds the pool capacity.</li>
-     * </ul>
-     * The value {@value} was chosen as a safe capacity that prevents pool misses under typical
-     * conditions without excessive memory overhead.
-     * </p>
-     * 
-     * @since 2025.06 - Array Pooling Introduction
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Minimal memory footprint of 4 bytes as an {@code int}.
-     */
-    private static final int POOL_SIZE = 512;
-    
+public class DefaultGeneratorContext implements GeneratorContext {    
     /**
      * The name of the thread owning this context, for logging purposes.
      *
@@ -94,6 +65,8 @@ public class DefaultGeneratorContext implements GeneratorContext {
         return name;
     }
 
+    private final SolverConfiguration config;
+
     /**
      * Initializes a new {@link DefaultGeneratorContext} and registers it in the {@link #ALL_CONTEXTS
      * global context list}.
@@ -111,16 +84,21 @@ public class DefaultGeneratorContext implements GeneratorContext {
      *            {@link ConcurrentLinkedQueue thread-safe queue}.
      * @memory Does not allocate, apart from the instance itself.
      */
-    public DefaultGeneratorContext(String name, CombinationQueueArray queueArray, ContextRegistry registry) {
+    public DefaultGeneratorContext(String name, CombinationQueueArray queueArray,
+            ContextRegistry registry, SolverConfiguration config) {
         // TODO: Consider importing Guava's Preconditions for null checks
-        this.name = name;
-        this.queueArray = Objects.requireNonNull(queueArray, "queueArray cannot be null");
+        this.name = requireNonNull(name, "name cannot be null");
+        this.queueArray = requireNonNull(queueArray, "queueArray cannot be null");
+        this.config = requireNonNull(config, "config cannot be null");
+        this.arrayPool = new ArrayPool(config);
+        this.taskPool = new TaskPool(config, queueArray);
         registry.registerContext(this);
     }
 
     @Override
-    public DefaultGeneratorContext newContext(String name, CombinationQueueArray queueArray, ContextRegistry registry) {
-        return new DefaultGeneratorContext(name, queueArray, registry);
+    public DefaultGeneratorContext newContext(String name, CombinationQueueArray queueArray,
+            ContextRegistry registry, SolverConfiguration config) {
+        return new DefaultGeneratorContext(name, queueArray, registry, config);
     }
 
     /**
@@ -134,7 +112,7 @@ public class DefaultGeneratorContext implements GeneratorContext {
      * @threading Not thread-safe, should be used in a thread-local manner.
      * @memory Fixed footprint of ~4 bytes as a reference.
      */
-    private final ArrayPool arrayPool = new ArrayPool(POOL_SIZE);
+    private final ArrayPool arrayPool;
     /**
      * A {@link ThreadLocal thread-local} {@link TaskPool pool} for recycling
      * {@link CombinationGeneratorTask} instances.
@@ -145,7 +123,7 @@ public class DefaultGeneratorContext implements GeneratorContext {
      * @threading Not thread-safe, should be used in a thread-local manner.
      * @memory Fixed footprint of ~4 bytes as a reference.
      */
-    private final TaskPool taskPool = new TaskPool(POOL_SIZE / 4);
+    private final TaskPool taskPool;
     /**
      * The {@link WorkBatch} currently being filled by this thread.
      * 
@@ -260,6 +238,11 @@ public class DefaultGeneratorContext implements GeneratorContext {
     @Override
     public CombinationQueueArray getQueueArray() {
         return queueArray;
+    }
+
+    @Override
+    public SolverConfiguration getConfiguration() {
+        return config;
     }
 
     // We only really call this for the final flush (though it may be useful to encapsulate flushing

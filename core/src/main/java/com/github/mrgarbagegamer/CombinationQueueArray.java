@@ -1,8 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import java.lang.StableValue;
-import java.util.function.Supplier;
-
 import org.jctools.queues.MpmcArrayQueue;
 
 /**
@@ -51,28 +48,6 @@ import org.jctools.queues.MpmcArrayQueue;
  * @memory Fixed memory footprint after initialization; no dynamic allocations in the hot path.
  */
 public class CombinationQueueArray {
-    /**
-     * The singleton instance of this class.
-     *
-     * <p>
-     * This {@link StableValue#supplier(Supplier)} provides a modern, thread-safe, and lazy
-     * initialization for the singleton instance. It replaces the classic double-checked locking
-     * pattern, offering a cleaner and more robust approach. The instance is created on the first
-     * call to {@link #getInstance()}, pulling its configuration directly from the
-     * {@link StartYourMonkeys.GlobalConfig}.
-     * </p>
-     *
-     * @since 2025.12 - StableValue Singleton Refactor
-     * @performance {@code O(1)} for subsequent accesses after the first initialization.
-     * @threading Thread-safe via {@link StableValue}.
-     * @memory Minimal footprint for the {@code Supplier} and the singleton reference.
-     */
-    private static final Supplier<CombinationQueueArray> INSTANCE = StableValue.supplier(() -> {
-        final int numThreads = StartYourMonkeys.GlobalConfig.getNumThreads();
-        final int numConsumers = (numThreads + 1) / 2;
-        return new CombinationQueueArray(numConsumers);
-    });
-
     /**
      * An array of {@link CombinationQueue work queues}, with each queue dedicated to a specific
      * {@link TestClickCombination monkey}.
@@ -280,7 +255,7 @@ public class CombinationQueueArray {
      * @threading Thread-safe due to instance isolation.
      * @memory Allocates the array of queues, counters, and flags, and pre-allocates the pool.
      */
-    private CombinationQueueArray(int numConsumers) {
+    public CombinationQueueArray(int numConsumers) {
         if (numConsumers <= 0) {
             throw new IllegalArgumentException("Number of consumers must be positive.");
         }
@@ -308,26 +283,34 @@ public class CombinationQueueArray {
         this.startTime = System.currentTimeMillis();
     }
 
-    /**
-     * Returns the singleton instance of {@code CombinationQueueArray}, creating it on the first
-     * call.
-     *
-     * <p>
-     * This method provides global access to the singleton. The underlying
-     * {@link StableValue#supplier(Supplier)} ensures that the instance is created lazily and
-     * thread-safely on the first invocation of {@link Supplier#get() get()}. Subsequent calls
-     * return the already-created instance.
-     * </p>
-     *
-     * @return The singleton instance of {@code CombinationQueueArray}.
-     * @since 2025.10 - Singleton Enforcement
-     * @performance {@code O(1)} for subsequent calls; initialization cost is paid on the first
-     *              call.
-     * @threading Thread-safe via {@link StableValue}.
-     * @memory Does not allocate, aside from the first-time singleton creation.
-     */
-    public static CombinationQueueArray getInstance() {
-        return INSTANCE.get();
+    public CombinationQueueArray(SolverConfiguration config) {
+        final int numConsumers = (config.numThreads() + 1) / 2;
+        
+        if (numConsumers <= 0) {
+            throw new IllegalArgumentException("Number of consumers must be positive.");
+        }
+
+        this.queues = new CombinationQueue[numConsumers];
+
+        // The total number of batches that can be in-flight is the sum of all queue capacities
+        // The pool must be at least this large to guarantee a recycled batch is never discarded
+        int totalWorkQueueCapacity = 0;
+        for (int i = 0; i < numConsumers; i++) {
+            queues[i] = new CombinationQueue(config.queueSize());
+            totalWorkQueueCapacity += queues[i].capacity();
+        }
+        // Set the recycle pool size to match the total work queue capacity
+        this.workBatchPool = new MpmcArrayQueue<>(totalWorkQueueCapacity);
+
+        // OPTIMIZATION: Pre-allocate the entire WorkBatch pool to prevent allocation in the hot
+        // path.
+        for (int i = 0; i < totalWorkQueueCapacity; i++) {
+            if (!workBatchPool.offer(new WorkBatch(config))) {
+                throw new IllegalStateException(
+                        "Failed to pre-allocate the WorkBatch pool. Reconfiguration is required.");
+            }
+        }
+        this.startTime = System.currentTimeMillis();
     }
 
     /**

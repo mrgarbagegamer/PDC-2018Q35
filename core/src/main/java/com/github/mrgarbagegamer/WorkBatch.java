@@ -744,20 +744,20 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Thread-safe by nature of construction.
      * @memory Allocates the {@code workItems} array and all {@code WorkItem} instances within it.
      */
-    // public WorkBatch(SolverConfiguration config) {
-    //     requireNonNull(config);
+    public WorkBatch(SolverConfiguration config) {
+        requireNonNull(config);
 
-    //     if (config.batchSize() <= 0) {
-    //         throw new IllegalArgumentException("capacity must be a positive integer.");
-    //     }
+        if (config.batchSize() <= 0) {
+            throw new IllegalArgumentException("capacity must be a positive integer.");
+        }
 
-    //     this.capacity = config.batchSize();
-    //     this.parities = Parity.pair(config);
-    //     this.workItems = new WorkItem[capacity];
-    //     for (int i = 0; i < capacity; i++) {
-    //         this.workItems[i] = new WorkItem(config);
-    //     }
-    // }
+        this.capacity = config.batchSize();
+        this.parities = Parity.pair(config);
+        this.workItems = new WorkItem[capacity];
+        for (int i = 0; i < capacity; i++) {
+            this.workItems[i] = new WorkItem(config);
+        }
+    }
 
     public WorkBatch() {
         if (!GlobalConfig.isInitialized()) {

@@ -2,30 +2,32 @@ package com.github.mrgarbagegamer;
 
 public interface GeneratorContext {
 
-    public String getName();
+    String getName();
 
-    public GeneratorContext newContext(String name, CombinationQueueArray queueArray,
+    GeneratorContext newContext(String name, CombinationQueueArray queueArray,
             ContextRegistry registry);
 
-    public boolean hasBatch();
+    boolean hasBatch();
 
-    public WorkBatch getCurrentBatch();
+    WorkBatch getCurrentBatch();
 
-    public WorkBatch resetBatch();
+    WorkBatch resetBatch();
 
-    public default int getCurrentBatchSize() {
+    default int getCurrentBatchSize() {
         return hasBatch() ? getCurrentBatch().size() : 0;
     }
 
-    public ArrayPool getArrayPool();
+    ArrayPool getArrayPool();
 
-    public TaskPool getTaskPool();
+    TaskPool getTaskPool();
 
-    public CombinationQueueArray getQueueArray();
+    CombinationQueueArray getQueueArray();
 
-    public void flushCurrentBatch();
+    void flushCurrentBatch();
 
-    public static GeneratorContext ofDefault(String name, CombinationQueueArray queueArray,
+    SolverConfiguration getConfiguration();
+
+    static GeneratorContext ofDefault(String name, CombinationQueueArray queueArray,
             ContextRegistry registry) {
         return new DefaultGeneratorContext(name, queueArray, registry);
     }

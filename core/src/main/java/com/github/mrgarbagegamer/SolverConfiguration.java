@@ -1008,7 +1008,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final short[] winningCombination = new short[prefix.length + 1];
         System.arraycopy(prefix, 0, winningCombination, 0, prefix.length);
         winningCombination[prefix.length] = finalClick;
-        queueArray.solutionFound(Thread.currentThread().getName(), winningCombination);
+        queueArray.getSolverState().markSolutionFound(winningCombination);
         logger.info("Found the solution as the following click combination: {}",
                 new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
 

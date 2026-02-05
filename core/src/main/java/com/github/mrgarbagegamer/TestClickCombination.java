@@ -279,7 +279,8 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        while (!this.queueArray.isSolutionFound()) {
+        final SolverState solverState = this.queueArray.getSolverState();
+        while (!solverState.solutionFound()) {
             WorkBatch workBatch = getWork();
 
             if (workBatch == null) {
@@ -291,7 +292,7 @@ public class TestClickCombination extends Thread {
             // NEW: Iterate over WorkItems and use pre-computed prefix masks.
             for (WorkBatch.WorkItem item : workBatch) {
                 // TODO: Look at removing this redundant check
-                if (this.queueArray.isSolutionFound())
+                if (this.queueArray.getSolverState().solutionFound())
                     break;
 
                 final ShortList finalClicks = item.getFinalClicks();
@@ -332,7 +333,7 @@ public class TestClickCombination extends Thread {
     }
 
     private boolean idleAfterNoWork() {
-        if (this.queueArray.isSolutionFound() || allQueuesEmpty()) {
+        if (this.queueArray.getSolverState().solutionFound() || allQueuesEmpty()) {
             return true;
         } else {
             try {
@@ -416,7 +417,7 @@ public class TestClickCombination extends Thread {
      */
     private boolean allQueuesEmpty() {
         // Short-circuit if generation is not complete (which should be the case most of the time)
-        if (!this.queueArray.isGenerationComplete()) {
+        if (!this.queueArray.getSolverState().generationComplete()) {
             return false; // Generation not complete, so queues may still get work
         }
 

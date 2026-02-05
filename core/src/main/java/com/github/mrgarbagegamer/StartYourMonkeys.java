@@ -193,12 +193,12 @@ public class StartYourMonkeys {
                 generatorPool.invoke(CombinationGeneratorTask.createRootTask(config, queueArray));
             } finally {
                 // Flush any remaining batches only if no solution found
-                if (!queueArray.isSolutionFound()) {
+                if (!queueArray.getSolverState().solutionFound()) {
                     registry.flushAllPendingBatches();
                 }
 
                 // Mark generation complete
-                queueArray.generationComplete();
+                queueArray.getSolverState().markGenerationComplete();
 
                 // Wait for worker threads to finish
                 for (TestClickCombination worker : monkeys) {
@@ -214,7 +214,9 @@ public class StartYourMonkeys {
         }
 
         private void reportResults() {
-            final long runtimeMillis = queueArray.getEndTime() - queueArray.getStartTime();
+            final SolverState solverState = queueArray.getSolverState();
+
+            final long runtimeMillis = solverState.getEndTime() - solverState.getStartTime();
             if (runtimeMillis <= 0) {
                 throw new IllegalStateException(
                         "Program marked as complete but recorded non-positive runtime.");
@@ -232,18 +234,18 @@ public class StartYourMonkeys {
             final String lineSeparator = System.lineSeparator();
             logger.info("{}--------------------------------------{}", lineSeparator, lineSeparator);
 
-            if (!queueArray.isSolutionFound()) {
+            if (!solverState.solutionFound()) {
                 logger.info("No solution in {} clicks was found.",
                         Unbox.box(this.config.numClicks()));
                 logger.info(elapsedFormatted);
             } else {
-                final short[] winningCombination = queueArray.getWinningCombination();
+                final short[] winningCombination = solverState.getWinningCombination();
 
                 // Display results as a click combination
                 logger.info("{} - Found the solution as the following click combination: {}",
-                        queueArray.getWinningMonkey(),
+                        solverState.getWinningThread().getName(),
                         new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
-                logger.info("{} - {}", queueArray.getWinningMonkey(), elapsedFormatted);
+                logger.info("{} - {}", solverState.getWinningThread().getName(), elapsedFormatted);
 
                 // Verify solution
                 final Grid puzzleGrid = this.config.baseGrid(); // baseGrid() performs a copy

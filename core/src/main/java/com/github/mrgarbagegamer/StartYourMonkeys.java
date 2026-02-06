@@ -176,6 +176,7 @@ public class StartYourMonkeys {
 
             // Create the context registry and generator pool
             final ContextRegistry registry = ContextRegistry.newRegistry(config);
+            // TODO: Consider setting asyncMode to true and benchmarking performance impact
             final ForkJoinPool generatorPool = new ForkJoinPool(numGenerators,
                     GeneratorFactory.ofDefault(config, queueArray, registry), null, false);
 
@@ -213,7 +214,7 @@ public class StartYourMonkeys {
             }
         }
 
-        private void reportResults() {
+        public void reportResults() {
             final SolverState solverState = queueArray.getSolverState();
 
             final long runtimeMillis = solverState.getEndTime() - solverState.getStartTime();

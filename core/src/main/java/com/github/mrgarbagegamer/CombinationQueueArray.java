@@ -105,6 +105,8 @@ public class CombinationQueueArray {
     private final MpmcArrayQueue<WorkBatch> workBatchPool; // TODO: Consider wrapping this in
                                                            // CombinationQueue for
                                                            // better encapsulation.
+    // TODO: Consider moving solver state to the Solver class to decouple queue management from
+    // state coordination.
     private final SolverState solverState = new SolverState();
 
     public CombinationQueueArray(SolverConfiguration config) {

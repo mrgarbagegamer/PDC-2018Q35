@@ -5,8 +5,6 @@ package com.github.mrgarbagegamer.util;
 import java.util.Random;
 
 import com.github.mrgarbagegamer.Grid;
-import com.github.mrgarbagegamer.Grid35;
-import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
 // import com.github.mrgarbagegamer.WorkBatch;
 // import com.github.mrgarbagegamer.WorkBatch.Parity;
 
@@ -44,10 +42,6 @@ public class BenchmarkUtils {
             (short) 95, (short) 96, (short) 97, (short) 98, (short) 99, (short) 100, (short) 101,
             (short) 102, (short) 103, (short) 104, (short) 105, (short) 106, (short) 107,
             (short) 108);
-
-    private static final int NUM_CLICKS = 17;
-    private static final int NUM_THREADS = 16;
-    private static final Grid BASE_GRID = new Grid35();
 
     /**
      * Generates a random combination of unique shorts in {@link Grid.ValueFormat#Index Index
@@ -1055,9 +1049,6 @@ public class BenchmarkUtils {
     // }
 
     // Benchmarking utilities
-    public static void setupGlobalConfig() {
-        GlobalConfig.ensureInitialized(NUM_CLICKS, NUM_THREADS, BASE_GRID);
-    }
 
     // /**
     //  * Creates a WorkBatch filled with random prefixes and corresponding final clicks.

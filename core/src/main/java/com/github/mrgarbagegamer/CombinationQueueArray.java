@@ -107,58 +107,6 @@ public class CombinationQueueArray {
                                                            // better encapsulation.
     private final SolverState solverState = new SolverState();
 
-    /**
-     * Constructs the shared {@link #queues queue array} and its associated resources. As a private
-     * constructor, it enforces the singleton pattern via {@link #getInstance()}.
-     *
-     * <p>
-     * This constructor initializes the entire communication and resource-sharing infrastructure. It
-     * creates the array of work {@link CombinationQueue queues} and pre-allocates
-     * {@link #workBatchPool the central} {@link WorkBatch} pool. The pool is sized to match the
-     * total {@link CombinationQueue#getCapacity() capacity} of all work queues combined, which is a
-     * critical invariant to ensure the recycling mechanism never fails. Finally, it starts the
-     * timer for program execution by initializing the {@link #startTime} field.
-     * </p>
-     *
-     * @param numConsumers The number of {@link TestClickCombination monkeys}. This determines the
-     *                     number of work queues to create.
-     * @throws IllegalArgumentException if {@code numConsumers} is not positive.
-     * @throws IllegalStateException    if the pre-allocation of the {@link #workBatchPool pool}
-     *                                  fails, indicating a configuration issue.
-     * @since 2025.05 - Multiple {@code CombinationQueue}s
-     * @performance {@code O(numConsumers)} queue initialization +
-     *              {@code O(numConsumers * CombinationQueue.QUEUE_SIZE)} pool pre-allocation =
-     *              {@code O(numConsumers)} time complexity.
-     * @threading Thread-safe due to instance isolation.
-     * @memory Allocates the array of queues, counters, and flags, and pre-allocates the pool.
-     */
-    public CombinationQueueArray(int numConsumers) {
-        if (numConsumers <= 0) {
-            throw new IllegalArgumentException("Number of consumers must be positive.");
-        }
-
-        this.queues = new CombinationQueue[numConsumers];
-
-        // The total number of batches that can be in-flight is the sum of all queue capacities
-        // The pool must be at least this large to guarantee a recycled batch is never discarded
-        int totalWorkQueueCapacity = 0;
-        for (int i = 0; i < numConsumers; i++) {
-            queues[i] = new CombinationQueue();
-            totalWorkQueueCapacity += queues[i].capacity();
-        }
-        // Set the recycle pool size to match the total work queue capacity
-        this.workBatchPool = new MpmcArrayQueue<>(totalWorkQueueCapacity);
-
-        // OPTIMIZATION: Pre-allocate the entire WorkBatch pool to prevent allocation in the hot
-        // path.
-        for (int i = 0; i < totalWorkQueueCapacity; i++) {
-            if (!workBatchPool.offer(new WorkBatch())) {
-                throw new IllegalStateException(
-                        "Failed to pre-allocate the WorkBatch pool. Reconfiguration is required.");
-            }
-        }
-    }
-
     public CombinationQueueArray(SolverConfiguration config) {
         final int numConsumers = (config.numThreads() + 1) / 2;
         

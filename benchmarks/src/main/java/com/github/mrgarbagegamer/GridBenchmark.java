@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.util.BenchmarkUtils.generateRandomCombination;
-import static com.github.mrgarbagegamer.util.BenchmarkUtils.setupGlobalConfig;
 
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
@@ -85,7 +84,6 @@ public class GridBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        setupGlobalConfig();
         random = new Random(42);
 
         grid = new Grid35();

@@ -7,8 +7,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
-import com.github.mrgarbagegamer.StartYourMonkeys.GlobalConfig;
-
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
 import it.unimi.dsi.fastutil.shorts.ShortConsumer;
@@ -157,34 +155,16 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             return new Parity(config.getOddClickIndices(), config.getOddStartIndices());
         }
 
-        public static Parity even() {
-            return new Parity(GlobalConfig.ODD_CLICK_INDICES.get(),
-                    GlobalConfig.ODD_START_INDICES.get());
-        }
-
         public static Parity odd(SolverConfiguration config) {
             return new Parity(config.getEvenClickIndices(), config.getEvenStartIndices());
-        }
-
-        public static Parity odd() {
-            return new Parity(GlobalConfig.EVEN_CLICK_INDICES.get(),
-                    GlobalConfig.EVEN_START_INDICES.get());
         }
 
         public static Parity fromBoolean(boolean isOdd, SolverConfiguration config) {
             return isOdd ? odd(config) : even(config);
         }
 
-        public static Parity fromBoolean(boolean isOdd) {
-            return isOdd ? odd() : even();
-        }
-
         public static ParityPair pair(SolverConfiguration config) {
             return new ParityPair(odd(config), even(config));
-        }
-
-        public static ParityPair pair() {
-            return new ParityPair(odd(), even());
         }
 
         public record ParityPair(Parity odd, Parity even) {
@@ -756,20 +736,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         this.workItems = new WorkItem[capacity];
         for (int i = 0; i < capacity; i++) {
             this.workItems[i] = new WorkItem(config);
-        }
-    }
-
-    public WorkBatch() {
-        if (!GlobalConfig.isInitialized()) {
-            throw new IllegalStateException(
-                    "GlobalConfig must be initialized before using the no-arg constructor.");
-        }
-
-        this.capacity = BATCH_SIZE;
-        this.parities = Parity.pair();
-        this.workItems = new WorkItem[capacity];
-        for (int i = 0; i < capacity; i++) {
-            this.workItems[i] = new WorkItem(GlobalConfig.getNumClicks());
         }
     }
 

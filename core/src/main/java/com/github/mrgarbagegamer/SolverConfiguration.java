@@ -393,6 +393,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 ContextRegistry registry);
     }
 
+    @FunctionalInterface
+    public interface QueueStrategyFactory {
+        QueueStrategy create(SolverConfiguration config);
+    }
+
     public static class Builder {
         private int numClicks = 17;
         private int numThreads = Runtime.getRuntime().availableProcessors();
@@ -456,6 +461,9 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder numThreads(int numThreads) {
             if (numThreads <= 1) {
                 throw new IllegalArgumentException("numThreads must be greater than 1");
+            } else if (numThreads % 2 != 0) {
+                throw new IllegalArgumentException(
+                        "numThreads must be even to ensure generators and monkeys are balanced");
             }
             this.numThreads = numThreads;
             return this;

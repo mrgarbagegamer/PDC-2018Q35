@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerator;
+import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyJCTools;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrap;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors.BIASED_SEQUENTIAL;
@@ -9,8 +11,10 @@ import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.ensureMul
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.ensureMultiProducerSupport;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.preallocateInto;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.validateArguments;
+import static java.util.Objects.requireNonNull;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
 import org.jctools.queues.MessagePassingQueue;
@@ -19,6 +23,7 @@ import org.jctools.queues.SpscArrayQueue;
 
 import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.SolverConfiguration;
+import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 
 public class JCToolsQueueStrategy implements QueueStrategy {
@@ -37,13 +42,18 @@ public class JCToolsQueueStrategy implements QueueStrategy {
     private final BackoffStrategy generatorBackoff;
     private final BackoffStrategy monkeyBackoff;
 
+    // Continuation predicates — checked before each backoff in the selectors
+    private final BooleanSupplier generatorShouldContinue;
+    private final BooleanSupplier monkeyShouldContinue;
+
     public JCToolsQueueStrategy(List<? extends MessagePassingQueue<WorkBatch>> gtmQueues,
             List<? extends MessagePassingQueue<WorkBatch>> mtgQueues, SolverConfiguration config,
             QueueSelector<? extends MessagePassingQueue<WorkBatch>> generatorPollSelector,
             QueueSelector<? extends MessagePassingQueue<WorkBatch>> generatorOfferSelector,
             QueueSelector<? extends MessagePassingQueue<WorkBatch>> monkeyPollSelector,
             QueueSelector<? extends MessagePassingQueue<WorkBatch>> monkeyOfferSelector,
-            BackoffStrategy generatorBackoffStrategy, BackoffStrategy monkeyBackoffStrategy) {
+            BackoffStrategy generatorBackoffStrategy, BackoffStrategy monkeyBackoffStrategy,
+            BooleanSupplier generatorShouldContinue, BooleanSupplier monkeyShouldContinue) {
         final int generatorCount = config.numThreads() / 2;
         final int monkeyCount = config.numThreads() / 2;
         final int standardQueueSize = config.queueSize();
@@ -60,28 +70,35 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         this.monkeyOfferSelector = monkeyOfferSelector;
         this.generatorBackoff = generatorBackoffStrategy;
         this.monkeyBackoff = monkeyBackoffStrategy;
+        this.generatorShouldContinue = requireNonNull(generatorShouldContinue,
+                "generatorShouldContinue must not be null");
+        this.monkeyShouldContinue = requireNonNull(monkeyShouldContinue,
+                "monkeyShouldContinue must not be null");
 
         preallocateInto(mtgQueues, config);
     }
 
     @Override
     public WorkBatch generatorPoll(int generatorId) throws InterruptedException {
-        return generatorPollSelector.poll(generatorId, mtgQueues, generatorBackoff);
+        return generatorPollSelector.poll(generatorId, mtgQueues, generatorBackoff,
+                generatorShouldContinue);
     }
 
     @Override
-    public void generatorOffer(WorkBatch batch, int generatorId) throws InterruptedException {
-        generatorOfferSelector.offer(batch, generatorId, gtmQueues, generatorBackoff);
+    public boolean generatorOffer(WorkBatch batch, int generatorId) throws InterruptedException {
+        return generatorOfferSelector.offer(batch, generatorId, gtmQueues, generatorBackoff,
+                generatorShouldContinue);
     }
 
     @Override
     public WorkBatch monkeyPoll(int monkeyId) throws InterruptedException {
-        return monkeyPollSelector.poll(monkeyId, gtmQueues, monkeyBackoff);
+        return monkeyPollSelector.poll(monkeyId, gtmQueues, monkeyBackoff, monkeyShouldContinue);
     }
 
     @Override
-    public void monkeyOffer(WorkBatch batch, int monkeyId) throws InterruptedException {
-        monkeyOfferSelector.offer(batch, monkeyId, mtgQueues, monkeyBackoff);
+    public boolean monkeyOffer(WorkBatch batch, int monkeyId) throws InterruptedException {
+        return monkeyOfferSelector.offer(batch, monkeyId, mtgQueues, monkeyBackoff,
+                monkeyShouldContinue);
     }
 
     // Static factory methods for common configurations:
@@ -97,24 +114,34 @@ public class JCToolsQueueStrategy implements QueueStrategy {
 
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy singleSingle(
             Q gtmQueue, Q mtgQueue, SolverConfiguration config, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff) {
-        return new JCToolsQueueStrategy(List.of(wrap(gtmQueue)), List.of(wrap(mtgQueue)), config,
-                EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, generatorBackoff, monkeyBackoff);
+            BackoffStrategy monkeyBackoff, SolverState solverState) {
+        final MessagePassingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
+        final List<? extends MessagePassingQueue<WorkBatch>> wrappedMtgQueues = List
+                .of(wrap(mtgQueue));
+
+        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
+        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, wrappedGtmQueue);
+
+        return new JCToolsQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
+                EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, generatorBackoff, monkeyBackoff,
+                generatorShouldContinue, monkeyShouldContinue);
     }
 
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy singleSingle(
-            Q gtmQueue, Q mtgQueue, SolverConfiguration config) {
+            Q gtmQueue, Q mtgQueue, SolverConfiguration config, SolverState solverState) {
         return singleSingle(gtmQueue, mtgQueue, config, DEFAULT_GENERATOR_BACKOFF,
-                DEFAULT_MONKEY_BACKOFF);
+                DEFAULT_MONKEY_BACKOFF, solverState);
     }
 
-    public static JCToolsQueueStrategy singleSingle(SolverConfiguration config, int queueSize) {
+    public static JCToolsQueueStrategy singleSingle(SolverConfiguration config, int queueSize,
+            SolverState solverState) {
         return singleSingle(new MpmcArrayQueue<>(queueSize), new MpmcArrayQueue<>(queueSize),
-                config);
+                config, solverState);
     }
 
-    public static JCToolsQueueStrategy singleSingle(SolverConfiguration config) {
-        return singleSingle(config, config.queueSize());
+    public static JCToolsQueueStrategy singleSingle(SolverConfiguration config,
+            SolverState solverState) {
+        return singleSingle(config, config.queueSize(), solverState);
     }
 
     // Single-Multi Queue Strategy:
@@ -129,11 +156,13 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             Q gtmQueue, List<? extends Q> mtgQueues, SolverConfiguration config,
             QueueSelector<? extends Q> generatorPollSelector,
             QueueSelector<? extends Q> monkeyOfferSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff) {
+            BackoffStrategy monkeyBackoff, SolverState solverState) {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
         final MessagePassingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
         final List<? extends MessagePassingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
+        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, wrappedGtmQueue);
 
         // Ensure that the provided selectors meet the requirements for a single-multi strategy (as
         // described above).
@@ -146,16 +175,18 @@ public class JCToolsQueueStrategy implements QueueStrategy {
 
         return new JCToolsQueueStrategy(List.of(wrappedGtmQueue), wrapAll(wrappedMtgQueues), config,
                 generatorPollSelector, EXCLUSIVE, EXCLUSIVE, monkeyOfferSelector, generatorBackoff,
-                monkeyBackoff);
+                monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
     }
 
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy singleMulti(
-            Q gtmQueue, List<? extends Q> mtgQueues, SolverConfiguration config) {
+            Q gtmQueue, List<? extends Q> mtgQueues, SolverConfiguration config,
+            SolverState solverState) {
         return singleMulti(gtmQueue, mtgQueues, config, BIASED_SEQUENTIAL, BIASED_SEQUENTIAL,
-                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF);
+                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF, solverState);
     }
 
-    public static JCToolsQueueStrategy singleMulti(SolverConfiguration config, int queueSize) {
+    public static JCToolsQueueStrategy singleMulti(SolverConfiguration config, int queueSize,
+            SolverState solverState) {
         // The gtmQueue should have a capacity equal to the total capacity of the mtgQueues (the
         // passed queueSize) to ensure that the in-flight batch limit is consistent.
         final int numMonkeys = config.numThreads() / 2;
@@ -163,11 +194,12 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         final List<MpmcArrayQueue<WorkBatch>> mtgQueues = Stream
                 .generate(() -> new MpmcArrayQueue<WorkBatch>(queueSize)).limit(numMonkeys)
                 .toList();
-        return singleMulti(gtmQueue, mtgQueues, config);
+        return singleMulti(gtmQueue, mtgQueues, config, solverState);
     }
 
-    public static JCToolsQueueStrategy singleMulti(SolverConfiguration config) {
-        return singleMulti(config, config.queueSize());
+    public static JCToolsQueueStrategy singleMulti(SolverConfiguration config,
+            SolverState solverState) {
+        return singleMulti(config, config.queueSize(), solverState);
     }
 
     // Multi-Single Queue Strategy:
@@ -182,11 +214,14 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             List<? extends Q> gtmQueues, Q mtgQueue, SolverConfiguration config,
             QueueSelector<? extends Q> generatorOfferSelector,
             QueueSelector<? extends Q> monkeyPollSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff) {
+            BackoffStrategy monkeyBackoff, SolverState solverState) {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
         final List<? extends MessagePassingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
         final MessagePassingQueue<WorkBatch> wrappedMtgQueue = wrap(mtgQueue);
+        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
+        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState,
+                wrappedGtmQueues);
 
         // Ensure that the provided selectors meet the requirements for a multi-single strategy (as
         // described above).
@@ -199,16 +234,18 @@ public class JCToolsQueueStrategy implements QueueStrategy {
 
         return new JCToolsQueueStrategy(wrappedGtmQueues, List.of(wrappedMtgQueue), config,
                 EXCLUSIVE, generatorOfferSelector, monkeyPollSelector, EXCLUSIVE, generatorBackoff,
-                monkeyBackoff);
+                monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
     }
 
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy multiSingle(
-            List<? extends Q> gtmQueues, Q mtgQueue, SolverConfiguration config) {
+            List<? extends Q> gtmQueues, Q mtgQueue, SolverConfiguration config,
+            SolverState solverState) {
         return multiSingle(gtmQueues, mtgQueue, config, BIASED_SEQUENTIAL, BIASED_SEQUENTIAL,
-                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF);
+                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF, solverState);
     }
 
-    public static JCToolsQueueStrategy multiSingle(SolverConfiguration config, int queueSize) {
+    public static JCToolsQueueStrategy multiSingle(SolverConfiguration config, int queueSize,
+            SolverState solverState) {
         // The mtgQueue should have a capacity equal to the total capacity of the gtmQueues (the
         // passed queueSize) to ensure that the in-flight batch limit is consistent.
         final int numGenerators = config.numThreads() / 2;
@@ -216,11 +253,12 @@ public class JCToolsQueueStrategy implements QueueStrategy {
                 .generate(() -> new MpmcArrayQueue<WorkBatch>(queueSize)).limit(numGenerators)
                 .toList();
         final MpmcArrayQueue<WorkBatch> mtgQueue = new MpmcArrayQueue<>(queueSize * numGenerators);
-        return multiSingle(gtmQueues, mtgQueue, config);
+        return multiSingle(gtmQueues, mtgQueue, config, solverState);
     }
 
-    public static JCToolsQueueStrategy multiSingle(SolverConfiguration config) {
-        return multiSingle(config, config.queueSize());
+    public static JCToolsQueueStrategy multiSingle(SolverConfiguration config,
+            SolverState solverState) {
+        return multiSingle(config, config.queueSize(), solverState);
     }
 
     // Multi-Multi Queue Strategy:
@@ -240,11 +278,14 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             QueueSelector<? extends Q> generatorOfferSelector,
             QueueSelector<? extends Q> monkeyPollSelector,
             QueueSelector<? extends Q> monkeyOfferSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff) {
+            BackoffStrategy monkeyBackoff, SolverState solverState) {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
         final List<? extends MessagePassingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
         final List<? extends MessagePassingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
+        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState,
+                wrappedGtmQueues);
 
         // Ensure that the provided selectors meet the requirements for a multi-multi strategy (as
         // described above).
@@ -263,16 +304,19 @@ public class JCToolsQueueStrategy implements QueueStrategy {
 
         return new JCToolsQueueStrategy(wrappedGtmQueues, wrappedMtgQueues, config,
                 generatorPollSelector, generatorOfferSelector, monkeyPollSelector,
-                monkeyOfferSelector, generatorBackoff, monkeyBackoff);
+                monkeyOfferSelector, generatorBackoff, monkeyBackoff, generatorShouldContinue,
+                monkeyShouldContinue);
     }
 
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy multiMulti(
-            List<? extends Q> gtmQueues, List<? extends Q> mtgQueues, SolverConfiguration config) {
+            List<? extends Q> gtmQueues, List<? extends Q> mtgQueues, SolverConfiguration config,
+            SolverState solverState) {
         return multiMulti(gtmQueues, mtgQueues, config, PREFERRED, PREFERRED, PREFERRED, PREFERRED,
-                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF);
+                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF, solverState);
     }
 
-    public static JCToolsQueueStrategy multiMulti(SolverConfiguration config, int queueSize) {
+    public static JCToolsQueueStrategy multiMulti(SolverConfiguration config, int queueSize,
+            SolverState solverState) {
         final int numThreads = config.numThreads();
         final List<SpscArrayQueue<WorkBatch>> gtmQueues = Stream
                 .generate(() -> new SpscArrayQueue<WorkBatch>(queueSize)).limit(numThreads)
@@ -280,10 +324,11 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         final List<SpscArrayQueue<WorkBatch>> mtgQueues = Stream
                 .generate(() -> new SpscArrayQueue<WorkBatch>(queueSize)).limit(numThreads)
                 .toList();
-        return multiMulti(gtmQueues, mtgQueues, config);
+        return multiMulti(gtmQueues, mtgQueues, config, solverState);
     }
 
-    public static JCToolsQueueStrategy multiMulti(SolverConfiguration config) {
-        return multiMulti(config, config.queueSize());
+    public static JCToolsQueueStrategy multiMulti(SolverConfiguration config,
+            SolverState solverState) {
+        return multiMulti(config, config.queueSize(), solverState);
     }
 }

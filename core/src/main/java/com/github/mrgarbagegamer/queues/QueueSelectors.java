@@ -4,8 +4,9 @@ import static java.lang.Thread.interrupted;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
 
 import org.jctools.queues.MessagePassingQueue;
 
@@ -31,39 +32,45 @@ public final class QueueSelectors {
         RANDOM_SEQUENTIAL {
             @Override
             public WorkBatch poll(int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
+
                 final ThreadLocalRandom random = ThreadLocalRandom.current();
                 final int size = queues.size();
 
-                while (!interrupted()) {
-                    final int startIndex = random.nextInt(size);
+                while (shouldContinue.getAsBoolean()) {
+                    if (interrupted())
+                        throw new InterruptedException();
+                    final int start = random.nextInt(size);
                     for (int i = 0; i < size; i++) {
-                        final WorkBatch batch = queues.get((startIndex + i) % size).relaxedPoll();
+                        final WorkBatch batch = queues.get((start + i) % size).relaxedPoll();
                         if (batch != null)
                             return batch;
                     }
                     backoff.backoff();
                 }
-                throw new InterruptedException();
+                return null;
             }
 
             @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+            public boolean offer(WorkBatch batch, int threadId,
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
+
                 final ThreadLocalRandom random = ThreadLocalRandom.current();
                 final int size = queues.size();
 
-                while (!interrupted()) {
-                    final int startIndex = random.nextInt(size);
+                while (shouldContinue.getAsBoolean()) {
+                    if (interrupted())
+                        throw new InterruptedException();
+                    final int start = random.nextInt(size);
                     for (int i = 0; i < size; i++) {
-                        if (queues.get((startIndex + i) % size).relaxedOffer(batch))
-                            return;
+                        if (queues.get((start + i) % size).relaxedOffer(batch))
+                            return true;
                     }
                     backoff.backoff();
                 }
-                throw new InterruptedException();
+                return false;
             }
         },
 
@@ -74,11 +81,13 @@ public final class QueueSelectors {
         LINEAR_SEQUENTIAL {
             @Override
             public WorkBatch poll(int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
                 final int size = queues.size();
 
-                while (!interrupted()) {
+                while (shouldContinue.getAsBoolean()) {
+                    if (interrupted())
+                        throw new InterruptedException();
                     for (int i = 0; i < size; i++) {
                         final WorkBatch batch = queues.get(i).relaxedPoll();
                         if (batch != null)
@@ -86,23 +95,25 @@ public final class QueueSelectors {
                     }
                     backoff.backoff();
                 }
-                throw new InterruptedException();
+                return null;
             }
 
             @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+            public boolean offer(WorkBatch batch, int threadId,
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
                 final int size = queues.size();
 
-                while (!interrupted()) {
+                while (shouldContinue.getAsBoolean()) {
+                    if (interrupted())
+                        throw new InterruptedException();
                     for (int i = 0; i < size; i++) {
                         if (queues.get(i).relaxedOffer(batch))
-                            return;
+                            return true;
                     }
                     backoff.backoff();
                 }
-                throw new InterruptedException();
+                return false;
             }
         },
 
@@ -113,11 +124,13 @@ public final class QueueSelectors {
         BIASED_SEQUENTIAL {
             @Override
             public WorkBatch poll(int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
                 final int size = queues.size();
 
-                while (!interrupted()) {
+                while (shouldContinue.getAsBoolean()) {
+                    if (interrupted())
+                        throw new InterruptedException();
                     // Preferred queue first
                     final WorkBatch preferred = queues.get(threadId).relaxedPoll();
                     if (preferred != null)
@@ -132,29 +145,31 @@ public final class QueueSelectors {
                     }
                     backoff.backoff();
                 }
-                throw new InterruptedException();
+                return null;
             }
 
             @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+            public boolean offer(WorkBatch batch, int threadId,
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
                 final int size = queues.size();
 
-                while (!interrupted()) {
+                while (shouldContinue.getAsBoolean()) {
+                    if (interrupted())
+                        throw new InterruptedException();
                     // Preferred queue first
                     if (queues.get(threadId).relaxedOffer(batch))
-                        return;
+                        return true;
 
                     // Round-robin the rest
                     for (int i = 0; i < size; i++) {
                         final int idx = (threadId + i) % size;
                         if (queues.get(idx).relaxedOffer(batch))
-                            return;
+                            return true;
                     }
                     backoff.backoff();
                 }
-                throw new InterruptedException();
+                return false;
             }
         },
 
@@ -166,44 +181,49 @@ public final class QueueSelectors {
         PREFERRED {
             @Override
             public WorkBatch poll(int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
                 final MessagePassingQueue<WorkBatch> queue = queues.get(threadId);
-                WorkBatch batch;
-                while ((batch = queue.relaxedPoll()) == null) {
+                while (shouldContinue.getAsBoolean()) {
                     if (interrupted())
                         throw new InterruptedException();
+                    final WorkBatch batch = queue.relaxedPoll();
+                    if (batch != null)
+                        return batch;
                     backoff.backoff();
                 }
-                return batch;
+                return null;
             }
 
             @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
+            public boolean offer(WorkBatch batch, int threadId,
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
                 final MessagePassingQueue<WorkBatch> queue = queues.get(threadId);
-                while (!queue.relaxedOffer(batch)) {
+                while (shouldContinue.getAsBoolean()) {
                     if (interrupted())
                         throw new InterruptedException();
+                    if (queue.relaxedOffer(batch))
+                        return true;
                     backoff.backoff();
                 }
+                return false;
             }
         },
 
         EXCLUSIVE {
             @Override
             public WorkBatch poll(int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
-                return PREFERRED.poll(0, queues, backoff);
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
+                return PREFERRED.poll(0, queues, backoff, shouldContinue);
             }
 
             @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
-                PREFERRED.offer(batch, 0, queues, backoff);
+            public boolean offer(WorkBatch batch, int threadId,
+                    List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
+                return PREFERRED.offer(batch, 0, queues, backoff, shouldContinue);
             }
         }
     }
@@ -215,193 +235,203 @@ public final class QueueSelectors {
         PREFERRED {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // Backoff is ignored, since the queue blocks natively.
-                return queues.get(threadId).take();
+                    BackoffStrategy backoff, BooleanSupplier shouldContinue)
+                    throws InterruptedException {
+                final BlockingQueue<WorkBatch> queue = queues.get(threadId);
+                while (shouldContinue.getAsBoolean()) {
+                    // Use a short timeout so we can re-check shouldContinue periodically
+                    final WorkBatch batch = queue.poll(100, TimeUnit.MILLISECONDS);
+                    if (batch != null)
+                        return batch;
+                }
+                return null;
             }
 
             @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends BlockingQueue<WorkBatch>> queues, BackoffStrategy backoff)
-                    throws InterruptedException {
-                // Backoff is ignored, since the queue blocks natively.
-                queues.get(threadId).put(batch);
+            public boolean offer(WorkBatch batch, int threadId,
+                    List<? extends BlockingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
+                final BlockingQueue<WorkBatch> queue = queues.get(threadId);
+                while (shouldContinue.getAsBoolean()) {
+                    if (queue.offer(batch, 100, TimeUnit.MILLISECONDS))
+                        return true;
+                }
+                return false;
             }
         },
 
         EXCLUSIVE {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // Delegate to the preferred selector with a threadId of 0, since all threads will
-                // be using the same queue.
-                return PREFERRED.poll(0, queues, backoff);
-            }
-
-            @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends BlockingQueue<WorkBatch>> queues, BackoffStrategy backoff)
+                    BackoffStrategy backoff, BooleanSupplier shouldContinue)
                     throws InterruptedException {
-                // Delegate to the preferred selector with a threadId of 0, since all threads will
-                // be using the same queue.
-                PREFERRED.offer(batch, 0, queues, backoff);
+                return PREFERRED.poll(0, queues, backoff, shouldContinue);
+            }
+
+            @Override
+            public boolean offer(WorkBatch batch, int threadId,
+                    List<? extends BlockingQueue<WorkBatch>> queues, BackoffStrategy backoff,
+                    BooleanSupplier shouldContinue) throws InterruptedException {
+                return PREFERRED.offer(batch, 0, queues, backoff, shouldContinue);
             }
         };
     }
 
-    public enum CLQSelectors implements QueueSelector<ConcurrentLinkedQueue<WorkBatch>> {
-        // Note that, since a CLQ is unbounded, offer will never block or fail, so backoff is
-        // ignored. poll, on the other hand, may need to back off.
+    // TODO: Revisit CLQs to see if they're worth supporting in this package.
 
-        RANDOM_SEQUENTIAL {
-            @Override
-            public WorkBatch poll(int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                final ThreadLocalRandom random = ThreadLocalRandom.current();
-                final int size = queues.size();
+    // public enum CLQSelectors implements QueueSelector<ConcurrentLinkedQueue<WorkBatch>> {
+    // // Note that, since a CLQ is unbounded, offer will never block or fail, so backoff is
+    // // ignored. poll, on the other hand, may need to back off.
 
-                while (!interrupted()) {
-                    final int startIndex = random.nextInt(size);
-                    for (int i = 0; i < size; i++) {
-                        final WorkBatch batch = queues.get((startIndex + i) % size).poll();
-                        if (batch != null)
-                            return batch;
-                    }
-                    backoff.backoff();
-                }
-                throw new InterruptedException();
-            }
+    // RANDOM_SEQUENTIAL {
+    // @Override
+    // public WorkBatch poll(int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // final ThreadLocalRandom random = ThreadLocalRandom.current();
+    // final int size = queues.size();
 
-            @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // Since offer can't fail , we can do an interruption check here to allow for
-                // responsive shutdown.
-                if (interrupted())
-                    throw new InterruptedException();
-                final ThreadLocalRandom random = ThreadLocalRandom.current();
-                queues.get(random.nextInt(queues.size())).offer(batch);
-            }
-        },
+    // while (!interrupted()) {
+    // final int startIndex = random.nextInt(size);
+    // for (int i = 0; i < size; i++) {
+    // final WorkBatch batch = queues.get((startIndex + i) % size).poll();
+    // if (batch != null)
+    // return batch;
+    // }
+    // backoff.backoff();
+    // }
+    // throw new InterruptedException();
+    // }
 
-        LINEAR_SEQUENTIAL {
-            @Override
-            public WorkBatch poll(int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                final int size = queues.size();
+    // @Override
+    // public void offer(WorkBatch batch, int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // // Since offer can't fail , we can do an interruption check here to allow for
+    // // responsive shutdown.
+    // if (interrupted())
+    // throw new InterruptedException();
+    // final ThreadLocalRandom random = ThreadLocalRandom.current();
+    // queues.get(random.nextInt(queues.size())).offer(batch);
+    // }
+    // },
 
-                while (!interrupted()) {
-                    for (int i = 0; i < size; i++) {
-                        final WorkBatch batch = queues.get(i).poll();
-                        if (batch != null)
-                            return batch;
-                    }
-                    backoff.backoff();
-                }
-                throw new InterruptedException();
-            }
+    // LINEAR_SEQUENTIAL {
+    // @Override
+    // public WorkBatch poll(int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // final int size = queues.size();
 
-            @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // Since offer can't fail , we can do an interruption check here to allow for
-                // responsive shutdown.
-                if (interrupted())
-                    throw new InterruptedException();
+    // while (!interrupted()) {
+    // for (int i = 0; i < size; i++) {
+    // final WorkBatch batch = queues.get(i).poll();
+    // if (batch != null)
+    // return batch;
+    // }
+    // backoff.backoff();
+    // }
+    // throw new InterruptedException();
+    // }
 
-                // offer can't fail, so the result of a standard algorithm would just be to offer to
-                // the first queue.
-                queues.get(0).offer(batch);
-            }
-        },
+    // @Override
+    // public void offer(WorkBatch batch, int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // // Since offer can't fail , we can do an interruption check here to allow for
+    // // responsive shutdown.
+    // if (interrupted())
+    // throw new InterruptedException();
 
-        BIASED_SEQUENTIAL {
-            @Override
-            public WorkBatch poll(int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                final int size = queues.size();
-                final int preferredIndex = threadId % size;
+    // // offer can't fail, so the result of a standard algorithm would just be to offer to
+    // // the first queue.
+    // queues.get(0).offer(batch);
+    // }
+    // },
 
-                while (!interrupted()) {
-                    // Try the preferred queue first
-                    final WorkBatch preferredBatch = queues.get(preferredIndex).poll();
-                    if (preferredBatch != null)
-                        return preferredBatch;
+    // BIASED_SEQUENTIAL {
+    // @Override
+    // public WorkBatch poll(int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // final int size = queues.size();
+    // final int preferredIndex = threadId % size;
 
-                    // If that fails, try the others in order
-                    for (int i = 0; i < size; i++) {
-                        if (i == preferredIndex)
-                            continue;
-                        final WorkBatch batch = queues.get(i).poll();
-                        if (batch != null)
-                            return batch;
-                    }
-                    backoff.backoff();
-                }
-                throw new InterruptedException();
-            }
+    // while (!interrupted()) {
+    // // Try the preferred queue first
+    // final WorkBatch preferredBatch = queues.get(preferredIndex).poll();
+    // if (preferredBatch != null)
+    // return preferredBatch;
 
-            @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // Since offer can't fail, we can do an interruption check here to allow for
-                // responsive shutdown.
-                if (interrupted())
-                    throw new InterruptedException();
+    // // If that fails, try the others in order
+    // for (int i = 0; i < size; i++) {
+    // if (i == preferredIndex)
+    // continue;
+    // final WorkBatch batch = queues.get(i).poll();
+    // if (batch != null)
+    // return batch;
+    // }
+    // backoff.backoff();
+    // }
+    // throw new InterruptedException();
+    // }
 
-                // Offer to the preferred queue
-                queues.get(threadId).offer(batch);
-            }
-        },
+    // @Override
+    // public void offer(WorkBatch batch, int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // // Since offer can't fail, we can do an interruption check here to allow for
+    // // responsive shutdown.
+    // if (interrupted())
+    // throw new InterruptedException();
 
-        PREFERRED {
-            @Override
-            public WorkBatch poll(int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                final ConcurrentLinkedQueue<WorkBatch> queue = queues.get(threadId);
-                WorkBatch batch;
-                while ((batch = queue.poll()) == null) {
-                    if (interrupted())
-                        throw new InterruptedException();
-                    backoff.backoff();
-                }
-                return batch;
-            }
+    // // Offer to the preferred queue
+    // queues.get(threadId).offer(batch);
+    // }
+    // },
 
-            @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // This functions the same as BIASED_SEQUENTIAL's offer, so we can delegate to it.
-                BIASED_SEQUENTIAL.offer(batch, threadId, queues, backoff);
-            }
-        },
+    // PREFERRED {
+    // @Override
+    // public WorkBatch poll(int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // final ConcurrentLinkedQueue<WorkBatch> queue = queues.get(threadId);
+    // WorkBatch batch;
+    // while ((batch = queue.poll()) == null) {
+    // if (interrupted())
+    // throw new InterruptedException();
+    // backoff.backoff();
+    // }
+    // return batch;
+    // }
 
-        EXCLUSIVE {
-            @Override
-            public WorkBatch poll(int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // This functions the same as PREFERRED's poll with a threadId of 0, so we can
-                // delegate to it.
-                return PREFERRED.poll(0, queues, backoff);
-            }
+    // @Override
+    // public void offer(WorkBatch batch, int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // // This functions the same as BIASED_SEQUENTIAL's offer, so we can delegate to it.
+    // BIASED_SEQUENTIAL.offer(batch, threadId, queues, backoff);
+    // }
+    // },
 
-            @Override
-            public void offer(WorkBatch batch, int threadId,
-                    List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff) throws InterruptedException {
-                // This functions the same as PREFERRED's offer with a threadId of 0, so we can
-                // delegate to it.
-                PREFERRED.offer(batch, 0, queues, backoff);
-            }
-        };
-    }
+    // EXCLUSIVE {
+    // @Override
+    // public WorkBatch poll(int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // // This functions the same as PREFERRED's poll with a threadId of 0, so we can
+    // // delegate to it.
+    // return PREFERRED.poll(0, queues, backoff);
+    // }
+
+    // @Override
+    // public void offer(WorkBatch batch, int threadId,
+    // List<? extends ConcurrentLinkedQueue<WorkBatch>> queues,
+    // BackoffStrategy backoff) throws InterruptedException {
+    // // This functions the same as PREFERRED's offer with a threadId of 0, so we can
+    // // delegate to it.
+    // PREFERRED.offer(batch, 0, queues, backoff);
+    // }
+    // };
+    // }
 }

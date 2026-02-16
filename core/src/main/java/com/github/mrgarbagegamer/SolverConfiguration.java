@@ -282,12 +282,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final Function<Class<?>, Logger> loggerFunction = requireNonNullElse(builder.loggerFunction,
                 LogManager::getLogger);
         final GeneratorFactoryProvider generatorFactoryProvider = requireNonNullElse(
-                builder.generatorFactoryProvider, (config, queueArray, registry) -> GeneratorFactory
-                        .ofDefault(config, queueArray, registry));
+                builder.generatorFactoryProvider, GeneratorFactory::ofDefault);
         final Queue<GeneratorContext> registryQueue = requireNonNullElse(builder.registryQueue,
                 new ConcurrentLinkedQueue<>());
         final QueueStrategyFactory queueStrategyFactory = requireNonNullElse(
-                builder.queueStrategyFactory, config -> JCToolsQueueStrategy.multiSingle(config));
+                builder.queueStrategyFactory, JCToolsQueueStrategy::multiSingle);
 
         this(numClicks, numThreads, batchSize, arrayPoolSize, taskPoolSize, queueSize, baseGrid,
                 trueCells, useDualMasks, trueCellMasksLower, trueCellMasksUpper, expectedMaskLower,
@@ -385,8 +384,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return generatorFactoryProvider.create(this, queueArray, registry); // Pass 'this' here
     }
 
-    public QueueStrategy getQueueStrategy() {
-        return queueStrategyFactory.create(this); // Pass 'this' here
+    public QueueStrategy getQueueStrategy(SolverState solverState) {
+        return queueStrategyFactory.create(this, solverState); // Pass 'this' here
     }
 
     @FunctionalInterface
@@ -404,7 +403,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
     @FunctionalInterface
     public interface QueueStrategyFactory {
-        QueueStrategy create(SolverConfiguration config);
+        QueueStrategy create(SolverConfiguration config, SolverState solverState);
     }
 
     public static class Builder {
@@ -921,7 +920,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder queueStrategyFactory(QueueStrategy queueStrategy) {
             // TODO: Update this (and all) requireNonNull checks to include the name for better
             // debugging
-            return queueStrategyFactory(config -> requireNonNull(queueStrategy));
+            return queueStrategyFactory((config, solverState) -> requireNonNull(queueStrategy));
         }
 
         public Builder reset() {

@@ -17,6 +17,8 @@ import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.github.mrgarbagegamer.queues.JCToolsQueueStrategy;
+
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
@@ -40,7 +42,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         Supplier<IntList> evenStartIndices, SolutionHandler solutionHandler,
         Function<Class<?>, Logger> loggerFunction,
         GeneratorFactoryProvider generatorFactoryProvider, // Changed type
-        Queue<GeneratorContext> registryQueue) {
+        Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
 
     // Internal static predicates and consumers for validation
     private static final ShortPredicate VALID_INDEX_PREDICATE = cell -> cell >= 0
@@ -189,7 +191,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             Supplier<IntList> evenStartIndices, SolutionHandler solutionHandler,
             Function<Class<?>, Logger> loggerFunction,
             GeneratorFactoryProvider generatorFactoryProvider, // Changed type
-            Queue<GeneratorContext> registryQueue) {
+            Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
         // TODO: Consider importing Guava's Preconditions for validation
         if (numClicks <= 0 || numClicks > Grid.NUM_CELLS) {
             throw new IllegalArgumentException(
@@ -237,6 +239,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         this.loggerFunction = requireNonNull(loggerFunction);
         this.generatorFactoryProvider = requireNonNull(generatorFactoryProvider);
         this.registryQueue = requireNonNull(registryQueue);
+        this.queueStrategyFactory = requireNonNull(queueStrategyFactory);
     }
 
     private SolverConfiguration(Builder builder) {
@@ -283,12 +286,14 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                         .ofDefault(config, queueArray, registry));
         final Queue<GeneratorContext> registryQueue = requireNonNullElse(builder.registryQueue,
                 new ConcurrentLinkedQueue<>());
+        final QueueStrategyFactory queueStrategyFactory = requireNonNullElse(
+                builder.queueStrategyFactory, config -> JCToolsQueueStrategy.multiSingle(config));
 
         this(numClicks, numThreads, batchSize, arrayPoolSize, taskPoolSize, queueSize, baseGrid,
                 trueCells, useDualMasks, trueCellMasksLower, trueCellMasksUpper, expectedMaskLower,
                 expectedMaskUpper, oddClickIndices, evenClickIndices, suffixMasksLower,
                 suffixMasksUpper, oddStartIndices, evenStartIndices, solutionHandler,
-                loggerFunction, generatorFactoryProvider, registryQueue);
+                loggerFunction, generatorFactoryProvider, registryQueue, queueStrategyFactory);
     }
 
     public static Builder builder() {
@@ -380,6 +385,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return generatorFactoryProvider.create(this, queueArray, registry); // Pass 'this' here
     }
 
+    public QueueStrategy getQueueStrategy() {
+        return queueStrategyFactory.create(this); // Pass 'this' here
+    }
+
     @FunctionalInterface
     public interface SolutionHandler {
         void handleSolution(short[] prefix, short finalClick, CombinationQueueArray queueArray,
@@ -424,6 +433,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private Function<Class<?>, Logger> loggerFunction;
         private GeneratorFactoryProvider generatorFactoryProvider;
         private Queue<GeneratorContext> registryQueue;
+        private QueueStrategyFactory queueStrategyFactory;
 
         private static ShortList shortListToFastList(List<Short> list) {
             return switch (list.size()) {
@@ -903,6 +913,17 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             return this;
         }
 
+        public Builder queueStrategyFactory(QueueStrategyFactory queueStrategyFactory) {
+            this.queueStrategyFactory = requireNonNull(queueStrategyFactory);
+            return this;
+        }
+
+        public Builder queueStrategyFactory(QueueStrategy queueStrategy) {
+            // TODO: Update this (and all) requireNonNull checks to include the name for better
+            // debugging
+            return queueStrategyFactory(config -> requireNonNull(queueStrategy));
+        }
+
         public Builder reset() {
             // Reset all fields of this builder to their default values.
             this.numClicks = 17;
@@ -928,6 +949,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             this.loggerFunction = null;
             this.generatorFactoryProvider = null;
             this.registryQueue = null;
+            this.queueStrategyFactory = null;
             return this;
         }
 

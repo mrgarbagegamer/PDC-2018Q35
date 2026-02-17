@@ -37,8 +37,8 @@ public final class ContinuationPredicates {
         requireNonNull(state, "state must not be null");
         requireNonNull(gtmQueues, "gtmQueues must not be null");
 
-        return () -> state.solutionFound() || (state.generationComplete()
-                && gtmQueues.stream().allMatch(MessagePassingQueue::isEmpty));
+        return () -> !state.solutionFound() && (!state.generationComplete()
+                || !gtmQueues.stream().allMatch(MessagePassingQueue::isEmpty));
     }
 
     public static BooleanSupplier forMonkeyJCTools(SolverState state,
@@ -46,7 +46,7 @@ public final class ContinuationPredicates {
         requireNonNull(state, "state must not be null");
         requireNonNull(gtmQueue, "gtmQueue must not be null");
 
-        return () -> state.solutionFound() || (state.generationComplete() && gtmQueue.isEmpty());
+        return () -> !state.solutionFound() && (!state.generationComplete() || !gtmQueue.isEmpty());
     }
 
     public static BooleanSupplier forMonkeyBlocking(SolverState state,
@@ -54,8 +54,8 @@ public final class ContinuationPredicates {
         requireNonNull(state, "state must not be null");
         requireNonNull(gtmQueues, "gtmQueues must not be null");
 
-        return () -> state.solutionFound() || (state.generationComplete()
-                && gtmQueues.stream().allMatch(BlockingQueue::isEmpty));
+        return () -> !state.solutionFound() && (!state.generationComplete()
+                || !gtmQueues.stream().allMatch(BlockingQueue::isEmpty));
     }
 
     public static BooleanSupplier forMonkeyBlocking(SolverState state,
@@ -63,6 +63,6 @@ public final class ContinuationPredicates {
         requireNonNull(state, "state must not be null");
         requireNonNull(gtmQueue, "gtmQueue must not be null");
 
-        return () -> state.solutionFound() || (state.generationComplete() && gtmQueue.isEmpty());
+        return () -> !state.solutionFound() && (!state.generationComplete() || !gtmQueue.isEmpty());
     }
 }

@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer.queues;
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Predicate;
 
@@ -148,7 +149,7 @@ public final class QueueUtils {
 
         if (queues.isEmpty()) {
             throw new IllegalArgumentException(listName + " must not be empty");
-        } else if (queues.contains(null)) {
+        } else if (queues.stream().anyMatch(Objects::isNull)) {
             throw new NullPointerException(listName + " must not contain null elements");
         }
     }
@@ -253,7 +254,7 @@ public final class QueueUtils {
         ops.dispatchProducerSelectorValidation(gtmQueues, generatorOfferSelector, "gtm",
                 generatorCount);
         ops.dispatchConsumerSelectorValidation(gtmQueues, monkeyPollSelector, "gtm", monkeyCount);
-        ops.dispatchProducerSelectorValidation(gtmQueues, monkeyOfferSelector, "gtm", monkeyCount);
+        ops.dispatchProducerSelectorValidation(mtgQueues, monkeyOfferSelector, "mtg", monkeyCount);
     }
 
     /**

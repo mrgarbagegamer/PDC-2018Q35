@@ -25,16 +25,16 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 
 public class BlockingQueueStrategy implements QueueStrategy {
-    private final List<? extends BlockingQueue<WorkBatch>> gtmQueues;
-    private final List<? extends BlockingQueue<WorkBatch>> mtgQueues;
+    private final List<BlockingQueue<WorkBatch>> gtmQueues;
+    private final List<BlockingQueue<WorkBatch>> mtgQueues;
 
     // Generators poll from mtgQueues, offer to gtmQueues
-    private final QueueSelector<? extends BlockingQueue<WorkBatch>> generatorPollSelector;
-    private final QueueSelector<? extends BlockingQueue<WorkBatch>> generatorOfferSelector;
+    private final QueueSelector<BlockingQueue<WorkBatch>> generatorPollSelector;
+    private final QueueSelector<BlockingQueue<WorkBatch>> generatorOfferSelector;
 
     // Monkeys poll from gtmQueues, offer to mtgQueues
-    private final QueueSelector<? extends BlockingQueue<WorkBatch>> monkeyPollSelector;
-    private final QueueSelector<? extends BlockingQueue<WorkBatch>> monkeyOfferSelector;
+    private final QueueSelector<BlockingQueue<WorkBatch>> monkeyPollSelector;
+    private final QueueSelector<BlockingQueue<WorkBatch>> monkeyOfferSelector;
 
     // Backoff strategies for generators and monkeys:
     private final BackoffStrategy generatorBackoff;
@@ -43,6 +43,9 @@ public class BlockingQueueStrategy implements QueueStrategy {
     private final BooleanSupplier generatorShouldContinue;
     private final BooleanSupplier monkeyShouldContinue;
 
+    // Suppress unchecked warnings for the QueueSelector casts; since the casts are to the same type
+    // as the bounds of the wildcard, they are safe.
+    @SuppressWarnings("unchecked")
     public BlockingQueueStrategy(List<? extends BlockingQueue<WorkBatch>> gtmQueues,
             List<? extends BlockingQueue<WorkBatch>> mtgQueues, SolverConfiguration config,
             QueueSelector<? extends BlockingQueue<WorkBatch>> generatorPollSelector,
@@ -61,10 +64,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
 
         this.gtmQueues = List.copyOf(gtmQueues);
         this.mtgQueues = List.copyOf(mtgQueues);
-        this.generatorPollSelector = generatorPollSelector;
-        this.generatorOfferSelector = generatorOfferSelector;
-        this.monkeyPollSelector = monkeyPollSelector;
-        this.monkeyOfferSelector = monkeyOfferSelector;
+        this.generatorPollSelector = (QueueSelector<BlockingQueue<WorkBatch>>) generatorPollSelector;
+        this.generatorOfferSelector = (QueueSelector<BlockingQueue<WorkBatch>>) generatorOfferSelector;
+        this.monkeyPollSelector = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyPollSelector;
+        this.monkeyOfferSelector = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyOfferSelector;
         this.generatorBackoff = generatorBackoffStrategy;
         this.monkeyBackoff = monkeyBackoffStrategy;
 
@@ -112,7 +115,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
             Q gtmQueue, Q mtgQueue, SolverConfiguration config, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, SolverState solverState) {
         final BlockingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
-        final List<? extends BlockingQueue<WorkBatch>> wrappedMtgQueues = List.of(wrap(mtgQueue));
+        final List<BlockingQueue<WorkBatch>> wrappedMtgQueues = List.of(wrap(mtgQueue));
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
                 wrappedGtmQueue);
@@ -155,7 +158,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
         final BlockingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
-        final List<? extends BlockingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final List<BlockingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
                 wrappedGtmQueue);
@@ -169,9 +172,9 @@ public class BlockingQueueStrategy implements QueueStrategy {
             ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
-        return new BlockingQueueStrategy(List.of(wrappedGtmQueue), wrapAll(wrappedMtgQueues),
-                config, generatorPollSelector, EXCLUSIVE, EXCLUSIVE, monkeyOfferSelector,
-                generatorBackoff, monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
+        return new BlockingQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
+                generatorPollSelector, EXCLUSIVE, EXCLUSIVE, monkeyOfferSelector, generatorBackoff,
+                monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
     }
 
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy singleMulti(Q gtmQueue,
@@ -213,7 +216,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
             BackoffStrategy monkeyBackoff, SolverState solverState) {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
-        final List<? extends BlockingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
+        final List<BlockingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
         final BlockingQueue<WorkBatch> wrappedMtgQueue = wrap(mtgQueue);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
@@ -275,8 +278,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
             BackoffStrategy monkeyBackoff, SolverState solverState) {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
-        final List<? extends BlockingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
-        final List<? extends BlockingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final List<BlockingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
+        final List<BlockingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
                 wrappedGtmQueues);
@@ -296,9 +299,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
             ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
-        return new BlockingQueueStrategy(gtmQueues, mtgQueues, config, generatorPollSelector,
-                generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, generatorBackoff,
-                monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
+        return new BlockingQueueStrategy(wrappedGtmQueues, wrappedMtgQueues, config,
+                generatorPollSelector, generatorOfferSelector, monkeyPollSelector,
+                monkeyOfferSelector, generatorBackoff, monkeyBackoff, generatorShouldContinue,
+                monkeyShouldContinue);
     }
 
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy multiMulti(

@@ -27,16 +27,16 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 
 public class JCToolsQueueStrategy implements QueueStrategy {
-    private final List<? extends MessagePassingQueue<WorkBatch>> gtmQueues;
-    private final List<? extends MessagePassingQueue<WorkBatch>> mtgQueues;
+    private final List<MessagePassingQueue<WorkBatch>> gtmQueues;
+    private final List<MessagePassingQueue<WorkBatch>> mtgQueues;
 
     // Generators poll from mtgQueues, offer to gtmQueues
-    private final QueueSelector<? extends MessagePassingQueue<WorkBatch>> generatorPollSelector;
-    private final QueueSelector<? extends MessagePassingQueue<WorkBatch>> generatorOfferSelector;
+    private final QueueSelector<MessagePassingQueue<WorkBatch>> generatorPollSelector;
+    private final QueueSelector<MessagePassingQueue<WorkBatch>> generatorOfferSelector;
 
     // Monkeys poll from gtmQueues, offer to mtgQueues
-    private final QueueSelector<? extends MessagePassingQueue<WorkBatch>> monkeyPollSelector;
-    private final QueueSelector<? extends MessagePassingQueue<WorkBatch>> monkeyOfferSelector;
+    private final QueueSelector<MessagePassingQueue<WorkBatch>> monkeyPollSelector;
+    private final QueueSelector<MessagePassingQueue<WorkBatch>> monkeyOfferSelector;
 
     // Backoff strategies for generators and monkeys:
     private final BackoffStrategy generatorBackoff;
@@ -46,6 +46,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
     private final BooleanSupplier generatorShouldContinue;
     private final BooleanSupplier monkeyShouldContinue;
 
+    @SuppressWarnings("unchecked")
     public JCToolsQueueStrategy(List<? extends MessagePassingQueue<WorkBatch>> gtmQueues,
             List<? extends MessagePassingQueue<WorkBatch>> mtgQueues, SolverConfiguration config,
             QueueSelector<? extends MessagePassingQueue<WorkBatch>> generatorPollSelector,
@@ -64,10 +65,10 @@ public class JCToolsQueueStrategy implements QueueStrategy {
 
         this.gtmQueues = List.copyOf(gtmQueues);
         this.mtgQueues = List.copyOf(mtgQueues);
-        this.generatorPollSelector = generatorPollSelector;
-        this.generatorOfferSelector = generatorOfferSelector;
-        this.monkeyPollSelector = monkeyPollSelector;
-        this.monkeyOfferSelector = monkeyOfferSelector;
+        this.generatorPollSelector = (QueueSelector<MessagePassingQueue<WorkBatch>>) generatorPollSelector;
+        this.generatorOfferSelector = (QueueSelector<MessagePassingQueue<WorkBatch>>) generatorOfferSelector;
+        this.monkeyPollSelector = (QueueSelector<MessagePassingQueue<WorkBatch>>) monkeyPollSelector;
+        this.monkeyOfferSelector = (QueueSelector<MessagePassingQueue<WorkBatch>>) monkeyOfferSelector;
         this.generatorBackoff = generatorBackoffStrategy;
         this.monkeyBackoff = monkeyBackoffStrategy;
         this.generatorShouldContinue = requireNonNull(generatorShouldContinue,
@@ -116,8 +117,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             Q gtmQueue, Q mtgQueue, SolverConfiguration config, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, SolverState solverState) {
         final MessagePassingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
-        final List<? extends MessagePassingQueue<WorkBatch>> wrappedMtgQueues = List
-                .of(wrap(mtgQueue));
+        final List<MessagePassingQueue<WorkBatch>> wrappedMtgQueues = List.of(wrap(mtgQueue));
 
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, wrappedGtmQueue);
@@ -160,7 +160,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
         final MessagePassingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
-        final List<? extends MessagePassingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final List<MessagePassingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, wrappedGtmQueue);
 
@@ -173,7 +173,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
-        return new JCToolsQueueStrategy(List.of(wrappedGtmQueue), wrapAll(wrappedMtgQueues), config,
+        return new JCToolsQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
                 generatorPollSelector, EXCLUSIVE, EXCLUSIVE, monkeyOfferSelector, generatorBackoff,
                 monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
     }
@@ -217,7 +217,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             BackoffStrategy monkeyBackoff, SolverState solverState) {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
-        final List<? extends MessagePassingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
+        final List<MessagePassingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
         final MessagePassingQueue<WorkBatch> wrappedMtgQueue = wrap(mtgQueue);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState,
@@ -281,8 +281,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             BackoffStrategy monkeyBackoff, SolverState solverState) {
         // Wrap the queues now so the validations below can check the correct types (e.g. whether
         // they support multi-producer or multi-consumer).
-        final List<? extends MessagePassingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
-        final List<? extends MessagePassingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final List<MessagePassingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
+        final List<MessagePassingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState,
                 wrappedGtmQueues);
@@ -293,13 +293,13 @@ public class JCToolsQueueStrategy implements QueueStrategy {
             ensureMultiConsumerSupport(wrappedMtgQueues, "mtg");
         }
         if (generatorOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
+            ensureMultiProducerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyPollSelector == EXCLUSIVE && config.numThreads() > 2) {
             ensureMultiConsumerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedGtmQueues, "gtm");
+            ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
         return new JCToolsQueueStrategy(wrappedGtmQueues, wrappedMtgQueues, config,

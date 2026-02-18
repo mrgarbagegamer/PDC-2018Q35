@@ -8,7 +8,7 @@ public interface QueueStrategy {
      * @return a {@link WorkBatch}, or {@code null} if the strategy has determined that no more work
      *         will arrive (e.g., graceful shutdown)
      */
-    WorkBatch generatorPoll(int generatorId) throws InterruptedException;
+    WorkBatch generatorPoll(int generatorId);
 
     /**
      * Offers a completed {@link WorkBatch} from the given generator.
@@ -16,7 +16,7 @@ public interface QueueStrategy {
      * @return {@code true} if the batch was accepted, {@code false} if the strategy signaled that
      *         offering should stop (e.g., solution found)
      */
-    boolean generatorOffer(WorkBatch batch, int generatorId) throws InterruptedException;
+    boolean generatorOffer(WorkBatch batch, int generatorId);
 
     /**
      * Polls for a {@link WorkBatch} for the given monkey.
@@ -24,7 +24,7 @@ public interface QueueStrategy {
      * @return a {@link WorkBatch}, or {@code null} if the strategy has determined that no more work
      *         will arrive (e.g., generation complete and all queues drained)
      */
-    WorkBatch monkeyPoll(int monkeyId) throws InterruptedException;
+    WorkBatch monkeyPoll(int monkeyId);
 
     /**
      * Offers a recycled {@link WorkBatch} from the given monkey.
@@ -32,5 +32,5 @@ public interface QueueStrategy {
      * @return {@code true} if the batch was accepted, {@code false} if the strategy signaled that
      *         offering should stop
      */
-    boolean monkeyOffer(WorkBatch batch, int monkeyId) throws InterruptedException;
+    boolean monkeyOffer(WorkBatch batch, int monkeyId);
 }

@@ -80,26 +80,46 @@ public class BlockingQueueStrategy implements QueueStrategy {
     }
 
     @Override
-    public WorkBatch generatorPoll(int generatorId) throws InterruptedException {
-        return generatorPollSelector.poll(generatorId, mtgQueues, generatorBackoff,
-                generatorShouldContinue);
+    public WorkBatch generatorPoll(int generatorId) {
+        try {
+            return generatorPollSelector.poll(generatorId, mtgQueues, generatorBackoff,
+                    generatorShouldContinue);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null; // Signal to shut down
+        }
     }
 
     @Override
-    public boolean generatorOffer(WorkBatch batch, int generatorId) throws InterruptedException {
-        return generatorOfferSelector.offer(batch, generatorId, gtmQueues, generatorBackoff,
-                generatorShouldContinue);
+    public boolean generatorOffer(WorkBatch batch, int generatorId) {
+        try {
+            return generatorOfferSelector.offer(batch, generatorId, gtmQueues, generatorBackoff,
+                    generatorShouldContinue);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false; // Signal to stop offering
+        }
     }
 
     @Override
-    public WorkBatch monkeyPoll(int monkeyId) throws InterruptedException {
-        return monkeyPollSelector.poll(monkeyId, gtmQueues, monkeyBackoff, monkeyShouldContinue);
+    public WorkBatch monkeyPoll(int monkeyId) {
+        try {
+            return monkeyPollSelector.poll(monkeyId, gtmQueues, monkeyBackoff, monkeyShouldContinue);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return null; // Signal to shut down
+        }
     }
 
     @Override
-    public boolean monkeyOffer(WorkBatch batch, int monkeyId) throws InterruptedException {
-        return monkeyOfferSelector.offer(batch, monkeyId, mtgQueues, monkeyBackoff,
-                monkeyShouldContinue);
+    public boolean monkeyOffer(WorkBatch batch, int monkeyId) {
+        try {
+            return monkeyOfferSelector.offer(batch, monkeyId, mtgQueues, monkeyBackoff,
+                    monkeyShouldContinue);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false; // Signal to stop offering
+        }
     }
 
     // Static factory methods for common configurations:

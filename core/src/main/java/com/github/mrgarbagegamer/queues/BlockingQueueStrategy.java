@@ -81,45 +81,25 @@ public class BlockingQueueStrategy implements QueueStrategy {
 
     @Override
     public WorkBatch generatorPoll(int generatorId) {
-        try {
-            return generatorPollSelector.poll(generatorId, mtgQueues, generatorBackoff,
-                    generatorShouldContinue);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return null; // Signal to shut down
-        }
+        return generatorPollSelector.poll(generatorId, mtgQueues, generatorBackoff,
+                generatorShouldContinue);
     }
 
     @Override
     public boolean generatorOffer(WorkBatch batch, int generatorId) {
-        try {
-            return generatorOfferSelector.offer(batch, generatorId, gtmQueues, generatorBackoff,
-                    generatorShouldContinue);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false; // Signal to stop offering
-        }
+        return generatorOfferSelector.offer(batch, generatorId, gtmQueues, generatorBackoff,
+                generatorShouldContinue);
     }
 
     @Override
     public WorkBatch monkeyPoll(int monkeyId) {
-        try {
-            return monkeyPollSelector.poll(monkeyId, gtmQueues, monkeyBackoff, monkeyShouldContinue);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return null; // Signal to shut down
-        }
+        return monkeyPollSelector.poll(monkeyId, gtmQueues, monkeyBackoff, monkeyShouldContinue);
     }
 
     @Override
     public boolean monkeyOffer(WorkBatch batch, int monkeyId) {
-        try {
-            return monkeyOfferSelector.offer(batch, monkeyId, mtgQueues, monkeyBackoff,
-                    monkeyShouldContinue);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false; // Signal to stop offering
-        }
+        return monkeyOfferSelector.offer(batch, monkeyId, mtgQueues, monkeyBackoff,
+                monkeyShouldContinue);
     }
 
     // Static factory methods for common configurations:

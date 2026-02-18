@@ -18,6 +18,24 @@ public final class QueueSelectors {
                 "QueueSelectors is a utility class and cannot be instantiated.");
     }
 
+    private static boolean handleInterrupted() {
+        if (interrupted()) {
+            Thread.currentThread().interrupt();
+            return true;
+        }
+        return false;
+    }
+
+    private static boolean tryBackoff(BackoffStrategy backoff) {
+        try {
+            backoff.backoff();
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return true;
+        }
+    }
+
     /**
      * Singleton selection strategy implementations for JCTools queues. Each enum constant is a
      * stateless singleton — no repeated object creation, and the JIT can optimize dispatch when a
@@ -33,21 +51,22 @@ public final class QueueSelectors {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
 
                 final ThreadLocalRandom random = ThreadLocalRandom.current();
                 final int size = queues.size();
 
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return null;
                     final int start = random.nextInt(size);
                     for (int i = 0; i < size; i++) {
                         final WorkBatch batch = queues.get((start + i) % size).relaxedPoll();
                         if (batch != null)
                             return batch;
                     }
-                    backoff.backoff();
+                    if (tryBackoff(backoff)) 
+                        return null;
                 }
                 return null;
             }
@@ -55,20 +74,21 @@ public final class QueueSelectors {
             @Override
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
 
                 final ThreadLocalRandom random = ThreadLocalRandom.current();
                 final int size = queues.size();
 
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return false;
                     final int start = random.nextInt(size);
                     for (int i = 0; i < size; i++) {
                         if (queues.get((start + i) % size).relaxedOffer(batch))
                             return true;
                     }
-                    backoff.backoff();
+                    if (tryBackoff(backoff)) 
+                        return false;
                 }
                 return false;
             }
@@ -82,18 +102,19 @@ public final class QueueSelectors {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 final int size = queues.size();
 
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return null;
                     for (int i = 0; i < size; i++) {
                         final WorkBatch batch = queues.get(i).relaxedPoll();
                         if (batch != null)
                             return batch;
                     }
-                    backoff.backoff();
+                    if (tryBackoff(backoff))
+                        return null;
                 }
                 return null;
             }
@@ -101,17 +122,18 @@ public final class QueueSelectors {
             @Override
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 final int size = queues.size();
 
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return false;
                     for (int i = 0; i < size; i++) {
                         if (queues.get(i).relaxedOffer(batch))
                             return true;
                     }
-                    backoff.backoff();
+                    if (tryBackoff(backoff))
+                        return false;
                 }
                 return false;
             }
@@ -125,12 +147,12 @@ public final class QueueSelectors {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 final int size = queues.size();
 
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return null;
                     // Preferred queue first
                     final WorkBatch preferred = queues.get(threadId).relaxedPoll();
                     if (preferred != null)
@@ -143,7 +165,8 @@ public final class QueueSelectors {
                         if (batch != null)
                             return batch;
                     }
-                    backoff.backoff();
+                    if (tryBackoff(backoff))
+                        return null;
                 }
                 return null;
             }
@@ -151,12 +174,12 @@ public final class QueueSelectors {
             @Override
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 final int size = queues.size();
 
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return false;
                     // Preferred queue first
                     if (queues.get(threadId).relaxedOffer(batch))
                         return true;
@@ -167,7 +190,8 @@ public final class QueueSelectors {
                         if (queues.get(idx).relaxedOffer(batch))
                             return true;
                     }
-                    backoff.backoff();
+                    if (tryBackoff(backoff))
+                        return false;
                 }
                 return false;
             }
@@ -182,15 +206,16 @@ public final class QueueSelectors {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 final MessagePassingQueue<WorkBatch> queue = queues.get(threadId);
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return null;
                     final WorkBatch batch = queue.relaxedPoll();
                     if (batch != null)
                         return batch;
-                    backoff.backoff();
+                    if (tryBackoff(backoff))
+                        return null;
                 }
                 return null;
             }
@@ -198,14 +223,15 @@ public final class QueueSelectors {
             @Override
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 final MessagePassingQueue<WorkBatch> queue = queues.get(threadId);
                 while (shouldContinue.getAsBoolean()) {
-                    if (interrupted())
-                        throw new InterruptedException();
+                    if (handleInterrupted())
+                        return false;
                     if (queue.relaxedOffer(batch))
                         return true;
-                    backoff.backoff();
+                    if (tryBackoff(backoff))
+                        return false;
                 }
                 return false;
             }
@@ -215,14 +241,14 @@ public final class QueueSelectors {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 return PREFERRED.poll(0, queues, backoff, shouldContinue);
             }
 
             @Override
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 return PREFERRED.offer(batch, 0, queues, backoff, shouldContinue);
             }
         }
@@ -235,14 +261,18 @@ public final class QueueSelectors {
         PREFERRED {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff, BooleanSupplier shouldContinue)
-                    throws InterruptedException {
+                    BackoffStrategy backoff, BooleanSupplier shouldContinue) {
                 final BlockingQueue<WorkBatch> queue = queues.get(threadId);
                 while (shouldContinue.getAsBoolean()) {
-                    // Use a short timeout so we can re-check shouldContinue periodically
-                    final WorkBatch batch = queue.poll(100, TimeUnit.MILLISECONDS);
-                    if (batch != null)
-                        return batch;
+                    try {
+                        // Use a short timeout so we can re-check shouldContinue periodically
+                        final WorkBatch batch = queue.poll(100, TimeUnit.MILLISECONDS);
+                        if (batch != null)
+                            return batch;
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return null;
+                    }
                 }
                 return null;
             }
@@ -250,11 +280,16 @@ public final class QueueSelectors {
             @Override
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends BlockingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 final BlockingQueue<WorkBatch> queue = queues.get(threadId);
                 while (shouldContinue.getAsBoolean()) {
-                    if (queue.offer(batch, 100, TimeUnit.MILLISECONDS))
-                        return true;
+                    try {
+                        if (queue.offer(batch, 100, TimeUnit.MILLISECONDS))
+                            return true;
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
                 }
                 return false;
             }
@@ -263,15 +298,14 @@ public final class QueueSelectors {
         EXCLUSIVE {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
-                    BackoffStrategy backoff, BooleanSupplier shouldContinue)
-                    throws InterruptedException {
+                    BackoffStrategy backoff, BooleanSupplier shouldContinue) {
                 return PREFERRED.poll(0, queues, backoff, shouldContinue);
             }
 
             @Override
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends BlockingQueue<WorkBatch>> queues, BackoffStrategy backoff,
-                    BooleanSupplier shouldContinue) throws InterruptedException {
+                    BooleanSupplier shouldContinue) {
                 return PREFERRED.offer(batch, 0, queues, backoff, shouldContinue);
             }
         };

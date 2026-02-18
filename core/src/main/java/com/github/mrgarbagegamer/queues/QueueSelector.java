@@ -24,7 +24,7 @@ public interface QueueSelector<Q> {
      * @throws InterruptedException if the thread is interrupted while polling
      */
     WorkBatch poll(int threadId, List<? extends Q> queues, BackoffStrategy backoff,
-            BooleanSupplier shouldContinue) throws InterruptedException;
+            BooleanSupplier shouldContinue);
 
     /**
      * Offers a {@link WorkBatch} to the given queues.
@@ -44,5 +44,5 @@ public interface QueueSelector<Q> {
      * @throws InterruptedException if the thread is interrupted while offering
      */
     boolean offer(WorkBatch batch, int threadId, List<? extends Q> queues, BackoffStrategy backoff,
-            BooleanSupplier shouldContinue) throws InterruptedException;
+            BooleanSupplier shouldContinue);
 }

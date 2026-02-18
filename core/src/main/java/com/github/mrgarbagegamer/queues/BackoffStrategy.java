@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
+import java.util.concurrent.locks.LockSupport;
+
 @FunctionalInterface
 public interface BackoffStrategy {
     void backoff() throws InterruptedException;
@@ -10,5 +12,17 @@ public interface BackoffStrategy {
 
     static BackoffStrategy noOp() {
         return () -> {};
+    }
+
+    static BackoffStrategy yield() {
+        return Thread::yield;
+    }
+
+    static BackoffStrategy parkNanos(long nanos) {
+        return () -> LockSupport.parkNanos(nanos);
+    }
+
+    static BackoffStrategy onSpinWait() {
+        return Thread::onSpinWait;
     }
 }

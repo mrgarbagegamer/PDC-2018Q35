@@ -5,11 +5,11 @@ import java.util.concurrent.ForkJoinWorkerThread;
 
 // TODO: Add Javadoc
 public abstract class GeneratorThread extends ForkJoinWorkerThread {
-    
+
     protected GeneratorThread(String name, ForkJoinPool pool) {
         super(pool);
         this.setName(name);
     }
 
-    public abstract DefaultGeneratorContext getContext();
+    public abstract GeneratorContext getContext();
 }

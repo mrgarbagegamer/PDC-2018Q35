@@ -177,18 +177,16 @@ public class TaskPool {
 
     // Used for the allocation fallback in get()
     private final SolverConfiguration config;
-    private final CombinationQueueArray queueArray;
 
-    public TaskPool(SolverConfiguration config, CombinationQueueArray queueArray) {
+    public TaskPool(SolverConfiguration config) {
         this.config = requireNonNull(config, "config cannot be null");
-        this.queueArray = requireNonNull(queueArray, "queueArray cannot be null");
 
         this.capacity = config.taskPoolSize();
         this.arrays = new CombinationGeneratorTask[capacity];
 
         // Pre-allocate all tasks
         for (int i = 0; i < capacity; i++) {
-            this.arrays[i] = new CombinationGeneratorTask(config, queueArray);
+            this.arrays[i] = new CombinationGeneratorTask(config);
         }
     }
 
@@ -222,7 +220,7 @@ public class TaskPool {
     public CombinationGeneratorTask get() {
         // The allocation fallback:
         if (size == 0) {
-            return new CombinationGeneratorTask(config, queueArray);
+            return new CombinationGeneratorTask(config);
         }
 
         CombinationGeneratorTask task = arrays[head];

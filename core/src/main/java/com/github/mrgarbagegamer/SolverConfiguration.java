@@ -379,9 +379,9 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return loggerFunction.apply(clazz);
     }
 
-    public GeneratorFactory getGeneratorFactory(CombinationQueueArray queueArray,
-            ContextRegistry registry) {
-        return generatorFactoryProvider.create(this, queueArray, registry); // Pass 'this' here
+    public GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy,
+            SolverState solverState, ContextRegistry registry) {
+        return generatorFactoryProvider.create(this, queueStrategy, registry); // Pass 'this' here
     }
 
     public QueueStrategy getQueueStrategy(SolverState solverState) {
@@ -390,14 +390,14 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
     @FunctionalInterface
     public interface SolutionHandler {
-        void handleSolution(short[] prefix, short finalClick, CombinationQueueArray queueArray,
+        void handleSolution(short[] prefix, short finalClick, SolverState solverState,
                 ForkJoinPool generatorPool, Logger logger);
     }
 
     // Replace BiFunction with a TriFunction-style interface
     @FunctionalInterface
     public interface GeneratorFactoryProvider {
-        GeneratorFactory create(SolverConfiguration config, CombinationQueueArray queueArray,
+        GeneratorFactory create(SolverConfiguration config, QueueStrategy queueStrategy,
                 ContextRegistry registry);
     }
 
@@ -904,7 +904,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
         public Builder generatorFactoryProvider(GeneratorFactory generatorFactory) {
             return generatorFactoryProvider(
-                    (config, queueArray, registry) -> requireNonNull(generatorFactory));
+                    (config, queueStrategy, registry) -> requireNonNull(generatorFactory));
         }
 
         public Builder registryQueue(Queue<GeneratorContext> registryQueue) {
@@ -1032,12 +1032,12 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     }
 
     private static void defaultSolutionHandling(short[] prefix, short finalClick,
-            CombinationQueueArray queueArray, ForkJoinPool generatorPool, Logger logger) {
+            SolverState solverState, ForkJoinPool generatorPool, Logger logger) {
         // Default implementation: log the solution
         final short[] winningCombination = new short[prefix.length + 1];
         System.arraycopy(prefix, 0, winningCombination, 0, prefix.length);
         winningCombination[prefix.length] = finalClick;
-        queueArray.getSolverState().markSolutionFound(winningCombination);
+        solverState.markSolutionFound(winningCombination);
         logger.info("Found the solution as the following click combination: {}",
                 new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
 

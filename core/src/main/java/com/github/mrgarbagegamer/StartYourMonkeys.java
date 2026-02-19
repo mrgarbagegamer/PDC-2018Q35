@@ -145,18 +145,20 @@ public class StartYourMonkeys {
         return configBuilder.build();
     }
 
-    public static record Solver(SolverConfiguration config, Logger logger,
-            CombinationQueueArray queueArray) {
+    public static record Solver(SolverConfiguration config, Logger logger, SolverState solverState,
+            QueueStrategy queueStrategy) {
 
         public Solver {
             requireNonNull(config, "config cannot be null");
             requireNonNull(logger, "logger cannot be null");
-            requireNonNull(queueArray, "queueArray cannot be null");
+            requireNonNull(solverState, "solverState cannot be null");
+            requireNonNull(queueStrategy, "queueStrategy cannot be null");
         }
 
         public static Solver ofConfig(SolverConfiguration config) {
-            return new Solver(config, config.getLogger(Solver.class),
-                    new CombinationQueueArray(config));
+            final SolverState solverState = new SolverState();
+            return new Solver(config, config.getLogger(Solver.class), solverState,
+                    config.getQueueStrategy(solverState));
         }
 
         public void solve() {
@@ -170,31 +172,32 @@ public class StartYourMonkeys {
             final int numMonkeys = this.config.numThreads() - numGenerators; // Rounds up if odd
 
             // Create the context registry and generator pool
-            final ContextRegistry registry = ContextRegistry.newRegistry(config);
+            final ContextRegistry registry = ContextRegistry.newRegistry(this.config);
             // TODO: Consider setting asyncMode to true and benchmarking performance impact
             final ForkJoinPool generatorPool = new ForkJoinPool(numGenerators,
-                    GeneratorFactory.ofDefault(config, queueArray, registry), null, false);
+                    GeneratorFactory.ofDefault(this.config, this.queueStrategy, registry), null,
+                    false);
 
             // Create the monkeys
             final TestClickCombination[] monkeys = new TestClickCombination[numMonkeys];
             for (int i = 0; i < monkeys.length; i++) {
                 // Use the large constructor:
                 final String monkeyName = "Monkey-" + i;
-                monkeys[i] = new TestClickCombination(monkeyName, config, queueArray.getQueue(i),
-                        queueArray, generatorPool);
+                monkeys[i] = new TestClickCombination(monkeyName, i, this.config,
+                        this.queueStrategy, this.solverState, generatorPool);
                 monkeys[i].start();
             }
 
             try {
-                generatorPool.invoke(CombinationGeneratorTask.createRootTask(config, queueArray));
+                generatorPool.invoke(CombinationGeneratorTask.createRootTask(this.config));
             } finally {
                 // Flush any remaining batches only if no solution found
-                if (!queueArray.getSolverState().solutionFound()) {
+                if (!this.solverState.solutionFound()) {
                     registry.flushAllPendingBatches();
                 }
 
                 // Mark generation complete
-                queueArray.getSolverState().markGenerationComplete();
+                this.solverState.markGenerationComplete();
 
                 // Wait for worker threads to finish
                 for (TestClickCombination worker : monkeys) {
@@ -210,9 +213,9 @@ public class StartYourMonkeys {
         }
 
         public void reportResults() {
-            final SolverState solverState = queueArray.getSolverState();
 
-            final long runtimeMillis = solverState.getEndTime() - solverState.getStartTime();
+            final long runtimeMillis = this.solverState.getEndTime()
+                    - this.solverState.getStartTime();
             if (runtimeMillis <= 0) {
                 throw new IllegalStateException(
                         "Program marked as complete but recorded non-positive runtime.");
@@ -228,20 +231,22 @@ public class StartYourMonkeys {
             }
 
             final String lineSeparator = System.lineSeparator();
-            logger.info("{}--------------------------------------{}", lineSeparator, lineSeparator);
+            this.logger.info("{}--------------------------------------{}", lineSeparator,
+                    lineSeparator);
 
             if (!solverState.solutionFound()) {
-                logger.info("No solution in {} clicks was found.",
+                this.logger.info("No solution in {} clicks was found.",
                         Unbox.box(this.config.numClicks()));
-                logger.info(elapsedFormatted);
+                this.logger.info(elapsedFormatted);
             } else {
-                final short[] winningCombination = solverState.getWinningCombination();
+                final short[] winningCombination = this.solverState.getWinningCombination();
 
                 // Display results as a click combination
-                logger.info("{} - Found the solution as the following click combination: {}",
-                        solverState.getWinningThread().getName(),
+                this.logger.info("{} - Found the solution as the following click combination: {}",
+                        this.solverState.getWinningThread().getName(),
                         new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
-                logger.info("{} - {}", solverState.getWinningThread().getName(), elapsedFormatted);
+                this.logger.info("{} - {}", this.solverState.getWinningThread().getName(),
+                        elapsedFormatted);
 
                 // Verify solution
                 final Grid puzzleGrid = this.config.baseGrid(); // baseGrid() performs a copy
@@ -249,7 +254,8 @@ public class StartYourMonkeys {
                 logGrid(puzzleGrid, this.logger);
             }
 
-            logger.info("{}--------------------------------------{}", lineSeparator, lineSeparator);
+            this.logger.info("{}--------------------------------------{}", lineSeparator,
+                    lineSeparator);
         }
 
         /**

@@ -4,7 +4,7 @@ public interface GeneratorContext {
 
     String getName();
 
-    GeneratorContext newContext(String name, CombinationQueueArray queueArray,
+    GeneratorContext newContext(String name, int generatorId, QueueStrategy queueStrategy,
             ContextRegistry registry, SolverConfiguration config);
 
     boolean hasBatch();
@@ -21,14 +21,14 @@ public interface GeneratorContext {
 
     TaskPool getTaskPool();
 
-    CombinationQueueArray getQueueArray();
+    QueueStrategy getQueueStrategy();
 
-    void flushCurrentBatch();
+    boolean flushCurrentBatch();
 
     SolverConfiguration getConfiguration();
 
-    static GeneratorContext ofDefault(String name, CombinationQueueArray queueArray,
+    static GeneratorContext ofDefault(String name, int generatorId, QueueStrategy queueStrategy,
             ContextRegistry registry, SolverConfiguration config) {
-        return new DefaultGeneratorContext(name, queueArray, registry, config);
+        return new DefaultGeneratorContext(name, generatorId, queueStrategy, registry, config);
     }
 }

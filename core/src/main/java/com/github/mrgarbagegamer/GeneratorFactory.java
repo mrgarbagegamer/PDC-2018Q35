@@ -11,16 +11,18 @@ public interface GeneratorFactory extends ForkJoinWorkerThreadFactory {
     @Override
     GeneratorThread newThread(ForkJoinPool pool);
 
-    static GeneratorFactory ofDefault(SolverConfiguration config, CombinationQueueArray queueArray, ContextRegistry registry) {
+    static GeneratorFactory ofDefault(SolverConfiguration config, QueueStrategy queueStrategy,
+            ContextRegistry registry) {
         final AtomicInteger threadCounter = new AtomicInteger(0);
 
         return pool -> {
-            final String threadName = "Generator-" + threadCounter.getAndIncrement();
+            final int generatorId = threadCounter.getAndIncrement();
+            final String threadName = "Generator-" + generatorId;
 
             // Anonymous class extending GeneratorThread
             return new GeneratorThread(threadName, pool) {
-                private final DefaultGeneratorContext context = new DefaultGeneratorContext(threadName,
-                        queueArray, registry, config);
+                private final DefaultGeneratorContext context = new DefaultGeneratorContext(
+                        threadName, generatorId, queueStrategy, registry, config);
 
                 @Override
                 public DefaultGeneratorContext getContext() {

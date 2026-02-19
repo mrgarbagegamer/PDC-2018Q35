@@ -24,6 +24,8 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 
+// TODO: Add Javadocs for the class and its methods
+// TODO: Write unit tests for the class.
 public class BlockingQueueStrategy implements QueueStrategy {
     private final List<BlockingQueue<WorkBatch>> gtmQueues;
     private final List<BlockingQueue<WorkBatch>> mtgQueues;

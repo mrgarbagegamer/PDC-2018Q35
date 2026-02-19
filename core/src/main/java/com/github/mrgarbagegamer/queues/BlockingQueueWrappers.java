@@ -15,6 +15,8 @@ import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
 
+// TODO: Add Javadocs for the class and its methods
+// TODO: Write unit tests for the class.
 /**
  * Thin wrappers that tag blocking queues with marker interfaces.
  */

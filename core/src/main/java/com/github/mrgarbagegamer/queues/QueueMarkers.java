@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+// TODO: Add Javadocs for the class and its interfaces
 /**
  * Marker interfaces that tag queue wrappers with their access mode and boundedness. Used by
  * {@link QueueUtils} for validation instead of exhaustive {@code instanceof} chains.

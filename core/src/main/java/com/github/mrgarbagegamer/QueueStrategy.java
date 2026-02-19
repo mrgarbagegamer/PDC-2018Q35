@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+// TODO: Add Javadocs for the interface and its methods
 public interface QueueStrategy {
 
     /**

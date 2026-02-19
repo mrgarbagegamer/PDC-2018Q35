@@ -5,6 +5,7 @@ import java.util.function.BooleanSupplier;
 
 import com.github.mrgarbagegamer.WorkBatch;
 
+// TODO: Add Javadocs for the interface and its methods
 public interface QueueSelector<Q> {
 
     /**

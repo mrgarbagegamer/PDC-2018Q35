@@ -11,6 +11,8 @@ import org.jctools.queues.MessagePassingQueue;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 
+// TODO: Add Javadocs for the class and its methods
+// TODO: Write unit tests for the class.
 public final class ContinuationPredicates {
     private ContinuationPredicates() {
         throw new UnsupportedOperationException(

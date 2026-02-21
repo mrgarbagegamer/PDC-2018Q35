@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.QueueUtils.ensureProperlyMarked;
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
@@ -193,6 +194,9 @@ public final class JCToolsWrappers {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
+
+        // Delegate to ensureProperlyMarked() to check consistency of access modes and boundedness.
+        ensureProperlyMarked(queues, listName);
     }
 
     private static MessagePassingQueue<WorkBatch> throwUnbounded(String mode) {

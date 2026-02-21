@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.QueueUtils.ensureProperlyMarked;
 import static com.github.mrgarbagegamer.queues.QueueUtils.roundToPow2;
 import static java.util.Objects.requireNonNull;
 
@@ -275,6 +276,10 @@ public final class BlockingQueueWrappers {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
+
+        // Delegate to ensureProperlyMarked() to check consistency of access modes and boundedness.
+        ensureProperlyMarked(queues, listName);
+    }
     }
 
     private static int estimateCapacity(BlockingQueue<WorkBatch> queue) {

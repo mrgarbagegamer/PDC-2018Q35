@@ -11,10 +11,12 @@ import org.jctools.queues.MessagePassingQueue;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPMC;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPSC;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.SPMC;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.SPSC;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness.Bounded;
+import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness.Unbounded;
 import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors;
 
@@ -327,6 +329,60 @@ public final class QueueUtils {
         if (threadCount > 1 && queues.stream().anyMatch(isSingleAccess)) {
             throw new IllegalArgumentException(listName(prefix) + " must not contain " + queueTypes
                     + " queues if there are multiple " + role);
+        }
+    }
+
+    public static <Q> void ensureProperlyMarked(List<? extends Q> queues, String listName) {
+        // Single-pass validation to avoid multiple stream() allocations.
+        boolean seenBounded = false;
+        boolean seenUnbounded = false;
+
+        boolean hasSpsc = false;
+        boolean hasSpmc = false;
+        boolean hasMpsc = false;
+        boolean hasMpmc = false;
+
+        for (Q q : queues) {
+            // Boundedness markers per-element
+            final boolean isBounded = q instanceof Bounded;
+            final boolean isUnbounded = q instanceof Unbounded;
+            if (isBounded && isUnbounded) {
+                throw new IllegalArgumentException(
+                        listName + " contains queues that implement both Bounded and Unbounded");
+            }
+            seenBounded |= isBounded;
+            seenUnbounded |= isUnbounded;
+
+            // Access mode markers per-element
+            final boolean isSpsc = q instanceof SPSC;
+            final boolean isSpmc = q instanceof SPMC;
+            final boolean isMpsc = q instanceof MPSC;
+            final boolean isMpmc = q instanceof MPMC;
+
+            final int accessMarkers = (isSpsc ? 1 : 0) + (isSpmc ? 1 : 0) + (isMpsc ? 1 : 0)
+                    + (isMpmc ? 1 : 0);
+            if (accessMarkers > 1) {
+                throw new IllegalArgumentException(listName
+                        + " contains queues that implement more than one access mode marker");
+            }
+            hasSpsc |= isSpsc;
+            hasSpmc |= isSpmc;
+            hasMpsc |= isMpsc;
+            hasMpmc |= isMpmc;
+        }
+
+        // Mixed boundedness across the list
+        if (seenBounded && seenUnbounded) {
+            throw new IllegalArgumentException(
+                    listName + " contains a mix of Bounded and Unbounded queues");
+        }
+
+        // Mixed access modes across the list
+        int distinctAccessTypes = (hasSpsc ? 1 : 0) + (hasSpmc ? 1 : 0) + (hasMpsc ? 1 : 0)
+                + (hasMpmc ? 1 : 0);
+        if (distinctAccessTypes > 1) {
+            throw new IllegalArgumentException(
+                    listName + " contains a mix of queues with different access mode markers");
         }
     }
 

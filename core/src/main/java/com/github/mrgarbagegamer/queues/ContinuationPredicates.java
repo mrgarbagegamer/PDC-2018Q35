@@ -38,9 +38,12 @@ public final class ContinuationPredicates {
             List<? extends MessagePassingQueue<WorkBatch>> gtmQueues) {
         requireNonNull(state, "state must not be null");
         requireNonNull(gtmQueues, "gtmQueues must not be null");
-
-        return () -> !state.solutionFound() && (!state.generationComplete()
-                || !gtmQueues.stream().allMatch(MessagePassingQueue::isEmpty));
+        return switch (gtmQueues.size()) {
+            case 0 -> throw new IllegalArgumentException("gtmQueues list must not be empty");
+            case 1 -> forMonkeyJCTools(state, gtmQueues.getFirst());
+            default -> () -> !state.solutionFound() && (!state.generationComplete()
+                    || !List.copyOf(gtmQueues).stream().allMatch(MessagePassingQueue::isEmpty));
+        };
     }
 
     public static BooleanSupplier forMonkeyJCTools(SolverState state,
@@ -56,8 +59,12 @@ public final class ContinuationPredicates {
         requireNonNull(state, "state must not be null");
         requireNonNull(gtmQueues, "gtmQueues must not be null");
 
-        return () -> !state.solutionFound() && (!state.generationComplete()
-                || !gtmQueues.stream().allMatch(BlockingQueue::isEmpty));
+        return switch (gtmQueues.size()) {
+            case 0 -> throw new IllegalArgumentException("gtmQueues list must not be empty");
+            case 1 -> forMonkeyBlocking(state, gtmQueues.getFirst());
+            default -> () -> !state.solutionFound() && (!state.generationComplete()
+                    || !List.copyOf(gtmQueues).stream().allMatch(BlockingQueue::isEmpty));
+        };
     }
 
     public static BooleanSupplier forMonkeyBlocking(SolverState state,

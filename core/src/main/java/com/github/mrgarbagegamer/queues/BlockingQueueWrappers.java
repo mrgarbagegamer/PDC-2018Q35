@@ -833,7 +833,7 @@ public final class BlockingQueueWrappers {
 
     /**
      * Ensures that the provided {@link ConcurrentQueue} has a capacity that matches the provided
-     * {@link #capacity} for bounded queues.
+     * {@code capacity} for bounded queues.
      * 
      * <p>
      * Since {@code ConcurrentQueue} implementations are the only {@link BlockingQueue} types that

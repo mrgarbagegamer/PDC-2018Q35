@@ -70,7 +70,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * 
      * <p>
      * Each generator {@link #generatorOffer(WorkBatch, int) offers} to one of these queues, and
-     * each monkey {@link #generatorPoll(int) polls} from one of these queues. Depending on the
+     * each monkey {@link #monkeyPoll(int) polls} from one of these queues. Depending on the
      * configured {@link QueueSelector selectors}, there may be a one-to-one relationship between
      * generators/monkeys and queues, or multiple generators/monkeys may share the same queue.
      * </p>
@@ -103,7 +103,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * 
      * <p>
      * Each monkey {@link #monkeyOffer(WorkBatch, int) offers} to one of these queues, and each
-     * generator {@link #monkeyPoll(int) polls} from one of these queues. Depending on the
+     * generator {@link #generatorPoll(int) polls} from one of these queues. Depending on the
      * configured {@link QueueSelector selectors}, there may be a one-to-one relationship between
      * generators/monkeys and queues, or multiple generators/monkeys may share the same queue.
      * </p>

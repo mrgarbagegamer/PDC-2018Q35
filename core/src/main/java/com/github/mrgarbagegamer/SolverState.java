@@ -1,5 +1,8 @@
 package com.github.mrgarbagegamer;
 
+// TODO: Write Javadocs for this class.
+// TODO: Consider allowing injectability of a Clock or similar for easier testing and potential
+// future features.
 public final class SolverState {
     private final long startTime;
     private volatile long endTime = -1L;
@@ -32,7 +35,7 @@ public final class SolverState {
                 if (!generationComplete) {
                     // TODO: Since the monkeys still have to test the final batches, maybe we should
                     // use a CountDownLatch or something to track when all monkeys are done?
-                    this.endTime = System.currentTimeMillis(); 
+                    this.endTime = System.currentTimeMillis();
                     this.generationComplete = true;
                 }
             }

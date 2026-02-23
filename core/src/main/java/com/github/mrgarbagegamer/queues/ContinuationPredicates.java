@@ -41,8 +41,12 @@ public final class ContinuationPredicates {
         return switch (gtmQueues.size()) {
             case 0 -> throw new IllegalArgumentException("gtmQueues list must not be empty");
             case 1 -> forMonkeyJCTools(state, gtmQueues.getFirst());
-            default -> () -> !state.solutionFound() && (!state.generationComplete()
-                    || !List.copyOf(gtmQueues).stream().allMatch(MessagePassingQueue::isEmpty));
+            default -> {
+                // Defensive copy to avoid concurrent modification issues during stream operations.
+                final List<MessagePassingQueue<WorkBatch>> gtmCopy = List.copyOf(gtmQueues);
+                yield () -> !state.solutionFound() && (!state.generationComplete()
+                        || !gtmCopy.stream().allMatch(MessagePassingQueue::isEmpty));
+            }
         };
     }
 
@@ -62,8 +66,12 @@ public final class ContinuationPredicates {
         return switch (gtmQueues.size()) {
             case 0 -> throw new IllegalArgumentException("gtmQueues list must not be empty");
             case 1 -> forMonkeyBlocking(state, gtmQueues.getFirst());
-            default -> () -> !state.solutionFound() && (!state.generationComplete()
-                    || !List.copyOf(gtmQueues).stream().allMatch(BlockingQueue::isEmpty));
+            default -> {
+                // Defensive copy to avoid concurrent modification issues during stream operations.
+                final List<BlockingQueue<WorkBatch>> gtmCopy = List.copyOf(gtmQueues);
+                yield () -> !state.solutionFound() && (!state.generationComplete()
+                        || !gtmCopy.stream().allMatch(BlockingQueue::isEmpty));
+            }
         };
     }
 

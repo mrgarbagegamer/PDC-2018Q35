@@ -59,7 +59,7 @@ public final class QueueUtils {
         public static void preallocateInto(List<? extends MessagePassingQueue<WorkBatch>> mtgQueues,
                 SolverConfiguration config) {
             ensureNotEmptyOrNull(mtgQueues, "mtg");
-            preallocateInto(mtgQueues, mtgQueues.iterator().next().capacity(), config);
+            preallocateInto(mtgQueues, mtgQueues.getFirst().capacity(), config);
         }
 
         public static void ensureMultiProducerSupport(
@@ -102,7 +102,7 @@ public final class QueueUtils {
         public static void preallocateInto(List<? extends BlockingQueue<WorkBatch>> mtgQueues,
                 SolverConfiguration config) {
             ensureNotEmptyOrNull(mtgQueues, "mtg");
-            final int batchesPerQueue = BLOCKING_OPS.capacityOf(mtgQueues.iterator().next());
+            final int batchesPerQueue = BLOCKING_OPS.capacityOf(mtgQueues.getFirst());
             preallocateInto(mtgQueues, batchesPerQueue, config);
         }
 

@@ -509,20 +509,12 @@ public final class QueueUtils {
 
         @Override
         public int capacityOf(BlockingQueue<WorkBatch> queue) {
+            int capacity;
             return switch (queue) {
                 case Bounded bq -> bq.capacity();
-                default -> {
-                    final int capacity = queue.remainingCapacity();
-                    if (capacity == Integer.MAX_VALUE) {
-                        // Unbounded BlockingQueue (e.g. LinkedBlockingQueue with default
-                        // constructor)
-                        yield Integer.MAX_VALUE;
-                    } else {
-                        // Bounded but not implementing our Bounded interface (e.g.
-                        // ArrayBlockingQueue)
-                        yield capacity + queue.size();
-                    }
-                }
+                default -> (capacity = queue.remainingCapacity()) == Integer.MAX_VALUE
+                        ? Integer.MAX_VALUE
+                        : capacity + queue.size();
             };
         }
 
@@ -540,7 +532,7 @@ public final class QueueUtils {
 
         @Override
         public boolean isBounded(BlockingQueue<WorkBatch> queue) {
-            return isBounded.test(queue);
+            return QueueUtils.isBounded.test(queue);
         }
 
         @Override

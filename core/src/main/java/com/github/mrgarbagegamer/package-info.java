@@ -1,3 +1,5 @@
+// TODO: Ensure that all package/class-level HTML headers in this package and the queues subpackage are <h2>.
+// TODO: Ensure that all constructor/method/field-level HTML headers in this package and the queues subpackage are <h4>.
 /**
  * Provides a high-performance, brute-force solver for a hexagonal Lights Out-style puzzle.
  *

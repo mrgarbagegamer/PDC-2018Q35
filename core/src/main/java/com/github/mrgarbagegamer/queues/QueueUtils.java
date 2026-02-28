@@ -400,7 +400,12 @@ public final class QueueUtils {
          */
         boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity);
 
-        boolean isBounded(Q queue);
+        default boolean isBounded(Q queue) {
+            // The default implementation uses the shared isBounded predicate, but specific
+            // implementations can override this if they have a more efficient way to check
+            // boundedness.
+            return QueueUtils.isBounded.test(queue);
+        }
 
         boolean offer(Q queue, WorkBatch batch);
 
@@ -440,11 +445,6 @@ public final class QueueUtils {
         public boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity) {
             // JCTools already normalized, so exact match only
             return actualCapacity == expectedCapacity;
-        }
-
-        @Override
-        public boolean isBounded(MessagePassingQueue<WorkBatch> queue) {
-            return QueueUtils.isBounded.test(queue);
         }
 
         @Override
@@ -528,11 +528,6 @@ public final class QueueUtils {
             // Accept exact match or power-of-2 rounded (Conversant, etc.)
             return actualCapacity == expectedCapacity
                     || actualCapacity == roundToPow2(expectedCapacity);
-        }
-
-        @Override
-        public boolean isBounded(BlockingQueue<WorkBatch> queue) {
-            return QueueUtils.isBounded.test(queue);
         }
 
         @Override

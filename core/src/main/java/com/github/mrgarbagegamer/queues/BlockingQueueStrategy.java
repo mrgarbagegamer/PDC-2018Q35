@@ -20,11 +20,14 @@ import java.util.stream.Stream;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.CombinationGeneratorTask;
+import com.github.mrgarbagegamer.GeneratorThread;
 import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
+import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
 // TODO: Write unit tests for the class.
 /**
@@ -51,17 +54,17 @@ import com.github.mrgarbagegamer.WorkBatch;
  * non-blocking approaches.
  * </p>
  * 
+ * @see BlockingQueueSelectors
+ * @see BlockingQueueUtils
  * @see BlockingQueueWrappers
- * @see QueueSelectors.BlockingQueueSelectors
- * @see QueueUtils.BlockingQueueUtils
  * @since 2026.02 - Queue Injection Refactor
  * @performance Typically {@code O(1)} for queue operations, but can vary based on the queue
- *              implementation and contention levels.
- * @threading Thread-safe, as it relies on thread-safe {@code BlockingQueue} implementations and
- *            properly synchronized access through the provided selectors and backoff strategies.
+ *              implementation, selection strategy, and backoff behavior.
+ * @threading Thread-safe, as it relies on thread-safe {@code BlockingQueue} implementations,
+ *            selectors, and backoff strategies.
  * @memory Large memory footprint for the base structure, but should not allocate additional objects
- *         during normal operation if the provided selectors and backoff strategies are implemented
- *         to avoid allocation.
+ *         during normal operation if the queues, selectors, and backoff strategies are implemented
+ *         to avoid runtime allocations.
  */
 public class BlockingQueueStrategy implements QueueStrategy {
     /**
@@ -69,17 +72,17 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * generators} to {@link TestClickCombination monkeys}.
      * 
      * <p>
-     * Each generator {@link #generatorOffer(WorkBatch, int) offers} to one of these queues, and
-     * each monkey {@link #monkeyPoll(int) polls} from one of these queues. Depending on the
-     * configured {@link QueueSelector selectors}, there may be a one-to-one relationship between
+     * Each generator {@link #generatorOffer offers} to one of these queues, and each monkey
+     * {@link #monkeyPoll polls} from one of these queues. Depending on the configured
+     * {@link QueueSelector selectors}, there may be a one-to-one relationship between
      * generators/monkeys and queues, or multiple generators/monkeys may share the same queue.
      * </p>
      * 
      * <p>
      * For simplicity and to avoid potential issues with concurrent modifications, these lists are
-     * {@link List#copyOf(java.util.Collection) copied} during construction, and the class provides
-     * no modifying methods for them. A selector that attempts to modify the list (e.g. by adding or
-     * removing queues) will throw an {@link UnsupportedOperationException}.
+     * {@link List#copyOf copied} during construction, and the class provides no modifying methods
+     * for them. A selector that attempts to modify the list (e.g. by adding or removing queues)
+     * will throw an {@link UnsupportedOperationException}.
      * 
      * @see #generatorOfferSelector
      * @see #monkeyPollSelector
@@ -89,7 +92,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *      BooleanSupplier)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} accesses to the list structure, with potentially higher complexity
-     *              for the queue operations depending on the implementation and contention levels.
+     *              for the queue operations.
      * @threading Thread-safe access to the list structure, as the lists are immutable. Thread
      *            safety of the queues themselves depends on the implementations used and should be
      *            ensured by the caller.
@@ -102,17 +105,17 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * monkeys} back to {@link CombinationGeneratorTask generators} for refilling.
      * 
      * <p>
-     * Each monkey {@link #monkeyOffer(WorkBatch, int) offers} to one of these queues, and each
-     * generator {@link #generatorPoll(int) polls} from one of these queues. Depending on the
-     * configured {@link QueueSelector selectors}, there may be a one-to-one relationship between
+     * Each monkey {@link #monkeyOffer offers} to one of these queues, and each generator
+     * {@link #generatorPoll polls} from one of these queues. Depending on the configured
+     * {@link QueueSelector selectors}, there may be a one-to-one relationship between
      * generators/monkeys and queues, or multiple generators/monkeys may share the same queue.
      * </p>
      * 
      * <p>
      * For simplicity and to avoid potential issues with concurrent modifications, these lists are
-     * {@link List#copyOf(java.util.Collection) copied} during construction, and the class provides
-     * no modifying methods for them. A selector that attempts to modify the list (e.g. by adding or
-     * removing queues) will throw an {@link UnsupportedOperationException}.
+     * {@link List#copyOf copied} during construction, and the class provides no modifying methods
+     * for them. A selector that attempts to modify the list (e.g. by adding or removing queues)
+     * will throw an {@link UnsupportedOperationException}.
      * </p>
      * 
      * @see #generatorPollSelector
@@ -123,10 +126,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *      BooleanSupplier)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} accesses to the list structure, with potentially higher complexity
-     *              for the queue operations depending on the implementation and contention levels.
-     * @threading Thread-safe access to the list structure, as the lists are immutable. Thread
-     *            safety of the queues themselves depends on the implementations used and should be
-     *            ensured by the caller.
+     *              for the queue operations.
+     * @threading Thread-safe access to the list structure, as the lists are immutable.
+     *            Thread-safety of the queues themselves depends on the implementations used and
+     *            should be ensured by the caller.
      * @memory Fixed memory footprint for the list structure, but the queues themselves may have
      *         varying memory footprints based on their implementation and capacity.
      */
@@ -135,14 +138,18 @@ public class BlockingQueueStrategy implements QueueStrategy {
     // Generators poll from mtgQueues, offer to gtmQueues
     /**
      * The {@link QueueSelector} used by {@link CombinationGeneratorTask generators} to select which
-     * {@link #mtgQueues mtgQueue} to {@link #generatorPoll(int) poll} from when they need to refill
-     * an empty {@link WorkBatch batch}.
+     * {@link #mtgQueues mtgQueue} to {@link #generatorPoll poll} from when they need to refill an
+     * empty {@link WorkBatch batch}.
      * 
      * @see #generatorOfferSelector
      * @see #BlockingQueueStrategy(List, List, SolverConfiguration, QueueSelector, QueueSelector,
      *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, BooleanSupplier,
      *      BooleanSupplier)
-     * @see QueueSelectors.BlockingQueueSelectors
+     * @see #multiMulti(List, List, SolverConfiguration, QueueSelector, QueueSelector,
+     *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)
+     * @see #singleMulti(BlockingQueue, List, SolverConfiguration, QueueSelector, QueueSelector,
+     *      BackoffStrategy, BackoffStrategy, SolverState)
+     * @see BlockingQueueSelectors
      * @since 2026.02 - Queue Injection Refactor
      * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
      * @memory Should not allocate during normal operation if implemented properly.
@@ -150,14 +157,18 @@ public class BlockingQueueStrategy implements QueueStrategy {
     private final QueueSelector<BlockingQueue<WorkBatch>> generatorPollSelector;
     /**
      * The {@link QueueSelector} used by {@link CombinationGeneratorTask generators} to select which
-     * {@link #gtmQueues gtmQueue} to {@link #generatorOffer(WorkBatch, int) offer} to when they
-     * have a full {@link WorkBatch batch} ready for processing by the monkeys.
+     * {@link #gtmQueues gtmQueue} to {@link #generatorOffer offer} to when they have a full
+     * {@link WorkBatch batch} ready for processing by the {@link TestClickCombination monkeys}.
      * 
      * @see #generatorPollSelector
      * @see #BlockingQueueStrategy(List, List, SolverConfiguration, QueueSelector, QueueSelector,
      *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, BooleanSupplier,
      *      BooleanSupplier)
-     * @see QueueSelectors.BlockingQueueSelectors
+     * @see #multiMulti(List, List, SolverConfiguration, QueueSelector, QueueSelector,
+     *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)
+     * @see #multiSingle(List, BlockingQueue, SolverConfiguration, QueueSelector, QueueSelector,
+     *      BackoffStrategy, BackoffStrategy, SolverState)
+     * @see BlockingQueueSelectors
      * @since 2026.02 - Queue Injection Refactor
      * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
      * @memory Should not allocate during normal operation if implemented properly.
@@ -167,14 +178,18 @@ public class BlockingQueueStrategy implements QueueStrategy {
     // Monkeys poll from gtmQueues, offer to mtgQueues
     /**
      * The {@link QueueSelector} used by {@link TestClickCombination monkeys} to select which
-     * {@link #gtmQueues gtmQueue} to {@link #monkeyPoll(int) poll} from when they are ready to
-     * process a new {@link WorkBatch batch}.
+     * {@link #gtmQueues gtmQueue} to {@link #monkeyPoll poll} from when they are ready to process a
+     * new {@link WorkBatch batch}.
      * 
      * @see #monkeyOfferSelector
      * @see #BlockingQueueStrategy(List, List, SolverConfiguration, QueueSelector, QueueSelector,
      *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, BooleanSupplier,
      *      BooleanSupplier)
-     * @see QueueSelectors.BlockingQueueSelectors
+     * @see #multiMulti(List, List, SolverConfiguration, QueueSelector, QueueSelector,
+     *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)
+     * @see #multiSingle(List, BlockingQueue, SolverConfiguration, QueueSelector, QueueSelector,
+     *      BackoffStrategy, BackoffStrategy, SolverState)
+     * @see BlockingQueueSelectors
      * @since 2026.02 - Queue Injection Refactor
      * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
      * @memory Should not allocate during normal operation if implemented properly.
@@ -182,14 +197,19 @@ public class BlockingQueueStrategy implements QueueStrategy {
     private final QueueSelector<BlockingQueue<WorkBatch>> monkeyPollSelector;
     /**
      * The {@link QueueSelector} used by {@link TestClickCombination monkeys} to select which
-     * {@link #mtgQueues mtgQueue} to {@link #monkeyOffer(WorkBatch, int) offer} to when they have
-     * an empty {@link WorkBatch batch} that needs refilling by the generators.
+     * {@link #mtgQueues mtgQueue} to {@link #monkeyOffer offer} to when they have an empty
+     * {@link WorkBatch batch} that needs refilling by the {@link CombinationGeneratorTask
+     * generators}.
      * 
      * @see #monkeyPollSelector
      * @see #BlockingQueueStrategy(List, List, SolverConfiguration, QueueSelector, QueueSelector,
      *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, BooleanSupplier,
      *      BooleanSupplier)
-     * @see QueueSelectors.BlockingQueueSelectors
+     * @see #multiMulti(List, List, SolverConfiguration, QueueSelector, QueueSelector,
+     *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)
+     * @see #singleMulti(BlockingQueue, List, SolverConfiguration, QueueSelector, QueueSelector,
+     *      BackoffStrategy, BackoffStrategy, SolverState)
+     * @see BlockingQueueSelectors
      * @since 2026.02 - Queue Injection Refactor
      * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
      * @memory Should not allocate during normal operation if implemented properly.
@@ -199,22 +219,21 @@ public class BlockingQueueStrategy implements QueueStrategy {
     // Backoff strategies for generators and monkeys:
     /**
      * The {@link BackoffStrategy} used by {@link CombinationGeneratorTask generators} when their
-     * selected {@link QueueSelector} indicates that they should back off.
+     * {@link QueueSelector} indicates that they should back off.
      * 
      * <p>
-     * Since {@link BlockingQueue} operations can block, the
-     * {@link QueueSelectors.BlockingQueueSelectors blocking queue selectors} may ignore this
-     * strategy and always block on queue operations instead. However, if a selector does return a
-     * backoff signal, this strategy will be used to determine how the generator should back off
-     * before retrying.
+     * Since {@link BlockingQueue} operations can block, the {@link BlockingQueueSelectors blocking
+     * queue selectors} may ignore this strategy and always block on queue operations instead.
+     * However, if a selector does return a backoff signal, this strategy will be used to determine
+     * how the generator should back off before retrying.
      * </p>
      * 
      * @see #monkeyBackoff
      * @see #BlockingQueueStrategy(List, List, SolverConfiguration, QueueSelector, QueueSelector,
      *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, BooleanSupplier,
      *      BooleanSupplier)
-     * @see #generatorPoll(int)
      * @see #generatorOffer(WorkBatch, int)
+     * @see #generatorPoll(int)
      * @since 2026.02 - Queue Injection Refactor
      * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
      * @memory Should not allocate during normal operation if implemented properly.
@@ -225,19 +244,18 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link QueueSelector} indicates that they should back off.
      * 
      * <p>
-     * Since {@link BlockingQueue} operations can block, the
-     * {@link QueueSelectors.BlockingQueueSelectors blocking queue selectors} may ignore this
-     * strategy and always block on queue operations instead. However, if a selector does return a
-     * backoff signal, this strategy will be used to determine how the monkey should back off before
-     * retrying.
+     * Since {@link BlockingQueue} operations can block, the {@link BlockingQueueSelectors blocking
+     * queue selectors} may ignore this strategy and always block on queue operations instead.
+     * However, if a selector does return a backoff signal, this strategy will be used to determine
+     * how the monkey should back off before retrying.
      * </p>
      * 
      * @see #generatorBackoff
      * @see #BlockingQueueStrategy(List, List, SolverConfiguration, QueueSelector, QueueSelector,
      *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, BooleanSupplier,
      *      BooleanSupplier)
-     * @see #monkeyPoll(int)
      * @see #monkeyOffer(WorkBatch, int)
+     * @see #monkeyPoll(int)
      * @since 2026.02 - Queue Injection Refactor
      * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
      * @memory Should not allocate during normal operation if implemented properly.
@@ -246,13 +264,13 @@ public class BlockingQueueStrategy implements QueueStrategy {
 
     /**
      * The {@link BooleanSupplier} used to determine whether {@link CombinationGeneratorTask
-     * generators} should continue attempting to {@link #generatorPoll(int)
-     * poll}/{@link #generatorOffer} or should stop (e.g. because the solver is shutting down).
+     * generators} should continue attempting to {@link #generatorPoll poll}/{@link #generatorOffer
+     * offer} or should stop (e.g. because the solver is shutting down).
      * 
      * <p>
-     * This allows for graceful shutdown of the generator threads by signaling them to stop retrying
-     * when the solver is shutting down, rather than relying on interruption or other more forceful
-     * methods.
+     * This allows for graceful shutdown of the {@link GeneratorThread generator threads} by
+     * signaling them to stop retrying when the solver is shutting down, rather than relying on
+     * interruption or other more forceful methods.
      * </p>
      * 
      * @see #monkeyShouldContinue
@@ -267,7 +285,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
     private final BooleanSupplier generatorShouldContinue;
     /**
      * The {@link BooleanSupplier} used to determine whether {@link TestClickCombination monkeys}
-     * should continue attempting to {@link #monkeyPoll(int) poll}/{@link #monkeyOffer} or should
+     * should continue attempting to {@link #monkeyPoll poll}/{@link #monkeyOffer offer} or should
      * stop (e.g. because the solver is shutting down).
      * 
      * <p>
@@ -291,52 +309,56 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * Creates a new {@code BlockingQueueStrategy} with the specified configuration.
      * 
      * <p>
-     * The arguments are {@link QueueUtils.BlockingQueueUtils#validateArguments validated} to ensure
-     * they are consistent with each other and with the provided {@link SolverConfiguration}. If all
-     * meet the requirements, a new strategy instance is created with the provided configuration and
-     * {@link QueueUtils.BlockingQueueUtils#preallocateInto(List, SolverConfiguration)
-     * preallocation} is performed on the provided {@code mtgQueues} to ensure they are ready for
-     * use. {@link List Lists} of queues are {@link List#copyOf(java.util.Collection) copied} to
-     * ensure immutability and thread safety.
+     * The arguments are {@link BlockingQueueUtils#validateArguments validated} to ensure they are
+     * consistent with each other and with the provided {@link SolverConfiguration}. If all meet the
+     * requirements, a new strategy instance is created with the provided configuration and
+     * {@link BlockingQueueUtils#preallocateInto(List, SolverConfiguration) preallocation} is
+     * performed on the provided {@code mtgQueues} to ensure they are ready for use. {@link List
+     * Lists} of queues are {@link List#copyOf copied} to ensure immutability and thread safety.
      * </p>
      * 
      * <p>
      * Since the {@link QueueSelector} arguments are provided as wildcards with upper bounds, they
      * can be safely cast to the appropriate type for use within the strategy after validation. The
-     * unchecked casts are necessary to allow for flexibility in the types of selectors that can be
-     * provided, while still ensuring type safety through validation. To avoid the need for
+     * "unchecked" casts are necessary to allow for flexibility in the types of selectors that can
+     * be provided, while still ensuring type safety through validation. To avoid the need for
      * intermediate variables with individual {@link SuppressWarnings} annotations, the constructor
      * itself is annotated with a single {@code @SuppressWarnings("unchecked")} that covers all of
      * the casts.
      * </p>
      * 
      * @param gtmQueues                the list of {@link BlockingQueue}s used for communication
-     *                                 from generators to monkeys.
-     * @param mtgQueues                the list of {@link BlockingQueue}s used for communication
-     *                                 from monkeys to generators.
-     * @param config                   the {@link SolverConfiguration} containing configuration
+     *                                 from {@link #gtmQueues generators to monkeys}.
+     * @param mtgQueues                the list of {@code BlockingQueue}s used for communication
+     *                                 from {@link #mtgQueues monkeys to generators}.
+     * @param config                   the {@code SolverConfiguration} containing configuration
      *                                 parameters for validation and preallocation.
-     * @param generatorPollSelector    the {@code QueueSelector} used by generators to select which
-     *                                 queue to poll from.
+     * @param generatorPollSelector    the {@code QueueSelector} used by
+     *                                 {@link CombinationGeneratorTask generators} to select which
+     *                                 queue to {@link #generatorPoll poll} from.
      * @param generatorOfferSelector   the {@code QueueSelector} used by generators to select which
-     *                                 queue to offer to.
-     * @param monkeyPollSelector       the {@code QueueSelector} used by monkeys to select which
-     *                                 queue to poll from.
+     *                                 queue to {@link #generatorOffer offer} to.
+     * @param monkeyPollSelector       the {@code QueueSelector} used by {@link TestClickCombination
+     *                                 monkeys} to select which queue to {@link #monkeyPoll poll}
+     *                                 from.
      * @param monkeyOfferSelector      the {@code QueueSelector} used by monkeys to select which
-     *                                 queue to offer to.
+     *                                 queue to {@link #monkeyOffer offer} to.
      * @param generatorBackoffStrategy the {@link BackoffStrategy} used by generators when backing
      *                                 off.
-     * @param monkeyBackoffStrategy    the {@link BackoffStrategy} used by monkeys when backing off.
+     * @param monkeyBackoffStrategy    the {@code BackoffStrategy} used by monkeys when backing off.
      * @param generatorShouldContinue  the {@link BooleanSupplier} used to determine if generators
      *                                 should continue retrying.
-     * @param monkeyShouldContinue     the {@link BooleanSupplier} used to determine if monkeys
+     * @param monkeyShouldContinue     the {@code BooleanSupplier} used to determine if monkeys
      *                                 should continue retrying.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
      * @throws NullPointerException     if any of the arguments are {@code null} (or contain
      *                                  {@code null} elements, in the case of the lists).
-     * @performance {@code O(1)} calls to {@link List#copyOf(java.util.Collection)}, plus the
-     *              complexity of validation and preallocation.
+     * @see SolverConfiguration#queueSize()
+     * @see SolverConfiguration#numThreads()
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(1)} calls to {@code List.copyOf()}, plus the complexity of validation
+     *              and preallocation.
      * @threading Thread-safe by nature of construction.
      * @memory Allocates new lists for the queues (and potential streams for validation).
      */
@@ -405,18 +427,20 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * <p>
      * This is a {@link BackoffStrategy#noOp() no-op} strategy that performs no backoff and
      * immediately retries, which is appropriate for blocking queue operations since they will
-     * handle waiting internally. If a selector that supports backoff signals is used with this
-     * strategy, it will effectively ignore the backoff signals and always retry immediately.
+     * handle waiting internally. If a {@link QueueSelector selector} that supports backoff signals
+     * is used with this strategy, it will effectively ignore the backoff signals and always retry
+     * immediately.
      * </p>
      * 
-     * @see #singleSingle(BlockingQueue, BlockingQueue, SolverConfiguration, BackoffStrategy,
-     *      BackoffStrategy, SolverState)
-     * @see #singleMulti(BlockingQueue, List, SolverConfiguration, QueueSelector, QueueSelector,
-     *      BackoffStrategy, BackoffStrategy, SolverState)
-     * @see #multiSingle(List, BlockingQueue, SolverConfiguration, QueueSelector, QueueSelector,
-     *      BackoffStrategy, BackoffStrategy, SolverState)
      * @see #multiMulti(List, List, SolverConfiguration, QueueSelector, QueueSelector,
      *      QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)
+     * @see #multiSingle(List, BlockingQueue, SolverConfiguration, QueueSelector, QueueSelector,
+     *      BackoffStrategy, BackoffStrategy, SolverState)
+     * @see #singleMulti(BlockingQueue, List, SolverConfiguration, QueueSelector, QueueSelector,
+     *      BackoffStrategy, BackoffStrategy, SolverState)
+     * @see #singleSingle(BlockingQueue, BlockingQueue, SolverConfiguration, BackoffStrategy,
+     *      BackoffStrategy, SolverState)
+     * @see BlockingQueueSelectors
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} no-op.
      * @threading Thread-safe, as it is immutable and stateless.
@@ -425,26 +449,20 @@ public class BlockingQueueStrategy implements QueueStrategy {
      */
     private static final BackoffStrategy DEFAULT_BACKOFF = BackoffStrategy.noOp();
 
-    // Single-Single Queue Strategy:
-    // Generator poll - EXCLUSIVE (each generator polls from a single mtgQueue)
-    // Generator offer - EXCLUSIVE (each generator offers to a single gtmQueue)
-    // Monkey poll - EXCLUSIVE (each monkey polls from a single gtmQueue)
-    // Monkey offer - EXCLUSIVE (each monkey offers to a single mtgQueue)
-
     /**
      * Creates a {@code BlockingQueueStrategy} with a single {@link BlockingQueue} for communication
-     * from {@link CombinationGeneratorTask generators} to {@link TestClickCombination monkeys} and
-     * a single {@code BlockingQueue} for communication from monkeys back to generators, with the
-     * specified {@link SolverConfiguration configuration} and {@link BackoffStrategy backoff
-     * strategies}.
+     * from {@link #gtmQueues generators to monkeys} and a single {@code BlockingQueue} for
+     * communication from {@link #mtgQueues monkeys to generators}, using the specified
+     * {@link SolverConfiguration configuration} and {@link BackoffStrategy backoff strategies}.
      * 
      * <p>
-     * This is a simple configuration, where each generator and monkey has a single dedicated queue
-     * for communication. The provided queues are {@link BlockingQueueWrappers#wrap(BlockingQueue)
-     * wrapped} for simpler validation. Since there is only one queue in each direction, the
-     * {@link QueueSelectors.BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} selector is used for all
-     * operations, and the necessary {@link BooleanSupplier BooleanSuppliers} for continuation are
-     * created using the helper methods in {@link ContinuationPredicates}.
+     * This is a simple configuration, where all {@link CombinationGeneratorTask generators} and all
+     * {@link TestClickCombination monkeys} have a single dedicated queue for communication in each
+     * direction. The provided queues are {@link BlockingQueueWrappers#wrap(BlockingQueue) wrapped}
+     * for simpler validation. Since there is only one queue in each direction, the
+     * {@link BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} selector is used for all operations, and
+     * the necessary {@link BooleanSupplier}s for continuation are created using the helper methods
+     * in {@link ContinuationPredicates}.
      * </p>
      * 
      * @param <Q>              the type of the provided {@code BlockingQueue}s, which must be a
@@ -455,8 +473,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *                         generators.
      * @param config           the {@code SolverConfiguration} containing configuration parameters
      *                         for validation and preallocation.
-     * @param generatorBackoff the {@code BackoffStrategy} used by generators when backing off.
-     * @param monkeyBackoff    the {@code BackoffStrategy} used by monkeys when backing off.
+     * @param generatorBackoff the {@code BackoffStrategy} used by {@link #generatorBackoff
+     *                         generators when backing off}.
+     * @param monkeyBackoff    the {@code BackoffStrategy} used by {@link #monkeyBackoff monkeys
+     *                         when backing off}.
      * @param solverState      the {@link SolverState} used to create the continuation predicates
      *                         for {@link #generatorShouldContinue generators} and
      *                         {@link #monkeyShouldContinue monkeys}.
@@ -465,16 +485,16 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
      * @throws NullPointerException     if any of the arguments are {@code null}.
+     * @see BlockingQueueSelectors
      * @see ContinuationPredicates#forGenerator(SolverState)
      * @see ContinuationPredicates#forMonkeyBlocking(SolverState, BlockingQueue)
-     * @see QueueSelectors.BlockingQueueSelectors
      * @see java.util.List#of(Object)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} wrapping of the provided queues, field assignments, and constructor
      *              delegation.
-     * @threading Thread-safe by nature of construction, assuming the provided queues are
-     *            thread-safe.
-     * @memory Allocates new strategy instance and wrapped queues, but should not allocate during
+     * @threading Thread-safe by nature of construction, assuming the provided queues and backoff
+     *            are thread-safe.
+     * @memory Allocates a new strategy instance and wrapped queues, but should not allocate during
      *         normal operation after construction.
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy singleSingle(
@@ -499,10 +519,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * 
      * @param <Q>         the type of the provided {@link BlockingQueue}s, which must be a subtype
      *                    of {@code BlockingQueue<WorkBatch>}.
-     * @param gtmQueue    the {@link BlockingQueue} used for communication from generators to
-     *                    monkeys.
-     * @param mtgQueue    the {@link BlockingQueue} used for communication from monkeys to
-     *                    generators.
+     * @param gtmQueue    the {@code BlockingQueue} used for communication from {@link #gtmQueues
+     *                    generators to monkeys}.
+     * @param mtgQueue    the {@code BlockingQueue} used for communication from {@link #mtgQueues
+     *                    monkeys to generators}.
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
@@ -541,8 +561,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, {@link #DEFAULT_BACKOFF default backoff strategy}, and
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, {@link #DEFAULT_BACKOFF backoff strategy}, and
      *         continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
@@ -565,12 +585,12 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link SolverConfiguration} for the queue instances.
      * 
      * @param config      the {@code SolverConfiguration} containing configuration parameters for
-     *                    validation and preallocation.
+     *                    validation, queue size, and preallocation.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, {@link #DEFAULT_BACKOFF default backoff strategy}, and
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, {@link #DEFAULT_BACKOFF backoff strategy}, and
      *         continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
@@ -586,32 +606,33 @@ public class BlockingQueueStrategy implements QueueStrategy {
         return singleSingle(config, config.queueSize(), solverState);
     }
 
-    // Single-Multi Queue Strategy:
-    // Generator poll - Configurable strategy (can only be EXCLUSIVE if all mtgQueues support
-    // multi-consumer, or if there is only one generator)
-    // Generator offer - EXCLUSIVE (each generator offers to a single gtmQueue)
-    // Monkey poll - EXCLUSIVE (each monkey polls from a single gtmQueue)
-    // Monkey offer - Configurable strategy (can only be EXCLUSIVE if all mtgQueues support
-    // multi-producer, or if there is only one monkey)
-
     /**
      * Creates a {@code BlockingQueueStrategy} with a single {@link BlockingQueue} for communication
      * from {@link CombinationGeneratorTask generators} to {@link TestClickCombination monkeys} and
      * multiple {@code BlockingQueue}s for communication from monkeys back to generators, with the
-     * specified {@link SolverConfiguration configuration}, {@link QueueSelector selector}
-     * strategies, and {@link BackoffStrategy backoff strategies}.
+     * specified {@link SolverConfiguration configuration}, {@link QueueSelector selectors}, and
+     * {@link BackoffStrategy backoff strategies}.
      * 
      * <p>
-     * This configuration allows for multiple queues in the monkey-to-generator direction, which can
-     * be used to reduce contention when multiple monkeys are offering batches back to the
-     * generators. The provided queues are {@link BlockingQueueWrappers#wrap(BlockingQueue) wrapped}
-     * for simpler validation. The {@link #generatorPollSelector generator poll} and
-     * {@link #monkeyOfferSelector monkey offer} selectors are configurable, but must meet the
-     * requirements for a single-multi strategy as described in the method documentation, while the
-     * {@link #generatorOfferSelector generator offer} and {@link #monkeyPollSelector monkey poll
-     * selectors} are set to {@link QueueSelectors.BlockingQueueSelectors#EXCLUSIVE}. The necessary
-     * {@link BooleanSupplier BooleanSuppliers} for continuation are created using the helper
-     * methods in {@link ContinuationPredicates}.
+     * This configuration allows for multiple queues in the {@link #mtgQueues monkey-to-generator}
+     * direction, which can be used to reduce contention when multiple monkeys are
+     * {@link #monkeyOffer(WorkBatch, int) offering} batches back to the generators. The provided
+     * queues are {@link BlockingQueueWrappers#wrap(BlockingQueue) wrapped} for simpler validation.
+     * The necessary {@link BooleanSupplier}s for continuation are created using the helper methods
+     * in {@link ContinuationPredicates}.
+     * </p>
+     * 
+     * <h4>Selector Requirements</h4>
+     * <p>
+     * The {@link #generatorPollSelector} and {@link #monkeyOfferSelector} are configurable in this
+     * strategy, but if either is set to {@link BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
+     * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
+     * one generator/monkey pair), then the provided queues must all support
+     * {@link BlockingQueueUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link BlockingQueueUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * respectively, to ensure correctness. The {@link #generatorOfferSelector} and
+     * {@link #monkeyPollSelector} are fixed to {@code EXCLUSIVE} in this strategy, since there is
+     * only one {@link #gtmQueues generator-to-monkey queue}.
      * </p>
      * 
      * @param <Q>                   the type of the provided {@code BlockingQueue}s, which must be a
@@ -619,7 +640,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @param gtmQueue              the {@code BlockingQueue} used for communication from generators
      *                              to monkeys.
      * @param mtgQueues             the list of {@code BlockingQueue}s used for communication from
-     *                              monkeys to generators.
+     *                              monkeys back to generators.
      * @param config                the {@code SolverConfiguration} containing configuration
      *                              parameters for validation and preallocation.
      * @param generatorPollSelector the {@code QueueSelector} used by generators to select which
@@ -628,8 +649,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @param monkeyOfferSelector   the {@code QueueSelector} used by monkeys to select which queue
      *                              to offer to, which must meet the requirements for a single-multi
      *                              strategy.
-     * @param generatorBackoff      the {@code BackoffStrategy} used by generators when backing off.
-     * @param monkeyBackoff         the {@code BackoffStrategy} used by monkeys when backing off.
+     * @param generatorBackoff      the {@code BackoffStrategy} used by {@link #generatorBackoff
+     *                              generators} when backing off.
+     * @param monkeyBackoff         the {@code BackoffStrategy} used by {@link #monkeyBackoff
+     *                              monkeys} when backing off.
      * @param solverState           the {@link SolverState} used to create the continuation
      *                              predicates for {@link #generatorShouldContinue generators} and
      *                              {@link #monkeyShouldContinue monkeys}.
@@ -640,12 +663,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *                                  selectors meet the requirements for a single-multi strategy.
      * @throws NullPointerException     if any of the arguments are {@code null} (or contain
      *                                  {@code null} elements, in the case of the lists).
+     * @see BlockingQueueSelectors
+     * @see BlockingQueueWrappers#wrapAll(List)
      * @see ContinuationPredicates#forGenerator(SolverState)
      * @see ContinuationPredicates#forMonkeyBlocking(SolverState, BlockingQueue)
-     * @see QueueSelectors.BlockingQueueSelectors
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiConsumerSupport(List, String)
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiProducerSupport(List, String)
-     * @see java.util.List#of(Object)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} wrapping of the provided queues, field assignments, and constructor
      *              delegation, plus the complexity of validation.
@@ -686,16 +707,16 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link #singleMulti(BlockingQueue, List, SolverConfiguration, QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)}
      * that uses the {@link #DEFAULT_BACKOFF default backoff strategy} for both
      * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} and the
-     * {@link QueueSelectors.BlockingQueueSelectors#PREFERRED PREFERRED} selector strategy for
+     * {@link BlockingQueueSelectors#PREFERRED PREFERRED} {@link QueueSelector selector} for
      * {@link #generatorPollSelector generator polling} and {@link #monkeyOfferSelector monkey
      * offering}.
      * 
      * @param <Q>         the type of the provided {@link BlockingQueue}s, which must be a subtype
      *                    of {@code BlockingQueue<WorkBatch>}.
-     * @param gtmQueue    the {@code BlockingQueue} used for communication from generators to
-     *                    monkeys.
-     * @param mtgQueues   the list of {@code BlockingQueue}s used for communication from monkeys to
-     *                    generators.
+     * @param gtmQueue    the {@code BlockingQueue} used for communication from {@link #gtmQueues
+     *                    generators to monkeys}.
+     * @param mtgQueues   the list of {@code BlockingQueue}s used for communication from
+     *                    {@link #mtgQueues monkeys to generators}.
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
@@ -724,27 +745,32 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * Convenience overload of
      * {@link #singleMulti(BlockingQueue, List, SolverConfiguration, SolverState)} that creates a
      * new {@link DisruptorBlockingQueue} instance with the specified {@code queueSize} for
-     * communication from {@link CombinationGeneratorTask generators} to {@link TestClickCombination
-     * monkeys} and a list of {@link PushPullBlockingQueue} instances with the specified
-     * {@code queueSize} for communication from monkeys back to generators.
+     * communication from {@link #gtmQueues generators to monkeys} and a list of
+     * {@link PushPullBlockingQueue} instances with the specified {@code queueSize} for
+     * communication from {@link #mtgQueues monkeys to generators}.
      * 
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
      * @param queueSize   the capacity to use for the created {@code DisruptorBlockingQueue} for
-     *                    communication from generators to monkeys and the
+     *                    communication from {@link CombinationGeneratorTask generators} to
+     *                    {@link TestClickCombination monkeys} and the
      *                    {@code PushPullBlockingQueue}s for communication from monkeys to
      *                    generators.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, {@link #DEFAULT_BACKOFF default backoff strategy}, and
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, {@link #DEFAULT_BACKOFF backoff strategy}, and
      *         continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
      * @throws NullPointerException     if any of the arguments are {@code null}.
+     * @see Stream#generate(java.util.function.Supplier)
+     * @see Stream#limit(long)
+     * @see Stream#toList()
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} creation of the queues, delegation to the main factory method.
+     * @performance {@code O(numMonkeys)} creation of the queues, delegation to the main factory
+     *              method.
      * @threading Thread-safe by nature of construction.
      * @memory Allocates new strategy instance and queues, but should not allocate during normal
      *         operation after construction.
@@ -768,12 +794,12 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link SolverConfiguration} for the queue instances.
      * 
      * @param config      the {@code SolverConfiguration} containing configuration parameters for
-     *                    validation and preallocation.
+     *                    validation, queue size, and preallocation.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, {@link #DEFAULT_BACKOFF default backoff strategy}, and
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, {@link #DEFAULT_BACKOFF backoff strategy}, and
      *         continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
@@ -789,14 +815,6 @@ public class BlockingQueueStrategy implements QueueStrategy {
         return singleMulti(config, config.queueSize(), solverState);
     }
 
-    // Multi-Single Queue Strategy:
-    // Generator poll - EXCLUSIVE (each generator polls from a single mtgQueue)
-    // Generator offer - Configurable strategy (can only be EXCLUSIVE if all mtgQueues support
-    // multi-producer, or if there is only one generator)
-    // Monkey poll - Configurable strategy (can only be EXCLUSIVE if all mtgQueues support
-    // multi-consumer, or if there is only one monkey)
-    // Monkey offer - EXCLUSIVE (each monkey offers to a single mtgQueue)
-
     /**
      * Creates a {@code BlockingQueueStrategy} with multiple {@link BlockingQueue}s for
      * communication from {@link CombinationGeneratorTask generators} to {@link TestClickCombination
@@ -805,16 +823,25 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link QueueSelector selector} strategies, and {@link BackoffStrategy backoff strategies}.
      * 
      * <p>
-     * This configuration allows for multiple queues in the generator-to-monkey direction, which can
-     * be used to reduce contention when multiple generators are offering batches to the monkeys.
-     * The provided queues are {@link BlockingQueueWrappers#wrap(BlockingQueue) wrapped} for simpler
-     * validation. The {@link #generatorOfferSelector generator offer} and
-     * {@link #monkeyPollSelector monkey poll} selectors are configurable, but must meet the
-     * requirements for a multi-single strategy as described in the method documentation, while the
-     * {@link #generatorPollSelector generator poll} and {@link #monkeyOfferSelector monkey offer}
-     * selectors are set to {@link QueueSelectors.BlockingQueueSelectors#EXCLUSIVE}. The necessary
-     * {@link BooleanSupplier BooleanSuppliers} for continuation are created using the helper
-     * methods in {@link ContinuationPredicates}.
+     * This configuration allows for multiple queues in the {@link #gtmQueues generator-to-monkey}
+     * direction, which can be used to reduce contention when multiple generators are
+     * {@link #generatorOffer(WorkBatch, int) offering} batches to the monkeys. The provided queues
+     * are {@link BlockingQueueWrappers#wrap(BlockingQueue) wrapped} for simpler validation. The
+     * necessary {@link BooleanSupplier}s for continuation are created using the helper methods in
+     * {@link ContinuationPredicates}.
+     * </p>
+     * 
+     * <h4>Selector Requirements</h4>
+     * <p>
+     * The {@link #generatorOfferSelector} and {@link #monkeyPollSelector} are configurable in this
+     * strategy, but if either is set to {@link BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
+     * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
+     * one generator/monkey pair), then the provided queues must all support
+     * {@link BlockingQueueUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link BlockingQueueUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * respectively, to ensure correctness. The {@link #generatorPollSelector} and
+     * {@link #monkeyOfferSelector} are fixed to {@code EXCLUSIVE} in this strategy, since there is
+     * only one {@link #mtgQueues monkey-to-generator queue}.
      * </p>
      * 
      * @param <Q>                    the type of the provided {@code BlockingQueue}s, which must be
@@ -829,8 +856,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *                               queue to offer to, which must meet the requirements for a
      *                               multi-single strategy.
      * @param monkeyPollSelector     the {@code QueueSelector} used by monkeys to select which queue
-     *                               to poll from, which must meet the requirements for a
-     *                               multi-single strategy.
+     *                               to {@link #monkeyPoll(int) poll} from, which must meet the
+     *                               requirements for a multi-single strategy.
      * @param generatorBackoff       the {@code BackoffStrategy} used by generators when backing
      *                               off.
      * @param monkeyBackoff          the {@code BackoffStrategy} used by monkeys when backing off.
@@ -844,11 +871,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *                                  selectors meet the requirements for a multi-single strategy.
      * @throws NullPointerException     if any of the arguments are {@code null} (or contain
      *                                  {@code null} elements, in in the case of the list).
+     * @see BlockingQueueSelectors
+     * @see BlockingQueueWrappers#wrapAll(List)
      * @see ContinuationPredicates#forGenerator(SolverState)
      * @see ContinuationPredicates#forMonkeyBlocking(SolverState, List)
-     * @see QueueSelectors.BlockingQueueSelectors
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiConsumerSupport(List, String)
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiProducerSupport(List, String)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} wrapping of the provided queues, field assignments, and constructor
      *              delegation, plus the complexity of validation.
@@ -889,16 +915,16 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link #multiSingle(List, BlockingQueue, SolverConfiguration, QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)}
      * that uses the {@link #DEFAULT_BACKOFF default backoff strategy} for both
      * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} and the
-     * {@link QueueSelectors.BlockingQueueSelectors#PREFERRED PREFERRED} selector strategy for
+     * {@link BlockingQueueSelectors#PREFERRED PREFERRED} selector strategy for
      * {@link #generatorOfferSelector generator offering} and {@link #monkeyPollSelector monkey
      * polling}.
      * 
      * @param <Q>         the type of the provided {@link BlockingQueue}s, which must be a subtype
      *                    of {@code BlockingQueue<WorkBatch>}.
-     * @param gtmQueues   the list of {@code BlockingQueue}s used for communication from generators
-     *                    to monkeys.
-     * @param mtgQueue    the {@code BlockingQueue} used for communication from monkeys to
-     *                    generators.
+     * @param gtmQueues   the list of {@code BlockingQueue}s used for communication from
+     *                    {@link #gtmQueues generators to monkeys}.
+     * @param mtgQueue    the {@code BlockingQueue} used for communication from {@link #mtgQueues
+     *                    monkeys to generators}.
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
@@ -942,13 +968,16 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, {@link #DEFAULT_BACKOFF default backoff strategy}, and
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, {@link #DEFAULT_BACKOFF backoff strategy}, and
      *         continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility, including whether the provided
      *                                  selectors meet the requirements for a multi-single strategy.
      * @throws NullPointerException     if any of the arguments are {@code null}.
+     * @see Stream#generate(java.util.function.Supplier)
+     * @see Stream#limit(long)
+     * @see Stream#toList()
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the queues, delegation to the main factory method.
      * @threading Thread-safe by nature of construction.
@@ -976,8 +1005,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, default backoff strategies, and continuation predicates.
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, backoff strategies, and continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility, including whether the provided
      *                                  selectors meet the requirements for a multi-single strategy.
@@ -993,39 +1022,40 @@ public class BlockingQueueStrategy implements QueueStrategy {
         return multiSingle(config, config.queueSize(), solverState);
     }
 
-    // Multi-Multi Queue Strategy:
-    // Generator poll - Configurable strategy (can only be EXCLUSIVE if all mtgQueues support
-    // multi-consumer, or if there is only one generator)
-    // Generator offer - Configurable strategy (can only be EXCLUSIVE if all gtmQueues support
-    // multi-producer, or if there is only one generator)
-    // Monkey poll - Configurable strategy (can only be EXCLUSIVE if all gtmQueues support
-    // multi-consumer, or if there is only one monkey)
-    // Monkey offer - Configurable strategy (can only be EXCLUSIVE if all mtgQueues support
-    // multi-producer, or if there is only one monkey)
-
     /**
      * Creates a {@code BlockingQueueStrategy} with multiple {@link BlockingQueue}s for
      * communication in both directions between {@link CombinationGeneratorTask generators} and
      * {@link TestClickCombination monkeys}, with the specified {@link SolverConfiguration
-     * configuration}, {@link QueueSelector selector} strategies, and {@link BackoffStrategy backoff
+     * configuration}, {@link QueueSelector selectors}, and {@link BackoffStrategy backoff
      * strategies}.
      * 
      * <p>
      * This configuration allows for multiple queues in both directions of communication, which can
-     * be used to reduce contention when multiple generators are offering batches to the monkeys and
-     * when multiple monkeys are offering batches back to the generators. The provided queues are
-     * {@link BlockingQueueWrappers#wrapAll(List) wrapped} for simpler validation. All four
-     * selectors are configurable, but must meet the requirements for a multi-multi strategy as
-     * described in the method documentation. The necessary {@link BooleanSupplier BooleanSuppliers}
-     * for continuation are created using the helper methods in {@link ContinuationPredicates}.
+     * be used to reduce contention when multiple generators are
+     * {@link #generatorOffer(WorkBatch, int) offering} batches to the monkeys and when multiple
+     * monkeys are {@link #monkeyOffer(WorkBatch, int) offering} batches back to the generators. The
+     * provided queues are {@link BlockingQueueWrappers#wrapAll(List) wrapped} for simpler
+     * validation. The necessary {@link BooleanSupplier}s for continuation are created using the
+     * helper methods in {@link ContinuationPredicates}.
      * </p>
      * 
-     * @param <Q>                    the type of the provided {@link BlockingQueue}s, which must be
+     * <h4>Selector Requirements</h4>
+     * <p>
+     * All four selectors are configurable in this strategy, but if any is set to
+     * {@link BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
+     * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
+     * one generator/monkey pair), then the provided queues for that direction must all support
+     * {@link BlockingQueueUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link BlockingQueueUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * respectively, to ensure correctness.
+     * </p>
+     * 
+     * @param <Q>                    the type of the provided {@code BlockingQueue}s, which must be
      *                               a subtype of {@code BlockingQueue<WorkBatch>}.
      * @param gtmQueues              the list of {@code BlockingQueue}s used for communication from
-     *                               generators to monkeys.
+     *                               {@link #gtmQueues generators to monkeys}.
      * @param mtgQueues              the list of {@code BlockingQueue}s used for communication from
-     *                               monkeys to generators.
+     *                               {@link #mtgQueues monkeys to generators}.
      * @param config                 the {@code SolverConfiguration} containing configuration
      *                               parameters for validation and preallocation.
      * @param generatorPollSelector  the {@code QueueSelector} used by generators to select which
@@ -1040,9 +1070,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @param monkeyOfferSelector    the {@code QueueSelector} used by monkeys to select which queue
      *                               to offer to, which must meet the requirements for a multi-multi
      *                               strategy.
-     * @param generatorBackoff       the {@code BackoffStrategy} used by generators when backing
-     *                               off.
-     * @param monkeyBackoff          the {@code BackoffStrategy} used by monkeys when backing off.
+     * @param generatorBackoff       the {@code BackoffStrategy} used by {@link #generatorBackoff
+     *                               generators} when backing off.
+     * @param monkeyBackoff          the {@code BackoffStrategy} used by {@link #monkeyBackoff
+     *                               monkeys} when backing off.
      * @param solverState            the {@link SolverState} used to create the continuation
      *                               predicates for {@link #generatorShouldContinue generators} and
      *                               {@link #monkeyShouldContinue monkeys}.
@@ -1053,11 +1084,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *                                  selectors meet the requirements for a multi-multi strategy.
      * @throws NullPointerException     if any of the arguments are {@code null} (or contain
      *                                  {@code null} elements, in in the case of the lists).
+     * @see BlockingQueueSelectors
+     * @see BlockingQueueWrappers#wrapAll(List)
      * @see ContinuationPredicates#forGenerator(SolverState)
      * @see ContinuationPredicates#forMonkeyBlocking(SolverState, List)
-     * @see QueueSelectors.BlockingQueueSelectors
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiConsumerSupport(List, String)
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiProducerSupport(List, String)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} wrapping of the provided queues, field assignments, and constructor
      *              delegation, plus the complexity of validation.
@@ -1107,15 +1137,14 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link #multiMulti(List, List, SolverConfiguration, QueueSelector, QueueSelector, QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)}
      * that uses the {@link #DEFAULT_BACKOFF default backoff strategy} for both
      * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} and the
-     * {@link QueueSelectors.BlockingQueueSelectors#PREFERRED PREFERRED} selector strategy for all
-     * four selectors.
+     * {@link BlockingQueueSelectors#PREFERRED PREFERRED} selector strategy for all four selectors.
      * 
      * @param <Q>         the type of the provided {@link BlockingQueue}s, which must be a subtype
      *                    of {@code BlockingQueue<WorkBatch>}.
-     * @param gtmQueues   the list of {@code BlockingQueue}s used for communication from generators
-     *                    to monkeys.
-     * @param mtgQueues   the list of {@code BlockingQueue}s used for communication from monkeys to
-     *                    generators.
+     * @param gtmQueues   the list of {@code BlockingQueue}s used for communication from
+     *                    {@link #gtmQueues generators to monkeys}.
+     * @param mtgQueues   the list of {@code BlockingQueue}s used for communication from
+     *                    {@link #mtgQueues monkeys to generators}.
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
@@ -1150,17 +1179,19 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
      * @param queueSize   the capacity to use for the created {@link PushPullBlockingQueue}s for
-     *                    communication in both directions between {@link CombinationGeneratorTask
-     *                    generators} and {@link TestClickCombination monkeys}.
+     *                    communication in both directions between generators and monkeys.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, {@link #DEFAULT_BACKOFF default backoff strategy}, and
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, {@link #DEFAULT_BACKOFF backoff strategy}, and
      *         continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
      * @throws NullPointerException     if any of the arguments are {@code null}.
+     * @see Stream#generate(java.util.function.Supplier)
+     * @see Stream#limit(long)
+     * @see Stream#toList()
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the queues, delegation to the main factory method.
      * @threading Thread-safe by nature of construction.
@@ -1185,12 +1216,12 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link SolverConfiguration} for the queue instances.
      * 
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
-     *                    validation and preallocation.
+     *                    validation, queue size, and preallocation.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
-     * @return a new {@code BlockingQueueStrategy} instance configured with the created queues,
-     *         provided configuration, {@link #DEFAULT_BACKOFF default backoff strategy}, and
+     * @return a new {@code BlockingQueueStrategy} instance configured with the provided
+     *         configuration and default queues, {@link #DEFAULT_BACKOFF backoff strategy}, and
      *         continuation predicates.
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.

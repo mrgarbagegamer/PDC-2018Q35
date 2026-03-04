@@ -11,6 +11,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.conversantmedia.util.concurrent.ConcurrentQueue;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
@@ -18,6 +20,7 @@ import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
+import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
 // TODO: Write unit tests for the class.
 /**
@@ -27,15 +30,14 @@ import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
  * <h2>Architecture Role</h2>
  * <p>
  * This class serves a central point for adapting different {@code BlockingQueue} implementations to
- * a common interface, allowing the queues to be properly categorized by their
- * {@link QueueMarkers.AccessMode access modes} (e.g., {@link QueueMarkers.AccessMode.MPMC MPMC},
- * {@link QueueMarkers.AccessMode.SPSC SPSC}) and {@link QueueMarkers.Boundedness boundedness}
- * ({@link QueueMarkers.Boundedness.Bounded bounded} vs {@link QueueMarkers.Boundedness.Unbounded
- * unbounded}). By wrapping the queues in specific wrapper classes, we can ensure that the rest of
- * the system, particularly the validation utilities in {@link QueueUtils.BlockingQueueUtils
- * BlockingQueueUtils}, can reliably determine the properties of the queues. This saves the need for
- * large chains of {@code instanceof} checks throughout the codebase, which are error-prone,
- * difficult to maintain, and unscalable for future queue types.
+ * a common interface, allowing the queues to be properly categorized by their {@link AccessMode
+ * access modes} (e.g., {@link AccessMode.MPMC MPMC}, {@link AccessMode.SPSC SPSC}) and
+ * {@link Boundedness boundedness} ({@link Boundedness.Bounded bounded} vs
+ * {@link Boundedness.Unbounded unbounded}). By wrapping the queues in specific wrapper classes, we
+ * can ensure that the rest of the system, particularly the validation utilities in
+ * {@link BlockingQueueUtils}, can reliably determine the properties of the queues. This saves the
+ * need for large chains of {@code instanceof} checks throughout the codebase, which are
+ * error-prone, difficult to maintain, and unscalable for future queue types.
  * </p>
  * 
  * <p>
@@ -749,6 +751,51 @@ public final class BlockingQueueWrappers {
     }
 
     /**
+     * Creates a list of new {@link BlockingQueue} instances wrapped in the appropriate wrapper
+     * class for a {@link BoundedMpmc bounded MPMC queue} with the specified {@code capacity}.
+     * 
+     * <p>
+     * Building on {@link #newBoundedMpmc(int)}, this method generates an unmodifiable list of new
+     * {@link DisruptorBlockingQueue} instances wrapped in {@link BoundedMpmc} wrappers, all with
+     * the same specified {@code capacity}. This is useful for callers that need to create multiple
+     * bounded MPMC queues at once, such as when initializing queues for a
+     * {@link BlockingQueueStrategy}.
+     * </p>
+     * 
+     * <p>
+     * Note that we use {@link Stream#generate(java.util.function.Supplier) Stream.generate()} to
+     * create an infinite stream of new bounded MPMC queues, and then {@link Stream#limit(long)
+     * limit()} it to the desired {@code size} before
+     * {@link Stream#collect(java.util.stream.Collector) collecting} it into an
+     * {@link Collectors#toUnmodifiableList() unmodifiable list}. The call of
+     * {@code .collect(Collectors.toUnmodifiableList())} is less concise than {@code .toList()}, but
+     * it ensures that the returned list is an immutable, {@code null}-prohibiting list. This is
+     * important, as the {@link BlockingQueueStrategy#BlockingQueueStrategy BlockingQueueStrategy
+     * constructor} calls {@link List#copyOf(Collection)} on the provided list of queues, which will
+     * incur an additional copy if the list is not {@code null}-prohibiting. By using
+     * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
+     * </p>
+     * 
+     * @param size     the number of bounded MPMC queues to create in the list.
+     * @param capacity the positive capacity of each bounded MPMC queue in the list.
+     * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
+     *         {@link BoundedMpmc} wrappers with the specified capacity.
+     * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
+     *                                  negative, or if the provided {@code capacity} exceeds the
+     *                                  maximum power of two that an {@code int} can represent.
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(n)} creation of the list of new bounded MPMC queues, where {@code n} is
+     *              the provided {@code size}, with capacity validation for each queue.
+     * @threading Thread-safe by nature of creating new queue instances.
+     * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
+     *         in the list, along with an internal stream and collector for the generation process.
+     */
+    public static List<BlockingQueue<WorkBatch>> newBoundedMpmcList(int size, int capacity) {
+        return Stream.generate(() -> newBoundedMpmc(capacity)).limit(size)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    /**
      * Creates a new {@link BlockingQueue} instance wrapped in the appropriate wrapper class for an
      * {@link UnboundedMpmc unbounded MPMC queue}.
      * 
@@ -770,6 +817,47 @@ public final class BlockingQueueWrappers {
     public static BlockingQueue<WorkBatch> newUnboundedMpmc() {
         // Assume the caller wants a LinkedBlockingQueue.
         return new UnboundedMpmc(new LinkedBlockingQueue<>());
+    }
+
+    /**
+     * Creates a list of new {@link BlockingQueue} instances wrapped in the appropriate wrapper
+     * class for an {@link UnboundedMpmc unbounded MPMC queue}.
+     * 
+     * <p>
+     * Building on {@link #newUnboundedMpmc()}, this method generates an unmodifiable list of new
+     * {@link LinkedBlockingQueue} instances wrapped in {@link UnboundedMpmc} wrappers. This is
+     * useful for callers that need to create multiple unbounded MPMC queues at once, such as when
+     * initializing queues for a {@link BlockingQueueStrategy}.
+     * </p>
+     * 
+     * <p>
+     * Note that we use {@link Stream#generate(java.util.function.Supplier) Stream.generate()} to
+     * create an infinite stream of new unbounded MPMC queues, and then {@link Stream#limit(long)
+     * limit()} it to the desired {@code size} before
+     * {@link Stream#collect(java.util.stream.Collector) collecting} it into an
+     * {@link Collectors#toUnmodifiableList() unmodifiable list}. The call of
+     * {@code .collect(Collectors.toUnmodifiableList())} is less concise than {@code .toList()}, but
+     * it ensures that the returned list is an immutable, {@code null}-prohibiting list. This is
+     * important, as the {@link BlockingQueueStrategy#BlockingQueueStrategy BlockingQueueStrategy
+     * constructor} calls {@link List#copyOf(Collection)} on the provided list of queues, which will
+     * incur an additional copy if the list is not {@code null}-prohibiting. By using
+     * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
+     * </p>
+     * 
+     * @param size the number of unbounded MPMC queues to create in the list.
+     * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
+     *         {@link UnboundedMpmc} wrappers.
+     * @throws IllegalArgumentException if the provided {@code size} is negative.
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(n)} creation of the list of new unbounded MPMC queues, where {@code n}
+     *              is the provided {@code size}.
+     * @threading Thread-safe by nature of creating new queue instances.
+     * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
+     *         in the list, along with an internal stream and collector for the generation process.
+     */
+    public static List<BlockingQueue<WorkBatch>> newUnboundedMpmcList(int size) {
+        return Stream.generate(BlockingQueueWrappers::newUnboundedMpmc).limit(size)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     /**
@@ -798,6 +886,51 @@ public final class BlockingQueueWrappers {
     public static BlockingQueue<WorkBatch> newBoundedSpsc(int capacity) {
         // Assume the caller wants a PushPullBlockingQueue.
         return new BoundedSpsc(new PushPullBlockingQueue<>(capacity), capacity);
+    }
+
+    /**
+     * Creates a list of new {@link BlockingQueue} instances wrapped in the appropriate wrapper
+     * class for a {@link BoundedSpsc bounded SPSC queue} with the specified {@code capacity}.
+     * 
+     * <p>
+     * Building on {@link #newBoundedSpsc(int)}, this method generates an unmodifiable list of new
+     * {@link PushPullBlockingQueue} instances wrapped in {@link BoundedSpsc} wrappers, all with the
+     * same specified {@code capacity}. This is useful for callers that need to create multiple
+     * bounded SPSC queues at once, such as when initializing queues for a
+     * {@link BlockingQueueStrategy}.
+     * </p>
+     * 
+     * <p>
+     * Note that we use {@link Stream#generate(java.util.function.Supplier) Stream.generate()} to
+     * create an infinite stream of new bounded SPSC queues, and then {@link Stream#limit(long)
+     * limit()} it to the desired {@code size} before
+     * {@link Stream#collect(java.util.stream.Collector) collecting} it into an
+     * {@link Collectors#toUnmodifiableList() unmodifiable list}. The call of
+     * {@code .collect(Collectors.toUnmodifiableList())} is less concise than {@code .toList()}, but
+     * it ensures that the returned list is an immutable, {@code null}-prohibiting list. This is
+     * important, as the {@link BlockingQueueStrategy#BlockingQueueStrategy BlockingQueueStrategy
+     * constructor} calls {@link List#copyOf(Collection)} on the provided list of queues, which will
+     * incur an additional copy if the list is not {@code null}-prohibiting. By using
+     * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
+     * </p>
+     * 
+     * @param size     the number of bounded SPSC queues to create in the list.
+     * @param capacity the positive capacity of each bounded SPSC queue in the list.
+     * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
+     *         {@link BoundedSpsc} wrappers with the specified capacity.
+     * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
+     *                                  negative, or if the provided {@code capacity} exceeds the
+     *                                  maximum power of two that an {@code int} can represent.
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(n)} creation of the list of new bounded SPSC queues, where {@code n} is
+     *              the provided {@code size}, with capacity validation for each queue.
+     * @threading Thread-safe by nature of creating new queue instances.
+     * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
+     *         in the list, along with an internal stream and collector for the generation process.
+     */
+    public static List<BlockingQueue<WorkBatch>> newBoundedSpscList(int size, int capacity) {
+        return Stream.generate(() -> newBoundedSpsc(capacity)).limit(size)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     /**

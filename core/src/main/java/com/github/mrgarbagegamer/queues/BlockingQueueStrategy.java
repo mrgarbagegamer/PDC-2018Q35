@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedMpmc;
+import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedSpscList;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrap;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerator;
@@ -15,10 +17,7 @@ import static java.util.Objects.requireNonNull;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Stream;
 
-import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
-import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.CombinationGeneratorTask;
 import com.github.mrgarbagegamer.GeneratorThread;
 import com.github.mrgarbagegamer.QueueStrategy;
@@ -26,6 +25,8 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.BoundedMpmc;
+import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.BoundedSpsc;
 import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
@@ -550,14 +551,13 @@ public class BlockingQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #singleSingle(BlockingQueue, BlockingQueue, SolverConfiguration, SolverState)} that
-     * creates new {@link DisruptorBlockingQueue} instances with the specified {@code queueSize} for
-     * communication between {@link CombinationGeneratorTask generators} and
-     * {@link TestClickCombination monkeys}.
+     * creates new {@link BoundedMpmc} queues with the specified {@code queueSize} for communication
+     * between {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}.
      * 
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@link DisruptorBlockingQueue}
-     *                    instances for both directions of communication.
+     * @param queueSize   the capacity to use for the created {@code BoundedMpmc} queues for both
+     *                    directions of communication.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
@@ -567,6 +567,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
      * @throws NullPointerException     if any of the arguments are {@code null}.
+     * @see BlockingQueueWrappers#newBoundedMpmc(int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the queues, delegation to the main factory method.
      * @threading Thread-safe by nature of construction.
@@ -575,8 +576,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      */
     public static BlockingQueueStrategy singleSingle(SolverConfiguration config, int queueSize,
             SolverState solverState) {
-        return singleSingle(new DisruptorBlockingQueue<>(queueSize),
-                new DisruptorBlockingQueue<>(queueSize), config, solverState);
+        return singleSingle(newBoundedMpmc(queueSize), newBoundedMpmc(queueSize), config,
+                solverState);
     }
 
     /**
@@ -744,18 +745,17 @@ public class BlockingQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #singleMulti(BlockingQueue, List, SolverConfiguration, SolverState)} that creates a
-     * new {@link DisruptorBlockingQueue} instance with the specified {@code queueSize} for
-     * communication from {@link #gtmQueues generators to monkeys} and a list of
-     * {@link PushPullBlockingQueue} instances with the specified {@code queueSize} for
-     * communication from {@link #mtgQueues monkeys to generators}.
+     * new {@link BoundedMpmc} queue instance with the specified {@code queueSize} for communication
+     * from {@link #gtmQueues generators to monkeys} and a list of {@link BoundedSpsc} instances
+     * with the specified {@code queueSize} for communication from {@link #mtgQueues monkeys to
+     * generators}.
      * 
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code DisruptorBlockingQueue} for
+     * @param queueSize   the capacity to use for the created {@code BoundedMpmc} queue for
      *                    communication from {@link CombinationGeneratorTask generators} to
-     *                    {@link TestClickCombination monkeys} and the
-     *                    {@code PushPullBlockingQueue}s for communication from monkeys to
-     *                    generators.
+     *                    {@link TestClickCombination monkeys} and the {@code BoundedSpsc} queues
+     *                    for communication from monkeys to generators.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
@@ -765,9 +765,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
      * @throws NullPointerException     if any of the arguments are {@code null}.
-     * @see Stream#generate(java.util.function.Supplier)
-     * @see Stream#limit(long)
-     * @see Stream#toList()
+     * @see BlockingQueueWrappers#newBoundedMpmc(int)
+     * @see BlockingQueueWrappers#newBoundedSpscList(int, int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(numMonkeys)} creation of the queues, delegation to the main factory
      *              method.
@@ -780,11 +779,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
         // The gtmQueue should have a capacity equal to the total capacity of the mtgQueues (the
         // passed queueSize) to ensure that the in-flight batch limit is consistent.
         final int numMonkeys = config.numThreads() / 2;
-        final DisruptorBlockingQueue<WorkBatch> gtmQueue = new DisruptorBlockingQueue<>(
-                queueSize * numMonkeys);
-        final List<PushPullBlockingQueue<WorkBatch>> mtgQueues = Stream
-                .generate(() -> new PushPullBlockingQueue<WorkBatch>(queueSize)).limit(numMonkeys)
-                .toList();
+        final BlockingQueue<WorkBatch> gtmQueue = newBoundedMpmc(queueSize * numMonkeys);
+        final List<BlockingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(queueSize, numMonkeys);
         return singleMulti(gtmQueue, mtgQueues, config, solverState);
     }
 
@@ -954,17 +950,16 @@ public class BlockingQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #multiSingle(List, BlockingQueue, SolverConfiguration, SolverState)} that creates a
-     * list of {@link PushPullBlockingQueue} instances with the specified {@code queueSize} for
-     * communication from {@link CombinationGeneratorTask generators} to {@link TestClickCombination
-     * monkeys} and a new {@link DisruptorBlockingQueue} instance with the specified
-     * {@code queueSize} for communication from monkeys back to generators.
+     * list of {@link BoundedSpsc} queues with the specified {@code queueSize} for communication
+     * from {@link CombinationGeneratorTask generators} to {@link TestClickCombination monkeys} and
+     * a new {@link BoundedMpmc} queue with the specified {@code queueSize} for communication from
+     * monkeys back to generators.
      * 
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code PushPullBlockingQueue}s for
-     *                    communication from generators to monkeys and the
-     *                    {@code DisruptorBlockingQueue} for communication from monkeys to
-     *                    generators.
+     * @param queueSize   the capacity to use for the created {@code BoundedSpsc} queues for
+     *                    communication from generators to monkeys and the {@code BoundedMpmc} for
+     *                    communication from monkeys to generators.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
      *                    and {@link #monkeyShouldContinue monkeys}.
@@ -975,9 +970,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *                                  consistency or compatibility, including whether the provided
      *                                  selectors meet the requirements for a multi-single strategy.
      * @throws NullPointerException     if any of the arguments are {@code null}.
-     * @see Stream#generate(java.util.function.Supplier)
-     * @see Stream#limit(long)
-     * @see Stream#toList()
+     * @see BlockingQueueWrappers#newBoundedMpmc(int)
+     * @see BlockingQueueWrappers#newBoundedSpscList(int, int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the queues, delegation to the main factory method.
      * @threading Thread-safe by nature of construction.
@@ -987,11 +981,9 @@ public class BlockingQueueStrategy implements QueueStrategy {
     public static BlockingQueueStrategy multiSingle(SolverConfiguration config, int queueSize,
             SolverState solverState) {
         final int numGenerators = config.numThreads() / 2;
-        final List<PushPullBlockingQueue<WorkBatch>> gtmQueues = Stream
-                .generate(() -> new PushPullBlockingQueue<WorkBatch>(queueSize))
-                .limit(numGenerators).toList();
-        final DisruptorBlockingQueue<WorkBatch> mtgQueue = new DisruptorBlockingQueue<>(
-                queueSize * numGenerators);
+        final List<BlockingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(queueSize,
+                numGenerators);
+        final BlockingQueue<WorkBatch> mtgQueue = newBoundedMpmc(numGenerators);
         return multiSingle(gtmQueues, mtgQueue, config, solverState);
     }
 
@@ -1172,13 +1164,13 @@ public class BlockingQueueStrategy implements QueueStrategy {
 
     /**
      * Convenience overload of {@link #multiMulti(List, List, SolverConfiguration, SolverState)}
-     * that creates lists of {@link PushPullBlockingQueue} instances with the specified
-     * {@code queueSize} for communication in both directions between
-     * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}.
+     * that creates lists of {@link BoundedSpsc} queues with the specified {@code queueSize} for
+     * communication in both directions between {@link CombinationGeneratorTask generators} and
+     * {@link TestClickCombination monkeys}.
      * 
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@link PushPullBlockingQueue}s for
+     * @param queueSize   the capacity to use for the created {@code BoundedSpsc} queues for
      *                    communication in both directions between generators and monkeys.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
@@ -1189,9 +1181,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @throws IllegalArgumentException if any of the arguments fail validation checks for
      *                                  consistency or compatibility.
      * @throws NullPointerException     if any of the arguments are {@code null}.
-     * @see Stream#generate(java.util.function.Supplier)
-     * @see Stream#limit(long)
-     * @see Stream#toList()
+     * @see BlockingQueueWrappers#newBoundedSpscList(int, int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the queues, delegation to the main factory method.
      * @threading Thread-safe by nature of construction.
@@ -1201,12 +1191,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
     public static BlockingQueueStrategy multiMulti(SolverConfiguration config, int queueSize,
             SolverState solverState) {
         final int numGenerators = config.numThreads() / 2;
-        final List<PushPullBlockingQueue<WorkBatch>> gtmQueues = Stream
-                .generate(() -> new PushPullBlockingQueue<WorkBatch>(queueSize))
-                .limit(numGenerators).toList();
-        final List<PushPullBlockingQueue<WorkBatch>> mtgQueues = Stream
-                .generate(() -> new PushPullBlockingQueue<WorkBatch>(queueSize))
-                .limit(numGenerators).toList();
+        final List<BlockingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(numGenerators,
+                queueSize);
+        final List<BlockingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(numGenerators,
+                queueSize);
         return multiMulti(gtmQueues, mtgQueues, config, solverState);
     }
 

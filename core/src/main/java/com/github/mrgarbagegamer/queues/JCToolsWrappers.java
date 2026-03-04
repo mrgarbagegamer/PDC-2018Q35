@@ -6,6 +6,10 @@ import static java.util.Objects.requireNonNull;
 import java.util.List;
 
 import org.jctools.queues.MessagePassingQueue;
+import org.jctools.queues.MpmcArrayQueue;
+import org.jctools.queues.MpscArrayQueue;
+import org.jctools.queues.SpmcArrayQueue;
+import org.jctools.queues.SpscArrayQueue;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
@@ -125,14 +129,6 @@ public final class JCToolsWrappers {
         }
     }
 
-    /** Unbounded MPMC (wraps MpmcUnboundedXaddArrayQueue). */
-    public static final class UnboundedMpmc extends Delegate
-            implements AccessMode.MPMC, Boundedness.Unbounded {
-        public UnboundedMpmc(MessagePassingQueue<WorkBatch> q) {
-            super(q);
-        }
-    }
-
     /** Bounded MPSC (wraps MpscArrayQueue). */
     public static final class BoundedMpsc extends Delegate
             implements AccessMode.MPSC, Boundedness.Bounded {
@@ -179,7 +175,7 @@ public final class JCToolsWrappers {
             return bounded ? new BoundedMpsc(queue) : throwUnbounded("MPSC");
         } else {
             // Default to MPMC for Mpmc* and unknown types
-            return bounded ? new BoundedMpmc(queue) : new UnboundedMpmc(queue);
+            return bounded ? new BoundedMpmc(queue) : throwUnbounded("MPMC");
         }
     }
 
@@ -197,6 +193,42 @@ public final class JCToolsWrappers {
 
         // Delegate to ensureProperlyMarked() to check consistency of access modes and boundedness.
         ensureProperlyMarked(queues, listName);
+    }
+
+    public static MessagePassingQueue<WorkBatch> newBoundedMpmc(int capacity) {
+        return new BoundedMpmc(new MpmcArrayQueue<>(capacity));
+    }
+
+    public static List<MessagePassingQueue<WorkBatch>> newBoundedMpmcList(int size, int capacity) {
+        return Stream.generate(() -> newBoundedMpmc(capacity)).limit(size)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    public static MessagePassingQueue<WorkBatch> newBoundedMpsc(int capacity) {
+        return new BoundedMpsc(new MpscArrayQueue<>(capacity));
+    }
+
+    public static List<MessagePassingQueue<WorkBatch>> newBoundedMpscList(int size, int capacity) {
+        return Stream.generate(() -> newBoundedMpsc(capacity)).limit(size)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    public static MessagePassingQueue<WorkBatch> newBoundedSpmc(int capacity) {
+        return new BoundedSpmc(new SpmcArrayQueue<>(capacity));
+    }
+
+    public static List<MessagePassingQueue<WorkBatch>> newBoundedSpmcList(int size, int capacity) {
+        return Stream.generate(() -> newBoundedSpmc(capacity)).limit(size)
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    public static MessagePassingQueue<WorkBatch> newBoundedSpsc(int capacity) {
+        return new BoundedSpsc(new SpscArrayQueue<>(capacity));
+    }
+
+    public static List<MessagePassingQueue<WorkBatch>> newBoundedSpscList(int size, int capacity) {
+        return Stream.generate(() -> newBoundedSpsc(capacity)).limit(size)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     private static MessagePassingQueue<WorkBatch> throwUnbounded(String mode) {

@@ -109,7 +109,9 @@ public final class BlockingQueueWrappers {
      * same delegation logic while providing different metadata about their access modes and
      * boundedness. By centralizing the delegation logic in this class, we avoid code duplication
      * and ensure that all wrapper classes have a consistent implementation of the
-     * {@code BlockingQueue} interface.
+     * {@code BlockingQueue} interface. This class is {@code public} to allow external code to
+     * introduce new unbounded wrappers if needed, though all implemented methods of this class are
+     * marked {@code final} to uphold the {@code BlockingQueue} contract.
      * </p>
      * 
      * @since 2026.02 - Queue Injection Refactor
@@ -119,17 +121,18 @@ public final class BlockingQueueWrappers {
      * @memory Fixed memory overhead, with allocation dependent on the behavior of the delegate
      *         queue.
      */
-    private static abstract class Delegate implements BlockingQueue<WorkBatch> {
+    public static abstract class Delegate implements BlockingQueue<WorkBatch> {
         /**
          * The underlying delegate queue that all method calls are forwarded to. This is the actual
-         * queue instance that performs the operations, while the wrapper classes provide additional
-         * metadata about the queue's access mode and boundedness.
+         * {@link BlockingQueue} that performs the operations, while the wrapper classes provide
+         * additional metadata about the queue's {@link AccessMode access modes} and
+         * {@link Boundedness boundedness}.
          * 
          * <p>
          * This field is marked as {@code final} to ensure that it is immutable after
          * {@link #Delegate(BlockingQueue) construction}. Typing this field as a
          * {@code BlockingQueue<WorkBatch>} rather than a {@code Queue<WorkBatch>} (or a more
-         * specific type) allows the wrapper classes to support any type of {@link BlockingQueue},
+         * specific type) allows the wrapper classes to support any type of {@code BlockingQueue},
          * albeit at the cost of forcing virtual method calls for all queue operations. A potential
          * future optimization could involve handrolling the delegation logic per type of queue to
          * avoid virtual calls, but this would require more complex code and maintenance. For now,
@@ -143,7 +146,7 @@ public final class BlockingQueueWrappers {
         protected final BlockingQueue<WorkBatch> delegate;
 
         /**
-         * Constructs a new {@code Delegate} instance that wraps the provided {@code BlockingQueue}.
+         * Constructs a new {@code Delegate} instance that wraps the provided {@link BlockingQueue}.
          * 
          * @param delegate the underlying {@code BlockingQueue} to delegate all method calls to.
          *                 This must not be {@code null}.
@@ -152,7 +155,7 @@ public final class BlockingQueueWrappers {
          * @since 2026.02 - Queue Injection Refactor
          * @performance {@code O(1)} construction of the delegate wrapper.
          * @threading Thread-safe by nature of being immutable after construction.
-         * @memory Allocates a new wrapper object with a reference to the provided delegate queue.
+         * @memory Allocates a new wrapper object with a reference to the provided queue.
          */
         protected Delegate(BlockingQueue<WorkBatch> delegate) {
             this.delegate = requireNonNull(delegate, "delegate must not be null");
@@ -160,139 +163,140 @@ public final class BlockingQueueWrappers {
 
         // BlockingQueue methods
         @Override
-        public boolean add(WorkBatch e) {
+        public final boolean add(WorkBatch e) {
             return delegate.add(e);
         }
 
         @Override
-        public boolean offer(WorkBatch e) {
+        public final boolean offer(WorkBatch e) {
             return delegate.offer(e);
         }
 
         @Override
-        public void put(WorkBatch e) throws InterruptedException {
+        public final void put(WorkBatch e) throws InterruptedException {
             delegate.put(e);
         }
 
         @Override
-        public boolean offer(WorkBatch e, long timeout, TimeUnit unit) throws InterruptedException {
+        public final boolean offer(WorkBatch e, long timeout, TimeUnit unit)
+                throws InterruptedException {
             return delegate.offer(e, timeout, unit);
         }
 
         @Override
-        public WorkBatch take() throws InterruptedException {
+        public final WorkBatch take() throws InterruptedException {
             return delegate.take();
         }
 
         @Override
-        public WorkBatch poll(long timeout, TimeUnit unit) throws InterruptedException {
+        public final WorkBatch poll(long timeout, TimeUnit unit) throws InterruptedException {
             return delegate.poll(timeout, unit);
         }
 
         @Override
-        public int remainingCapacity() {
+        public final int remainingCapacity() {
             return delegate.remainingCapacity();
         }
 
         @Override
-        public boolean remove(Object o) {
+        public final boolean remove(Object o) {
             return delegate.remove(o);
         }
 
         @Override
-        public boolean contains(Object o) {
+        public final boolean contains(Object o) {
             return delegate.contains(o);
         }
 
         @Override
-        public int drainTo(Collection<? super WorkBatch> c) {
+        public final int drainTo(Collection<? super WorkBatch> c) {
             return delegate.drainTo(c);
         }
 
         @Override
-        public int drainTo(Collection<? super WorkBatch> c, int maxElements) {
+        public final int drainTo(Collection<? super WorkBatch> c, int maxElements) {
             return delegate.drainTo(c, maxElements);
         }
 
         // Queue methods
         @Override
-        public WorkBatch remove() {
+        public final WorkBatch remove() {
             return delegate.remove();
         }
 
         @Override
-        public WorkBatch poll() {
+        public final WorkBatch poll() {
             return delegate.poll();
         }
 
         @Override
-        public WorkBatch element() {
+        public final WorkBatch element() {
             return delegate.element();
         }
 
         @Override
-        public WorkBatch peek() {
+        public final WorkBatch peek() {
             return delegate.peek();
         }
 
         // Collection methods
         @Override
-        public int size() {
+        public final int size() {
             return delegate.size();
         }
 
         @Override
-        public boolean isEmpty() {
+        public final boolean isEmpty() {
             return delegate.isEmpty();
         }
 
         @Override
-        public Iterator<WorkBatch> iterator() {
+        public final Iterator<WorkBatch> iterator() {
             return delegate.iterator();
         }
 
         @Override
-        public Object[] toArray() {
+        public final Object[] toArray() {
             return delegate.toArray();
         }
 
         @Override
-        public <T> T[] toArray(T[] a) {
+        public final <T> T[] toArray(T[] a) {
             return delegate.toArray(a);
         }
 
         @Override
-        public boolean containsAll(Collection<?> c) {
+        public final boolean containsAll(Collection<?> c) {
             return delegate.containsAll(c);
         }
 
         @Override
-        public boolean addAll(Collection<? extends WorkBatch> c) {
+        public final boolean addAll(Collection<? extends WorkBatch> c) {
             return delegate.addAll(c);
         }
 
         @Override
-        public boolean removeAll(Collection<?> c) {
+        public final boolean removeAll(Collection<?> c) {
             return delegate.removeAll(c);
         }
 
         @Override
-        public boolean retainAll(Collection<?> c) {
+        public final boolean retainAll(Collection<?> c) {
             return delegate.retainAll(c);
         }
 
         @Override
-        public void clear() {
+        public final void clear() {
             delegate.clear();
         }
 
         @Override
-        public boolean equals(Object o) {
+        public final boolean equals(Object o) {
             return delegate.equals(o);
         }
 
         @Override
-        public int hashCode() {
+        public final int hashCode() {
             return delegate.hashCode();
         }
     }
@@ -318,7 +322,7 @@ public final class BlockingQueueWrappers {
      * @memory Allocates a new wrapper object with a reference to the provided delegate queue and an
      *         {@code int} for the capacity.
      */
-    private static abstract class BoundedDelegate extends Delegate implements Boundedness.Bounded {
+    public static abstract class BoundedDelegate extends Delegate implements Boundedness.Bounded {
         /**
          * The capacity of the bounded queue.
          * 
@@ -410,7 +414,7 @@ public final class BlockingQueueWrappers {
          * @memory Does not allocate.
          */
         @Override
-        public int capacity() {
+        public final int capacity() {
             return capacity;
         }
     }
@@ -618,7 +622,8 @@ public final class BlockingQueueWrappers {
      * <p>
      * This method is used when the caller wants to explicitly define the capacity of the bounded
      * queue, which is necessary for bounded queues that do not have an interface directly exposing
-     * their capacity (e.g., {@link ArrayBlockingQueue}). The method validates that the provided
+     * their capacity (e.g., {@link ArrayBlockingQueue}).
+     * </p>
      * 
      * @param queue    the non-{@code null} {@code BlockingQueue} to wrap.
      * @param capacity the positive capacity of the bounded queue, matching the queue's underlying
@@ -654,55 +659,43 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Wraps all the provided {@link BlockingQueue} instances in the appropriate wrapper classes
-     * based on their types and characteristics.
+     * Wraps a list of {@link BlockingQueue}s into the appropriate wrapper classes based on their
+     * types and characteristics.
      * 
-     * @param queues the non-{@code null} {@link List list} of {@code BlockingQueue} instances to
-     *               wrap.
-     * @return an immutable list of wrapped versions of the provided {@code BlockingQueue} instances
-     *         with the appropriate wrapper classes based on their types and characteristics.
+     * @param queues the non-{@code null} {@link List list} of queues to wrap.
+     * @return an immutable list of wrapped versions of the provided queues.
      * @throws NullPointerException if the provided {@code queues} list is {@code null}.
      * @see #wrap(BlockingQueue)
      * @see java.util.List#stream() List.stream()
+     * @see java.util.stream.Collectors#toUnmodifiableList() Collectors.toUnmodifiableList()
+     * @see java.util.stream.Stream#collect(java.util.stream.Collector) Stream.collect(Collector)
      * @see java.util.stream.Stream#map(java.util.function.Function) Stream.map(Function)
-     * @see java.util.stream.Stream#toList() Stream.toList()
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(n)} wrapping of all queues in the list, where {@code n} is the size of
      *              the list.
      * @threading Not thread-safe. The caller must ensure that the provided list is not modified
      *            concurrently during the wrapping process.
-     * @memory Allocates a new list of new wrapper objects for each queue in the provided list,
-     *         along with an internal stream for the wrapping process.
+     * @memory Allocates a new list of wrapper objects (and the wrapper objects themselves, if not
+     *         already wrapped), along with intermediate stream objects for the wrapping process.
      */
     public static List<BlockingQueue<WorkBatch>> wrapAll(
             List<? extends BlockingQueue<WorkBatch>> queues) {
-        return queues.stream().map(BlockingQueueWrappers::wrap).toList();
+        return queues.stream().map(BlockingQueueWrappers::wrap)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     /**
-     * Ensures that all the provided {@link BlockingQueue} instances are properly wrapped with the
-     * appropriate wrapper classes based on their types and characteristics.
+     * Ensures that all {@link BlockingQueue}s in the provided list are properly wrapped with the
+     * appropriate wrapper classes for their types and characteristics.
      * 
-     * <p>
-     * This method may be used to validate that a list of queues has been properly wrapped before
-     * being passed to other parts of the system that rely on the presence of the wrapper classes to
-     * determine the properties of the queues. After an initial check to ensure that all queues are
-     * instances of {@link Delegate} (i.e., wrapped), it delegates to the
-     * {@link QueueUtils#ensureProperlyMarked(List, String) ensureProperlyMarked} method to check
-     * the consistency of {@link AccessMode access modes} and {@link Boundedness boundedness},
-     * ensuring that the queues are not only wrapped but also correctly marked with the appropriate
-     * metadata.
-     * </p>
-     * 
-     * @param queues   the non-{@code null} {@link List list} of {@code BlockingQueue} instances to
-     *                 validate.
-     * @param listName the name of the list being validated, used for error messages if validation
-     *                 fails.
+     * @param queues   the non-{@code null} {@link List list} of queues to validate.
+     * @param listName the name of the list being validated, used for error messages.
      * @throws NullPointerException     if the provided {@code queues} list is {@code null}.
      * @throws IllegalArgumentException if any of the queues in the list are not properly wrapped or
      *                                  if their access modes and boundedness are not consistent.
      * @see #wrap(BlockingQueue)
      * @see #wrapAll(List)
+     * @see QueueUtils#ensureProperlyMarked(List, String)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(n)} validation of all queues in the list, where {@code n} is the size
      *              of the list.
@@ -722,26 +715,19 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a new {@link BlockingQueue} instance wrapped in the appropriate wrapper class for a
-     * {@link BoundedMpmc bounded MPMC queue} with the specified {@code capacity}.
-     * 
-     * <p>
-     * This is a convenience method for callers who want to create a new bounded MPMC queue without
-     * having to manually instantiate the underlying queue and wrap it themselves. The method
-     * assumes that the caller wants to use a {@link DisruptorBlockingQueue} as the underlying queue
-     * for the bounded MPMC wrapper, as it is a common choice for high-performance MPMC queues.
-     * </p>
+     * Creates a new {@link DisruptorBlockingQueue} wrapped in a {@link BoundedMpmc} wrapper with
+     * the specified {@code capacity}.
      * 
      * @param capacity the positive capacity of the bounded MPMC queue.
-     * @return a new {@code BlockingQueue} instance wrapped in a {@link BoundedMpmc} wrapper with
-     *         the specified capacity (rounded to the next power of two if necessary).
+     * @return a new {@link BlockingQueue} wrapped in a {@link BoundedMpmc} wrapper with the
+     *         specified capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
      * @see #newBoundedSpsc(int)
      * @see #newUnboundedMpmc()
      * @see BoundedMpmc#BoundedMpmc(BlockingQueue, int)
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} creation of the new bounded MPMC queue with capacity validation.
+     * @performance {@code O(1)} creation of the bounded MPMC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
@@ -751,15 +737,14 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a list of new {@link BlockingQueue} instances wrapped in the appropriate wrapper
-     * class for a {@link BoundedMpmc bounded MPMC queue} with the specified {@code capacity}.
+     * Creates a list of new {@link BlockingQueue}s wrapped in {@link BoundedMpmc} wrappers with the
+     * specified {@code capacity}.
      * 
      * <p>
-     * Building on {@link #newBoundedMpmc(int)}, this method generates an unmodifiable list of new
-     * {@link DisruptorBlockingQueue} instances wrapped in {@link BoundedMpmc} wrappers, all with
-     * the same specified {@code capacity}. This is useful for callers that need to create multiple
-     * bounded MPMC queues at once, such as when initializing queues for a
-     * {@link BlockingQueueStrategy}.
+     * Building on {@link #newBoundedMpmc(int)}, this method generates an immutable list of new
+     * {@code BoundedMpmc} queues, all with the same specified {@code capacity}. This is useful for
+     * callers that need to create multiple bounded MPMC queues at once, such as when initializing
+     * queues for a {@link BlockingQueueStrategy}.
      * </p>
      * 
      * <p>
@@ -779,13 +764,12 @@ public final class BlockingQueueWrappers {
      * @param size     the number of bounded MPMC queues to create in the list.
      * @param capacity the positive capacity of each bounded MPMC queue in the list.
      * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
-     *         {@link BoundedMpmc} wrappers with the specified capacity.
+     *         {@code BoundedMpmc} wrappers with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
      *                                  negative, or if the provided {@code capacity} exceeds the
      *                                  maximum power of two that an {@code int} can represent.
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(n)} creation of the list of new bounded MPMC queues, where {@code n} is
-     *              the provided {@code size}, with capacity validation for each queue.
+     * @performance {@code O(size)} list creation.
      * @threading Thread-safe by nature of creating new queue instances.
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
@@ -796,21 +780,14 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a new {@link BlockingQueue} instance wrapped in the appropriate wrapper class for an
-     * {@link UnboundedMpmc unbounded MPMC queue}.
+     * Creates a new {@link LinkedBlockingQueue} instance wrapped in a {@link UnboundedMpmc}
+     * wrapper.
      * 
-     * <p>
-     * This is a convenience method for callers who want to create a new unbounded MPMC queue
-     * without having to manually instantiate the underlying queue and wrap it themselves. The
-     * method assumes that the caller wants to use a {@link LinkedBlockingQueue} as the underlying
-     * queue for the unbounded MPMC wrapper, as it is a common choice for unbounded queues in Java.
-     * </p>
-     * 
-     * @return a new {@code BlockingQueue} instance wrapped in an {@link UnboundedMpmc} wrapper.
+     * @return a new {@link BlockingQueue} wrapped in an {@code UnboundedMpmc} wrapper.
      * @see #newBoundedMpmc(int)
      * @see UnboundedMpmc#UnboundedMpmc(BlockingQueue)
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} creation of the new unbounded MPMC queue.
+     * @performance {@code O(1)} creation of the unbounded MPMC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
@@ -861,25 +838,19 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a new {@link BlockingQueue} instance wrapped in the appropriate wrapper class for a
-     * {@link BoundedSpsc bounded SPSC queue} with the specified {@code capacity}.
+     * Creates a new {@link PushPullBlockingQueue} wrapped in a {@link BoundedSpsc} wrapper with the
+     * specified {@code capacity}.
      * 
-     * <p>
-     * This is a convenience method for callers who want to create a new bounded SPSC queue without
-     * having to manually instantiate the underlying queue and wrap it themselves. The method
-     * assumes that the caller wants to use a {@link PushPullBlockingQueue} as the underlying queue
-     * for the bounded SPSC wrapper, as it is a common choice for high-performance SPSC queues.
-     * </p>
-     * 
-     * @param capacity the positive capacity of the bounded SPSC queue.
+     * @param capacity the positive capacity to use for the created bounded SPSC queue.
+     * @return a new {@link BlockingQueue} wrapped in a {@link BoundedSpsc} wrapper with the
+     *         specified capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
-     * @return a new {@code BlockingQueue} instance wrapped in a {@link BoundedSpsc} wrapper with
-     *         the specified capacity (rounded to the next power of two if necessary).
+     * @see #newBoundedSpscList(int, int)
      * @see #newBoundedMpmc(int)
      * @see BoundedSpsc#BoundedSpsc(BlockingQueue, int)
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} creation of the new bounded SPSC queue with capacity validation.
+     * @performance {@code O(1)} creation of the bounded SPSC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
@@ -889,15 +860,14 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a list of new {@link BlockingQueue} instances wrapped in the appropriate wrapper
-     * class for a {@link BoundedSpsc bounded SPSC queue} with the specified {@code capacity}.
+     * Creates a list of new {@link BlockingQueue}s wrapped in {@link BoundedSpsc} wrappers with the
+     * specified {@code capacity}.
      * 
      * <p>
-     * Building on {@link #newBoundedSpsc(int)}, this method generates an unmodifiable list of new
-     * {@link PushPullBlockingQueue} instances wrapped in {@link BoundedSpsc} wrappers, all with the
-     * same specified {@code capacity}. This is useful for callers that need to create multiple
-     * bounded SPSC queues at once, such as when initializing queues for a
-     * {@link BlockingQueueStrategy}.
+     * Building on {@link #newBoundedSpsc(int)}, this method generates an immutable list of new
+     * {@code BoundedSpsc} queues, all with the specified {@code capacity}. This is useful for
+     * callers that need to create multiple bounded SPSC queues at once, such as when initializing
+     * queues for a {@link BlockingQueueStrategy}.
      * </p>
      * 
      * <p>
@@ -916,14 +886,16 @@ public final class BlockingQueueWrappers {
      * 
      * @param size     the number of bounded SPSC queues to create in the list.
      * @param capacity the positive capacity of each bounded SPSC queue in the list.
-     * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
+     * @return an unmodifiable list of new {@link BlockingQueue} instances wrapped in
      *         {@link BoundedSpsc} wrappers with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
      *                                  negative, or if the provided {@code capacity} exceeds the
      *                                  maximum power of two that an {@code int} can represent.
+     * @see #newBoundedSpsc(int)
+     * @see #newBoundedMpmcList(int, int)
+     * @see #newUnboundedMpmcList(int)
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(n)} creation of the list of new bounded SPSC queues, where {@code n} is
-     *              the provided {@code size}, with capacity validation for each queue.
+     * @performance {@code O(size)} list creation.
      * @threading Thread-safe by nature of creating new queue instances.
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.

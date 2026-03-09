@@ -40,25 +40,32 @@ import com.github.mrgarbagegamer.WorkBatch;
  * respectively).
  * </p>
  * 
- * <h2>Performance Considerations</h2>
+ * <h2>Performance Characteristics</h2>
  * <p>
- * The performance of the "predicates" provided by this class depend on the state they capture and
- * the operations they perform. {@link #neverTerminate()} is extremely lightweight (effectively a
- * no-op if the JIT compiler is having a good day), while others involve checking {@code volatile}
- * flags and queue states, which carry overhead. However, these checks are vital for thread
- * coordination, and a codebase without them would likely suffer from issues like busy-waiting or
- * missed signals, hurting usability.
+ * The complexity of the "predicates" provided by this class vary based on the specific
+ * implementation and the state they capture (since conditionals are short-circuiting). The simplest
+ * suppliers, like a {@link #neverTerminate() no-op supplier} or one with one or two
+ * {@code volatile} flag check, will have an {@code O(1)} invocation complexity. The monkey
+ * suppliers that check multiple queues have a best-case complexity of {@code O(1)} when
+ * {@link SolverState#solutionFound() no solution is found} or
+ * {@link SolverState#generationComplete() generation is incomplete}, and a worst-case complexity of
+ * {@code O(gtmQueues.size())}.
+ * </p>
+ * 
+ * <h2>Thread Safety</h2>
+ * <p>
+ * All suppliers provided by this class are thread-safe by design, as they capture effectively final
+ * references to the {@link SolverState} and queues, {@link List#copyOf making defensive copies of
+ * lists} when necessary to avoid concurrent modification issues.
  * </p>
  * 
  * @see QueueSelectors
- * @see SolverState
  * @since 2026.02 - Queue Injection Refactor
- * @performance {@code O(1)} for no-ops and simple flag checks; up to {@code O(n)} for predicates
- *              that check multiple queues, where {@code n} is the number of queues.
+ * @performance {@code O(1)} for no-ops and simple flag checks; up to {@code O(gtmQueues.size())}
+ *              for predicates that check multiple queues.
  * @threading Thread-safe by design.
  * @memory Does not allocate for no-ops or normal flag operations, though predicates that check
- *         multiple queues may allocate for stream operations if
- *         {@link SolverState#generationComplete() generation is complete}.
+ *         multiple queues may allocate for stream operations if generation is complete.
  */
 public final class ContinuationPredicates {
 
@@ -230,6 +237,8 @@ public final class ContinuationPredicates {
             default -> {
                 // Defensive copy to avoid concurrent modification issues during stream operations.
                 final List<MessagePassingQueue<WorkBatch>> gtmCopy = List.copyOf(gtmQueues);
+                // TODO: Replace the stream operation with a manual loop in a separate method to
+                // avoid stream allocations.
                 yield () -> !state.solutionFound() && (!state.generationComplete()
                         || !gtmCopy.stream().allMatch(MessagePassingQueue::isEmpty));
             }
@@ -308,6 +317,8 @@ public final class ContinuationPredicates {
             default -> {
                 // Defensive copy to avoid concurrent modification issues during stream operations.
                 final List<BlockingQueue<WorkBatch>> gtmCopy = List.copyOf(gtmQueues);
+                // TODO: Replace the stream operation with a manual loop in a separate method to
+                // avoid stream allocations.
                 yield () -> !state.solutionFound() && (!state.generationComplete()
                         || !gtmCopy.stream().allMatch(BlockingQueue::isEmpty));
             }

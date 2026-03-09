@@ -17,6 +17,7 @@ import org.jctools.queues.SpscArrayQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
+import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 
 // TODO: Write unit tests for the class.
 /**
@@ -31,7 +32,7 @@ import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
  * SPSC}) and {@link Boundedness boundedness} ({@link Boundedness.Bounded bounded} vs
  * {@link Boundedness.Unbounded unbounded}). By wrapping the queues in specific wrapper classes, we
  * can ensure that the rest of the system, particularly the validation utilities in
- * {@link JCToolsQueueUtils}, can reliably determine the properties of the queues. This saves the
+ * {@link JCToolsUtils}, can reliably determine the properties of the queues. This saves the
  * need for large chains of {@code instanceof} checks throughout the codebase, which are
  * error-prone, difficult to maintain, and unscalable for future queue types.
  * </p>

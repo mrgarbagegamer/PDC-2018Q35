@@ -819,8 +819,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         // passed queueSize) to ensure that the in-flight batch limit is consistent.
         final int numMonkeys = config.numThreads() / 2;
         final MessagePassingQueue<WorkBatch> gtmQueue = newBoundedMpmc(queueSize * numMonkeys);
-        final List<MessagePassingQueue<WorkBatch>> mtgQueues = newBoundedMpmcList(queueSize,
-                numMonkeys);
+        final List<MessagePassingQueue<WorkBatch>> mtgQueues = newBoundedMpmcList(numMonkeys,
+                queueSize);
         return singleMulti(gtmQueue, mtgQueues, config, solverState);
     }
 
@@ -1025,8 +1025,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         // The mtgQueue should have a capacity equal to the total capacity of the gtmQueues (the
         // passed queueSize) to ensure that the in-flight batch limit is consistent.
         final int numGenerators = config.numThreads() / 2;
-        final List<MessagePassingQueue<WorkBatch>> gtmQueues = newBoundedMpmcList(queueSize,
-                numGenerators);
+        final List<MessagePassingQueue<WorkBatch>> gtmQueues = newBoundedMpmcList(numGenerators,
+                queueSize);
         final MessagePassingQueue<WorkBatch> mtgQueue = newBoundedMpmc(queueSize * numGenerators);
         return multiSingle(gtmQueues, mtgQueue, config, solverState);
     }
@@ -1236,11 +1236,11 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      */
     public static JCToolsQueueStrategy multiMulti(SolverConfiguration config, int queueSize,
             SolverState solverState) {
-        final int numThreads = config.numThreads();
-        final List<MessagePassingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(queueSize,
-                numThreads);
-        final List<MessagePassingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(queueSize,
-                numThreads);
+        final int numThreads = config.numThreads() / 2;
+        final List<MessagePassingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(numThreads,
+                queueSize);
+        final List<MessagePassingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(numThreads,
+                queueSize);
         return multiMulti(gtmQueues, mtgQueues, config, solverState);
     }
 

@@ -780,7 +780,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
         // passed queueSize) to ensure that the in-flight batch limit is consistent.
         final int numMonkeys = config.numThreads() / 2;
         final BlockingQueue<WorkBatch> gtmQueue = newBoundedMpmc(queueSize * numMonkeys);
-        final List<BlockingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(queueSize, numMonkeys);
+        final List<BlockingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(numMonkeys, queueSize);
         return singleMulti(gtmQueue, mtgQueues, config, solverState);
     }
 
@@ -981,8 +981,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
     public static BlockingQueueStrategy multiSingle(SolverConfiguration config, int queueSize,
             SolverState solverState) {
         final int numGenerators = config.numThreads() / 2;
-        final List<BlockingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(queueSize,
-                numGenerators);
+        final List<BlockingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(numGenerators,
+                queueSize);
         final BlockingQueue<WorkBatch> mtgQueue = newBoundedMpmc(numGenerators);
         return multiSingle(gtmQueues, mtgQueue, config, solverState);
     }

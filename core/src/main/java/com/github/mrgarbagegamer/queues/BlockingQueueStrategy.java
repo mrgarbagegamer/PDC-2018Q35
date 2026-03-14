@@ -8,10 +8,10 @@ import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerat
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors.EXCLUSIVE;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors.PREFERRED;
-import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.ensureMultiConsumerSupport;
-import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.ensureMultiProducerSupport;
+import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.requireMultiConsumerSupport;
+import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.requireMultiProducerSupport;
 import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.preallocateInto;
-import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.validateArguments;
+import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.requireValidArguments;
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
@@ -310,9 +310,9 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * Creates a new {@code BlockingQueueStrategy} with the specified configuration.
      * 
      * <p>
-     * The arguments are {@link BlockingQueueUtils#validateArguments validated} to ensure they are
-     * consistent with each other and with the provided {@link SolverConfiguration}. If all meet the
-     * requirements, a new strategy instance is created with the provided configuration and
+     * The arguments are {@link BlockingQueueUtils#requireValidArguments validated} to ensure they
+     * are consistent with each other and with the provided {@link SolverConfiguration}. If all meet
+     * the requirements, a new strategy instance is created with the provided configuration and
      * {@link BlockingQueueUtils#preallocateInto(List, SolverConfiguration) preallocation} is
      * performed on the provided {@code mtgQueues} to ensure they are ready for use. {@link List
      * Lists} of queues are {@link List#copyOf copied} to ensure immutability and thread safety.
@@ -376,7 +376,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
         final int monkeyCount = config.numThreads() / 2;
         final int standardQueueSize = config.queueSize();
 
-        validateArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
+        requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
                 monkeyPollSelector, monkeyOfferSelector, standardQueueSize, generatorCount,
                 monkeyCount);
 
@@ -629,8 +629,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * strategy, but if either is set to {@link BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues must all support
-     * {@link BlockingQueueUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
-     * {@link BlockingQueueUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * {@link BlockingQueueUtils#requireMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link BlockingQueueUtils#requireMultiProducerSupport(List, String) multi-producer} access,
      * respectively, to ensure correctness. The {@link #generatorOfferSelector} and
      * {@link #monkeyPollSelector} are fixed to {@code EXCLUSIVE} in this strategy, since there is
      * only one {@link #gtmQueues generator-to-monkey queue}.
@@ -692,10 +692,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
         // Ensure that the provided selectors meet the requirements for a single-multi strategy (as
         // described above).
         if (generatorPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedMtgQueues, "mtg");
+            requireMultiConsumerSupport(wrappedMtgQueues, "mtg");
         }
         if (monkeyOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
+            requireMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
         return new BlockingQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
@@ -833,8 +833,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * strategy, but if either is set to {@link BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues must all support
-     * {@link BlockingQueueUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
-     * {@link BlockingQueueUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * {@link BlockingQueueUtils#requireMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link BlockingQueueUtils#requireMultiProducerSupport(List, String) multi-producer} access,
      * respectively, to ensure correctness. The {@link #generatorPollSelector} and
      * {@link #monkeyOfferSelector} are fixed to {@code EXCLUSIVE} in this strategy, since there is
      * only one {@link #mtgQueues monkey-to-generator queue}.
@@ -895,10 +895,10 @@ public class BlockingQueueStrategy implements QueueStrategy {
         // Ensure that the provided selectors meet the requirements for a multi-single strategy (as
         // described above).
         if (generatorOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedGtmQueues, "gtm");
+            requireMultiProducerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedGtmQueues, "gtm");
+            requireMultiConsumerSupport(wrappedGtmQueues, "gtm");
         }
 
         return new BlockingQueueStrategy(wrappedGtmQueues, List.of(wrappedMtgQueue), config,
@@ -1037,8 +1037,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link BlockingQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues for that direction must all support
-     * {@link BlockingQueueUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
-     * {@link BlockingQueueUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * {@link BlockingQueueUtils#requireMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link BlockingQueueUtils#requireMultiProducerSupport(List, String) multi-producer} access,
      * respectively, to ensure correctness.
      * </p>
      * 
@@ -1106,16 +1106,16 @@ public class BlockingQueueStrategy implements QueueStrategy {
         // Ensure that the provided selectors meet the requirements for a multi-multi strategy (as
         // described above).
         if (generatorPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedMtgQueues, "mtg");
+            requireMultiConsumerSupport(wrappedMtgQueues, "mtg");
         }
         if (generatorOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedGtmQueues, "gtm");
+            requireMultiProducerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedGtmQueues, "gtm");
+            requireMultiConsumerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
+            requireMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
         return new BlockingQueueStrategy(wrappedGtmQueues, wrappedMtgQueues, config,

@@ -10,10 +10,10 @@ import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors.BIASED_SEQUENTIAL;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors.EXCLUSIVE;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors.PREFERRED;
-import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.ensureMultiConsumerSupport;
-import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.ensureMultiProducerSupport;
+import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.requireMultiConsumerSupport;
+import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.requireMultiProducerSupport;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.preallocateInto;
-import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.validateArguments;
+import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.requireValidArguments;
 import static java.util.Objects.requireNonNull;
 
 import java.util.List;
@@ -55,8 +55,8 @@ import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
  * implementations, the efficiency of the provided {@link QueueSelector} strategies, and the
  * behavior of the {@link BackoffStrategy} implementations. Selection strategies that involve
  * polling/offering to multiple queues may reduce contention and balance the load better but require
- * {@link QueueUtils.JCToolsUtils#ensureMultiProducerSupport(List, String) multi-producer} or
- * {@link QueueUtils.JCToolsUtils#ensureMultiConsumerSupport(List, String) multi-consumer} suppport
+ * {@link QueueUtils.JCToolsUtils#requireMultiProducerSupport(List, String) multi-producer} or
+ * {@link QueueUtils.JCToolsUtils#requireMultiConsumerSupport(List, String) multi-consumer} suppport
  * from the queues, creating higher overhead per the Single Writer principle. In contrast,
  * {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} or {@link JCToolsQueueSelectors#PREFERRED
  * PREFERRED} strategies can reduce access overhead and improve cache locality, but may lead to
@@ -319,7 +319,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * Creates a new {@code JCToolsQueueStrategy} with the specified configuration.
      * 
      * <p>
-     * The arguments are {@link JCToolsUtils#validateArguments validated} to ensure they are
+     * The arguments are {@link JCToolsUtils#requireValidArguments validated} to ensure they are
      * consistent with each other and with the provided {@link SolverConfiguration}. If all meet the
      * requirements, a new strategy instance is created with the provided configuration and
      * {@link JCToolsUtils#preallocateInto(List, SolverConfiguration) preallocation} is performed on
@@ -385,7 +385,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         final int monkeyCount = config.numThreads() / 2;
         final int standardQueueSize = config.queueSize();
 
-        validateArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
+        requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
                 monkeyPollSelector, monkeyOfferSelector, standardQueueSize, generatorCount,
                 monkeyCount);
 
@@ -667,8 +667,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * strategy, but if either is set to {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues must all support
-     * {@link JCToolsUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
-     * {@link JCToolsUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * {@link JCToolsUtils#requireMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link JCToolsUtils#requireMultiProducerSupport(List, String) multi-producer} access,
      * respectively, to ensure correctness. The {@link #generatorOfferSelector} and
      * {@link #monkeyPollSelector} are fixed to {@code EXCLUSIVE} in this strategy, since there is
      * only one {@link #gtmQueues generator-to-monkey queue}.
@@ -730,10 +730,10 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         // Ensure that the provided selectors meet the requirements for a single-multi strategy (as
         // described above).
         if (generatorPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedMtgQueues, "mtg");
+            requireMultiConsumerSupport(wrappedMtgQueues, "mtg");
         }
         if (monkeyOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
+            requireMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
         return new JCToolsQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
@@ -873,8 +873,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * strategy, but if either is set to {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues must all support
-     * {@link JCToolsUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
-     * {@link JCToolsUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * {@link JCToolsUtils#requireMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link JCToolsUtils#requireMultiProducerSupport(List, String) multi-producer} access,
      * respectively, to ensure correctness. The {@link #generatorPollSelector} and
      * {@link #monkeyOfferSelector} are fixed to {@code EXCLUSIVE} in this strategy, since there is
      * only one {@link #mtgQueues monkey-to-generator queue}.
@@ -937,10 +937,10 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         // Ensure that the provided selectors meet the requirements for a multi-single strategy (as
         // described above).
         if (generatorOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedGtmQueues, "gtm");
+            requireMultiProducerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedGtmQueues, "gtm");
+            requireMultiConsumerSupport(wrappedGtmQueues, "gtm");
         }
 
         return new JCToolsQueueStrategy(wrappedGtmQueues, List.of(wrappedMtgQueue), config,
@@ -1080,8 +1080,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues in the corresponding direction must all
-     * support {@link JCToolsUtils#ensureMultiConsumerSupport(List, String) multi-consumer} or
-     * {@link JCToolsUtils#ensureMultiProducerSupport(List, String) multi-producer} access,
+     * support {@link JCToolsUtils#requireMultiConsumerSupport(List, String) multi-consumer} or
+     * {@link JCToolsUtils#requireMultiProducerSupport(List, String) multi-producer} access,
      * respectively, to ensure correctness.
      * </p>
      * 
@@ -1148,16 +1148,16 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         // Ensure that the provided selectors meet the requirements for a multi-multi strategy (as
         // described above).
         if (generatorPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedMtgQueues, "mtg");
+            requireMultiConsumerSupport(wrappedMtgQueues, "mtg");
         }
         if (generatorOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedGtmQueues, "gtm");
+            requireMultiProducerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyPollSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiConsumerSupport(wrappedGtmQueues, "gtm");
+            requireMultiConsumerSupport(wrappedGtmQueues, "gtm");
         }
         if (monkeyOfferSelector == EXCLUSIVE && config.numThreads() > 2) {
-            ensureMultiProducerSupport(wrappedMtgQueues, "mtg");
+            requireMultiProducerSupport(wrappedMtgQueues, "mtg");
         }
 
         return new JCToolsQueueStrategy(wrappedGtmQueues, wrappedMtgQueues, config,

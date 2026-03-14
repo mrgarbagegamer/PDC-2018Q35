@@ -35,20 +35,16 @@ public final class QueueUtils {
                     "JCToolsUtils is a utility class and cannot be instantiated");
         }
 
-        public static <Q extends MessagePassingQueue<WorkBatch>> void validateArguments(
+        public static <Q extends MessagePassingQueue<WorkBatch>> void requireValidArguments(
                 List<? extends Q> gtmQueues, List<? extends Q> mtgQueues,
                 QueueSelector<? extends Q> generatorPollSelector,
                 QueueSelector<? extends Q> generatorOfferSelector,
                 QueueSelector<? extends Q> monkeyPollSelector,
                 QueueSelector<? extends Q> monkeyOfferSelector, int queueSize, int generatorCount,
                 int monkeyCount) {
-            // The unchecked cast is safe: JCTOOLS_OPS works on MessagePassingQueue<WorkBatch>,
-            // and Q extends that. The ops never insert into the list, only read from it.
-            @SuppressWarnings("unchecked")
-            final var ops = (QueueOps<Q>) JCTOOLS_OPS;
-            QueueUtils.validateArguments(gtmQueues, mtgQueues, generatorPollSelector,
+            QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, queueSize,
-                    generatorCount, monkeyCount, ops);
+                    generatorCount, monkeyCount, JCTOOLS_OPS);
         }
 
         public static void preallocateInto(List<? extends MessagePassingQueue<WorkBatch>> mtgQueues,
@@ -58,18 +54,18 @@ public final class QueueUtils {
 
         public static void preallocateInto(List<? extends MessagePassingQueue<WorkBatch>> mtgQueues,
                 SolverConfiguration config) {
-            ensureNotEmptyOrNull(mtgQueues, "mtg");
+            requireNotEmptyOrNull(mtgQueues, "mtg");
             preallocateInto(mtgQueues, mtgQueues.getFirst().capacity(), config);
         }
 
-        public static void ensureMultiProducerSupport(
+        public static void requireMultiProducerSupport(
                 List<? extends MessagePassingQueue<WorkBatch>> queues, String prefix) {
-            ensureMultiAccessSupport(queues, prefix, isSp, "producers");
+            requireMultiAccessSupport(queues, prefix, isSp, "producers");
         }
 
-        public static void ensureMultiConsumerSupport(
+        public static void requireMultiConsumerSupport(
                 List<? extends MessagePassingQueue<WorkBatch>> queues, String prefix) {
-            ensureMultiAccessSupport(queues, prefix, isSc, "consumers");
+            requireMultiAccessSupport(queues, prefix, isSc, "consumers");
         }
     }
 
@@ -80,18 +76,16 @@ public final class QueueUtils {
                     "BlockingQueueUtils is a utility class and cannot be instantiated");
         }
 
-        public static <Q extends BlockingQueue<WorkBatch>> void validateArguments(
+        public static <Q extends BlockingQueue<WorkBatch>> void requireValidArguments(
                 List<? extends Q> gtmQueues, List<? extends Q> mtgQueues,
                 QueueSelector<? extends Q> generatorPollSelector,
                 QueueSelector<? extends Q> generatorOfferSelector,
                 QueueSelector<? extends Q> monkeyPollSelector,
                 QueueSelector<? extends Q> monkeyOfferSelector, int queueSize, int generatorCount,
                 int monkeyCount) {
-            @SuppressWarnings("unchecked")
-            final var ops = (QueueOps<Q>) BLOCKING_OPS;
-            QueueUtils.validateArguments(gtmQueues, mtgQueues, generatorPollSelector,
+            QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, queueSize,
-                    generatorCount, monkeyCount, ops);
+                    generatorCount, monkeyCount, BLOCKING_OPS);
         }
 
         public static void preallocateInto(List<? extends BlockingQueue<WorkBatch>> mtgQueues,
@@ -101,19 +95,19 @@ public final class QueueUtils {
 
         public static void preallocateInto(List<? extends BlockingQueue<WorkBatch>> mtgQueues,
                 SolverConfiguration config) {
-            ensureNotEmptyOrNull(mtgQueues, "mtg");
+            requireNotEmptyOrNull(mtgQueues, "mtg");
             final int batchesPerQueue = BLOCKING_OPS.capacityOf(mtgQueues.getFirst());
             preallocateInto(mtgQueues, batchesPerQueue, config);
         }
 
-        public static void ensureMultiProducerSupport(
+        public static void requireMultiProducerSupport(
                 List<? extends BlockingQueue<WorkBatch>> queues, String prefix) {
-            ensureMultiAccessSupport(queues, prefix, isSp, "producers");
+            requireMultiAccessSupport(queues, prefix, isSp, "producers");
         }
 
-        public static void ensureMultiConsumerSupport(
+        public static void requireMultiConsumerSupport(
                 List<? extends BlockingQueue<WorkBatch>> queues, String prefix) {
-            ensureMultiAccessSupport(queues, prefix, isSc, "consumers");
+            requireMultiAccessSupport(queues, prefix, isSc, "consumers");
         }
     }
 
@@ -129,7 +123,7 @@ public final class QueueUtils {
             || (queue instanceof BlockingQueue<?> bq
                     && bq.remainingCapacity() != Integer.MAX_VALUE);
 
-    private static void ensurePrefixNotNull(String prefix) {
+    private static void requirePrefixNotNull(String prefix) {
         requireNonNull(prefix, "prefix must not be null");
     }
 
@@ -145,8 +139,8 @@ public final class QueueUtils {
         return prefix + "Queue";
     }
 
-    private static <Q> void ensureNotEmptyOrNull(List<? extends Q> queues, String prefix) {
-        ensurePrefixNotNull(prefix);
+    private static <Q> void requireNotEmptyOrNull(List<? extends Q> queues, String prefix) {
+        requirePrefixNotNull(prefix);
 
         final String listName = listName(prefix);
         requireNonNull(queues, listName + " must not be null");
@@ -158,7 +152,7 @@ public final class QueueUtils {
         }
     }
 
-    private static <Q> void validateNoOverlap(List<? extends Q> a, String aPrefix,
+    private static <Q> void requireNoOverlap(List<? extends Q> a, String aPrefix,
             List<? extends Q> b, String bPrefix) {
         // Use the POWER OF STREAMS!!! (woo!)
         if (a.stream().anyMatch(b::contains)) {
@@ -167,14 +161,14 @@ public final class QueueUtils {
         }
     }
 
-    private static <Q> void ensureNoDuplicates(List<? extends Q> queues, String prefix) {
+    private static <Q> void requireNoDuplicates(List<? extends Q> queues, String prefix) {
         final String listName = listName(prefix);
         if (queues.size() != queues.stream().distinct().count()) {
             throw new IllegalArgumentException(listName + " must not contain duplicate queues");
         }
     }
 
-    private static <Q> void validateCountEqualsSize(List<? extends Q> queues, int count,
+    private static <Q> void requireCountEqualsSize(List<? extends Q> queues, int count,
             String prefix, String selectorName, String role) {
         if (count != queues.size()) {
             throw new IllegalArgumentException(role + " count must equal queue count for "
@@ -182,7 +176,7 @@ public final class QueueUtils {
         }
     }
 
-    private static <Q> void ensureMultiAccessSupport(List<? extends Q> queues, String prefix,
+    private static <Q> void requireMultiAccessSupport(List<? extends Q> queues, String prefix,
             Predicate<? super Q> isSingleAccess, String role) {
         final String listName = listName(prefix);
         if (queues.stream().anyMatch(isSingleAccess)) {
@@ -190,7 +184,7 @@ public final class QueueUtils {
         }
     }
 
-    private static <Q> void validateExclusiveSelector(List<? extends Q> queues, String prefix,
+    private static <Q> void requireExclusiveSelector(List<? extends Q> queues, String prefix,
             int threadCount, Predicate<Q> isSingleAccess, String role) {
         final String listName = listName(prefix);
 
@@ -229,50 +223,50 @@ public final class QueueUtils {
     }
 
     /**
-     * Unified validateArguments — called by both inner classes.
+     * Unified requireValidArguments — called by both inner classes.
      */
-    private static <Q> void validateArguments(List<? extends Q> gtmQueues,
+    private static <Q> void requireValidArguments(List<? extends Q> gtmQueues,
             List<? extends Q> mtgQueues, QueueSelector<? extends Q> generatorPollSelector,
             QueueSelector<? extends Q> generatorOfferSelector,
             QueueSelector<? extends Q> monkeyPollSelector,
             QueueSelector<? extends Q> monkeyOfferSelector, int queueSize, int generatorCount,
             int monkeyCount, QueueOps<Q> ops) {
 
-        ensureNotEmptyOrNull(gtmQueues, "gtm");
-        ensureNotEmptyOrNull(mtgQueues, "mtg");
+        requireNotEmptyOrNull(gtmQueues, "gtm");
+        requireNotEmptyOrNull(mtgQueues, "mtg");
 
         final int gtmQueueSize = (gtmQueues.size() == 1) ? queueSize * mtgQueues.size() : queueSize;
         final int mtgQueueSize = (mtgQueues.size() == 1) ? queueSize * gtmQueues.size() : queueSize;
 
-        validateQueueList(gtmQueues, "gtm", gtmQueueSize, ops);
-        validateQueueList(mtgQueues, "mtg", mtgQueueSize, ops);
-        validateNoOverlap(gtmQueues, "gtm", mtgQueues, "mtg");
+        requireValidQueueList(gtmQueues, "gtm", gtmQueueSize, ops);
+        requireValidQueueList(mtgQueues, "mtg", mtgQueueSize, ops);
+        requireNoOverlap(gtmQueues, "gtm", mtgQueues, "mtg");
 
         requireNonNull(generatorPollSelector, "generatorPollSelector must not be null");
         requireNonNull(generatorOfferSelector, "generatorOfferSelector must not be null");
         requireNonNull(monkeyPollSelector, "monkeyPollSelector must not be null");
         requireNonNull(monkeyOfferSelector, "monkeyOfferSelector must not be null");
 
-        ops.dispatchConsumerSelectorValidation(mtgQueues, generatorPollSelector, "mtg",
+        ops.dispatchConsumerSelectorRequirement(mtgQueues, generatorPollSelector, "mtg",
                 generatorCount);
-        ops.dispatchProducerSelectorValidation(gtmQueues, generatorOfferSelector, "gtm",
+        ops.dispatchProducerSelectorRequirement(gtmQueues, generatorOfferSelector, "gtm",
                 generatorCount);
-        ops.dispatchConsumerSelectorValidation(gtmQueues, monkeyPollSelector, "gtm", monkeyCount);
-        ops.dispatchProducerSelectorValidation(mtgQueues, monkeyOfferSelector, "mtg", monkeyCount);
+        ops.dispatchConsumerSelectorRequirement(gtmQueues, monkeyPollSelector, "gtm", monkeyCount);
+        ops.dispatchProducerSelectorRequirement(mtgQueues, monkeyOfferSelector, "mtg", monkeyCount);
     }
 
     /**
-     * Unified validateQueueList — wrapping, capacity, and emptiness checks.
+     * Unified requireValidQueueList — wrapping, capacity, and emptiness checks.
      */
-    private static <Q> void validateQueueList(List<? extends Q> queues, String prefix,
+    private static <Q> void requireValidQueueList(List<? extends Q> queues, String prefix,
             int expectedCapacity, QueueOps<Q> ops) {
-        ensurePrefixNotNull(prefix);
+        requirePrefixNotNull(prefix);
 
         final String listName = listName(prefix);
         final String elementName = elementName(prefix);
 
-        ensureNoDuplicates(queues, prefix);
-        ops.ensureWrapped(queues, listName);
+        requireNoDuplicates(queues, prefix);
+        ops.requireWrapped(queues, listName);
 
         final int normalizedCapacity = ops.normalizeCapacity(expectedCapacity);
 
@@ -297,7 +291,7 @@ public final class QueueUtils {
      */
     private static <Q> void preallocateInto(List<? extends Q> mtgQueues, int batchesPerQueue,
             SolverConfiguration config, QueueOps<Q> ops) {
-        ensureNotEmptyOrNull(mtgQueues, "mtg");
+        requireNotEmptyOrNull(mtgQueues, "mtg");
         requireNonNull(config, "config must not be null");
         if (batchesPerQueue < 0) {
             throw new IllegalArgumentException(
@@ -324,7 +318,7 @@ public final class QueueUtils {
     /**
      * Unified sequential access validation (replaces the 4 validateSequentialSelectorFor* methods).
      */
-    private static <Q> void validateSequentialAccess(List<? extends Q> queues, String prefix,
+    private static <Q> void requireSequentialAccess(List<? extends Q> queues, String prefix,
             int threadCount, Predicate<? super Q> isSingleAccess, String queueTypes, String role) {
         if (threadCount > 1 && queues.stream().anyMatch(isSingleAccess)) {
             throw new IllegalArgumentException(listName(prefix) + " must not contain " + queueTypes
@@ -332,7 +326,7 @@ public final class QueueUtils {
         }
     }
 
-    public static <Q> void ensureProperlyMarked(List<? extends Q> queues, String listName) {
+    public static <Q> void requireProperlyMarked(List<? extends Q> queues, String listName) {
         // Single-pass validation to avoid multiple stream() allocations.
         boolean seenBounded = false;
         boolean seenUnbounded = false;
@@ -387,7 +381,7 @@ public final class QueueUtils {
     }
 
     private interface QueueOps<Q> {
-        void ensureWrapped(List<? extends Q> queues, String listName);
+        void requireWrapped(List<? extends Q> queues, String listName);
 
         int capacityOf(Q queue);
 
@@ -414,21 +408,21 @@ public final class QueueUtils {
         /**
          * Dispatch selector-specific validation for a producer selector.
          */
-        void dispatchProducerSelectorValidation(List<? extends Q> queues,
+        void dispatchProducerSelectorRequirement(List<? extends Q> queues,
                 QueueSelector<? extends Q> selector, String prefix, int producerCount);
 
         /**
          * Dispatch selector-specific validation for a consumer selector.
          */
-        void dispatchConsumerSelectorValidation(List<? extends Q> queues,
+        void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
                 QueueSelector<? extends Q> selector, String prefix, int consumerCount);
     }
 
     private static final QueueOps<MessagePassingQueue<WorkBatch>> JCTOOLS_OPS = new QueueOps<MessagePassingQueue<WorkBatch>>() {
         @Override
-        public void ensureWrapped(List<? extends MessagePassingQueue<WorkBatch>> queues,
+        public void requireWrapped(List<? extends MessagePassingQueue<WorkBatch>> queues,
                 String listName) {
-            JCToolsWrappers.ensureWrapped(queues, listName);
+            JCToolsWrappers.requireWrapped(queues, listName);
         }
 
         @Override
@@ -458,53 +452,53 @@ public final class QueueUtils {
         }
 
         @Override
-        public void dispatchProducerSelectorValidation(
+        public void dispatchProducerSelectorRequirement(
                 List<? extends MessagePassingQueue<WorkBatch>> queues,
                 QueueSelector<? extends MessagePassingQueue<WorkBatch>> selector, String prefix,
                 int producerCount) {
             if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
                     || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
-                validateSequentialAccess(queues, prefix, producerCount, isSp, "SPSC or SPMC",
+                requireSequentialAccess(queues, prefix, producerCount, isSp, "SPSC or SPMC",
                         "producers");
             } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
-                validateCountEqualsSize(queues, producerCount, prefix, "biased sequential",
+                requireCountEqualsSize(queues, producerCount, prefix, "biased sequential",
                         "Producer");
-                validateSequentialAccess(queues, prefix, producerCount, isSp, "SPSC or SPMC",
+                requireSequentialAccess(queues, prefix, producerCount, isSp, "SPSC or SPMC",
                         "producers");
             } else if (selector == JCToolsQueueSelectors.PREFERRED) {
-                validateCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
+                requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
             } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
-                validateExclusiveSelector(queues, prefix, producerCount, isSp, "producers");
+                requireExclusiveSelector(queues, prefix, producerCount, isSp, "producers");
             }
         }
 
         @Override
-        public void dispatchConsumerSelectorValidation(
+        public void dispatchConsumerSelectorRequirement(
                 List<? extends MessagePassingQueue<WorkBatch>> queues,
                 QueueSelector<? extends MessagePassingQueue<WorkBatch>> selector, String prefix,
                 int consumerCount) {
             if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
                     || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
-                validateSequentialAccess(queues, prefix, consumerCount, isSc, "SPSC or MPSC",
+                requireSequentialAccess(queues, prefix, consumerCount, isSc, "SPSC or MPSC",
                         "consumers");
             } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
-                validateCountEqualsSize(queues, consumerCount, prefix, "biased sequential",
+                requireCountEqualsSize(queues, consumerCount, prefix, "biased sequential",
                         "Consumer");
-                validateSequentialAccess(queues, prefix, consumerCount, isSc, "SPSC or MPSC",
+                requireSequentialAccess(queues, prefix, consumerCount, isSc, "SPSC or MPSC",
                         "consumers");
             } else if (selector == JCToolsQueueSelectors.PREFERRED) {
-                validateCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
+                requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
             } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
-                validateExclusiveSelector(queues, prefix, consumerCount, isSc, "consumers");
+                requireExclusiveSelector(queues, prefix, consumerCount, isSc, "consumers");
             }
         }
     };
 
     private static final QueueOps<BlockingQueue<WorkBatch>> BLOCKING_OPS = new QueueOps<BlockingQueue<WorkBatch>>() {
         @Override
-        public void ensureWrapped(List<? extends BlockingQueue<WorkBatch>> queues,
+        public void requireWrapped(List<? extends BlockingQueue<WorkBatch>> queues,
                 String listName) {
-            BlockingQueueWrappers.ensureWrapped(queues, listName);
+            BlockingQueueWrappers.requireWrapped(queues, listName);
         }
 
         @Override
@@ -541,26 +535,26 @@ public final class QueueUtils {
         }
 
         @Override
-        public void dispatchProducerSelectorValidation(
+        public void dispatchProducerSelectorRequirement(
                 List<? extends BlockingQueue<WorkBatch>> queues,
                 QueueSelector<? extends BlockingQueue<WorkBatch>> selector, String prefix,
                 int producerCount) {
             if (selector == BlockingQueueSelectors.PREFERRED) {
-                validateCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
+                requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
             } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
-                validateExclusiveSelector(queues, prefix, producerCount, isSp, "producers");
+                requireExclusiveSelector(queues, prefix, producerCount, isSp, "producers");
             }
         }
 
         @Override
-        public void dispatchConsumerSelectorValidation(
+        public void dispatchConsumerSelectorRequirement(
                 List<? extends BlockingQueue<WorkBatch>> queues,
                 QueueSelector<? extends BlockingQueue<WorkBatch>> selector, String prefix,
                 int consumerCount) {
             if (selector == BlockingQueueSelectors.PREFERRED) {
-                validateCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
+                requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
             } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
-                validateExclusiveSelector(queues, prefix, consumerCount, isSc, "consumers");
+                requireExclusiveSelector(queues, prefix, consumerCount, isSc, "consumers");
             }
         }
     };

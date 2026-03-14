@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.QueueUtils.ensureProperlyMarked;
+import static com.github.mrgarbagegamer.queues.QueueUtils.requireProperlyMarked;
 import static com.github.mrgarbagegamer.queues.QueueUtils.roundToPow2;
 import static java.util.Objects.requireNonNull;
 
@@ -346,7 +346,7 @@ public final class BlockingQueueWrappers {
          * <p>
          * The constructor validates that the provided capacity is positive and, if the underlying
          * queue is a {@link ConcurrentQueue}, that the provided capacity
-         * {@link #ensureCapacityMatches(ConcurrentQueue, int) matches} the queue's actual capacity
+         * {@link #requireCapacityMatches(ConcurrentQueue, int) matches} the queue's actual capacity
          * ({@link QueueUtils#roundToPow2(int) rounded to the next power of two}). This ensures that
          * the wrapper's reported capacity is consistent with the behavior of the underlying queue,
          * preventing potential issues with capacity mismatches during runtime.
@@ -373,7 +373,7 @@ public final class BlockingQueueWrappers {
             }
 
             if (delegate instanceof ConcurrentQueue<?> cq) {
-                ensureCapacityMatches(cq, capacity);
+                requireCapacityMatches(cq, capacity);
                 // Redefine the capacity here.
                 capacity = roundToPow2(capacity);
             }
@@ -695,7 +695,7 @@ public final class BlockingQueueWrappers {
      *                                  if their access modes and boundedness are not consistent.
      * @see #wrap(BlockingQueue)
      * @see #wrapAll(List)
-     * @see QueueUtils#ensureProperlyMarked(List, String)
+     * @see QueueUtils#requireProperlyMarked(List, String)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(n)} validation of all queues in the list, where {@code n} is the size
      *              of the list.
@@ -703,15 +703,15 @@ public final class BlockingQueueWrappers {
      *            concurrently during the validation process.
      * @memory Allocates an intermediate stream for the validation process.
      */
-    public static void ensureWrapped(List<? extends BlockingQueue<WorkBatch>> queues,
+    public static void requireWrapped(List<? extends BlockingQueue<WorkBatch>> queues,
             String listName) {
         if (queues.stream().anyMatch(q -> !(q instanceof Delegate))) {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
 
-        // Delegate to ensureProperlyMarked() to check consistency of access modes and boundedness.
-        ensureProperlyMarked(queues, listName);
+        // Delegate to requireProperlyMarked() to check consistency of access modes and boundedness.
+        requireProperlyMarked(queues, listName);
     }
 
     /**
@@ -960,7 +960,7 @@ public final class BlockingQueueWrappers {
      * @threading Thread-safe, since capacity is immutable for {@code ConcurrentQueue} instances.
      * @memory Does not allocate.
      */
-    private static void ensureCapacityMatches(ConcurrentQueue<?> cq, int capacity) {
+    private static void requireCapacityMatches(ConcurrentQueue<?> cq, int capacity) {
         // Quickly check if the int for capacity is greater than the maximum power of two that an
         // int can represent, which would cause the queue to throw an exception anyway.
         final int maxPow2 = 1 << 30;

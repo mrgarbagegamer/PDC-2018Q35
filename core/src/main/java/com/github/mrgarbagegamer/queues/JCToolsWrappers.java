@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.QueueUtils.ensureProperlyMarked;
+import static com.github.mrgarbagegamer.queues.QueueUtils.requireProperlyMarked;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Collection;
@@ -395,7 +395,7 @@ public final class JCToolsWrappers {
      * @throws IllegalArgumentException if any queue is not wrapped or lacks required markers.
      * @see #wrap(MessagePassingQueue)
      * @see #wrapAll(List)
-     * @see QueueUtils#ensureProperlyMarked(List, String)
+     * @see QueueUtils#requireProperlyMarked(List, String)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(n)} validation of all queues in the list, where {@code n} is the size
      *              of the list.
@@ -403,15 +403,15 @@ public final class JCToolsWrappers {
      *            concurrently during the validation process.
      * @memory Allocates an intermediate stream for the validation process.
      */
-    public static void ensureWrapped(List<? extends MessagePassingQueue<WorkBatch>> queues,
+    public static void requireWrapped(List<? extends MessagePassingQueue<WorkBatch>> queues,
             String listName) {
         if (queues.stream().anyMatch(q -> !(q instanceof Delegate))) {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
 
-        // Delegate to ensureProperlyMarked() to check consistency of access modes and boundedness.
-        ensureProperlyMarked(queues, listName);
+        // Delegate to requireProperlyMarked() to check consistency of access modes and boundedness.
+        requireProperlyMarked(queues, listName);
     }
 
     /**

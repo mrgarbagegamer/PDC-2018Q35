@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.QueueUtils.requireProperlyMarked;
 import static com.github.mrgarbagegamer.queues.QueueUtils.roundToPow2;
 import static java.util.Objects.requireNonNull;
 
@@ -695,7 +694,6 @@ public final class BlockingQueueWrappers {
      *                                  if their access modes and boundedness are not consistent.
      * @see #wrap(BlockingQueue)
      * @see #wrapAll(List)
-     * @see QueueUtils#requireProperlyMarked(List, String)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(n)} validation of all queues in the list, where {@code n} is the size
      *              of the list.
@@ -709,9 +707,6 @@ public final class BlockingQueueWrappers {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
-
-        // Delegate to requireProperlyMarked() to check consistency of access modes and boundedness.
-        requireProperlyMarked(queues, listName);
     }
 
     /**

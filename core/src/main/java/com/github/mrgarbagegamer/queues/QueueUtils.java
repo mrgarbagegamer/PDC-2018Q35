@@ -267,6 +267,7 @@ public final class QueueUtils {
 
         requireNoDuplicates(queues, prefix);
         ops.requireWrapped(queues, listName);
+        requireProperlyMarked(queues, listName);
 
         final int normalizedCapacity = ops.normalizeCapacity(expectedCapacity);
 
@@ -326,7 +327,7 @@ public final class QueueUtils {
         }
     }
 
-    public static <Q> void requireProperlyMarked(List<? extends Q> queues, String listName) {
+    private static <Q> void requireProperlyMarked(List<? extends Q> queues, String listName) {
         // Single-pass validation to avoid multiple stream() allocations.
         boolean seenBounded = false;
         boolean seenUnbounded = false;

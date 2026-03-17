@@ -11,8 +11,6 @@ import org.jctools.queues.MessagePassingQueue;
 import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
-import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
-import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 
 // TODO: Write unit tests for the class.
 /**
@@ -139,9 +137,8 @@ public final class QueueSelectors {
      * Optimal when there's a 1:1 mapping between threads and queues. Use the {@code EXCLUSIVE}
      * selector instead of this if there is only one queue.</li>
      * <li>{@link #EXCLUSIVE}: Each thread uses the queue at index 0 exclusively. Optimal when
-     * there's only one queue (that supports {@link JCToolsUtils#ensureMultiProducerSupport
-     * multi-producer} or {@link JCToolsUtils#ensureMultiConsumerSupport multi-consumer}
-     * capabilities, depending on the use case).</li>
+     * there's only one queue (that supports multi-producer or multi-consumer capabilities,
+     * depending on the use case).</li>
      * </ul>
      * </p>
      * 
@@ -214,10 +211,9 @@ public final class QueueSelectors {
          * <h4>Threading Guarantees</h4>
          * <p>
          * As this selector is not bound to a specific queue, the queues must support the
-         * appropriate {@link QueueMarkers.AccessMode access mode} (e.g.,
-         * {@link JCToolsUtils#ensureMultiProducerSupport(List, String) multi-producer} for
-         * {@code offer} and {@link JCToolsUtils#ensureMultiConsumerSupport(List, String)
-         * multi-consumer} for {@code poll}) to be safely used with multiple threads.
+         * appropriate {@link QueueMarkers.AccessMode access mode} (e.g., multi-producer for
+         * {@code offer} and multi-consumer for {@code poll}) to be safely used with multiple
+         * threads.
          * </p>
          * 
          * @see ThreadLocalRandom#current()
@@ -291,10 +287,8 @@ public final class QueueSelectors {
          * <h4>Threading Guarantees</h4>
          * <p>
          * As this selector is not bound to a specific queue, the queues must support the
-         * appropriate {@link AccessMode access mode} (e.g.,
-         * {@link JCToolsUtils#ensureMultiProducerSupport(List, String) multi-producer} for
-         * {@code offer} and {@link JCToolsUtils#ensureMultiConsumerSupport(List, String)
-         * multi-consumer} for {@code poll}) to be safely used with multiple threads.
+         * appropriate {@link AccessMode access mode} (e.g., multi-producer for {@code offer} and
+         * multi-consumer for {@code poll}) to be safely used with multiple threads.
          * </p>
          * 
          * @since 2026.02 - Queue Injection Refactor
@@ -374,10 +368,8 @@ public final class QueueSelectors {
          * <p>
          * Since this selector allows threads to access multiple queues (their preferred queue and
          * the others when stealing), the queues must support the appropriate {@link AccessMode
-         * access mode} (e.g., {@link JCToolsUtils#ensureMultiProducerSupport(List, String)
-         * multi-producer} for {@code offer} and
-         * {@link JCToolsUtils#ensureMultiConsumerSupport(List, String) multi-consumer} for
-         * {@code poll}) to be safely used with multiple threads.
+         * access mode} (e.g., multi-producer for {@code offer} and multi-consumer for {@code poll})
+         * to be safely used with multiple threads.
          * </p>
          * 
          * @since 2026.02 - Queue Injection Refactor
@@ -529,11 +521,9 @@ public final class QueueSelectors {
          * <h4>Threading Guarantees</h4>
          * <p>
          * Since all threads are accessing the same queue, that queue must support the appropriate
-         * {@link AccessMode access mode} (e.g.,
-         * {@link JCToolsUtils#ensureMultiProducerSupport(List, String) multi-producer} for
-         * {@code offer} and {@link JCToolsUtils#ensureMultiConsumerSupport(List, String)
-         * multi-consumer} for {@code poll}) to be safely used with multiple threads. If there is
-         * only one thread, however, single-access queues can be used.
+         * {@link AccessMode access mode} (e.g., multi-producer for {@code offer} and multi-consumer
+         * for {@code poll}) to be safely used with multiple threads. If there is only one thread,
+         * however, single-access queues can be used.
          * </p>
          * 
          * @since 2026.02 - Queue Injection Refactor
@@ -571,9 +561,8 @@ public final class QueueSelectors {
      * Optimal when there's a 1:1 mapping between threads and queues. Use the {@code EXCLUSIVE}
      * selector instead of this if there is only one queue.</li>
      * <li>{@link #EXCLUSIVE}: Each thread uses the queue at index 0 exclusively. Optimal when
-     * there's only one queue (that supports {@link JCToolsUtils#ensureMultiProducerSupport
-     * multi-producer} or {@link JCToolsUtils#ensureMultiConsumerSupport multi-consumer}
-     * capabilities, depending on the use case).</li>
+     * there's only one queue (that supports multi-producer or multi-consumer capabilities,
+     * depending on the use case).</li>
      * </ul>
      * This {@code enum} has fewer strategies than the {@link JCToolsQueueSelectors} due to the
      * blocking nature of {@code BlockingQueue}s, which makes it impossible to implement
@@ -719,11 +708,9 @@ public final class QueueSelectors {
          * <h4>Threading Guarantees</h4>
          * <p>
          * Since all threads are accessing the same queue, that queue must support the appropriate
-         * {@link AccessMode access mode} (e.g.,
-         * {@link BlockingQueueUtils#ensureMultiProducerSupport(List, String) multi-producer} for
-         * {@code offer} and {@link BlockingQueueUtils#ensureMultiConsumerSupport(List, String)
-         * multi-consumer} for {@code poll}) to be safely used with multiple threads. If there is
-         * only one thread, however, single-access queues can be used.
+         * {@link AccessMode access mode} (e.g., multi-producer for {@code offer} and multi-consumer
+         * for {@code poll}) to be safely used with multiple threads. If there is only one thread,
+         * however, single-access queues can be used.
          * </p>
          * 
          * @since 2026.02 - Queue Injection Refactor

@@ -57,16 +57,6 @@ public final class QueueUtils {
             requireNotEmptyOrNull(mtgQueues, "mtg");
             preallocateInto(mtgQueues, mtgQueues.getFirst().capacity(), config);
         }
-
-        public static void requireMultiProducerSupport(
-                List<? extends MessagePassingQueue<WorkBatch>> queues, String prefix) {
-            requireMultiAccessSupport(queues, prefix, isSp, "producers");
-        }
-
-        public static void requireMultiConsumerSupport(
-                List<? extends MessagePassingQueue<WorkBatch>> queues, String prefix) {
-            requireMultiAccessSupport(queues, prefix, isSc, "consumers");
-        }
     }
 
     public static class BlockingQueueUtils {
@@ -98,16 +88,6 @@ public final class QueueUtils {
             requireNotEmptyOrNull(mtgQueues, "mtg");
             final int batchesPerQueue = BLOCKING_OPS.capacityOf(mtgQueues.getFirst());
             preallocateInto(mtgQueues, batchesPerQueue, config);
-        }
-
-        public static void requireMultiProducerSupport(
-                List<? extends BlockingQueue<WorkBatch>> queues, String prefix) {
-            requireMultiAccessSupport(queues, prefix, isSp, "producers");
-        }
-
-        public static void requireMultiConsumerSupport(
-                List<? extends BlockingQueue<WorkBatch>> queues, String prefix) {
-            requireMultiAccessSupport(queues, prefix, isSc, "consumers");
         }
     }
 
@@ -173,14 +153,6 @@ public final class QueueUtils {
         if (count != queues.size()) {
             throw new IllegalArgumentException(role + " count must equal queue count for "
                     + listName(prefix) + " in " + selectorName + " selector");
-        }
-    }
-
-    private static <Q> void requireMultiAccessSupport(List<? extends Q> queues, String prefix,
-            Predicate<? super Q> isSingleAccess, String role) {
-        final String listName = listName(prefix);
-        if (queues.stream().anyMatch(isSingleAccess)) {
-            throw new IllegalArgumentException(listName + " must support multiple " + role);
         }
     }
 

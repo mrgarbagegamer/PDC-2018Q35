@@ -35,10 +35,6 @@ public final class QueueMarkers {
      * validation and optimization purposes in queue utilities.
      * </p>
      * 
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiConsumerSupport(java.util.List, String)
-     * @see QueueUtils.BlockingQueueUtils#ensureMultiProducerSupport(java.util.List, String)
-     * @see QueueUtils.JCToolsUtils#ensureMultiConsumerSupport(java.util.List, String)
-     * @see QueueUtils.JCToolsUtils#ensureMultiProducerSupport(java.util.List, String)
      * @since 2026.02 - Queue Injection Refactor
      */
     public static final class AccessMode {

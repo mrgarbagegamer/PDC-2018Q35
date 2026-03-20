@@ -30,6 +30,25 @@ package com.github.mrgarbagegamer;
  * concerns while keeping the strategy interface easily accessible to the components that need it.
  * </p>
  * 
+ * <h2>Performance Considerations</h2>
+ * <p>
+ * The design of the {@code QueueStrategy} interface allows for various performance optimizations to
+ * be implemented in the strategy implementations. Single-queue or multi-queue strategies can be
+ * implemented, and the strategy can be designed to minimize contention between threads while
+ * maximizing throughput. The strategy can also implement intelligent load balancing and termination
+ * signaling to ensure that the system operates efficiently under different workloads and
+ * conditions.
+ * </p>
+ * 
+ * <p>
+ * To allow for the use of queue selection strategies that involve a queue per generator or monkey
+ * (e.g., to allow for single-writer optimizations), the strategy methods take the generator or
+ * monkey ID as a parameter, allowing the strategy to determine which queue to interact with based
+ * on the thread's role and ID. This design introduces an unnecessary parameter for single-queue
+ * strategies (or those that ignore the ID), but it provides the flexibility needed for more complex
+ * strategies without requiring changes to the interface.
+ * </p>
+ * 
  * <h2>Thread Safety</h2>
  * <p>
  * All implementations of this interface must be thread-safe, as they will be accessed concurrently
@@ -96,8 +115,8 @@ public interface QueueStrategy {
      * @param batch    the batch to offer
      * @param monkeyId the ID of the monkey thread ({@code 0} to {@code numMonkeys - 1})
      * @return {@code true} if the batch was accepted, {@code false} if the strategy signaled that
-     *         offering should stop (e.g., {@link SolverState#generationComplete() generation complete} or
-     *         {@link SolverState#solutionFound() solution found})
+     *         offering should stop (e.g., {@link SolverState#generationComplete() generation
+     *         complete} or {@link SolverState#solutionFound() solution found})
      * @since 2026.02 - Queue Injection Refactor
      * @threading Thread-safe.
      */

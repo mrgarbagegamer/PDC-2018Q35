@@ -1196,8 +1196,8 @@ public final class QueueUtils {
         /**
          * Normalizes the expected capacity based on the requirements of the specific queue type.
          * For example, JCTools' {@link MessagePassingQueue} requires capacities to be powers of 2,
-         * so this method would need to {@link QueueUtils#roundToPow2() round} the expected capacity
-         * up to the next power of 2 for JCTools queues.
+         * so this method would need to {@link QueueUtils#roundToPow2(int) round} the expected
+         * capacity up to the next power of 2 for JCTools queues.
          * 
          * @param expectedCapacity the expected capacity to normalize based on the queue type's
          *                         requirements

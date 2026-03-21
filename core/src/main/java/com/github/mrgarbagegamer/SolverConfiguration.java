@@ -401,8 +401,33 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 ContextRegistry registry);
     }
 
+    /**
+     * A factory interface for {@link #create(SolverConfiguration, SolverState) creating}
+     * {@link QueueStrategy} instances based on the provided {@link SolverConfiguration} and
+     * {@link SolverState}. This allows for flexible instantiation of different queue strategies
+     * that may require access to the configuration and state at creation time.
+     * 
+     * @see SolverConfiguration#getQueueStrategy(SolverState)
+     * @see SolverConfiguration.Builder#queueStrategyFactory(QueueStrategyFactory)
+     * @since 2026.02 - Queue Injection Refactor
+     * @threading Thread-safe (since it should be stateless and only used for instantiation).
+     */
     @FunctionalInterface
     public interface QueueStrategyFactory {
+        /**
+         * Creates a new {@link QueueStrategy} instance based on the provided
+         * {@link SolverConfiguration} and {@link SolverState}.
+         * 
+         * @param config      the solver configuration to use for creating the queue strategy
+         * @param solverState the solver state to use for creating the queue strategy
+         * @return a new instance of {@link QueueStrategy} configured according to the provided
+         *         configuration and state
+         * @see SolverConfiguration#getQueueStrategy(SolverState)
+         * @see SolverConfiguration.Builder#queueStrategyFactory(QueueStrategyFactory)
+         * @since 2026.02 - Queue Injection Refactor
+         * @threading Thread-safe (since it should be stateless and only used for instantiation).
+         * @memory Allocates a new {@link QueueStrategy} instance.
+         */
         QueueStrategy create(SolverConfiguration config, SolverState solverState);
     }
 
@@ -920,7 +945,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder queueStrategyFactory(QueueStrategy queueStrategy) {
             // TODO: Update this (and all) requireNonNull checks to include the name for better
             // debugging
-            return queueStrategyFactory((config, solverState) -> requireNonNull(queueStrategy));
+            requireNonNull(queueStrategy);
+            return queueStrategyFactory((config, solverState) -> queueStrategy);
         }
 
         public Builder reset() {

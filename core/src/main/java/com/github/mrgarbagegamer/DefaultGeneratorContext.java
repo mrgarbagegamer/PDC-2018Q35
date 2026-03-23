@@ -4,7 +4,6 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.locks.LockSupport;
 
 import org.apache.logging.log4j.Logger;
 
@@ -37,35 +36,22 @@ import org.apache.logging.log4j.Logger;
  * @threading This class is NOT thread-safe, but is intended to be used in a thread-local manner.
  * @memory Minimal memory footprint of two fixed-capacity pools and a batch reference.
  */
-public class DefaultGeneratorContext implements GeneratorContext {
+class DefaultGeneratorContext implements GeneratorContext {
     private final Logger logger;
 
     /**
-     * The name of the thread owning this context, for logging purposes.
+     * The name of the thread owning this context.
      *
-     * @see #ALL_CONTEXTS
-     * @see CombinationGeneratorTask#flushAllPendingBatches()
-     * @see Thread#getName()
+     * @see #getName()
      * @since 2025.10 - Final Flush Refactor
      * @performance {@code O(1)} access time.
      * @threading Thread-safe due to immutability after initialization.
-     * @memory Minimal memory footprint of ~20 bytes as a {@code String}.
+     * @memory Minimal memory footprint as a {@code String} reference.
      */
     private final String name;
     private final int generatorId;
     private volatile boolean terminated = false;
 
-    /**
-     * Gets the {@link #threadName name} of the thread owning this context. Used for logging
-     * purposes.
-     * 
-     * @return The name of the this context's thread.
-     * @see CombinationGeneratorTask#flushAllPendingBatches()
-     * @since 2025.10 - Final Flush Refactor
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe, as it returns an immutable field.
-     * @memory Does not allocate; returns a reference to an existing {@code String}.
-     */
     @Override
     public String getName() {
         return this.name;
@@ -81,7 +67,7 @@ public class DefaultGeneratorContext implements GeneratorContext {
      * This constructor is meant to be called only by the {@link GeneratorWorkerThread}'s
      * {@link GeneratorWorkerThread#GeneratorWorkerThread(ForkJoinPool) initializer}, and
      * {@link ConcurrentLinkedQueue#add(Object) adds} the context to the global list for the
-     * {@link CombinationGeneratorTask#flushAllPendingBatches() final flush}.
+     * {@link ContextRegistry#flushAllPendingBatches() final flush}.
      * </p>
      * 
      * @since 2025.10 - Final Flush Refactor
@@ -107,8 +93,7 @@ public class DefaultGeneratorContext implements GeneratorContext {
         registry.registerContext(this);
     }
 
-    @Override
-    public DefaultGeneratorContext newContext(String name, int generatorId,
+    public static DefaultGeneratorContext of(String name, int generatorId,
             QueueStrategy queueStrategy, ContextRegistry registry, SolverConfiguration config) {
         return new DefaultGeneratorContext(name, generatorId, queueStrategy, registry, config);
     }
@@ -147,7 +132,7 @@ public class DefaultGeneratorContext implements GeneratorContext {
      * </p>
      * 
      * @see WorkBatch#BATCH_SIZE
-     * @see #getOrCreateBatch()
+     * @see #getCurrentBatch()
      * @since 2025.07 - {@code WorkBatch} Introduction
      * @performance {@code O(1)} access and update time.
      * @threading Not thread-safe. References to this batch should not be kept after flushing.
@@ -168,64 +153,45 @@ public class DefaultGeneratorContext implements GeneratorContext {
     }
 
     /**
-     * Retrieves a new {@link WorkBatch} from the {@link CombinationQueueArray#getWorkBatchPool()
-     * global pool}, blocking until one is available.
-     *
-     * <p>
-     * When a {@link TestClickCombination monkey} finishes with a {@code WorkBatch}, it returns it
-     * to a central pool for recycling. This method retrieves a batch from that pool. It uses a
-     * lightweight loop with a {@link org.jctools.queues.MpmcArrayQueue#relaxedPoll() relaxedPoll()}
-     * to ensure the generator thread remains responsive to cancellation signals from the
-     * {@link ForkJoinPool}, which a standard {@link Thread#onSpinWait()} call would prevent.
-     * </p>
-     *
-     * <p>
-     * The loop now properly checks for thread interruption, allowing the {@link ForkJoinPool} to
-     * shutdown generator threads when a solution is found. If the thread is interrupted during the
-     * spin loop, the method returns {@code null} to signal shutdown. The thread also
-     * {@link LockSupport#parkNanos(long) parks} briefly to reduce CPU usage during the wait.
-     * </p>
-     *
-     * @return A clean, recycled {@code WorkBatch}, or {@code null} if the thread was interrupted.
-     * @see CombinationQueueArray#getWorkBatchPool()
-     * @see TestClickCombination#triggerGeneratorShutdown()
-     * @since 2025.07 - {@code GeneratorContext} Introduction
-     * @performance {@code O(1)} amortized access time, spinning if necessary.
-     * @threading Thread-safe interactions with the global pool, but the method itself is not
-     *            thread-safe.
-     * @memory Does not allocate; reuses existing batches in the pool.
+     * {@link QueueStrategy#generatorPoll(int) Polls} for a new batch from the
+     * {@link QueueStrategy}. If the poll returns {@code null}, the method
+     * {@link #handleTermination(boolean) handles termination logging and state updates}, and the
+     * method returns {@code null} to signal that no more batches will be available. Otherwise, the
+     * polled batch is {@link WorkBatch#clear() cleared} and returned for use.
+     * 
+     * @return a new, empty {@link WorkBatch} from the {@code QueueStrategy}, or {@code null} if a
+     *         termination condition was met.
+     * @since 2026.01 - Generator DI Refactor
+     * @performance {@code O(1)} calls to the {@code QueueStrategy}, with {@code O(batch.size())}
+     *              clearing.
+     * @threading Thread-safe queue interactions and termination handling.
+     * @memory Does not allocate.
      */
     private WorkBatch pollBatch() {
         final WorkBatch batch = this.queueStrategy.generatorPoll(this.generatorId);
         if (batch == null) {
-            if (!this.terminated) {
-                this.logger.debug("Termination condition was met during poll, shutting down");
-                this.terminated = true;
-            }
+            // Delegate to the extracted method to handle termination logging.
+            handleTermination(true);
             return null; // Necessary to avoid an NPE from the clear() call below.
         }
         batch.clear(); // Ensure the recycled batch is clean before use
         return batch;
     }
 
-    /**
-     * Replaces the {@link #currentBatch} with a new one obtained from the
-     * {@link CombinationQueueArray#getWorkBatchPool() central pool}.
-     * 
-     * <p>
-     * This is called after the current {@link WorkBatch batch} is successfully
-     * {@link CombinationGeneratorTask#flushBatchFast(WorkBatch) flushed}. It discards the reference
-     * to the old batch and retrieves a new, clean one, ensuring the generator thread can
-     * immediately start filling it.
-     * </p>
-     * 
-     * @return The new {@code WorkBatch} or {@code null} if interrupted.
-     * @see #pollBatch()
-     * @since 2025.07 - {@code GeneratorContext} Introduction
-     * @performance {@code O(1)} amortized access time, spinning if necessary.
-     * @threading Not thread-safe. Each thread should manage its own context instance.
-     * @memory Does not allocate; reuses existing batches in the pool.
-     */
+    private void handleTermination(boolean onPoll) {
+        // Use DCL to avoid unnecessary synchronization after termination has been signaled
+        if (!this.terminated) {
+            synchronized (this) {
+                if (!this.terminated) {
+                    this.logger.debug(
+                            onPoll ? "Termination condition was met during poll, shutting down"
+                                    : "Termination condition was met during offer, shutting down");
+                    this.terminated = true;
+                }
+            }
+        }
+    }
+
     @Override
     public WorkBatch resetBatch() {
         return this.currentBatch = pollBatch();
@@ -257,9 +223,8 @@ public class DefaultGeneratorContext implements GeneratorContext {
                 this.generatorId);
         this.currentBatch = null;
 
-        if (!success && !this.terminated) {
-            this.logger.debug("Termination condition was met during offer, shutting down");
-            this.terminated = true;
+        if (!success) {
+            handleTermination(false);
         }
         return success;
     }

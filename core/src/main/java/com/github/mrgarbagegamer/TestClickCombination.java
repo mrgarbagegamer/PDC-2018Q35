@@ -12,6 +12,7 @@ import com.github.mrgarbagegamer.SolverConfiguration.SolutionHandler;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
+// TODO: Update Javadoc
 // TODO: Consider renaming this class to MonkeyThread to better reflect its role.
 /**
  * An optimized worker thread that tests potential puzzle solutions from a shared work queue.
@@ -19,7 +20,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * <p>
  * This class implements the "consumer" role in the solver's producer-consumer architecture. Each
  * instance, referred to as a "monkey," runs on a dedicated thread. Its primary responsibility is to
- * fetch {@link WorkBatch} objects from the {@link CombinationQueueArray}, iterate through the
+ * fetch {@link WorkBatch} objects from the {@link QueueStrategy}, iterate through the
  * {@link WorkBatch.WorkItem}s within, and test the described combination ranges against a local
  * {@link Grid} clone.
  * </p>
@@ -57,9 +58,9 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * </p>
  *
  * <p>
- * The only shared, mutable resource monkeys interact with directly is the central
- * {@link CombinationQueueArray}, from which they fetch work and to which they
- * {@link CombinationQueueArray#getWorkBatchPool() recycle} {@link WorkBatch} objects after use.
+ * The only shared, mutable resource monkeys interact with directly is the {@code QueueStrategy},
+ * from which they {@link QueueStrategy#monkeyPoll(int) fetch work} and to which they
+ * {@link QueueStrategy#monkeyOffer(WorkBatch, int) recycle} {@link WorkBatch} objects after use.
  * This design ensures that no objects are allocated in the hot path, with the minor exception of
  * logging.
  * </p>
@@ -77,7 +78,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *              {@code O(CombinationGeneratorTask.BATCH_SIZE)} per batch, dominated by the
  *              {@code O(combination.length)} odd adjacency check performed for each combination.
  * @threading Each monkey is a {@link Thread} that operates on its own {@link Grid} instance. Work
- *            is obtained in a thread-safe manner from the shared {@link CombinationQueueArray}.
+ *            is obtained in a thread-safe manner from the {@link QueueStrategy}.
  * @algorithm {@link #getWork() Pulls} a {@link WorkBatch} (from its own queue or by stealing), then
  *            iterates through its combinations. Each is validated with an
  *            {@link #satisfiesOddAdjacency(long, short) odd adjacency check}. Valid combinations

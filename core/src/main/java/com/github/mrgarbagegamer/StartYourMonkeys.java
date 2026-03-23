@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
+// TODO: Update Javadoc
 /**
  * The main application entry point and orchestrator for the Lights Out puzzle solver.
  *
@@ -27,8 +28,6 @@ import org.apache.logging.log4j.util.Unbox;
  * <li>Parses command-line arguments for {@code numClicks}, {@code numThreads}, and
  * {@code puzzleNumber}.</li>
  * <li><b>Initializes the {@link GlobalConfig} with the core configuration.</b></li>
- * <li>Initializes the {@link CombinationQueueArray} singleton, which now pulls its configuration
- * from {@code GlobalConfig}.</li>
  * <li>Configures and starts the consumer thread pool ("monkeys").</li>
  * <li>Configures and starts the {@link ForkJoinPool} for the producers.</li>
  * <li>Submits the root {@link CombinationGeneratorTask} to begin the search.</li>
@@ -67,7 +66,7 @@ public class StartYourMonkeys {
      * <li><b>Argument Parsing:</b> Reads {@code numClicks}, {@code numThreads}, and
      * {@code puzzleNumber} from command-line arguments, with sane defaults.</li>
      * <li><b>Component Initialization:</b> Selects the appropriate {@link Grid} subclass and
-     * initializes the {@link CombinationQueueArray} and other shared resources.</li>
+     * initializes the {@link QueueStrategy} and other shared resources.</li>
      * <li><b>Monkey Creation:</b> Spawns a pool of {@link TestClickCombination} threads that
      * immediately begin waiting for work.</li>
      * <li><b>Generator Execution:</b> Creates a {@link ForkJoinPool} and submits a root
@@ -76,14 +75,14 @@ public class StartYourMonkeys {
      * invoke(CombinationGeneratorTask)}, waiting for the entire generation process (including all
      * forked subtasks) to complete or for a solution to be found.</li>
      * <li><b>Graceful Shutdown:</b> Once generation finishes, it
-     * {@link CombinationGeneratorTask#flushAllPendingBatches() flushes any remaining work} from
-     * generator-local batches, {@link CombinationQueueArray#generationComplete() signals} to the
-     * workers that no more work is coming, and waits for them to terminate using
+     * {@link ContextRegistry#flushAllPendingBatches() flushes any remaining work} from
+     * generator-local batches, {@link SolverState#markGenerationComplete() signals} to the workers
+     * that no more work is coming, and waits for them to terminate using
      * {@link Thread#join()}.</li>
-     * <li><b>Result Reporting:</b> Reports the outcome
-     * ({@link CombinationQueueArray#isSolutionFound() solution found or not found}), verifies the
-     * solution if one exists, and {@link #formatElapsedTime(long) logs the total elapsed time}
-     * before {@link LogManager#shutdown() shutting down} the {@link #logger}.</li>
+     * <li><b>Result Reporting:</b> Reports the outcome ({@link SolverState#solutionFound() solution
+     * found or not found}), verifies the solution if one exists, and
+     * {@link #formatElapsedTime(long) logs the total elapsed time} before
+     * {@link LogManager#shutdown() shutting down} the {@link #logger}.</li>
      * </ol>
      *
      * <h3>ForkJoinPool Behavior</h3>
@@ -203,8 +202,7 @@ public class StartYourMonkeys {
                 for (TestClickCombination worker : monkeys) {
                     try {
                         worker.join();
-                    } catch (InterruptedException ignored) {
-                    }
+                    } catch (InterruptedException ignored) {}
                 }
 
                 // Shutdown generator pool immediately, if not already

@@ -44,8 +44,8 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  * To achieve near-zero garbage collection pressure, this class employs a multi-layered pooling
  * strategy:
  * <ul>
- * <li>The {@code WorkBatch} instance itself is recycled via a central pool in
- * {@link CombinationQueueArray}.</li>
+ * <li>The {@code WorkBatch} instance itself is recycled via the {@link GeneratorContext}'s batch
+ * management methods.</li>
  * <li>It contains a pre-allocated internal pool of {@link WorkItem} objects, which are reused for
  * each batch.</li>
  * <li>It implements {@link Iterable Iterable<WorkItem>}, providing a single, reusable
@@ -63,7 +63,7 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  * </p>
  *
  * @see CombinationGeneratorTask
- * @see CombinationQueueArray
+ * @see QueueStrategy
  * @see TestClickCombination
  * @since 2025.11 - Range-Based WorkItem Refactor
  * @performance {@code O(numClicks - 1)} for adding work ranges due to array copying; iteration is
@@ -556,7 +556,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 return this.start == other.start
                         && Objects.equals(this.prefixParity, other.prefixParity)
                         && Arrays.equals(this.prefix, other.prefix);
-                        
+
             }
             return false;
         }

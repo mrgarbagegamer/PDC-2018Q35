@@ -1,5 +1,7 @@
-// TODO: Ensure that all package/class-level HTML headers in this package and the queues subpackage are <h2>.
-// TODO: Ensure that all constructor/method/field-level HTML headers in this package and the queues subpackage are <h4>.
+// TODO: Ensure that all package/class-level HTML headers in this package and the queues subpackage
+// are <h2>.
+// TODO: Ensure that all constructor/method/field-level HTML headers in this package and the queues
+// subpackage are <h4>.
 /**
  * Provides a high-performance, brute-force solver for a hexagonal Lights Out-style puzzle.
  *
@@ -14,7 +16,7 @@
  * The primary components are:
  * </p>
  * <ul>
- * <li><b>Generator ({@link com.github.mrgarbagegamer.CombinationGeneratorTask})</b>: A recursive
+ * <li><b>Generator ({@link CombinationGeneratorTask})</b>: A recursive
  * {@link java.util.concurrent.ForkJoinTask} that explores the solution space. It now generates
  * compact {@link com.github.mrgarbagegamer.WorkBatch.WorkItem} ranges, offloading final combination
  * assembly to the consumer.</li>
@@ -38,9 +40,10 @@
  * {@link com.github.mrgarbagegamer.WorkBatch.WorkItem} objects that describe large ranges of
  * combinations. This dramatically reduces producer overhead and queue contention.</li>
  *
- * <li><b>Centralized Queue</b>: The {@link com.github.mrgarbagegamer.CombinationQueueArray} acts as
- * a high-performance, multi-lane queue that distributes {@code WorkBatch} objects to available
- * consumer threads.</li>
+ * <li><b>Modular Queues</b>: The four possible queue operations (offer/poll for both generators and
+ * monkeys) are abstracted into the {@link com.github.mrgarbagegamer.QueueStrategy} interface. This
+ * allows for flexible implementations, such as lock-free queues or work-stealing deques, without
+ * changing the core logic.</li>
  *
  * <li><b>Bitmask Grid</b>: The puzzle state is managed by the
  * {@link com.github.mrgarbagegamer.Grid} class, which uses a {@code long[2]} bitmask for

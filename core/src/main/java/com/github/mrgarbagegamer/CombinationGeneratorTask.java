@@ -6,6 +6,8 @@ import java.util.concurrent.RecursiveAction;
 
 import it.unimi.dsi.fastutil.longs.LongList;
 
+// TODO: Replace the DefaultGeneratorContext parameters with GeneratorContext to decouple from the
+// default implementation.
 // TODO: Update Javadoc
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
@@ -15,7 +17,7 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * recursively explore the solution space. After a recent refactor, it no longer generates
  * individual combinations. Instead, it creates compact {@link WorkBatch.WorkItem} objects that
  * describe a *range* of combinations (a shared prefix and a set of final clicks). These work items
- * are added to a {@link WorkBatch} and passed to a {@link CombinationQueue} for consumption by
+ * are added to a {@link WorkBatch}, then enqueued into a {@link QueueStrategy} for consumption by
  * {@link TestClickCombination "monkeys"}.
  * </p>
  *
@@ -61,7 +63,7 @@ import it.unimi.dsi.fastutil.longs.LongList;
  *            {@link #computeIntermediateSubtasks(DefaultGeneratorContext) forked} until a
  *            {@link #numClicks target length} is reached. Leaf tasks
  *            {@link #computeLeafCombinations(DefaultGeneratorContext) generate} work items, which
- *            are {@link #flushBatchFast(WorkBatch) queued} for validation.
+ *            are {@link GeneratorContext#flushCurrentBatch() flushed} to the queues for processing.
  * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
  *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
  */
@@ -371,7 +373,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private void computeRootSubtasks(GeneratorContext ctx) {
         final short start = 0;
-        final short max = (short) (Math.min(Grid.NUM_CELLS - this.numClicks, this.maxFirstClickIndex) + 1);
+        final short max = (short) (Math.min(Grid.NUM_CELLS - this.numClicks,
+                this.maxFirstClickIndex) + 1);
 
         for (short i = start; i < max; i++) {
             final long lowerMask = this.trueCellMasksLower.getLong(i);
@@ -470,13 +473,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@code prefix} and the entire valid range of final clicks by calling
      * {@link WorkBatch#addWork(short[], short, boolean)}.</li>
      * </ol>
-     * If the current batch is full, it is {@link #flushBatchFast(WorkBatch) flushed} before the new
-     * work item is added. This bulk-processing approach dramatically reduces method call overhead
-     * and loop-related costs, making it significantly more efficient than an iterative approach.
+     * If the current batch is full, it is {@link GeneratorContext#flushCurrentBatch() flushed}
+     * before the new work item is added. This bulk-processing approach dramatically reduces method
+     * call overhead and loop-related costs, making it significantly more efficient than an
+     * iterative approach.
      * </p>
      *
      * @param ctx The thread-local {@link DefaultGeneratorContext}.
-     * @see DefaultGeneratorContext#getOrCreateBatch()
+     * @see DefaultGeneratorContext#getCurrentBatch()
      * @since 2025.07 - Splitting the Compute Method Into Paths
      * @performance {@code O(1)} for the start index lookup.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}

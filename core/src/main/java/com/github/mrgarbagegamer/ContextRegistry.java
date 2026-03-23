@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
+// TODO: Add Javadocs
 public final class ContextRegistry {
     private final Logger logger;
     private final Queue<GeneratorContext> contexts;

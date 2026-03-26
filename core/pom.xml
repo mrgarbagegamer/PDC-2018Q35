@@ -16,6 +16,25 @@
     <name>PDC-2018Q35 Core</name>
     <description>Core solver library for the PDC-2018Q35 Lights Out puzzle</description>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-bom</artifactId>
+                <version>${log4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -24,9 +43,9 @@
         </dependency>
 
         <dependency>
-            <groupId>it.unimi.dsi</groupId>
-            <artifactId>fastutil</artifactId>
-            <version>8.5.16</version>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -35,35 +54,68 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-core</artifactId>
+            <groupId>com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
+            <version>${lmax-disruptor.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
-            <groupId>com.lmax</groupId>
-            <artifactId>disruptor</artifactId>
-            <version>4.0.0</version>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+            <version>${fastutil.version}</version>
         </dependency>
 
         <dependency>
             <groupId>org.jctools</groupId>
             <artifactId>jctools-core</artifactId>
-            <version>4.0.5</version>
+            <version>${jctools.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.conversantmedia</groupId>
             <artifactId>disruptor</artifactId>
-            <version>1.2.21</version>
+            <version>${conversantmedia-disruptor.version}</version>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                    <executable>java</executable>
+                    <arguments>
+                        <argument>@${project.parent.basedir}/args.txt</argument>
+                        <argument>-cp</argument>
+                        <classpath />
+                        <argument>com.github.mrgarbagegamer.StartYourMonkeys</argument>
+                        <argument>${clicks}</argument>
+                        <argument>${threads}</argument>
+                        <argument>${puzzle}</argument>
+                    </arguments>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>${maven-dependency-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>copy-dependencies</id>
@@ -81,7 +133,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.12.0</version>
+                <version>${maven-javadoc-plugin.version}</version>
                 <configuration>
                     <source>25</source>
                     <encoding>UTF-8</encoding>
@@ -89,9 +141,12 @@
                     <additionalOptions>-Xdoclint:none --enable-preview</additionalOptions>
                     <show>private</show>
                     <nohelp>true</nohelp>
-                    <windowTitle>PDC-2018Q35 Lights Out Solver - Internal Documentation</windowTitle>
+                    <windowtitle>PDC-2018Q35 Lights Out Solver - Internal Documentation</windowtitle>
                     <doctitle>PDC-2018Q35 Lights Out Puzzle Solver</doctitle>
-                    <bottom>Performance-optimized brute-force solver for hexagonal grid Lights Out puzzles</bottom>
+                    <bottom>
+                        Performance-optimized brute-force solver for hexagonal grid Lights Out
+                        puzzles
+                    </bottom>
                     <tags>
                         <tag>
                             <name>performance</name>

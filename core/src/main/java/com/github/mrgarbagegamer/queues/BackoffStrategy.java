@@ -2,6 +2,8 @@ package com.github.mrgarbagegamer.queues;
 
 import java.util.concurrent.locks.LockSupport;
 
+import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+
 /**
  * A strategy for backing off when a thread is contending for a resource.
  * 
@@ -26,6 +28,7 @@ import java.util.concurrent.locks.LockSupport;
  * @since 2026.02 - Queue Injection Refactor
  * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
  */
+@ExcludeFromGeneratedCoverage
 @FunctionalInterface
 public interface BackoffStrategy {
 

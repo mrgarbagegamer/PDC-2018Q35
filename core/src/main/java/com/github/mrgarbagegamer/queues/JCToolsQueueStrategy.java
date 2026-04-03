@@ -26,8 +26,6 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
-import com.github.mrgarbagegamer.queues.JCToolsWrappers.BoundedMpmc;
-import com.github.mrgarbagegamer.queues.JCToolsWrappers.BoundedSpsc;
 import com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 
@@ -583,13 +581,13 @@ public class JCToolsQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #singleSingle(MessagePassingQueue, MessagePassingQueue, SolverConfiguration, SolverState)}
-     * that creates new {@link BoundedMpmc} queues with the specified {@code queueSize} for
+     * that creates new bounded MPMC queues with the specified {@code queueSize} for
      * communication between {@link CombinationGeneratorTask generators} and
      * {@link TestClickCombination monkeys}.
-     * 
+     *
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code BoundedMpmc} queues for
+     * @param queueSize   the capacity to use for the created bounded MPMC queues for
      *                    communication between generators and monkeys.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
@@ -769,14 +767,14 @@ public class JCToolsQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #singleMulti(MessagePassingQueue, List, SolverConfiguration, SolverState)} that
-     * creates a new {@link BoundedMpmc} queue with the specified {@code queueSize} for
-     * communication from {@link #gtmQueues generators to monkeys} and a list of {@code BoundedMpmc}
-     * instances with the specified {@code queueSize} for communication from {@link #mtgQueues
+     * creates a new bounded MPMC queue with the specified {@code queueSize} for
+     * communication from {@link #gtmQueues generators to monkeys} and a list of bounded MPMC
+     * queues with the specified {@code queueSize} for communication from {@link #mtgQueues
      * monkeys to generators}.
-     * 
+     *
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code BoundedMpmc} queues for
+     * @param queueSize   the capacity to use for the created bounded MPMC queues for
      *                    communication between {@link CombinationGeneratorTask generators} and
      *                    {@link TestClickCombination monkeys}.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
@@ -964,14 +962,14 @@ public class JCToolsQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #multiSingle(List, MessagePassingQueue, SolverConfiguration, SolverState)} that
-     * creates a list of {@link BoundedMpmc} queues with the specified {@code queueSize} for
-     * communication {@link #gtmQueues from generators to monkeys} and a new {@code BoundedMpmc}
+     * creates a list of bounded MPMC queues with the specified {@code queueSize} for
+     * communication {@link #gtmQueues from generators to monkeys} and a new bounded MPMC
      * queue with the specified {@code queueSize} for communication from {@link #mtgQueues monkeys
      * to generators}.
-     * 
+     *
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code BoundedMpmc} queues for
+     * @param queueSize   the capacity to use for the created bounded MPMC queues for
      *                    communication between {@link CombinationGeneratorTask generators} and
      *                    {@link TestClickCombination monkeys}.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
@@ -1162,13 +1160,13 @@ public class JCToolsQueueStrategy implements QueueStrategy {
 
     /**
      * Convenience overload of {@link #multiMulti(List, List, SolverConfiguration, SolverState)}
-     * that creates new {@link BoundedSpsc} queues with the specified {@code queueSize} for
+     * that creates new bounded SPSC queues with the specified {@code queueSize} for
      * communication in both directions between {@link CombinationGeneratorTask generators} and
      * {@link TestClickCombination monkeys}.
-     * 
+     *
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code BoundedSpsc} queues for
+     * @param queueSize   the capacity to use for the created bounded SPSC queues for
      *                    communication between generators and monkeys in both directions.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}

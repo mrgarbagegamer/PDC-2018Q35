@@ -10,6 +10,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -28,7 +29,7 @@ import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
  * 
  * <h2>Architecture Role</h2>
  * <p>
- * This class serves a central point for adapting different {@code BlockingQueue} implementations to
+ * This class serves as a central point for adapting different {@code BlockingQueue} implementations to
  * a common interface, allowing the queues to be properly categorized by their {@link AccessMode
  * access modes} (e.g., {@link AccessMode.MPMC MPMC}, {@link AccessMode.SPSC SPSC}) and
  * {@link Boundedness boundedness} ({@link Boundedness.Bounded bounded} vs
@@ -103,14 +104,13 @@ public final class BlockingQueueWrappers {
      * all method calls to an underlying delegate queue.
      * 
      * <p>
-     * This class serves as the {@code abstract} superclass for all concrete wrapper classes (e.g.,
-     * {@link BoundedMpmc}, {@link UnboundedMpmc}, {@link BoundedSpsc}), allowing them to share the
-     * same delegation logic while providing different metadata about their access modes and
-     * boundedness. By centralizing the delegation logic in this class, we avoid code duplication
-     * and ensure that all wrapper classes have a consistent implementation of the
-     * {@code BlockingQueue} interface. This class is {@code public} to allow external code to
-     * introduce new unbounded wrappers if needed, though all implemented methods of this class are
-     * marked {@code final} to uphold the {@code BlockingQueue} contract.
+     * This class serves as the {@code abstract} superclass for all concrete wrapper classes,
+     * allowing them to share the same delegation logic while providing different metadata about
+     * their access modes and boundedness. By centralizing the delegation logic in this class, we
+     * avoid code duplication and ensure that all wrapper classes have a consistent implementation
+     * of the {@code BlockingQueue} interface. This class is {@code public} to allow external code
+     * to introduce new unbounded wrappers if needed, though all implemented methods of this class
+     * are marked {@code final} to uphold the {@code BlockingQueue} contract.
      * </p>
      * 
      * @since 2026.02 - Queue Injection Refactor
@@ -305,13 +305,12 @@ public final class BlockingQueueWrappers {
      * {@link Boundedness.Bounded} interface.
      * 
      * <p>
-     * This class was created to avoid code duplication between the {@link BoundedMpmc} and
-     * {@link BoundedSpsc} wrapper classes, as they both share the same logic for handling the
-     * capacity of the queue. By centralizing this logic in the {@code BoundedDelegate} class, we
-     * can ensure that both wrapper classes have a consistent implementation for managing the
-     * capacity and validating it against the underlying queue when necessary. This approach also
-     * brings down the line count for bounded wrapper counts from 26 lines to 10, lowering the
-     * maintenance burden and improving readability.
+     * This class was created to avoid code duplication between the bounded wrapper classes, as they
+     * both share the same logic for handling the capacity of the queue. By centralizing this logic
+     * in the {@code BoundedDelegate} class, we can ensure that both wrapper classes have a
+     * consistent implementation for managing the capacity and validating it against the underlying
+     * queue when necessary. This approach also brings down the line count for bounded wrapper
+     * counts from 26 lines to 10, lowering the maintenance burden and improving readability.
      * </p>
      * 
      * @see Boundedness
@@ -366,7 +365,6 @@ public final class BlockingQueueWrappers {
          *         and an {@code int} for the capacity.
          */
         protected BoundedDelegate(BlockingQueue<WorkBatch> delegate, int capacity) {
-            super(delegate);
             if (capacity <= 0) {
                 throw new IllegalArgumentException("capacity must be positive");
             }
@@ -378,6 +376,7 @@ public final class BlockingQueueWrappers {
             }
 
             this.capacity = capacity;
+            super(delegate);
         }
 
         /**
@@ -423,6 +422,7 @@ public final class BlockingQueueWrappers {
      * the {@link AccessMode.MPMC} interface.
      * 
      * @see #newBoundedMpmc(int)
+     * @see #wrapBoundedMpmc(BlockingQueue, int)
      * @see BoundedSpsc
      * @see UnboundedMpmc
      * @see java.util.concurrent.ArrayBlockingQueue ArrayBlockingQueue
@@ -433,7 +433,7 @@ public final class BlockingQueueWrappers {
      * @memory Fixed memory overhead for the wrapper object, with allocation dependent on the
      *         underlying queue.
      */
-    public static final class BoundedMpmc extends BoundedDelegate implements AccessMode.MPMC {
+    private static final class BoundedMpmc extends BoundedDelegate implements AccessMode.MPMC {
 
         /**
          * Constructs a new {@code BoundedMpmc} instance that wraps the provided
@@ -454,7 +454,7 @@ public final class BlockingQueueWrappers {
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue
          *         and an {@code int} for the capacity.
          */
-        public BoundedMpmc(BlockingQueue<WorkBatch> q, int capacity) {
+        private BoundedMpmc(BlockingQueue<WorkBatch> q, int capacity) {
             super(q, capacity);
         }
 
@@ -474,7 +474,7 @@ public final class BlockingQueueWrappers {
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue
          *         and an {@code int} for the estimated capacity.
          */
-        public BoundedMpmc(BlockingQueue<WorkBatch> q) {
+        private BoundedMpmc(BlockingQueue<WorkBatch> q) {
             super(q);
         }
     }
@@ -484,6 +484,7 @@ public final class BlockingQueueWrappers {
      * {@link AccessMode.MPMC} and {@link Boundedness.Unbounded} interfaces.
      * 
      * @see #newUnboundedMpmc()
+     * @see #wrapUnboundedMpmc(BlockingQueue)
      * @see BoundedMpmc
      * @see java.util.concurrent.LinkedBlockingQueue LinkedBlockingQueue
      * @since 2026.02 - Queue Injection Refactor
@@ -492,7 +493,7 @@ public final class BlockingQueueWrappers {
      * @memory Fixed memory overhead for the wrapper object, with allocation dependent on the
      *         underlying queue.
      */
-    public static final class UnboundedMpmc extends Delegate
+    private static final class UnboundedMpmc extends Delegate
             implements AccessMode.MPMC, Boundedness.Unbounded {
 
         /**
@@ -508,7 +509,7 @@ public final class BlockingQueueWrappers {
          * @threading Thread-safe by nature of construction.
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue.
          */
-        public UnboundedMpmc(BlockingQueue<WorkBatch> q) {
+        private UnboundedMpmc(BlockingQueue<WorkBatch> q) {
             super(q);
         }
     }
@@ -518,6 +519,7 @@ public final class BlockingQueueWrappers {
      * the {@link AccessMode.SPSC} interface.
      * 
      * @see #newBoundedSpsc(int)
+     * @see #wrapBoundedSpsc(BlockingQueue, int)
      * @see BoundedMpmc
      * @see com.conversantmedia.util.concurrent.PushPullBlockingQueue PushPullBlockingQueue
      * @since 2026.02 - Queue Injection Refactor
@@ -526,7 +528,7 @@ public final class BlockingQueueWrappers {
      * @memory Fixed memory overhead for the wrapper object, with allocation dependent on the
      *         underlying queue.
      */
-    public static final class BoundedSpsc extends BoundedDelegate implements AccessMode.SPSC {
+    private static final class BoundedSpsc extends BoundedDelegate implements AccessMode.SPSC {
 
         /**
          * Constructs a new {@code BoundedSpsc} instance that wraps the provided
@@ -547,7 +549,7 @@ public final class BlockingQueueWrappers {
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue
          *         and an {@code int} for the capacity.
          */
-        public BoundedSpsc(BlockingQueue<WorkBatch> q, int capacity) {
+        private BoundedSpsc(BlockingQueue<WorkBatch> q, int capacity) {
             super(q, capacity);
         }
 
@@ -564,7 +566,7 @@ public final class BlockingQueueWrappers {
          * @performance {@code O(1)} delegation to the bounded delegate constructor with capacity
          *              estimation.
          */
-        public BoundedSpsc(BlockingQueue<WorkBatch> q) {
+        private BoundedSpsc(BlockingQueue<WorkBatch> q) {
             super(q);
         }
     }
@@ -580,11 +582,11 @@ public final class BlockingQueueWrappers {
      * wraps it in the corresponding wrapper class. If the queue is already an instance of a wrapper
      * (i.e., an instance of {@link Delegate}), it is returned as-is to avoid double-wrapping. For
      * known types like {@link PushPullBlockingQueue} and {@link ConcurrentQueue}, it wraps them in
-     * the appropriate wrapper classes for {@link BoundedSpsc SPSC} and {@link BoundedMpmc MPMC}
-     * {@link AccessMode access modes}, respectively. For other types, it uses the presence of a
-     * finite {@link BlockingQueue#remainingCapacity() remaining capacity} to determine if the queue
-     * is bounded or unbounded, wrapping it in a {@link BoundedMpmc} or {@link UnboundedMpmc}
-     * accordingly.
+     * the appropriate wrapper classes for {@link #wrapBoundedSpsc SPSC} and {@link #wrapBoundedMpmc
+     * MPMC} {@link AccessMode access modes}, respectively. For other types, it uses the presence of
+     * a finite {@link BlockingQueue#remainingCapacity() remaining capacity} to determine if the
+     * queue is bounded or unbounded, wrapping it in a bounded MPMC or {@link #wrapUnboundedMpmc
+     * unbounded MPMC} wrapper accordingly.
      * </p>
      * 
      * @param queue the non-{@code null} {@code BlockingQueue} to wrap.
@@ -593,10 +595,6 @@ public final class BlockingQueueWrappers {
      * @throws NullPointerException if the provided {@code queue} is {@code null}.
      * @see #estimateCapacity(BlockingQueue)
      * @see #wrap(BlockingQueue, int)
-     * @see BoundedMpmc
-     * @see UnboundedMpmc
-     * @see BoundedSpsc
-     * @see java.util.concurrent.LinkedBlockingQueue LinkedBlockingQueue
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} wrapping of the queue with type checks and capacity estimation.
      * @threading Thread-safe by nature of creating a new wrapper object, though capacity estimation
@@ -628,10 +626,13 @@ public final class BlockingQueueWrappers {
      * @param capacity the positive capacity of the bounded queue, matching the queue's underlying
      *                 capacity if it is a {@code ConcurrentQueue}.
      * @throws NullPointerException     if the provided {@code queue} is {@code null}.
-     * @throws IllegalArgumentException if the provided {@code capacity} is not positive.
+     * @throws IllegalArgumentException if the provided {@code capacity} is not positive and the
+     *                                  queue isn't already wrapped.
      * @return a wrapped version of the provided {@code BlockingQueue} with the appropriate wrapper
      *         class based on its type and the provided capacity.
      * @see #wrap(BlockingQueue)
+     * @see #wrapBoundedMpmc(BlockingQueue, int)
+     * @see #wrapBoundedSpsc(BlockingQueue, int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} wrapping of the queue with type checks and capacity validation.
      * @threading Thread-safe by nature of creating a new wrapper object.
@@ -648,13 +649,73 @@ public final class BlockingQueueWrappers {
             throw new IllegalArgumentException("capacity must be positive");
         }
 
-        // Conversant SPSC
-        if (queue instanceof PushPullBlockingQueue) {
-            return new BoundedSpsc(queue, capacity);
-        }
+        // Wrap a PushPullBlockingQueue as a BoundedSpsc, everything else as a MPMC with the
+        // provided capacity.
+        return queue instanceof PushPullBlockingQueue<?> ? wrapBoundedSpsc(queue, capacity)
+                : wrapBoundedMpmc(queue, capacity);
+    }
 
-        // Bounded MPMC:
-        return new BoundedMpmc(queue, capacity);
+    /**
+     * Wraps the provided {@link BlockingQueue} in a {@link Boundedness.Bounded bounded}
+     * {@link AccessMode.MPMC MPMC} wrapper with the specified {@code capacity}.
+     * 
+     * @param queue    the non-{@code null} {@code BlockingQueue} to wrap.
+     * @param capacity the positive capacity of the bounded queue, matching the queue's underlying
+     *                 capacity if it is a {@code ConcurrentQueue}.
+     * @throws NullPointerException     if the provided {@code queue} is {@code null}.
+     * @throws IllegalArgumentException if the provided {@code capacity} is not positive and the
+     *                                  queue isn't already wrapped.
+     * @return a wrapped version of the provided {@code BlockingQueue} in a bounded MPMC wrapper
+     *         with the specified capacity.
+     * @see #wrap(BlockingQueue, int)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     * @performance {@code O(1)} wrapping of the queue with capacity validation.
+     * @threading Thread-safe by nature of creating a new wrapper object.
+     * @memory Allocates a new wrapper object if the queue is not already wrapped.
+     */
+    public static BlockingQueue<WorkBatch> wrapBoundedMpmc(BlockingQueue<WorkBatch> queue,
+            int capacity) {
+        return wrapBoundedIfNeeded(queue, capacity, BoundedMpmc::new);
+    }
+
+    /**
+     * Wraps the provided {@link BlockingQueue} in an {@link AccessMode.MPMC MPMC} and
+     * {@link Boundedness.Unbounded unbounded} wrapper.
+     * 
+     * @param queue the non-{@code null} {@code BlockingQueue} to wrap.
+     * @return a wrapped version of the provided {@code BlockingQueue} in an unbounded MPMC wrapper.
+     * @throws NullPointerException if the provided {@code queue} is {@code null}.
+     * @see #wrap(BlockingQueue)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     * @performance {@code O(1)} wrapping of the queue.
+     * @threading Thread-safe by nature of creating a new wrapper object.
+     * @memory Allocates a new wrapper object if the queue is not already wrapped.
+     */
+    public static BlockingQueue<WorkBatch> wrapUnboundedMpmc(BlockingQueue<WorkBatch> queue) {
+        return wrapUnboundedIfNeeded(queue, UnboundedMpmc::new);
+    }
+
+    /**
+     * Wraps the provided {@link BlockingQueue} in an {@link AccessMode.SPSC SPSC} and
+     * {@link Boundedness.Bounded bounded} wrapper with the specified {@code capacity}.
+     * 
+     * @param queue    the non-{@code null} {@code BlockingQueue} to wrap.
+     * @param capacity the positive capacity of the bounded queue, matching the queue's underlying
+     *                 capacity if it is a {@code ConcurrentQueue}.
+     * @throws NullPointerException     if the provided {@code queue} is {@code null}.
+     * @throws IllegalArgumentException if the provided {@code capacity} is not positive and the
+     *                                  queue isn't already wrapped.
+     * @return a wrapped version of the provided {@code BlockingQueue} in a bounded SPSC wrapper
+     *         with the specified capacity.
+     * @see #wrap(BlockingQueue, int)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     * @performance {@code O(1)} wrapping of the queue with capacity validation.
+     * @threading Thread-safe by nature of creating a new wrapper object.
+     * @memory Allocates a new wrapper object if the queue is not already wrapped.
+     */
+    public static BlockingQueue<WorkBatch> wrapBoundedSpsc(BlockingQueue<WorkBatch> queue,
+            int capacity) {
+        return wrapBoundedIfNeeded(queue, capacity, BoundedSpsc::new);
     }
 
     /**
@@ -703,24 +764,101 @@ public final class BlockingQueueWrappers {
      */
     public static void requireWrapped(List<? extends BlockingQueue<WorkBatch>> queues,
             String listName) {
-        if (queues.stream().anyMatch(q -> !(q instanceof Delegate))) {
+        if (!queues.stream().allMatch(BlockingQueueWrappers::isWrapped)) {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
     }
 
     /**
-     * Creates a new {@link DisruptorBlockingQueue} wrapped in a {@link BoundedMpmc} wrapper with
-     * the specified {@code capacity}.
+     * Checks if the provided {@link BlockingQueue} is already wrapped with a wrapper class.
+     * 
+     * <p>
+     * This method is used to determine if a queue has already been wrapped, which is useful for
+     * avoiding double-wrapping and for validation purposes. It checks if the queue is an instance
+     * of the {@link Delegate} class, which is the base class for all wrapper classes.
+     * </p>
+     * 
+     * @param queue the {@code BlockingQueue} to check.
+     * @return {@code true} if the queue is already wrapped, {@code false} otherwise.
+     * @see #wrap(BlockingQueue)
+     * @see #wrapAll(List)
+     * @see #requireWrapped(List, String)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     * @performance {@code O(1)} type check.
+     * @threading Thread-safe by nature of being a stateless type check.
+     * @memory Does not allocate.
+     */
+    public static boolean isWrapped(BlockingQueue<WorkBatch> queue) {
+        return queue instanceof Delegate;
+    }
+
+    /**
+     * Wraps the provided {@link BlockingQueue} in a bounded wrapper if it is not already wrapped.
+     * 
+     * <p>
+     * This method is a helper for the public {@code wrapBounded*} methods. It checks if the queue
+     * is already wrapped using {@link #isWrapped(BlockingQueue)}, and if not, it applies the
+     * provided wrapper constructor to create a new wrapper instance with the specified capacity.
+     * </p>
+     * 
+     * @param queue              the non-{@code null} {@code BlockingQueue} to wrap.
+     * @param capacity           the positive capacity of the bounded queue.
+     * @param wrapperConstructor a function that takes a queue and capacity and returns a wrapped
+     *                           version of the queue.
+     * @return the wrapped queue if it was not already wrapped, or the original queue if it was.
+     * @see #isWrapped(BlockingQueue)
+     * @see #wrapBoundedMpmc(BlockingQueue, int)
+     * @see #wrapBoundedSpsc(BlockingQueue, int)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     * @performance {@code O(1)} wrapping with type check.
+     * @threading Thread-safe by nature of creating a new wrapper object if needed.
+     * @memory Allocates a new wrapper object if the queue is not already wrapped.
+     */
+    private static BlockingQueue<WorkBatch> wrapBoundedIfNeeded(BlockingQueue<WorkBatch> queue,
+            int capacity,
+            ObjIntFunction<BlockingQueue<WorkBatch>, BlockingQueue<WorkBatch>> wrapperConstructor) {
+        return isWrapped(queue) ? queue : wrapperConstructor.apply(queue, capacity);
+    }
+
+    /**
+     * Wraps the provided {@link BlockingQueue} in an unbounded wrapper if it is not already
+     * wrapped.
+     * 
+     * <p>
+     * This method is a helper for the public {@code wrapUnbounded*} methods. It checks if the queue
+     * is already wrapped using {@link #isWrapped(BlockingQueue)}, and if not, it applies the
+     * provided wrapper constructor to create a new wrapper instance.
+     * </p>
+     * 
+     * @param queue              the non-{@code null} {@code BlockingQueue} to wrap.
+     * @param wrapperConstructor a function that takes a queue and returns a wrapped version of the
+     *                           queue.
+     * @return the wrapped queue if it was not already wrapped, or the original queue if it was.
+     * @see #isWrapped(BlockingQueue)
+     * @see #wrapUnboundedMpmc(BlockingQueue)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     * @performance {@code O(1)} wrapping with type check.
+     * @threading Thread-safe by nature of creating a new wrapper object if needed.
+     * @memory Allocates a new wrapper object if the queue is not already wrapped.
+     */
+    private static BlockingQueue<WorkBatch> wrapUnboundedIfNeeded(BlockingQueue<WorkBatch> queue,
+            Function<BlockingQueue<WorkBatch>, BlockingQueue<WorkBatch>> wrapperConstructor) {
+        return isWrapped(queue) ? queue : wrapperConstructor.apply(queue);
+    }
+
+    /**
+     * Creates a new {@link DisruptorBlockingQueue} wrapped in a bounded MPMC wrapper with the
+     * specified {@code capacity}.
      * 
      * @param capacity the positive capacity of the bounded MPMC queue.
-     * @return a new {@link BlockingQueue} wrapped in a {@link BoundedMpmc} wrapper with the
-     *         specified capacity (rounded to the next power of two if necessary).
+     * @return a new {@link BlockingQueue} wrapped in a bounded MPMC wrapper with the specified
+     *         capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
      * @see #newBoundedSpsc(int)
      * @see #newUnboundedMpmc()
-     * @see BoundedMpmc#BoundedMpmc(BlockingQueue, int)
+     * @see #wrapBoundedMpmc(BlockingQueue, int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the bounded MPMC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
@@ -732,7 +870,7 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a list of new {@link BlockingQueue}s wrapped in {@link BoundedMpmc} wrappers with the
+     * Creates a list of new {@link BlockingQueue}s wrapped in bounded MPMC wrappers with the
      * specified {@code capacity}.
      * 
      * <p>
@@ -763,6 +901,7 @@ public final class BlockingQueueWrappers {
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
      *                                  negative, or if the provided {@code capacity} exceeds the
      *                                  maximum power of two that an {@code int} can represent.
+     * @see #wrapBoundedMpmc(BlockingQueue, int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(size)} list creation.
      * @threading Thread-safe by nature of creating new queue instances.
@@ -775,12 +914,11 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a new {@link LinkedBlockingQueue} instance wrapped in a {@link UnboundedMpmc}
-     * wrapper.
+     * Creates a new {@link LinkedBlockingQueue} instance wrapped in an unbounded MPMC wrapper.
      * 
-     * @return a new {@link BlockingQueue} wrapped in an {@code UnboundedMpmc} wrapper.
+     * @return a new {@link BlockingQueue} wrapped in an unbounded MPMC wrapper.
      * @see #newBoundedMpmc(int)
-     * @see UnboundedMpmc#UnboundedMpmc(BlockingQueue)
+     * @see #wrapUnboundedMpmc(BlockingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the unbounded MPMC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
@@ -792,8 +930,7 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a list of new {@link BlockingQueue} instances wrapped in the appropriate wrapper
-     * class for an {@link UnboundedMpmc unbounded MPMC queue}.
+     * Creates a list of new {@link BlockingQueue} instances wrapped in unbounded MPMC wrappers.
      * 
      * <p>
      * Building on {@link #newUnboundedMpmc()}, this method generates an unmodifiable list of new
@@ -820,6 +957,7 @@ public final class BlockingQueueWrappers {
      * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
      *         {@link UnboundedMpmc} wrappers.
      * @throws IllegalArgumentException if the provided {@code size} is negative.
+     * @see #wrapUnboundedMpmc(BlockingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(n)} creation of the list of new unbounded MPMC queues, where {@code n}
      *              is the provided {@code size}.
@@ -833,17 +971,17 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a new {@link PushPullBlockingQueue} wrapped in a {@link BoundedSpsc} wrapper with the
+     * Creates a new {@link PushPullBlockingQueue} wrapped in a bounded SPSC wrapper with the
      * specified {@code capacity}.
      * 
      * @param capacity the positive capacity to use for the created bounded SPSC queue.
-     * @return a new {@link BlockingQueue} wrapped in a {@link BoundedSpsc} wrapper with the
-     *         specified capacity (rounded to the next power of two if necessary).
+     * @return a new {@link BlockingQueue} wrapped in a bounded SPSC wrapper with the specified
+     *         capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
      * @see #newBoundedSpscList(int, int)
      * @see #newBoundedMpmc(int)
-     * @see BoundedSpsc#BoundedSpsc(BlockingQueue, int)
+     * @see #wrapBoundedSpsc(BlockingQueue, int)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the bounded SPSC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
@@ -855,7 +993,7 @@ public final class BlockingQueueWrappers {
     }
 
     /**
-     * Creates a list of new {@link BlockingQueue}s wrapped in {@link BoundedSpsc} wrappers with the
+     * Creates a list of new {@link BlockingQueue}s wrapped in bounded SPSC wrappers with the
      * specified {@code capacity}.
      * 
      * <p>
@@ -971,5 +1109,41 @@ public final class BlockingQueueWrappers {
                     + " does not match the queue's actual capacity of " + cq.capacity()
                     + " (rounded to next power of two)");
         }
+    }
+
+    /**
+     * A functional interface that accepts an object and an integer and returns a result.
+     * 
+     * <p>
+     * This interface is used internally by the
+     * {@link #wrapBoundedIfNeeded(BlockingQueue, int, ObjIntFunction)} method to provide a flexible
+     * way to construct bounded wrapper instances with a queue and capacity parameter, reducing code
+     * duplication and simplifying the individual {@code wrapBounded*} methods to a single-line
+     * return with a method reference to the appropriate constructor. It is similar to
+     * {@link java.util.function.BiFunction BiFunction}, but specialized for the common case where
+     * the second parameter is an {@code int}.
+     * </p>
+     * 
+     * @param <T> the type of the first argument (the queue).
+     * @param <R> the type of the result (the wrapped queue).
+     * @see #wrapBoundedIfNeeded(BlockingQueue, int, ObjIntFunction)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     */
+    @FunctionalInterface
+    private interface ObjIntFunction<T, R> {
+        /**
+         * Applies this function to the given arguments.
+         * 
+         * @param t the first argument (the queue to wrap).
+         * @param i the second argument (the capacity for the bounded wrapper).
+         * @return the result of applying this function to the given arguments, which is a wrapped
+         *         version of the provided queue with the specified capacity.
+         * @see #wrapBoundedIfNeeded(BlockingQueue, int, ObjIntFunction)
+         * @since 2026.04 - Encapsulated Concrete Wrappers
+         * @performance {@code O(1)} application of the function to create a new wrapper instance.
+         * @threading Must be thread-safe.
+         * @memory Allocates a new wrapper object when applied, if the queue is not already wrapped.
+         */
+        R apply(T t, int i);
     }
 }

@@ -23,8 +23,6 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
-import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.BoundedMpmc;
-import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.BoundedSpsc;
 import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
@@ -731,16 +729,16 @@ public class BlockingQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #singleMulti(BlockingQueue, List, SolverConfiguration, SolverState)} that creates a
-     * new {@link BoundedMpmc} queue instance with the specified {@code queueSize} for communication
-     * from {@link #gtmQueues generators to monkeys} and a list of {@link BoundedSpsc} instances
+     * new bounded MPMC queue instance with the specified {@code queueSize} for communication
+     * from {@link #gtmQueues generators to monkeys} and a list of bounded SPSC queue instances
      * with the specified {@code queueSize} for communication from {@link #mtgQueues monkeys to
      * generators}.
-     * 
+     *
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code BoundedMpmc} queue for
+     * @param queueSize   the capacity to use for the created bounded MPMC queue for
      *                    communication from {@link CombinationGeneratorTask generators} to
-     *                    {@link TestClickCombination monkeys} and the {@code BoundedSpsc} queues
+     *                    {@link TestClickCombination monkeys} and the bounded SPSC queues
      *                    for communication from monkeys to generators.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
@@ -924,15 +922,15 @@ public class BlockingQueueStrategy implements QueueStrategy {
     /**
      * Convenience overload of
      * {@link #multiSingle(List, BlockingQueue, SolverConfiguration, SolverState)} that creates a
-     * list of {@link BoundedSpsc} queues with the specified {@code queueSize} for communication
+     * list of bounded SPSC queues with the specified {@code queueSize} for communication
      * from {@link CombinationGeneratorTask generators} to {@link TestClickCombination monkeys} and
-     * a new {@link BoundedMpmc} queue with the specified {@code queueSize} for communication from
+     * a new bounded MPMC queue with the specified {@code queueSize} for communication from
      * monkeys back to generators.
-     * 
+     *
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code BoundedSpsc} queues for
-     *                    communication from generators to monkeys and the {@code BoundedMpmc} for
+     * @param queueSize   the capacity to use for the created bounded SPSC queues for
+     *                    communication from generators to monkeys and the bounded MPMC for
      *                    communication from monkeys to generators.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}
@@ -1119,13 +1117,13 @@ public class BlockingQueueStrategy implements QueueStrategy {
 
     /**
      * Convenience overload of {@link #multiMulti(List, List, SolverConfiguration, SolverState)}
-     * that creates lists of {@link BoundedSpsc} queues with the specified {@code queueSize} for
+     * that creates lists of bounded SPSC queues with the specified {@code queueSize} for
      * communication in both directions between {@link CombinationGeneratorTask generators} and
      * {@link TestClickCombination monkeys}.
-     * 
+     *
      * @param config      the {@link SolverConfiguration} containing configuration parameters for
      *                    validation and preallocation.
-     * @param queueSize   the capacity to use for the created {@code BoundedSpsc} queues for
+     * @param queueSize   the capacity to use for the created bounded SPSC queues for
      *                    communication in both directions between generators and monkeys.
      * @param solverState the {@link SolverState} used to create the {@link ContinuationPredicates
      *                    continuation predicates} for {@link #generatorShouldContinue generators}

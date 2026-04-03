@@ -25,15 +25,15 @@ import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
  * 
  * <h2>Architecture Role</h2>
  * <p>
- * This class serves a central point for adapting different {@code MessagePassingQueue}
+ * This class serves as a central point for adapting different {@code MessagePassingQueue}
  * implementations to a common interface, allowing the queues to be properly categorized by their
  * {@link AccessMode access modes} (e.g., {@link AccessMode.MPMC MPMC}, {@link AccessMode.SPSC
  * SPSC}) and {@link Boundedness boundedness} ({@link Boundedness.Bounded bounded} vs
  * {@link Boundedness.Unbounded unbounded}). By wrapping the queues in specific wrapper classes, we
  * can ensure that the rest of the system, particularly the validation utilities in
- * {@link JCToolsUtils}, can reliably determine the properties of the queues. This saves the
- * need for large chains of {@code instanceof} checks throughout the codebase, which are
- * error-prone, difficult to maintain, and unscalable for future queue types.
+ * {@link JCToolsUtils}, can reliably determine the properties of the queues. This saves the need
+ * for large chains of {@code instanceof} checks throughout the codebase, which are error-prone,
+ * difficult to maintain, and unscalable for future queue types.
  * </p>
  * 
  * <p>
@@ -84,14 +84,13 @@ public final class JCToolsWrappers {
      * forwarding all method calls to an underlying delegate queue.
      * 
      * <p>
-     * This class serves as the {@code abstract} superclass for all concrete wrapper classes (e.g.,
-     * {@link BoundedMpmc}, {@link BoundedMpsc}, {@link BoundedSpmc}, {@link BoundedSpsc}), allowing
-     * them to share the same delegation logic while providing different metadata about their access
-     * modes and boundedness. By centralizing the delegation logic in this class, we avoid code
-     * duplication and ensure that all wrapper classes have a consistent implementation of the
-     * {@code MessagePassingQueue} interface. The class is {@code public} to allow external code to
-     * introduce unbounded wrappers if needed, though all implemented methods of this class are
-     * marked {@code final} to uphold the {@code MessagePassingQueue} contract.
+     * This class serves as the {@code abstract} superclass for all concrete wrapper classes,
+     * allowing them to share the same delegation logic while providing different metadata about
+     * their access modes and boundedness. By centralizing the delegation logic in this class, we
+     * avoid code duplication and ensure that all wrapper classes have a consistent implementation
+     * of the {@code MessagePassingQueue} interface. The class is {@code public} to allow external
+     * code to introduce unbounded wrappers if needed, though all implemented methods of this class
+     * are marked {@code final} to uphold the {@code MessagePassingQueue} contract.
      * </p>
      * 
      * @since 2026.02 - Queue Injection Refactor
@@ -227,20 +226,17 @@ public final class JCToolsWrappers {
     /**
      * A wrapper class for bounded MPMC queues that extends {@link Delegate} and implements the
      * {@link AccessMode.MPMC} and {@link Boundedness.Bounded} interfaces.
-     * 
+     *
      * @see #newBoundedMpmc(int)
-     * @see BoundedMpsc
-     * @see BoundedSpmc
-     * @see BoundedSpsc
      * @see org.jctools.queues.MpmcArrayQueue MpmcArrayQueue
      * @since 2026.02 - Queue Injection Refactor
      * @performance Implementation dependent on the underlying queue.
      * @threading Thread-safe.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    public static final class BoundedMpmc extends Delegate
+    private static final class BoundedMpmc extends Delegate
             implements AccessMode.MPMC, Boundedness.Bounded {
-        public BoundedMpmc(MessagePassingQueue<WorkBatch> q) {
+        private BoundedMpmc(MessagePassingQueue<WorkBatch> q) {
             super(q);
         }
     }
@@ -248,20 +244,17 @@ public final class JCToolsWrappers {
     /**
      * A wrapper class for bounded MPSC queues that extends {@link Delegate} and implements the
      * {@link AccessMode.MPSC} and {@link Boundedness.Bounded} interfaces.
-     * 
+     *
      * @see #newBoundedMpsc(int)
-     * @see BoundedMpmc
-     * @see BoundedSpmc
-     * @see BoundedSpsc
      * @see org.jctools.queues.MpscArrayQueue MpscArrayQueue
      * @since 2026.02 - Queue Injection Refactor
      * @performance Implementation dependent on the underlying queue.
      * @threading Thread-safe for multiple producers and a single consumer.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    public static final class BoundedMpsc extends Delegate
+    private static final class BoundedMpsc extends Delegate
             implements AccessMode.MPSC, Boundedness.Bounded {
-        public BoundedMpsc(MessagePassingQueue<WorkBatch> q) {
+        private BoundedMpsc(MessagePassingQueue<WorkBatch> q) {
             super(q);
         }
     }
@@ -269,20 +262,17 @@ public final class JCToolsWrappers {
     /**
      * A wrapper class for bounded SPMC queues that extends {@link Delegate} and implements the
      * {@link AccessMode.SPMC} and {@link Boundedness.Bounded} interfaces.
-     * 
+     *
      * @see #newBoundedSpmc(int)
-     * @see BoundedMpmc
-     * @see BoundedMpsc
-     * @see BoundedSpsc
      * @see org.jctools.queues.SpmcArrayQueue SpmcArrayQueue
      * @since 2026.02 - Queue Injection Refactor
      * @performance Implementation dependent on the underlying queue.
      * @threading Thread-safe for a single producer and multiple consumers.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    public static final class BoundedSpmc extends Delegate
+    private static final class BoundedSpmc extends Delegate
             implements AccessMode.SPMC, Boundedness.Bounded {
-        public BoundedSpmc(MessagePassingQueue<WorkBatch> q) {
+        private BoundedSpmc(MessagePassingQueue<WorkBatch> q) {
             super(q);
         }
     }
@@ -290,20 +280,17 @@ public final class JCToolsWrappers {
     /**
      * A wrapper class for bounded SPSC queues that extends {@link Delegate} and implements the
      * {@link AccessMode.SPSC} and {@link Boundedness.Bounded} interfaces.
-     * 
+     *
      * @see #newBoundedSpsc(int)
-     * @see BoundedMpmc
-     * @see BoundedMpsc
-     * @see BoundedSpmc
      * @see org.jctools.queues.SpscArrayQueue SpscArrayQueue
      * @since 2026.02 - Queue Injection Refactor
      * @performance Implementation dependent on the underlying queue.
      * @threading Thread-safe for a single producer and a single consumer.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    public static final class BoundedSpsc extends Delegate
+    private static final class BoundedSpsc extends Delegate
             implements AccessMode.SPSC, Boundedness.Bounded {
-        public BoundedSpsc(MessagePassingQueue<WorkBatch> q) {
+        private BoundedSpsc(MessagePassingQueue<WorkBatch> q) {
             super(q);
         }
     }
@@ -311,27 +298,23 @@ public final class JCToolsWrappers {
     /**
      * Wraps the provided {@link MessagePassingQueue} in the appropriate wrapper class based on its
      * type and characteristics.
-     * 
+     *
      * <p>
      * The method determines the type of the provided queue and wraps it in the corresponding
      * wrapper class. If the queue is already an instance of a wrapper (i.e., an instance of
      * {@link Delegate}), it is returned as-is to avoid double-wrapping. It attempts to detect the
      * correct {@link AccessMode} according to the concrete class name of the JCTools queue (e.g.,
      * extracting "Spsc", "Mpsc"). If the type is unrecognized, it falls back to the most permissive
-     * wrapper, which is {@link BoundedMpmc}. Unbounded queues currently result in an
+     * access mode. Unbounded queues currently result in an
      * {@link UnsupportedOperationException}.
      * </p>
-     * 
+     *
      * @param queue the non-{@code null} {@code MessagePassingQueue} to wrap.
      * @return a wrapped version of the provided {@code MessagePassingQueue} with the appropriate
      *         wrapper class based on its type and characteristics.
      * @throws NullPointerException          if the provided {@code queue} is {@code null}.
      * @throws UnsupportedOperationException if the queue is unbounded, as unbounded wrappers are
      *                                       not implemented.
-     * @see BoundedMpmc
-     * @see BoundedMpsc
-     * @see BoundedSpmc
-     * @see BoundedSpsc
      * @see Delegate
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} wrapping of the queue with type checks based on class name.
@@ -403,25 +386,47 @@ public final class JCToolsWrappers {
      */
     public static void requireWrapped(List<? extends MessagePassingQueue<WorkBatch>> queues,
             String listName) {
-        if (queues.stream().anyMatch(q -> !(q instanceof Delegate))) {
+        if (!queues.stream().allMatch(JCToolsWrappers::isWrapped)) {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
     }
 
     /**
-     * Creates a new {@link MpmcArrayQueue} wrapped in a {@link BoundedMpmc} wrapper with the
+     * Checks if the provided {@link MessagePassingQueue} is already wrapped with a wrapper class.
+     *
+     * <p>
+     * This method is used to determine if a queue has already been wrapped, which is useful for
+     * avoiding double-wrapping and for validation purposes. It checks if the queue is an instance
+     * of the {@link Delegate} class, which is the base class for all wrapper classes.
+     * </p>
+     *
+     * @param queue the {@code MessagePassingQueue} to check.
+     * @return {@code true} if the queue is already wrapped, {@code false} otherwise.
+     * @see #wrap(MessagePassingQueue)
+     * @see #wrapAll(List)
+     * @see #requireWrapped(List, String)
+     * @since 2026.04 - Encapsulated Concrete Wrappers
+     * @performance {@code O(1)} type check.
+     * @threading Thread-safe by nature of being a stateless type check.
+     * @memory Does not allocate.
+     */
+    public static boolean isWrapped(MessagePassingQueue<WorkBatch> queue) {
+        return queue instanceof Delegate;
+    }
+
+    /**
+     * Creates a new {@link MpmcArrayQueue} wrapped in a bounded MPMC wrapper with the
      * specified {@code capacity}.
-     * 
+     *
      * @param capacity the positive capacity to use for the created bounded MPMC queue.
-     * @return a new {@link MessagePassingQueue} wrapped in a {@code BoundedMpmc} wrapper with the
+     * @return a new bounded MPMC {@link MessagePassingQueue} with the
      *         specified capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
      * @see #newBoundedMpsc(int)
      * @see #newBoundedSpmc(int)
      * @see #newBoundedSpsc(int)
-     * @see BoundedMpmc#BoundedMpmc(MessagePassingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the bounded MPMC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
@@ -475,16 +480,15 @@ public final class JCToolsWrappers {
     }
 
     /**
-     * Creates a new {@link MpscArrayQueue} wrapped in a {@link BoundedMpsc} wrapper with the
+     * Creates a new {@link MpscArrayQueue} wrapped in a bounded MPSC wrapper with the
      * specified {@code capacity}.
-     * 
+     *
      * @param capacity the positive capacity to use for the created bounded MPSC queue.
-     * @return a new {@link MessagePassingQueue} wrapped in a {@code BoundedMpsc} wrapper with the
+     * @return a new bounded MPSC {@link MessagePassingQueue} with the
      *         specified capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
      * @see #newBoundedSpmc(int)
-     * @see BoundedMpsc#BoundedMpsc(MessagePassingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the bounded MPSC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
@@ -495,16 +499,15 @@ public final class JCToolsWrappers {
     }
 
     /**
-     * Creates a list of new {@link MessagePassingQueue}s wrapped in {@link BoundedMpsc} wrappers
-     * with the specified {@code capacity}.
-     * 
+     * Creates a list of new bounded MPSC queues with the specified {@code capacity}.
+     *
      * <p>
      * Building on {@link #newBoundedMpsc(int)}, this method generates an immutable list of new
-     * {@code BoundedMpsc} queues, all with the specified {@code capacity}. This is useful for
+     * bounded MPSC queues, all with the specified {@code capacity}. This is useful for
      * callers that need to create multiple bounded MPSC queues at once, such as when initializing
      * queues for a {@link JCToolsQueueStrategy}.
      * </p>
-     * 
+     *
      * <p>
      * Note that we use {@link Stream#generate(java.util.function.Supplier) Stream.generate()} to
      * create an infinite stream of new bounded MPSC queues, and then {@link Stream#limit(long)
@@ -518,11 +521,10 @@ public final class JCToolsWrappers {
      * incur an additional copy if the list is not {@code null}-prohibiting. By using
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
-     * 
+     *
      * @param size     the number of bounded MPSC queues to create in the list.
      * @param capacity the positive capacity of each bounded MPSC queue in the list.
-     * @return an unmodifiable list of new {@code MessagePassingQueue} instances wrapped in
-     *         {@code BoundedMpsc} wrappers with the specified capacity.
+     * @return an unmodifiable list of new bounded MPSC {@code MessagePassingQueue} instances with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
      *                                  negative, or if the provided {@code capacity} exceeds the
      *                                  maximum power of two that an {@code int} can represent.
@@ -530,7 +532,6 @@ public final class JCToolsWrappers {
      * @see #newBoundedMpmcList(int, int)
      * @see #newBoundedSpmcList(int, int)
      * @see #newBoundedSpscList(int, int)
-     * @see BoundedMpsc#BoundedMpsc(MessagePassingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(size)} list creation.
      * @threading Thread-safe by nature of creating new queue instances.
@@ -543,11 +544,11 @@ public final class JCToolsWrappers {
     }
 
     /**
-     * Creates a new {@link SpmcArrayQueue} wrapped in a {@link BoundedSpmc} wrapper with the
+     * Creates a new {@link SpmcArrayQueue} wrapped in a bounded SPMC wrapper with the
      * specified {@code capacity}.
-     * 
+     *
      * @param capacity the positive capacity to use for the created bounded SPMC queue.
-     * @return a new {@link MessagePassingQueue} wrapped in a {@code BoundedSpmc} wrapper with the
+     * @return a new bounded SPMC {@link MessagePassingQueue} with the
      *         specified capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
@@ -555,7 +556,6 @@ public final class JCToolsWrappers {
      * @see #newBoundedMpmc(int)
      * @see #newBoundedMpsc(int)
      * @see #newBoundedSpsc(int)
-     * @see BoundedSpmc#BoundedSpmc(MessagePassingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the bounded SPMC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
@@ -566,16 +566,15 @@ public final class JCToolsWrappers {
     }
 
     /**
-     * Creates a list of new {@link MessagePassingQueue}s wrapped in {@link BoundedSpmc} wrappers
-     * with the specified {@code capacity}.
-     * 
+     * Creates a list of new bounded SPMC queues with the specified {@code capacity}.
+     *
      * <p>
      * Building on {@link #newBoundedSpmc(int)}, this method generates an immutable list of new
-     * {@code BoundedSpmc} queues, all with the specified {@code capacity}. This is useful for
+     * bounded SPMC queues, all with the specified {@code capacity}. This is useful for
      * callers that need to create multiple bounded SPMC queues at once, such as when initializing
      * queues for a {@link JCToolsQueueStrategy}.
      * </p>
-     * 
+     *
      * <p>
      * Note that we use {@link Stream#generate(java.util.function.Supplier) Stream.generate()} to
      * create an infinite stream of new bounded SPMC queues, and then {@link Stream#limit(long)
@@ -589,11 +588,10 @@ public final class JCToolsWrappers {
      * incur an additional copy if the list is not {@code null}-prohibiting. By using
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
-     * 
+     *
      * @param size     the number of bounded SPMC queues to create in the list.
      * @param capacity the positive capacity of each bounded SPMC queue in the list.
-     * @return an unmodifiable list of new {@code MessagePassingQueue} instances wrapped in
-     *         {@code BoundedSpmc} wrappers with the specified capacity.
+     * @return an unmodifiable list of new bounded SPMC {@code MessagePassingQueue} instances with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
      *                                  negative, or if the provided {@code capacity} exceeds the
      *                                  maximum power of two that an {@code int} can represent.
@@ -601,7 +599,6 @@ public final class JCToolsWrappers {
      * @see #newBoundedMpmcList(int, int)
      * @see #newBoundedMpscList(int, int)
      * @see #newBoundedSpscList(int, int)
-     * @see BoundedSpmc#BoundedSpmc(MessagePassingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(size)} list creation.
      * @threading Thread-safe by nature of creating new queue instances.
@@ -614,11 +611,11 @@ public final class JCToolsWrappers {
     }
 
     /**
-     * Creates a new {@link SpscArrayQueue} wrapped in a {@link BoundedSpsc} wrapper with the
+     * Creates a new {@link SpscArrayQueue} wrapped in a bounded SPSC wrapper with the
      * specified {@code capacity}.
-     * 
+     *
      * @param capacity the positive capacity to use for the created bounded SPSC queue.
-     * @return a new {@link MessagePassingQueue} wrapped in a {@code BoundedSpsc} wrapper with the
+     * @return a new bounded SPSC {@link MessagePassingQueue} with the
      *         specified capacity (rounded to the next power of two if necessary).
      * @throws IllegalArgumentException if the provided {@code capacity} is not positive or exceeds
      *                                  the maximum power of two that an {@code int} can represent.
@@ -626,7 +623,6 @@ public final class JCToolsWrappers {
      * @see #newBoundedMpmc(int)
      * @see #newBoundedMpsc(int)
      * @see #newBoundedSpmc(int)
-     * @see BoundedSpsc#BoundedSpsc(MessagePassingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} creation of the bounded SPSC queue.
      * @threading Thread-safe by nature of creating a new queue instance.
@@ -637,16 +633,15 @@ public final class JCToolsWrappers {
     }
 
     /**
-     * Creates a list of new {@link MessagePassingQueue}s wrapped in {@link BoundedSpsc} wrappers
-     * with the specified {@code capacity}.
-     * 
+     * Creates a list of new bounded SPSC queues with the specified {@code capacity}.
+     *
      * <p>
      * Building on {@link #newBoundedSpsc(int)}, this method generates an immutable list of new
-     * {@code BoundedSpsc} queues, all with the specified {@code capacity}. This is useful for
+     * bounded SPSC queues, all with the specified {@code capacity}. This is useful for
      * callers that need to create multiple bounded SPSC queues at once, such as when initializing
      * queues for a {@link JCToolsQueueStrategy}.
      * </p>
-     * 
+     *
      * <p>
      * Note that we use {@link Stream#generate(java.util.function.Supplier) Stream.generate()} to
      * create an infinite stream of new bounded SPSC queues, and then {@link Stream#limit(long)
@@ -660,11 +655,10 @@ public final class JCToolsWrappers {
      * incur an additional copy if the list is not {@code null}-prohibiting. By using
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
-     * 
+     *
      * @param size     the number of bounded SPSC queues to create in the list.
      * @param capacity the positive capacity of each bounded SPSC queue in the list.
-     * @return an unmodifiable list of new {@code MessagePassingQueue} instances wrapped in
-     *         {@code BoundedSpsc} wrappers with the specified capacity.
+     * @return an unmodifiable list of new bounded SPSC {@code MessagePassingQueue} instances with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
      *                                  negative, or if the provided {@code capacity} exceeds the
      *                                  maximum power of two that an {@code int} can represent.
@@ -672,7 +666,6 @@ public final class JCToolsWrappers {
      * @see #newBoundedMpmcList(int, int)
      * @see #newBoundedMpscList(int, int)
      * @see #newBoundedSpmcList(int, int)
-     * @see BoundedSpsc#BoundedSpsc(MessagePassingQueue)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(size)} list creation.
      * @threading Thread-safe by nature of creating new queue instances.

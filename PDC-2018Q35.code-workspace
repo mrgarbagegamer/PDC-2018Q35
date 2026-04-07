@@ -1,0 +1,29 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"java.configuration.updateBuildConfiguration": "automatic",
+		"java.format.settings.url": ".vscode/java-formatter.xml",
+		"maven.view": "hierarchical",
+		"java.dependency.packagePresentation": "hierarchical",
+		"java.diagnostic.filter": [
+			"**/target/generated-sources/**"
+		],
+		"java.project.explorer.showNonJavaResources": false,
+		"java.jdt.ls.vmargs": "-XX:+UseParallelGC -XX:GCTimeRatio=4 -XX:AdaptiveSizePolicyWeight=90 -Dsun.zip.disableMemoryMapping=true -Xmx4G -Xms100m -Xlog:disable",
+		"java.test.config": {
+			// Enable preview features and add the Mockito agent for testing to avoid a Mockito warning in the debug console.
+			"vmArgs": [
+				"--enable-preview",
+				"-javaagent:C:/Users/apoll/.m2/repository/org/mockito/mockito-core/5.23.0/mockito-core-5.23.0.jar",
+				"-Xshare:off"
+			]
+		},
+		"[java]": {
+			"editor.detectIndentation": false
+		},
+	}
+}

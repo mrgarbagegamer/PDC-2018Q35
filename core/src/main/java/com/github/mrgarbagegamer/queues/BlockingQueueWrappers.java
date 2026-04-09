@@ -6,6 +6,7 @@ import static java.util.Objects.requireNonNull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -18,19 +19,19 @@ import com.conversantmedia.util.concurrent.ConcurrentQueue;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
 import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
-// TODO: Write unit tests for the class.
 /**
  * A utility class that provides wrappers for various {@link BlockingQueue} implementations to
  * standardize their interfaces and characteristics for use in the {@link BlockingQueueStrategy}.
  * 
  * <h2>Architecture Role</h2>
  * <p>
- * This class serves as a central point for adapting different {@code BlockingQueue} implementations to
- * a common interface, allowing the queues to be properly categorized by their {@link AccessMode
+ * This class serves as a central point for adapting different {@code BlockingQueue} implementations
+ * to a common interface, allowing the queues to be properly categorized by their {@link AccessMode
  * access modes} (e.g., {@link AccessMode.MPMC MPMC}, {@link AccessMode.SPSC SPSC}) and
  * {@link Boundedness boundedness} ({@link Boundedness.Bounded bounded} vs
  * {@link Boundedness.Unbounded unbounded}). By wrapping the queues in specific wrapper classes, we
@@ -94,6 +95,7 @@ public final class BlockingQueueWrappers {
      * @threading Thread-safe by nature of being uninstantiable.
      * @memory Allocates a new exception.
      */
+    @ExcludeFromGeneratedCoverage
     private BlockingQueueWrappers() {
         throw new UnsupportedOperationException(
                 "BlockingQueueWrappers is a utility class and cannot be instantiated");
@@ -603,6 +605,7 @@ public final class BlockingQueueWrappers {
      */
     public static BlockingQueue<WorkBatch> wrap(BlockingQueue<WorkBatch> queue) {
         return switch (queue) {
+            case null -> throw new NullPointerException("queue must not be null");
             case Delegate d -> d; // If already wrapped, return as-is
             case PushPullBlockingQueue<?> _ -> new BoundedSpsc(queue); // Conversant SPSC
             case ConcurrentQueue<?> _ -> new BoundedMpmc(queue); // Conversant MPMC
@@ -641,12 +644,12 @@ public final class BlockingQueueWrappers {
     public static BlockingQueue<WorkBatch> wrap(BlockingQueue<WorkBatch> queue, int capacity) {
         // If already wrapped, return as-is (ignore capacity parameter since we can't change the
         // underlying queue)
-        if (queue instanceof Delegate) {
-            return queue;
-        }
-
-        if (capacity <= 0) {
+        if (queue == null) {
+            throw new NullPointerException("queue must not be null");
+        } else if (capacity <= 0) {
             throw new IllegalArgumentException("capacity must be positive");
+        } else if (isWrapped(queue)) {
+            return queue;
         }
 
         // Wrap a PushPullBlockingQueue as a BoundedSpsc, everything else as a MPMC with the
@@ -764,7 +767,12 @@ public final class BlockingQueueWrappers {
      */
     public static void requireWrapped(List<? extends BlockingQueue<WorkBatch>> queues,
             String listName) {
-        if (!queues.stream().allMatch(BlockingQueueWrappers::isWrapped)) {
+        requireNonNull(listName, "listName must not be null");
+        requireNonNull(queues, listName + " must not be null");
+
+        if (queues.stream().anyMatch(Objects::isNull)) {
+            throw new NullPointerException(listName + " must not contain null queues");
+        } else if (!queues.stream().allMatch(BlockingQueueWrappers::isWrapped)) {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
@@ -894,8 +902,8 @@ public final class BlockingQueueWrappers {
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
      * 
-     * @param size     the number of bounded MPMC queues to create in the list.
-     * @param capacity the positive capacity of each bounded MPMC queue in the list.
+     * @param listSize      the positive number of bounded MPMC queues to create in the list.
+     * @param queueCapacity the positive capacity of each bounded MPMC queue in the list.
      * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
      *         {@code BoundedMpmc} wrappers with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
@@ -908,8 +916,9 @@ public final class BlockingQueueWrappers {
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
      */
-    public static List<BlockingQueue<WorkBatch>> newBoundedMpmcList(int size, int capacity) {
-        return Stream.generate(() -> newBoundedMpmc(capacity)).limit(size)
+    public static List<BlockingQueue<WorkBatch>> newBoundedMpmcList(int listSize,
+            int queueCapacity) {
+        return Stream.generate(() -> newBoundedMpmc(queueCapacity)).limit(listSize)
                 .collect(Collectors.toUnmodifiableList());
     }
 
@@ -953,7 +962,7 @@ public final class BlockingQueueWrappers {
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
      * 
-     * @param size the number of unbounded MPMC queues to create in the list.
+     * @param listSize the positive number of unbounded MPMC queues to create in the list.
      * @return an unmodifiable list of new {@code BlockingQueue} instances wrapped in
      *         {@link UnboundedMpmc} wrappers.
      * @throws IllegalArgumentException if the provided {@code size} is negative.
@@ -965,8 +974,8 @@ public final class BlockingQueueWrappers {
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
      */
-    public static List<BlockingQueue<WorkBatch>> newUnboundedMpmcList(int size) {
-        return Stream.generate(BlockingQueueWrappers::newUnboundedMpmc).limit(size)
+    public static List<BlockingQueue<WorkBatch>> newUnboundedMpmcList(int listSize) {
+        return Stream.generate(BlockingQueueWrappers::newUnboundedMpmc).limit(listSize)
                 .collect(Collectors.toUnmodifiableList());
     }
 
@@ -1017,8 +1026,8 @@ public final class BlockingQueueWrappers {
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
      * 
-     * @param size     the number of bounded SPSC queues to create in the list.
-     * @param capacity the positive capacity of each bounded SPSC queue in the list.
+     * @param listSize      the positive number of bounded SPSC queues to create in the list.
+     * @param queueCapacity the positive capacity of each bounded SPSC queue in the list.
      * @return an unmodifiable list of new {@link BlockingQueue} instances wrapped in
      *         {@link BoundedSpsc} wrappers with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
@@ -1033,8 +1042,9 @@ public final class BlockingQueueWrappers {
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
      */
-    public static List<BlockingQueue<WorkBatch>> newBoundedSpscList(int size, int capacity) {
-        return Stream.generate(() -> newBoundedSpsc(capacity)).limit(size)
+    public static List<BlockingQueue<WorkBatch>> newBoundedSpscList(int listSize,
+            int queueCapacity) {
+        return Stream.generate(() -> newBoundedSpsc(queueCapacity)).limit(listSize)
                 .collect(Collectors.toUnmodifiableList());
     }
 
@@ -1066,7 +1076,7 @@ public final class BlockingQueueWrappers {
      */
     private static int estimateCapacity(BlockingQueue<WorkBatch> queue) {
         return queue instanceof ConcurrentQueue<?> cq ? cq.capacity()
-                : queue.remainingCapacity() + queue.size();
+                : Math.min(queue.remainingCapacity() + queue.size(), Integer.MAX_VALUE);
     }
 
     /**

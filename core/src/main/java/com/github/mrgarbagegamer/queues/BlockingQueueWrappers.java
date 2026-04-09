@@ -805,6 +805,10 @@ public final class BlockingQueueWrappers {
      * @param wrapperConstructor a function that takes a queue and capacity and returns a wrapped
      *                           version of the queue.
      * @return the wrapped queue if it was not already wrapped, or the original queue if it was.
+     * @throws NullPointerException     if the provided {@code queue} or {@code wrapperConstructor} is
+     *                                  {@code null}.
+     * @throws IllegalArgumentException if the provided {@code capacity} is not positive and the queue
+     *                                  isn't already wrapped.
      * @see #isWrapped(BlockingQueue)
      * @see #wrapBoundedMpmc(BlockingQueue, int)
      * @see #wrapBoundedSpsc(BlockingQueue, int)
@@ -816,6 +820,8 @@ public final class BlockingQueueWrappers {
     private static BlockingQueue<WorkBatch> wrapBoundedIfNeeded(BlockingQueue<WorkBatch> queue,
             int capacity,
             ObjIntFunction<BlockingQueue<WorkBatch>, BlockingQueue<WorkBatch>> wrapperConstructor) {
+        requireNonNull(queue, "queue must not be null");
+        requireNonNull(wrapperConstructor, "wrapperConstructor must not be null");
         return isWrapped(queue) ? queue : wrapperConstructor.apply(queue, capacity);
     }
 
@@ -833,6 +839,8 @@ public final class BlockingQueueWrappers {
      * @param wrapperConstructor a function that takes a queue and returns a wrapped version of the
      *                           queue.
      * @return the wrapped queue if it was not already wrapped, or the original queue if it was.
+     * @throws NullPointerException if the provided {@code queue} or {@code wrapperConstructor} is
+     *                              {@code null}.
      * @see #isWrapped(BlockingQueue)
      * @see #wrapUnboundedMpmc(BlockingQueue)
      * @since 2026.04 - Encapsulated Concrete Wrappers
@@ -842,6 +850,7 @@ public final class BlockingQueueWrappers {
      */
     private static BlockingQueue<WorkBatch> wrapUnboundedIfNeeded(BlockingQueue<WorkBatch> queue,
             Function<BlockingQueue<WorkBatch>, BlockingQueue<WorkBatch>> wrapperConstructor) {
+        requireNonNull(wrapperConstructor, "wrapperConstructor must not be null");
         return isWrapped(queue) ? queue : wrapperConstructor.apply(queue);
     }
 

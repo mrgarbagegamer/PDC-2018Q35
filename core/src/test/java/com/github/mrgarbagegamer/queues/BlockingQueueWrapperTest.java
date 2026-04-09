@@ -336,23 +336,6 @@ public class BlockingQueueWrapperTest {
             delegate.clear();
             verify(mockBlockingQueue).clear();
         }
-
-        @Test
-        void givenDelegate_whenEquals_thenDelegateToQueue() {
-            Object other = new Object();
-            // We can't verify the equals() call directly, but we can ensure consistency with the
-            // underlying queue's equals() method.
-            assertEquals(mockBlockingQueue.equals(other), delegate.equals(other),
-                    "Expected Delegate's equals() to be consistent with the underlying queue's equals()");
-        }
-
-        @Test
-        void givenDelegate_whenHashCode_thenDelegateToQueue() {
-            // We can't verify the hashCode() call directly, but we can ensure consistency with the
-            // underlying queue's hashCode() method.
-            assertEquals(mockBlockingQueue.hashCode(), delegate.hashCode(),
-                    "Expected Delegate's hashCode() to be consistent with the underlying queue's hashCode()");
-        }
     }
 
     @Nested

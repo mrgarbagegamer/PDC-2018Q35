@@ -290,16 +290,6 @@ public final class BlockingQueueWrappers {
         public final void clear() {
             delegate.clear();
         }
-
-        @Override
-        public final boolean equals(Object o) {
-            return delegate.equals(o);
-        }
-
-        @Override
-        public final int hashCode() {
-            return delegate.hashCode();
-        }
     }
 
     /**

@@ -812,7 +812,7 @@ public class BlockingQueueWrapperTest {
                     "Expected isWrapped to return true for Delegate instance");
         }
 
-        // requireWrapped(List<? extends BlockingQueue<WorkBatch>>) tests
+        // requireWrapped(List<? extends BlockingQueue<WorkBatch>>, String) tests
 
         @Test
         void givenNullList_whenRequireWrapped_thenThrowNullPointerException() {

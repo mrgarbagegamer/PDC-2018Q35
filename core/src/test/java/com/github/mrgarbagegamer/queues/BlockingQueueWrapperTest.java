@@ -54,6 +54,10 @@ public class BlockingQueueWrapperTest {
      */
     private static void assertBoundedQueueHasExpectedMarkers(BlockingQueue<WorkBatch> queue,
             int expectedCapacity, Class<?> accessModeMarker) {
+        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
+            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
+        }
+
         assertAll("Bounded queue should implement expected markers and have correct capacity",
                 () -> assertInstanceOf(Delegate.class, queue,
                         "Queue should be instance of Delegate"),
@@ -70,6 +74,10 @@ public class BlockingQueueWrapperTest {
      */
     private static void assertUnboundedQueueHasExpectedMarkers(BlockingQueue<WorkBatch> queue,
             Class<?> accessModeMarker) {
+        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
+            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
+        }
+
         assertAll("Unbounded queue should implement expected markers",
                 () -> assertInstanceOf(Delegate.class, queue,
                         "Queue should be instance of Delegate"),
@@ -87,6 +95,10 @@ public class BlockingQueueWrapperTest {
     private static void assertAllBoundedQueuesHaveExpectedMarkers(
             List<BlockingQueue<WorkBatch>> queues, int expectedCapacity,
             Class<?> accessModeMarker) {
+        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
+            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
+        }
+
         assertAll("All bounded queues should have expected markers and capacity",
                 IntStream.range(0, queues.size()).mapToObj(i -> {
                     BlockingQueue<WorkBatch> queue = queues.get(i);
@@ -109,6 +121,10 @@ public class BlockingQueueWrapperTest {
      */
     private static void assertAllUnboundedQueuesHaveExpectedMarkers(
             List<BlockingQueue<WorkBatch>> queues, Class<?> accessModeMarker) {
+        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
+            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
+        }
+
         assertAll("All unbounded queues should have expected markers",
                 IntStream.range(0, queues.size()).mapToObj(i -> {
                     BlockingQueue<WorkBatch> queue = queues.get(i);

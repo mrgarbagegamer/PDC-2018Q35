@@ -330,19 +330,22 @@ public final class JCToolsWrappers {
             return queue;
         }
 
-        final boolean bounded = queue.capacity() != MessagePassingQueue.UNBOUNDED_CAPACITY;
+        if (queue.capacity() == MessagePassingQueue.UNBOUNDED_CAPACITY) {
+            throw new UnsupportedOperationException(
+                    "Unbounded wrappers not implemented — add if needed");
+        }
         final String name = queue.getClass().getSimpleName();
 
         // JCTools naming convention: Mpmc*, Mpsc*, Spmc*, Spsc*
         if (name.startsWith("Spsc")) {
-            return bounded ? new BoundedSpsc(queue) : throwUnbounded("SPSC");
+            return new BoundedSpsc(queue);
         } else if (name.startsWith("Spmc")) {
-            return bounded ? new BoundedSpmc(queue) : throwUnbounded("SPMC");
+            return new BoundedSpmc(queue);
         } else if (name.startsWith("Mpsc")) {
-            return bounded ? new BoundedMpsc(queue) : throwUnbounded("MPSC");
+            return new BoundedMpsc(queue);
         } else {
             // Default to MPMC for Mpmc* and unknown types
-            return bounded ? new BoundedMpmc(queue) : throwUnbounded("MPMC");
+            return new BoundedMpmc(queue);
         }
     }
 
@@ -789,30 +792,5 @@ public final class JCToolsWrappers {
     public static List<MessagePassingQueue<WorkBatch>> newBoundedSpscList(int size, int capacity) {
         return Stream.generate(() -> newBoundedSpsc(capacity)).limit(size)
                 .collect(Collectors.toUnmodifiableList());
-    }
-
-    /**
-     * Throws an {@link UnsupportedOperationException} indicating that an unbounded queue wrapper
-     * for the specified access mode is not implemented.
-     * 
-     * <p>
-     * This method is used internally when attempting to wrap an unbounded queue, as the current
-     * implementation only supports bounded queues. The exception message indicates which access
-     * mode was requested and that unbounded wrappers need to be added if needed.
-     * </p>
-     * 
-     * @param mode the access mode string (e.g., "SPSC", "SPMC", "MPMC") for the unbounded queue
-     *             that was attempted to be wrapped.
-     * @throws UnsupportedOperationException always, with a message indicating the unbounded mode
-     *                                       that is not supported.
-     * @see #wrap(MessagePassingQueue)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} exception throwing.
-     * @threading Thread-safe.
-     * @memory Allocates a new exception.
-     */
-    private static MessagePassingQueue<WorkBatch> throwUnbounded(String mode) {
-        throw new UnsupportedOperationException(
-                "Unbounded " + mode + " wrapper not implemented — add if needed");
     }
 }

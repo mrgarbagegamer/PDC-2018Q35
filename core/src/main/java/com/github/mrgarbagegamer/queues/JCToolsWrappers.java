@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -20,7 +21,6 @@ import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
 import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 
-// TODO: Write unit tests for the class.
 /**
  * A utility class that provides wrappers for various {@link MessagePassingQueue} implementations to
  * standardize their interfaces and characteristics for use in the {@link JCToolsQueueStrategy}.
@@ -456,6 +456,7 @@ public final class JCToolsWrappers {
      * 
      * @param queues   the non-{@code null} {@link List list} of queues to validate.
      * @param listName the name of the list being validated, used for error messages.
+     * @throws NullPointerException     if the provided {@code queues} list is {@code null}.
      * @throws IllegalArgumentException if any queue is not wrapped or lacks required markers.
      * @see #wrap(MessagePassingQueue)
      * @see #wrapAll(List)
@@ -468,7 +469,12 @@ public final class JCToolsWrappers {
      */
     public static void requireWrapped(List<? extends MessagePassingQueue<WorkBatch>> queues,
             String listName) {
-        if (!queues.stream().allMatch(JCToolsWrappers::isWrapped)) {
+        requireNonNull(listName, "listName must not be null");
+        requireNonNull(queues, listName + " must not be null");
+
+        if (queues.stream().anyMatch(Objects::isNull)) {
+            throw new NullPointerException(listName + " must not contain null queues");
+        } else if (!queues.stream().allMatch(JCToolsWrappers::isWrapped)) {
             throw new IllegalArgumentException(
                     listName + " must be wrapped with wrap() or wrapAll()");
         }
@@ -547,6 +553,7 @@ public final class JCToolsWrappers {
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
     public static MessagePassingQueue<WorkBatch> newBoundedMpmc(int capacity) {
+        checkCapacity(capacity);
         return new BoundedMpmc(new MpmcArrayQueue<>(capacity));
     }
 
@@ -609,6 +616,7 @@ public final class JCToolsWrappers {
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
     public static MessagePassingQueue<WorkBatch> newBoundedMpsc(int capacity) {
+        checkCapacity(capacity);
         return new BoundedMpsc(new MpscArrayQueue<>(capacity));
     }
 
@@ -677,6 +685,7 @@ public final class JCToolsWrappers {
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
     public static MessagePassingQueue<WorkBatch> newBoundedSpmc(int capacity) {
+        checkCapacity(capacity);
         return new BoundedSpmc(new SpmcArrayQueue<>(capacity));
     }
 
@@ -745,6 +754,7 @@ public final class JCToolsWrappers {
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
     public static MessagePassingQueue<WorkBatch> newBoundedSpsc(int capacity) {
+        checkCapacity(capacity);
         return new BoundedSpsc(new SpscArrayQueue<>(capacity));
     }
 
@@ -792,5 +802,33 @@ public final class JCToolsWrappers {
     public static List<MessagePassingQueue<WorkBatch>> newBoundedSpscList(int size, int capacity) {
         return Stream.generate(() -> newBoundedSpsc(capacity)).limit(size)
                 .collect(Collectors.toUnmodifiableList());
+    }
+
+    /**
+     * Checks if the provided {@code capacity} is valid for creating a bounded queue. The capacity
+     * must be positive and must not exceed the maximum power of two that an {@code int} can
+     * represent (i.e., 1 << 30).
+     * 
+     * @param capacity the capacity to check.
+     * @throws IllegalArgumentException if the capacity is not positive or exceeds the maximum power
+     *                                  of two that an {@code int} can represent.
+     * @see #newBoundedMpmc(int)
+     * @see #newBoundedMpsc(int)
+     * @see #newBoundedSpmc(int)
+     * @see #newBoundedSpsc(int)
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(1)} validation of the capacity value.
+     * @threading Thread-safe by nature of being a stateless validation method.
+     * @memory Does not allocate.
+     */
+    private static void checkCapacity(int capacity) {
+        final int maxCapacity = 1 << 30; // Maximum power of two that an int can represent
+
+        if (capacity <= 0) {
+            throw new IllegalArgumentException("Capacity must be positive: " + capacity);
+        } else if (capacity > maxCapacity) {
+            throw new IllegalArgumentException(
+                    "Capacity must not exceed " + maxCapacity + ": " + capacity);
+        }
     }
 }

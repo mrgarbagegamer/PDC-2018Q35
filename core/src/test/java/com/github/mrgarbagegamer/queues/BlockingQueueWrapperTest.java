@@ -388,14 +388,10 @@ public class BlockingQueueWrapperTest {
                     "Expected BoundedDelegate to return the specified capacity when constructed with a valid capacity");
         }
 
-        // Test to ensure that the constructor throws if the capacity provided is greater than the
-        // max power of two that an int can represent (2 ^ 30) and the queue provided is a
-        // ConcurrentQueue.
-
         @Test
         void givenCapacityExceedingMaxPowerOfTwoAndConcurrentQueue_whenBoundedDelegateConstructorWithCapacity_thenThrowIllegalArgumentException() {
             int capacity = (1 << 30) + 1; // This value exceeds the maximum power of two that an int
-                                          // can represent (2 ^ 30).
+                                          // can represent (2 to the power of 30).
 
             assertThrows(IllegalArgumentException.class,
                     () -> new BoundedDelegate(mockConcurrentQueue, capacity) {},
@@ -847,18 +843,18 @@ public class BlockingQueueWrapperTest {
         }
 
         @Test
-        void givenListWithWrappedQueues_whenRequireWrapped_thenDoNothing() {
+        void givenListWithWrappedQueues_whenRequireWrapped_thenDoNotThrow() {
             List<BlockingQueue<WorkBatch>> queues = Arrays.asList(mockDelegate, mockDelegate);
 
             assertDoesNotThrow(() -> BlockingQueueWrappers.requireWrapped(queues, "gtmQueues"),
-                    "Expected requireWrapped to not throw for list containing wrapped queues");
+                    "Expected requireWrapped to not throw for list containing only wrapped queues");
         }
     }
 
     @Nested
     class FactoryMethodTests {
 
-        // newBoundedMpmc() tests
+        // newBoundedMpmc(int) tests
 
         @Test
         void givenNegativeCapacity_whenNewBoundedMpmc_thenThrowIllegalArgumentException() {
@@ -877,7 +873,7 @@ public class BlockingQueueWrapperTest {
         @Test
         void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedMpmc_thenThrowIllegalArgumentException() {
             int capacity = (1 << 30) + 1; // This value exceeds the maximum power of two that an int
-                                          // can represent (2 ^ 30).
+                                          // can represent (2 to the power of 30).
 
             assertThrows(IllegalArgumentException.class,
                     () -> BlockingQueueWrappers.newBoundedMpmc(capacity),
@@ -901,7 +897,7 @@ public class BlockingQueueWrapperTest {
             assertUnboundedQueueHasExpectedMarkers(queue, MPMC.class);
         }
 
-        // newBoundedSpsc() tests
+        // newBoundedSpsc(int) tests
 
         @Test
         void givenNegativeCapacity_whenNewBoundedSpsc_thenThrowIllegalArgumentException() {
@@ -920,7 +916,7 @@ public class BlockingQueueWrapperTest {
         @Test
         void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedSpsc_thenThrowIllegalArgumentException() {
             int capacity = (1 << 30) + 1; // This value exceeds the maximum power of two that an int
-                                          // can represent (2 ^ 30).
+                                          // can represent (2 to the power of 30).
 
             assertThrows(IllegalArgumentException.class,
                     () -> BlockingQueueWrappers.newBoundedSpsc(capacity),
@@ -971,7 +967,7 @@ public class BlockingQueueWrapperTest {
         @Test
         void givenQueueCapacityExceedingMaxPowerOfTwo_whenNewBoundedMpmcList_thenThrowIllegalArgumentException() {
             int capacity = (1 << 30) + 1; // This value exceeds the maximum power of two that an int
-                                          // can represent (2 ^ 30).
+                                          // can represent (2 to the power of 30).
 
             assertThrows(IllegalArgumentException.class,
                     () -> BlockingQueueWrappers.newBoundedMpmcList(5, capacity),
@@ -1072,7 +1068,7 @@ public class BlockingQueueWrapperTest {
         @Test
         void givenQueueCapacityExceedingMaxPowerOfTwo_whenNewBoundedSpscList_thenThrowIllegalArgumentException() {
             int capacity = (1 << 30) + 1; // This value exceeds the maximum power of two that an int
-                                          // can represent (2 ^ 30).
+                                          // can represent (2 to the power of 30).
 
             assertThrows(IllegalArgumentException.class,
                     () -> BlockingQueueWrappers.newBoundedSpscList(5, capacity),
@@ -1095,8 +1091,6 @@ public class BlockingQueueWrapperTest {
             assertListImmutable(queues,
                     "Expected newBoundedSpscList to return an immutable list of queues");
 
-            // Use assertAll with IntStream to ensure all assertions run and provide better error
-            // messages
             assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity, SPSC.class);
         }
     }

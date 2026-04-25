@@ -10,9 +10,9 @@ import org.jctools.queues.MessagePassingQueue;
 
 import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 
-// TODO: Write unit tests for the class.
 /**
  * A utility class providing common {@link QueueSelector} implementations for different queue types.
  * 
@@ -65,6 +65,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being uninstantiable.
      * @memory Allocates a new exception.
      */
+    @ExcludeFromGeneratedCoverage
     private QueueSelectors() {
         throw new UnsupportedOperationException(
                 "QueueSelectors is a utility class and cannot be instantiated.");

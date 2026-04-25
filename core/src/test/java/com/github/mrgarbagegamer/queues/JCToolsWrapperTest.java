@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -469,19 +470,19 @@ public class JCToolsWrapperTest {
 
         @Test
         void givenNullQueue_whenIsWrapped_thenReturnFalse() {
-            assertEquals(false, JCToolsWrappers.isWrapped(null),
+            assertFalse(JCToolsWrappers.isWrapped(null),
                     "Expected isWrapped to return false for null queue");
         }
 
         @Test
         void givenNonWrappedQueue_whenIsWrapped_thenReturnFalse() {
-            assertEquals(false, JCToolsWrappers.isWrapped(mockMPQ),
+            assertFalse(JCToolsWrappers.isWrapped(mockMPQ),
                     "Expected isWrapped to return false for a non-wrapped queue");
         }
 
         @Test
         void givenDelegateInstance_whenIsWrapped_thenReturnTrue() {
-            assertEquals(true, JCToolsWrappers.isWrapped(mockDelegate),
+            assertTrue(JCToolsWrappers.isWrapped(mockDelegate),
                     "Expected isWrapped to return true for a Delegate instance");
         }
 
@@ -496,7 +497,7 @@ public class JCToolsWrapperTest {
 
         @Test
         void givenNullListName_whenRequireWrapped_thenThrowNullPointerException() {
-            List<MessagePassingQueue<WorkBatch>> queues = Arrays.asList(mockMPQ);
+            List<MessagePassingQueue<WorkBatch>> queues = List.of(mockMPQ);
             assertThrows(NullPointerException.class,
                     () -> JCToolsWrappers.requireWrapped(queues, null),
                     "Expected requireWrapped to throw NullPointerException for null list name");
@@ -512,7 +513,7 @@ public class JCToolsWrapperTest {
 
         @Test
         void givenListWithNonWrappedQueue_whenRequireWrapped_thenThrowIllegalArgumentException() {
-            List<MessagePassingQueue<WorkBatch>> queues = Arrays.asList(mockMPQ);
+            List<MessagePassingQueue<WorkBatch>> queues = List.of(mockMPQ);
 
             assertThrows(IllegalArgumentException.class,
                     () -> JCToolsWrappers.requireWrapped(queues, "gtmQueues"),
@@ -521,7 +522,7 @@ public class JCToolsWrapperTest {
 
         @Test
         void givenListWithWrappedQueues_whenRequireWrapped_thenDoNotThrow() {
-            List<MessagePassingQueue<WorkBatch>> queues = Arrays.asList(mockDelegate, mockDelegate);
+            List<MessagePassingQueue<WorkBatch>> queues = List.of(mockDelegate, mockDelegate);
             assertDoesNotThrow(() -> JCToolsWrappers.requireWrapped(queues, "gtmQueues"),
                     "Expected requireWrapped to not throw for list containing wrapped queues");
         }

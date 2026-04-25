@@ -2,6 +2,9 @@ package com.github.mrgarbagegamer.queues;
 
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
+// TODO: Make AccessMode a sealed interface with the four access mode interfaces as permitted
+// subinterfaces, and make Boundedness a sealed interface with Bounded and Unbounded as permitted
+// subinterfaces. This would allow better type safety and clearer semantics when implementing queues.
 /**
  * Marker interfaces for queue properties. These interfaces provide metadata about the queue's
  * {@link AccessMode} and {@link Boundedness}, simplifying the validation logic of queues in

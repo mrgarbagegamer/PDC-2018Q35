@@ -16,6 +16,7 @@ import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPMC;
 import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPSC;
@@ -110,6 +111,7 @@ public final class QueueUtils {
      * @threading Thread-safe by nature of being uninstantiable.
      * @memory Allocates a new exception.
      */
+    @ExcludeFromGeneratedCoverage
     private QueueUtils() {
         throw new UnsupportedOperationException(
                 "QueueUtils is a utility class and cannot be instantiated");
@@ -143,6 +145,7 @@ public final class QueueUtils {
          * @threading Thread-safe by nature of being uninstantiable.
          * @memory Allocates a new exception.
          */
+        @ExcludeFromGeneratedCoverage
         private JCToolsUtils() {
             throw new UnsupportedOperationException(
                     "JCToolsUtils is a utility class and cannot be instantiated");
@@ -300,6 +303,7 @@ public final class QueueUtils {
          * @threading Thread-safe by nature of being uninstantiable.
          * @memory Allocates a new exception.
          */
+        @ExcludeFromGeneratedCoverage
         private BlockingQueueUtils() {
             throw new UnsupportedOperationException(
                     "BlockingQueueUtils is a utility class and cannot be instantiated");
@@ -735,7 +739,7 @@ public final class QueueUtils {
             throw new IllegalArgumentException(
                     "Value is too large to round to a power of 2 without overflow: " + n);
         } else {
-            return Integer.highestOneBit(n - 1) << 1;
+            return 1 << (32 - Integer.numberOfLeadingZeros(n - 1));
         }
     }
 

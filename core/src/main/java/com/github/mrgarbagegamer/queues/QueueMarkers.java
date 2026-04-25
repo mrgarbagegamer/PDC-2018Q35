@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
+import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+
 /**
  * Marker interfaces for queue properties. These interfaces provide metadata about the queue's
  * {@link AccessMode} and {@link Boundedness}, simplifying the validation logic of queues in
@@ -21,6 +23,7 @@ public final class QueueMarkers {
      * @threading Thread-safe by nature of being uninstantiable.
      * @memory Allocates a new exception.
      */
+    @ExcludeFromGeneratedCoverage
     private QueueMarkers() {
         throw new UnsupportedOperationException("This class cannot be instantiated.");
     }
@@ -49,6 +52,7 @@ public final class QueueMarkers {
          * @threading Thread-safe by nature of being uninstantiable.
          * @memory Allocates a new exception.
          */
+        @ExcludeFromGeneratedCoverage
         private AccessMode() {
             throw new UnsupportedOperationException("This class cannot be instantiated.");
         }
@@ -106,6 +110,7 @@ public final class QueueMarkers {
          * @threading Thread-safe by nature of being uninstantiable.
          * @memory Allocates a new exception.
          */
+        @ExcludeFromGeneratedCoverage
         private Boundedness() {
             throw new UnsupportedOperationException("This class cannot be instantiated.");
         }

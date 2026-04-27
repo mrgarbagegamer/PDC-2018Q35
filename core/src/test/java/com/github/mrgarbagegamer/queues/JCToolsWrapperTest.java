@@ -17,6 +17,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
+import java.util.function.BiFunction;
+import java.util.function.IntFunction;
 
 import org.jctools.queues.MessagePassingQueue;
 import org.jctools.queues.MessagePassingQueue.Consumer;
@@ -32,6 +34,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -531,372 +535,170 @@ public class JCToolsWrapperTest {
     @Nested
     class FactoryMethodTests {
 
-        // newBoundedMpmc(int) tests
+        enum JCToolsBoundedQueueFactory {
+            BOUNDED_MPMC(JCToolsWrappers::newBoundedMpmc, MPMC.class, "newBoundedMpmc"),
+            BOUNDED_MPSC(JCToolsWrappers::newBoundedMpsc, MPSC.class, "newBoundedMpsc"),
+            BOUNDED_SPMC(JCToolsWrappers::newBoundedSpmc, SPMC.class, "newBoundedSpmc"),
+            BOUNDED_SPSC(JCToolsWrappers::newBoundedSpsc, SPSC.class, "newBoundedSpsc");
 
-        @Test
-        void givenNegativeCapacity_whenNewBoundedMpmc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedMpmc(-1),
-                    "Expected newBoundedMpmc to throw IllegalArgumentException for negative capacity");
+            private final IntFunction<MessagePassingQueue<WorkBatch>> factory;
+            private final Class<?> expectedMarker;
+            private final String methodName;
+
+            JCToolsBoundedQueueFactory(IntFunction<MessagePassingQueue<WorkBatch>> factory,
+                    Class<?> expectedMarker, String methodName) {
+                this.factory = factory;
+                this.expectedMarker = expectedMarker;
+                this.methodName = methodName;
+            }
+
+            public MessagePassingQueue<WorkBatch> create(int capacity) {
+                return factory.apply(capacity);
+            }
+
+            public Class<?> getExpectedMarker() {
+                return expectedMarker;
+            }
+
+            public String getMethodName() {
+                return methodName;
+            }
         }
 
-        @Test
-        void givenZeroCapacity_whenNewBoundedMpmc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedMpmc(0),
-                    "Expected newBoundedMpmc to throw IllegalArgumentException for zero capacity");
+        enum JCToolsBoundedQueueListFactory {
+            BOUNDED_MPMC_LIST(JCToolsWrappers::newBoundedMpmcList, MPMC.class,
+                    "newBoundedMpmcList"),
+            BOUNDED_MPSC_LIST(JCToolsWrappers::newBoundedMpscList, MPSC.class,
+                    "newBoundedMpscList"),
+            BOUNDED_SPMC_LIST(JCToolsWrappers::newBoundedSpmcList, SPMC.class,
+                    "newBoundedSpmcList"),
+            BOUNDED_SPSC_LIST(JCToolsWrappers::newBoundedSpscList, SPSC.class,
+                    "newBoundedSpscList");
+
+            private final BiFunction<Integer, Integer, List<MessagePassingQueue<WorkBatch>>> factory;
+            private final Class<?> expectedMarker;
+            private final String methodName;
+
+            JCToolsBoundedQueueListFactory(
+                    BiFunction<Integer, Integer, List<MessagePassingQueue<WorkBatch>>> factory,
+                    Class<?> expectedMarker, String methodName) {
+                this.factory = factory;
+                this.expectedMarker = expectedMarker;
+                this.methodName = methodName;
+            }
+
+            public List<MessagePassingQueue<WorkBatch>> create(int size, int capacity) {
+                return factory.apply(size, capacity);
+            }
+
+            public Class<?> getExpectedMarker() {
+                return expectedMarker;
+            }
+
+            public String getMethodName() {
+                return methodName;
+            }
         }
 
-        @Test
-        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedMpmc_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpmc(capacity),
-                    "Expected newBoundedMpmc to throw IllegalArgumentException for capacity exceeding max power of two");
+        // Bounded single-factory tests
+
+        @ParameterizedTest(name = "{0} with negative capacity throws IAE")
+        @EnumSource(JCToolsBoundedQueueFactory.class)
+        void givenNegativeCapacity_whenNewBoundedQueue_thenThrowIllegalArgumentException(
+                JCToolsBoundedQueueFactory factory) {
+            assertThrows(IllegalArgumentException.class, () -> factory.create(-1),
+                    "Expected " + factory.getMethodName() + " to throw IAE for negative capacity");
         }
 
-        @Test
-        void givenValidCapacity_whenNewBoundedMpmc_thenReturnBoundedMpmcQueue() {
-            int capacity = 128; // A valid power of two capacity.
-            MessagePassingQueue<WorkBatch> queue = JCToolsWrappers.newBoundedMpmc(capacity);
-            assertBoundedQueueHasExpectedMarkers(queue, capacity, MPMC.class);
+        @ParameterizedTest(name = "{0} with zero capacity throws IAE")
+        @EnumSource(JCToolsBoundedQueueFactory.class)
+        void givenZeroCapacity_whenNewBoundedQueue_thenThrowIllegalArgumentException(
+                JCToolsBoundedQueueFactory factory) {
+            assertThrows(IllegalArgumentException.class, () -> factory.create(0),
+                    "Expected " + factory.getMethodName() + " to throw IAE for zero capacity");
         }
 
-        // newBoundedMpsc(int) tests
-
-        @Test
-        void givenNegativeCapacity_whenNewBoundedMpsc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedMpsc(-1),
-                    "Expected newBoundedMpsc to throw IllegalArgumentException for negative capacity");
+        @ParameterizedTest(name = "{0} with capacity exceeding max power of two throws IAE")
+        @EnumSource(JCToolsBoundedQueueFactory.class)
+        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedQueue_thenThrowIllegalArgumentException(
+                JCToolsBoundedQueueFactory factory) {
+            int capacity = (1 << 30) + 1;
+            assertThrows(IllegalArgumentException.class, () -> factory.create(capacity),
+                    "Expected " + factory.getMethodName()
+                            + " to throw IAE when capacity exceeds max power of two");
         }
 
-        @Test
-        void givenZeroCapacity_whenNewBoundedMpsc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedMpsc(0),
-                    "Expected newBoundedMpsc to throw IllegalArgumentException for zero capacity");
+        @ParameterizedTest(name = "{0} with valid capacity returns queue with expected marker")
+        @EnumSource(JCToolsBoundedQueueFactory.class)
+        void givenValidCapacity_whenNewBoundedQueue_thenReturnQueueWithExpectedMarkers(
+                JCToolsBoundedQueueFactory factory) {
+            int capacity = 128;
+            MessagePassingQueue<WorkBatch> queue = factory.create(capacity);
+            assertBoundedQueueHasExpectedMarkers(queue, capacity, factory.getExpectedMarker());
         }
 
-        @Test
-        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedMpsc_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpsc(capacity),
-                    "Expected newBoundedMpsc to throw IllegalArgumentException for capacity exceeding max power of two");
+        // Bounded list-factory tests
+
+        @ParameterizedTest(name = "{0} with negative size throws IAE")
+        @EnumSource(JCToolsBoundedQueueListFactory.class)
+        void givenNegativeSize_whenNewBoundedQueueList_thenThrowIllegalArgumentException(
+                JCToolsBoundedQueueListFactory factory) {
+            assertThrows(IllegalArgumentException.class, () -> factory.create(-1, 128),
+                    "Expected " + factory.getMethodName() + " to throw IAE for negative size");
         }
 
-        @Test
-        void givenValidCapacity_whenNewBoundedMpsc_thenReturnBoundedMpscQueue() {
-            int capacity = 128; // A valid power of two capacity.
-            MessagePassingQueue<WorkBatch> queue = JCToolsWrappers.newBoundedMpsc(capacity);
-            assertBoundedQueueHasExpectedMarkers(queue, capacity, MPSC.class);
+        @ParameterizedTest(name = "{0} with zero size returns empty list")
+        @EnumSource(JCToolsBoundedQueueListFactory.class)
+        void givenZeroSize_whenNewBoundedQueueList_thenReturnEmptyList(
+                JCToolsBoundedQueueListFactory factory) {
+            List<MessagePassingQueue<WorkBatch>> queues = factory.create(0, 128);
+            assertEquals(0, queues.size(), "Expected " + factory.getMethodName()
+                    + " to return an empty list for zero size");
+            assertTrue(queues.isEmpty(), "Expected " + factory.getMethodName()
+                    + " to return an empty list for zero size");
         }
 
-        // newBoundedSpmc(int) tests
-
-        @Test
-        void givenNegativeCapacity_whenNewBoundedSpmc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedSpmc(-1),
-                    "Expected newBoundedSpmc to throw IllegalArgumentException for negative capacity");
+        @ParameterizedTest(name = "{0} with negative capacity throws IAE")
+        @EnumSource(JCToolsBoundedQueueListFactory.class)
+        void givenNegativeCapacity_whenNewBoundedQueueList_thenThrowIllegalArgumentException(
+                JCToolsBoundedQueueListFactory factory) {
+            assertThrows(IllegalArgumentException.class, () -> factory.create(5, -1),
+                    "Expected " + factory.getMethodName() + " to throw IAE for negative capacity");
         }
 
-        @Test
-        void givenZeroCapacity_whenNewBoundedSpmc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedSpmc(0),
-                    "Expected newBoundedSpmc to throw IllegalArgumentException for zero capacity");
+        @ParameterizedTest(name = "{0} with zero capacity throws IAE")
+        @EnumSource(JCToolsBoundedQueueListFactory.class)
+        void givenZeroCapacity_whenNewBoundedQueueList_thenThrowIllegalArgumentException(
+                JCToolsBoundedQueueListFactory factory) {
+            assertThrows(IllegalArgumentException.class, () -> factory.create(5, 0),
+                    "Expected " + factory.getMethodName() + " to throw IAE for zero capacity");
         }
 
-        @Test
-        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedSpmc_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpmc(capacity),
-                    "Expected newBoundedSpmc to throw IllegalArgumentException for capacity exceeding max power of two");
+        @ParameterizedTest(name = "{0} with capacity exceeding max power of two throws IAE")
+        @EnumSource(JCToolsBoundedQueueListFactory.class)
+        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedQueueList_thenThrowIllegalArgumentException(
+                JCToolsBoundedQueueListFactory factory) {
+            int capacity = (1 << 30) + 1;
+            assertThrows(IllegalArgumentException.class, () -> factory.create(5, capacity),
+                    "Expected " + factory.getMethodName()
+                            + " to throw IAE when capacity exceeds max power of two");
         }
 
-        @Test
-        void givenValidCapacity_whenNewBoundedSpmc_thenReturnBoundedSpmcQueue() {
-            int capacity = 128; // A valid power of two capacity.
-            MessagePassingQueue<WorkBatch> queue = JCToolsWrappers.newBoundedSpmc(capacity);
-            assertBoundedQueueHasExpectedMarkers(queue, capacity, SPMC.class);
-        }
-
-        // newBoundedSpsc(int) tests
-
-        @Test
-        void givenNegativeCapacity_whenNewBoundedSpsc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedSpsc(-1),
-                    "Expected newBoundedSpsc to throw IllegalArgumentException for negative capacity");
-        }
-
-        @Test
-        void givenZeroCapacity_whenNewBoundedSpsc_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class, () -> JCToolsWrappers.newBoundedSpsc(0),
-                    "Expected newBoundedSpsc to throw IllegalArgumentException for zero capacity");
-        }
-
-        @Test
-        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedSpsc_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpsc(capacity),
-                    "Expected newBoundedSpsc to throw IllegalArgumentException for capacity exceeding max power of two");
-        }
-
-        @Test
-        void givenValidCapacity_whenNewBoundedSpsc_thenReturnBoundedSpscQueue() {
-            int capacity = 128; // A valid power of two capacity.
-            MessagePassingQueue<WorkBatch> queue = JCToolsWrappers.newBoundedSpsc(capacity);
-            assertBoundedQueueHasExpectedMarkers(queue, capacity, SPSC.class);
-        }
-
-        // newBoundedMpmcList(int, int) tests
-
-        @Test
-        void givenNegativeSize_whenNewBoundedMpmcList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpmcList(-1, 128),
-                    "Expected newBoundedMpmcList to throw IllegalArgumentException for negative size");
-        }
-
-        @Test
-        void givenZeroSize_whenNewBoundedMpmcList_thenReturnEmptyList() {
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedMpmcList(0,
-                    128);
-
-            assertEquals(0, queues.size(),
-                    "Expected newBoundedMpmcList to return an empty list when size is zero");
-            assertTrue(queues.isEmpty(),
-                    "Expected newBoundedMpmcList to return an empty list when size is zero");
-        }
-
-        @Test
-        void givenNegativeQueueCapacity_whenNewBoundedMpmcList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpmcList(5, -1),
-                    "Expected newBoundedMpmcList to throw IllegalArgumentException for negative capacity");
-        }
-
-        @Test
-        void givenZeroQueueCapacity_whenNewBoundedMpmcList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpmcList(5, 0),
-                    "Expected newBoundedMpmcList to throw IllegalArgumentException for zero capacity");
-        }
-
-        @Test
-        void givenQueueCapacityExceedingMaxPowerOfTwo_whenNewBoundedMpmcList_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpmcList(5, capacity),
-                    "Expected newBoundedMpmcList to throw IllegalArgumentException when queue capacity exceeds the maximum power of two");
-        }
-
-        @Test
-        void givenValidSizeAndCapacity_whenNewBoundedMpmcList_thenReturnBoundedMpmcQueues() {
+        @ParameterizedTest(name = "{0} with valid size and capacity returns list with expected markers")
+        @EnumSource(JCToolsBoundedQueueListFactory.class)
+        void givenValidSizeAndCapacity_whenNewBoundedQueueList_thenReturnQueuesWithExpectedMarkers(
+                JCToolsBoundedQueueListFactory factory) {
             int size = 5;
-            int capacity = 128; // A valid power of two capacity.
+            int capacity = 128;
+            List<MessagePassingQueue<WorkBatch>> queues = factory.create(size, capacity);
 
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedMpmcList(size,
-                    capacity);
-
-            assertEquals(size, queues.size(),
-                    "Expected newBoundedMpmcList to return a list of the specified size");
-            assertTrue(queues.stream().allMatch(Objects::nonNull),
-                    "Expected all queues in the list returned by newBoundedMpmcList to be non-null");
-
-            assertListImmutable(queues,
-                    "Expected newBoundedMpmcList to return an immutable list of queues");
-
-            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity, MPMC.class);
-        }
-
-        // newBoundedMpscList(int, int) tests
-
-        @Test
-        void givenNegativeSize_whenNewBoundedMpscList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpscList(-1, 128),
-                    "Expected newBoundedMpscList to throw IllegalArgumentException for negative size");
-        }
-
-        @Test
-        void givenZeroSize_whenNewBoundedMpscList_thenReturnEmptyList() {
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedMpscList(0,
-                    128);
-
-            assertEquals(0, queues.size(),
-                    "Expected newBoundedMpscList to return an empty list when size is zero");
-            assertTrue(queues.isEmpty(),
-                    "Expected newBoundedMpscList to return an empty list when size is zero");
-        }
-
-        @Test
-        void givenNegativeQueueCapacity_whenNewBoundedMpscList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpscList(5, -1),
-                    "Expected newBoundedMpscList to throw IllegalArgumentException for negative capacity");
-        }
-
-        @Test
-        void givenZeroQueueCapacity_whenNewBoundedMpscList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpscList(5, 0),
-                    "Expected newBoundedMpscList to throw IllegalArgumentException for zero capacity");
-        }
-
-        @Test
-        void givenQueueCapacityExceedingMaxPowerOfTwo_whenNewBoundedMpscList_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedMpscList(5, capacity),
-                    "Expected newBoundedMpscList to throw IllegalArgumentException when queue capacity exceeds the maximum power of two");
-        }
-
-        @Test
-        void givenValidSizeAndCapacity_whenNewBoundedMpscList_thenReturnBoundedMpscQueues() {
-            int size = 5;
-            int capacity = 128; // A valid power of two capacity.
-
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedMpscList(size,
-                    capacity);
-
-            assertEquals(size, queues.size(),
-                    "Expected newBoundedMpscList to return a list of the specified size");
-            assertTrue(queues.stream().allMatch(Objects::nonNull),
-                    "Expected all queues in the list returned by newBoundedMpscList to be non-null");
-
-            assertListImmutable(queues,
-                    "Expected newBoundedMpscList to return an immutable list of queues");
-
-            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity, MPSC.class);
-        }
-
-        // newBoundedSpmcList(int, int) tests
-
-        @Test
-        void givenNegativeSize_whenNewBoundedSpmcList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpmcList(-1, 128),
-                    "Expected newBoundedSpmcList to throw IllegalArgumentException for negative size");
-        }
-
-        @Test
-        void givenZeroSize_whenNewBoundedSpmcList_thenReturnEmptyList() {
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedSpmcList(0,
-                    128);
-
-            assertEquals(0, queues.size(),
-                    "Expected newBoundedSpmcList to return an empty list when size is zero");
-            assertTrue(queues.isEmpty(),
-                    "Expected newBoundedSpmcList to return an empty list when size is zero");
-        }
-
-        @Test
-        void givenNegativeQueueCapacity_whenNewBoundedSpmcList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpmcList(5, -1),
-                    "Expected newBoundedSpmcList to throw IllegalArgumentException for negative capacity");
-        }
-
-        @Test
-        void givenZeroQueueCapacity_whenNewBoundedSpmcList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpmcList(5, 0),
-                    "Expected newBoundedSpmcList to throw IllegalArgumentException for zero capacity");
-        }
-
-        @Test
-        void givenQueueCapacityExceedingMaxPowerOfTwo_whenNewBoundedSpmcList_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpmcList(5, capacity),
-                    "Expected newBoundedSpmcList to throw IllegalArgumentException when queue capacity exceeds the maximum power of two");
-        }
-
-        @Test
-        void givenValidSizeAndCapacity_whenNewBoundedSpmcList_thenReturnBoundedSpmcQueues() {
-            int size = 5;
-            int capacity = 128; // A valid power of two capacity.
-
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedSpmcList(size,
-                    capacity);
-
-            assertEquals(size, queues.size(),
-                    "Expected newBoundedSpmcList to return a list of the specified size");
-            assertTrue(queues.stream().allMatch(Objects::nonNull),
-                    "Expected all queues in the list returned by newBoundedSpmcList to be non-null");
-
-            assertListImmutable(queues,
-                    "Expected newBoundedSpmcList to return an immutable list of queues");
-
-            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity, SPMC.class);
-        }
-
-        // newBoundedSpscList(int, int) tests
-
-        @Test
-        void givenNegativeSize_whenNewBoundedSpscList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpscList(-1, 128),
-                    "Expected newBoundedSpscList to throw IllegalArgumentException for negative size");
-        }
-
-        @Test
-        void givenZeroSize_whenNewBoundedSpscList_thenReturnEmptyList() {
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedSpscList(0,
-                    128);
-
-            assertEquals(0, queues.size(),
-                    "Expected newBoundedSpscList to return an empty list when size is zero");
-            assertTrue(queues.isEmpty(),
-                    "Expected newBoundedSpscList to return an empty list when size is zero");
-        }
-
-        @Test
-        void givenNegativeQueueCapacity_whenNewBoundedSpscList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpscList(5, -1),
-                    "Expected newBoundedSpscList to throw IllegalArgumentException for negative capacity");
-        }
-
-        @Test
-        void givenZeroQueueCapacity_whenNewBoundedSpscList_thenThrowIllegalArgumentException() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpscList(5, 0),
-                    "Expected newBoundedSpscList to throw IllegalArgumentException for zero capacity");
-        }
-
-        @Test
-        void givenQueueCapacityExceedingMaxPowerOfTwo_whenNewBoundedSpscList_thenThrowIllegalArgumentException() {
-            int capacity = (1 << 30) + 1; // One more than the maximum power of two capacity that an
-                                          // int can represent (2 to the power of 30).
-            assertThrows(IllegalArgumentException.class,
-                    () -> JCToolsWrappers.newBoundedSpscList(5, capacity),
-                    "Expected newBoundedSpscList to throw IllegalArgumentException when queue capacity exceeds the maximum power of two");
-        }
-
-        @Test
-        void givenValidSizeAndCapacity_whenNewBoundedSpscList_thenReturnBoundedSpscQueues() {
-            int size = 5;
-            int capacity = 128; // A valid power of two capacity.
-
-            List<MessagePassingQueue<WorkBatch>> queues = JCToolsWrappers.newBoundedSpscList(size,
-                    capacity);
-
-            assertEquals(size, queues.size(),
-                    "Expected newBoundedSpscList to return a list of the specified size");
-            assertTrue(queues.stream().allMatch(Objects::nonNull),
-                    "Expected all queues in the list returned by newBoundedSpscList to be non-null");
-
-            assertListImmutable(queues,
-                    "Expected newBoundedSpscList to return an immutable list of queues");
-
-            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity, SPSC.class);
+            assertEquals(size, queues.size(), "Expected " + factory.getMethodName()
+                    + " to return a list of the expected size");
+            assertTrue(queues.stream().allMatch(Objects::nonNull), "Expected "
+                    + factory.getMethodName() + " to return a list with no null queues");
+            assertListImmutable(queues, "Expected list to be immutable");
+            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity,
+                    factory.getExpectedMarker());
         }
     }
 }

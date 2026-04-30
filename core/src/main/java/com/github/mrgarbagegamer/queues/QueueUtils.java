@@ -434,50 +434,66 @@ public final class QueueUtils {
     }
 
     /**
-     * A predicate that checks if a queue supports single-producer access (i.e., is either
-     * {@link QueueMarkers.AccessMode.SPSC SPSC} or {@link QueueMarkers.AccessMode.SPMC SPMC}).
+     * Determines if a queue supports only single-producer access.
      * 
+     * @param queue the queue to check
+     * @return {@code true} if the queue supports only single-producer access, {@code false}
+     *         otherwise
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} per check.
-     * @threading Thread-safe as it is stateless and immutable.
-     * @memory Fixed memory footprint for the predicate instance; does not allocate during checks.
+     * @performance {@code O(1)} check.
+     * @threading Thread-safe.
+     * @memory Does not allocate.
      */
-    private static final Predicate<Object> isSp = queue -> queue instanceof SPSC
-            || queue instanceof SPMC;
+    private static boolean isSingleProducerQueue(Object queue) {
+        return queue instanceof AccessMode mode && mode.isSingleProducer();
+    }
 
     /**
-     * A predicate that checks if a queue supports single-consumer access (i.e., is either
-     * {@link QueueMarkers.AccessMode.SPSC SPSC} or {@link QueueMarkers.AccessMode.MPSC MPSC}).
+     * Determines if a queue supports only single-consumer access.
      * 
+     * @param queue the queue to check
+     * @return {@code true} if the queue supports only single-consumer access, {@code false}
+     *         otherwise
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} per check.
-     * @threading Thread-safe as it is stateless and immutable.
-     * @memory Fixed memory footprint for the predicate instance; does not allocate during checks.
+     * @performance {@code O(1)} check.
+     * @threading Thread-safe.
+     * @memory Does not allocate.
      */
-    private static final Predicate<Object> isSc = queue -> queue instanceof SPSC
-            || queue instanceof MPSC;
+    private static boolean isSingleConsumerQueue(Object queue) {
+        return queue instanceof AccessMode mode && mode.isSingleConsumer();
+    }
 
     /**
-     * A predicate that checks if a queue is bounded, which is defined as meeting any of the
-     * following criteria:
+     * Determines if a queue is bounded (has fixed capacity).
+     * 
+     * <p>
+     * This method checks boundedness by:
      * <ul>
-     * <li>Implements the {@link QueueMarkers.Boundedness.Bounded Bounded} marker interface</li>
-     * <li>Is an instance of {@link MessagePassingQueue} with a capacity not equal to
-     * {@link MessagePassingQueue#UNBOUNDED_CAPACITY}</li>
-     * <li>Is an instance of {@link BlockingQueue} with a remaining capacity not equal to
-     * {@link Integer#MAX_VALUE}</li>
+     * <li>First checking if the queue implements {@link Boundedness.Bounded} directly</li>
+     * <li>Then checking if it's a {@link MessagePassingQueue} with bounded capacity</li>
+     * <li>Finally checking if it's a {@link BlockingQueue} with bounded capacity</li>
      * </ul>
+     * </p>
      * 
+     * @param queue the queue to check
+     * @return {@code true} if the queue is bounded, {@code false} otherwise
      * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} per check.
-     * @threading Thread-safe as it is stateless and immutable.
-     * @memory Fixed memory footprint for the predicate instance; does not allocate during checks.
+     * @performance {@code O(1)} check.
+     * @threading Thread-safe.
+     * @memory Does not allocate.
      */
-    private static final Predicate<Object> isBounded = queue -> queue instanceof Bounded
-            || (queue instanceof MessagePassingQueue<?> mpq
-                    && mpq.capacity() != MessagePassingQueue.UNBOUNDED_CAPACITY)
-            || (queue instanceof BlockingQueue<?> bq
-                    && bq.remainingCapacity() != Integer.MAX_VALUE);
+    private static boolean isBoundedQueue(Object queue) {
+        if (queue instanceof Boundedness b) {
+            return b.isBounded();
+        }
+        if (queue instanceof MessagePassingQueue<?> mpq) {
+            return mpq.capacity() != MessagePassingQueue.UNBOUNDED_CAPACITY;
+        }
+        if (queue instanceof BlockingQueue<?> bq) {
+            return bq.remainingCapacity() != Integer.MAX_VALUE;
+        }
+        return false;
+    }
 
     /**
      * Validates that the provided prefix is not {@code null}. This is internally used by the
@@ -1072,56 +1088,45 @@ public final class QueueUtils {
      * @memory Does not allocate.
      */
     private static <Q> void requireProperlyMarked(List<Q> queues, String listName) {
-        // Single-pass validation to avoid multiple stream() allocations.
-        boolean seenBounded = false;
-        boolean seenUnbounded = false;
-
-        boolean hasSpsc = false;
-        boolean hasSpmc = false;
-        boolean hasMpsc = false;
-        boolean hasMpmc = false;
-
+        // Sealed interfaces guarantee we only need to check for exact implementation
         for (Q q : queues) {
-            // Boundedness markers per-element
-            final boolean isBounded = q instanceof Bounded;
-            final boolean isUnbounded = q instanceof Unbounded;
-            if (isBounded && isUnbounded) {
+            // Boundedness check: sealed interface ensures only Bounded or Unbounded
+            if (!(q instanceof Boundedness)) {
                 throw new IllegalArgumentException(
-                        listName + " contains queues that implement both Bounded and Unbounded");
+                        listName + " contains queues that do not implement Boundedness");
             }
-            seenBounded |= isBounded;
-            seenUnbounded |= isUnbounded;
 
-            // Access mode markers per-element
-            final boolean isSpsc = q instanceof SPSC;
-            final boolean isSpmc = q instanceof SPMC;
-            final boolean isMpsc = q instanceof MPSC;
-            final boolean isMpmc = q instanceof MPMC;
-
-            final int accessMarkers = (isSpsc ? 1 : 0) + (isSpmc ? 1 : 0) + (isMpsc ? 1 : 0)
-                    + (isMpmc ? 1 : 0);
-            if (accessMarkers > 1) {
-                throw new IllegalArgumentException(listName
-                        + " contains queues that implement more than one access mode marker");
+            // Access mode check: sealed interface ensures exactly one access mode
+            if (!(q instanceof AccessMode)) {
+                throw new IllegalArgumentException(
+                        listName + " contains queues that do not implement AccessMode");
             }
-            hasSpsc |= isSpsc;
-            hasSpmc |= isSpmc;
-            hasMpsc |= isMpsc;
-            hasMpmc |= isMpmc;
         }
 
-        // Mixed boundedness across the list
-        if (seenBounded && seenUnbounded) {
-            throw new IllegalArgumentException(
-                    listName + " contains a mix of Bounded and Unbounded queues");
+        // Check for consistency across the list
+        @SuppressWarnings("unchecked")
+        List<Bounded> boundedQueues = (List<Bounded>) queues; // Safe cast due to the above check.
+        boolean firstBounded = boundedQueues.getFirst().isBounded();
+        for (Bounded b : boundedQueues) {
+            if (b.isBounded() != firstBounded) {
+                throw new IllegalArgumentException(
+                        listName + " contains a mix of Bounded and Unbounded queues");
+            }
         }
 
-        // Mixed access modes across the list
-        int distinctAccessTypes = (hasSpsc ? 1 : 0) + (hasSpmc ? 1 : 0) + (hasMpsc ? 1 : 0)
-                + (hasMpmc ? 1 : 0);
-        if (distinctAccessTypes > 1) {
-            throw new IllegalArgumentException(
-                    listName + " contains a mix of queues with different access mode markers");
+        // Check for consistency of access modes across the list
+        @SuppressWarnings("unchecked")
+        List<AccessMode> accessMarkedQueues = (List<AccessMode>) queues; // Safe cast due to the
+                                                                         // above check.
+        AccessMode firstMode = accessMarkedQueues.getFirst();
+        boolean firstMultiProducer = firstMode.isMultiProducer();
+        boolean firstMultiConsumer = firstMode.isMultiConsumer();
+        for (AccessMode amq : accessMarkedQueues) {
+            if (amq.isMultiProducer() != firstMultiProducer
+                    || amq.isMultiConsumer() != firstMultiConsumer) {
+                throw new IllegalArgumentException(
+                        listName + " contains a mix of queues with different access mode markers");
+            }
         }
     }
 
@@ -1246,9 +1251,12 @@ public final class QueueUtils {
          * Checks whether the provided queue is bounded.
          * 
          * <p>
-         * This method determines if the queue has a fixed capacity. It uses the
-         * {@link QueueUtils#isBounded isBounded} predicate by default, which checks for the
-         * {@link Bounded} marker interface or inspects the queue's capacity directly.
+         * This method determines if the queue has a fixed capacity. It checks the queue for:
+         * <ul>
+         * <li>Implementation of {@link Boundedness} interface</li>
+         * <li>Direct capacity properties of {@link MessagePassingQueue} or
+         * {@link BlockingQueue}</li>
+         * </ul>
          * </p>
          * 
          * @param queue the queue to check for boundedness
@@ -1260,7 +1268,7 @@ public final class QueueUtils {
          * @memory Does not allocate.
          */
         default boolean isBounded(Q queue) {
-            return QueueUtils.isBounded.test(queue);
+            return QueueUtils.isBoundedQueue(queue);
         }
 
         /**
@@ -1404,17 +1412,18 @@ public final class QueueUtils {
                 int producerCount) {
             if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
                     || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
-                requireSequentialAccess(queues, prefix, producerCount, isSp, "SPSC or SPMC",
-                        "producers");
+                requireSequentialAccess(queues, prefix, producerCount,
+                        q -> isSingleProducerQueue(q), "single-producer", "producers");
             } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
                 requireCountEqualsSize(queues, producerCount, prefix, "biased sequential",
                         "Producer");
-                requireSequentialAccess(queues, prefix, producerCount, isSp, "SPSC or SPMC",
-                        "producers");
+                requireSequentialAccess(queues, prefix, producerCount,
+                        q -> isSingleProducerQueue(q), "single-producer", "producers");
             } else if (selector == JCToolsQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
             } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, producerCount, isSp, "producers");
+                requireExclusiveSelector(queues, prefix, producerCount,
+                        q -> isSingleProducerQueue(q), "producers");
             }
         }
 
@@ -1425,17 +1434,18 @@ public final class QueueUtils {
                 int consumerCount) {
             if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
                     || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
-                requireSequentialAccess(queues, prefix, consumerCount, isSc, "SPSC or MPSC",
-                        "consumers");
+                requireSequentialAccess(queues, prefix, consumerCount,
+                        q -> isSingleConsumerQueue(q), "single-consumer", "consumers");
             } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "biased sequential",
                         "Consumer");
-                requireSequentialAccess(queues, prefix, consumerCount, isSc, "SPSC or MPSC",
-                        "consumers");
+                requireSequentialAccess(queues, prefix, consumerCount,
+                        q -> isSingleConsumerQueue(q), "single-consumer", "consumers");
             } else if (selector == JCToolsQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
             } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, consumerCount, isSc, "consumers");
+                requireExclusiveSelector(queues, prefix, consumerCount,
+                        q -> isSingleConsumerQueue(q), "consumers");
             }
         }
     };
@@ -1452,6 +1462,8 @@ public final class QueueUtils {
             int capacity;
             return switch (queue) {
                 case Bounded bq -> bq.capacity();
+                case Unbounded _ -> Integer.MAX_VALUE;
+                case ConcurrentQueue<?> cq -> cq.capacity();
                 default -> (capacity = queue.remainingCapacity()) == Integer.MAX_VALUE
                         ? Integer.MAX_VALUE
                         : capacity + queue.size();
@@ -1488,7 +1500,8 @@ public final class QueueUtils {
             if (selector == BlockingQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
             } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, producerCount, isSp, "producers");
+                requireExclusiveSelector(queues, prefix, producerCount,
+                        q -> isSingleProducerQueue(q), "producers");
             }
         }
 
@@ -1500,7 +1513,8 @@ public final class QueueUtils {
             if (selector == BlockingQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
             } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, consumerCount, isSc, "consumers");
+                requireExclusiveSelector(queues, prefix, consumerCount,
+                        q -> isSingleConsumerQueue(q), "consumers");
             }
         }
     };

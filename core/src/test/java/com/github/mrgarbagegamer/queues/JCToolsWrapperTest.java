@@ -16,9 +16,9 @@ import static org.mockito.Mockito.when;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.IntStream;
 import java.util.function.BiFunction;
 import java.util.function.IntFunction;
+import java.util.stream.IntStream;
 
 import org.jctools.queues.MessagePassingQueue;
 import org.jctools.queues.MessagePassingQueue.Consumer;
@@ -41,37 +41,33 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.JCToolsWrappers.Delegate;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPMC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPSC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.SPMC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.SPSC;
+import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness.Bounded;
 
 @ExtendWith(MockitoExtension.class)
 public class JCToolsWrapperTest {
 
     private static void assertBoundedQueueHasExpectedMarkers(MessagePassingQueue<WorkBatch> queue,
-            int expectedCapacity, Class<?> accessModeMarker) {
-        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
-            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
-        }
-
+            int expectedCapacity, boolean multiProducer, boolean multiConsumer) {
         assertAll("Bounded queue should implement expected markers and have correct capacity",
                 () -> assertInstanceOf(Delegate.class, queue,
                         "Queue should be instance of Delegate"),
                 () -> assertInstanceOf(Bounded.class, queue, "Queue should be instance of Bounded"),
-                () -> assertInstanceOf(accessModeMarker, queue,
-                        "Queue should be instance of " + accessModeMarker.getSimpleName()));
+                () -> assertTrue(((Boundedness) queue).isBounded(), "Queue should be bounded"),
+                () -> assertInstanceOf(AccessMode.class, queue,
+                        "Queue should be instance of AccessMode"),
+                () -> {
+                    var mode = (AccessMode) queue;
+                    assertEquals(multiProducer, mode.isMultiProducer(), "multiProducer mismatch");
+                    assertEquals(multiConsumer, mode.isMultiConsumer(), "multiConsumer mismatch");
+                });
         assertEquals(expectedCapacity, queue.capacity(), "Expected capacity mismatch");
     }
 
     private static void assertAllBoundedQueuesHaveExpectedMarkers(
             List<MessagePassingQueue<WorkBatch>> queues, int expectedCapacity,
-            Class<?> accessModeMarker) {
-        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
-            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
-        }
-
+            boolean multiProducer, boolean multiConsumer) {
         assertAll("All bounded queues should have expected markers and capacity",
                 IntStream.range(0, queues.size()).mapToObj(i -> {
                     MessagePassingQueue<WorkBatch> queue = queues.get(i);
@@ -80,10 +76,17 @@ public class JCToolsWrapperTest {
                                     "Index " + i + " should be instance of Delegate"),
                             () -> assertInstanceOf(Bounded.class, queue,
                                     "Index " + i + " should be instance of Bounded"),
-                            () -> assertInstanceOf(accessModeMarker, queue,
-                                    "Index " + i + " should be instance of "
-                                            + accessModeMarker.getSimpleName()),
-                            () -> assertEquals(expectedCapacity, queue.capacity(),
+                            () -> assertTrue(((Boundedness) queue).isBounded(),
+                                    "Index " + i + " should be bounded"),
+                            () -> assertInstanceOf(AccessMode.class, queue,
+                                    "Index " + i + " should be instance of AccessMode"),
+                            () -> {
+                                var mode = (AccessMode) queue;
+                                assertEquals(multiProducer, mode.isMultiProducer(),
+                                        "Index " + i + " multiProducer mismatch");
+                                assertEquals(multiConsumer, mode.isMultiConsumer(),
+                                        "Index " + i + " multiConsumer mismatch");
+                            }, () -> assertEquals(expectedCapacity, queue.capacity(),
                                     "Index " + i + " capacity mismatch"));
                 }).toArray(Executable[]::new));
     }
@@ -268,7 +271,7 @@ public class JCToolsWrapperTest {
             SpscArrayQueue<WorkBatch> spscBoundedQueue = mock();
             setupMockQueueAsBounded(spscBoundedQueue);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrap(spscBoundedQueue);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, SPSC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, false, false);
         }
 
         @Test
@@ -285,7 +288,7 @@ public class JCToolsWrapperTest {
             SpmcArrayQueue<WorkBatch> spmcBoundedQueue = mock();
             setupMockQueueAsBounded(spmcBoundedQueue);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrap(spmcBoundedQueue);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, SPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, false, true);
         }
 
         @Test
@@ -302,7 +305,7 @@ public class JCToolsWrapperTest {
             MpscArrayQueue<WorkBatch> mpscBoundedQueue = mock();
             setupMockQueueAsBounded(mpscBoundedQueue);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrap(mpscBoundedQueue);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, MPSC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, true, false);
         }
 
         @Test
@@ -319,7 +322,7 @@ public class JCToolsWrapperTest {
             MessagePassingQueue<WorkBatch> unknownBoundedQueue = mock();
             setupMockQueueAsBounded(unknownBoundedQueue);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrap(unknownBoundedQueue);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, MPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, true, true);
         }
 
         @Test
@@ -351,7 +354,7 @@ public class JCToolsWrapperTest {
         void givenValidQueue_whenWrapBoundedMpmc_thenReturnBoundedMpmcQueue() {
             setupMockQueueAsBounded(mockMPQ);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrapBoundedMpmc(mockMPQ);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, MPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, true, true);
         }
 
         // wrapBoundedMpsc(MessagePassingQueue<WorkBatch>) tests
@@ -374,7 +377,7 @@ public class JCToolsWrapperTest {
         void givenValidQueue_whenWrapBoundedMpsc_thenReturnBoundedMpscQueue() {
             setupMockQueueAsBounded(mockMPQ);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrapBoundedMpsc(mockMPQ);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, MPSC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, true, false);
         }
 
         // wrapBoundedSpmc(MessagePassingQueue<WorkBatch>) tests
@@ -397,7 +400,7 @@ public class JCToolsWrapperTest {
         void givenValidQueue_whenWrapBoundedSpmc_thenReturnBoundedSpmcQueue() {
             setupMockQueueAsBounded(mockMPQ);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrapBoundedSpmc(mockMPQ);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, SPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, false, true);
         }
 
         // wrapBoundedSpsc(MessagePassingQueue<WorkBatch>) tests
@@ -420,7 +423,7 @@ public class JCToolsWrapperTest {
         void givenValidQueue_whenWrapBoundedSpsc_thenReturnBoundedSpscQueue() {
             setupMockQueueAsBounded(mockMPQ);
             MessagePassingQueue<WorkBatch> wrapped = JCToolsWrappers.wrapBoundedSpsc(mockMPQ);
-            assertBoundedQueueHasExpectedMarkers(wrapped, 128, SPSC.class);
+            assertBoundedQueueHasExpectedMarkers(wrapped, 128, false, false);
         }
 
         // wrapAll(List<MessagePassingQueue<WorkBatch>>) tests
@@ -459,11 +462,11 @@ public class JCToolsWrapperTest {
                     () -> assertEquals(queues.size(), wrappedQueues.size(),
                             "Expected wrapAll to return a list of the same size as the input list"),
                     // First queue: MPMC queue should become Bounded MPMC
-                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(0), 128,
-                            MPMC.class),
+                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(0), 128, true,
+                            true),
                     // Second queue: SPSC queue should become Bounded SPSC
-                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(1), 128,
-                            SPSC.class));
+                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(1), 128, false,
+                            false));
         }
     }
 
@@ -536,19 +539,21 @@ public class JCToolsWrapperTest {
     class FactoryMethodTests {
 
         enum JCToolsBoundedQueueFactory {
-            BOUNDED_MPMC(JCToolsWrappers::newBoundedMpmc, MPMC.class, "newBoundedMpmc"),
-            BOUNDED_MPSC(JCToolsWrappers::newBoundedMpsc, MPSC.class, "newBoundedMpsc"),
-            BOUNDED_SPMC(JCToolsWrappers::newBoundedSpmc, SPMC.class, "newBoundedSpmc"),
-            BOUNDED_SPSC(JCToolsWrappers::newBoundedSpsc, SPSC.class, "newBoundedSpsc");
+            BOUNDED_MPMC(JCToolsWrappers::newBoundedMpmc, true, true, "newBoundedMpmc"),
+            BOUNDED_MPSC(JCToolsWrappers::newBoundedMpsc, true, false, "newBoundedMpsc"),
+            BOUNDED_SPMC(JCToolsWrappers::newBoundedSpmc, false, true, "newBoundedSpmc"),
+            BOUNDED_SPSC(JCToolsWrappers::newBoundedSpsc, false, false, "newBoundedSpsc");
 
             private final IntFunction<MessagePassingQueue<WorkBatch>> factory;
-            private final Class<?> expectedMarker;
+            private final boolean multiProducer;
+            private final boolean multiConsumer;
             private final String methodName;
 
             JCToolsBoundedQueueFactory(IntFunction<MessagePassingQueue<WorkBatch>> factory,
-                    Class<?> expectedMarker, String methodName) {
+                    boolean multiProducer, boolean multiConsumer, String methodName) {
                 this.factory = factory;
-                this.expectedMarker = expectedMarker;
+                this.multiProducer = multiProducer;
+                this.multiConsumer = multiConsumer;
                 this.methodName = methodName;
             }
 
@@ -556,8 +561,12 @@ public class JCToolsWrapperTest {
                 return factory.apply(capacity);
             }
 
-            public Class<?> getExpectedMarker() {
-                return expectedMarker;
+            public boolean isMultiProducer() {
+                return multiProducer;
+            }
+
+            public boolean isMultiConsumer() {
+                return multiConsumer;
             }
 
             public String getMethodName() {
@@ -566,24 +575,26 @@ public class JCToolsWrapperTest {
         }
 
         enum JCToolsBoundedQueueListFactory {
-            BOUNDED_MPMC_LIST(JCToolsWrappers::newBoundedMpmcList, MPMC.class,
+            BOUNDED_MPMC_LIST(JCToolsWrappers::newBoundedMpmcList, true, true,
                     "newBoundedMpmcList"),
-            BOUNDED_MPSC_LIST(JCToolsWrappers::newBoundedMpscList, MPSC.class,
+            BOUNDED_MPSC_LIST(JCToolsWrappers::newBoundedMpscList, true, false,
                     "newBoundedMpscList"),
-            BOUNDED_SPMC_LIST(JCToolsWrappers::newBoundedSpmcList, SPMC.class,
+            BOUNDED_SPMC_LIST(JCToolsWrappers::newBoundedSpmcList, false, true,
                     "newBoundedSpmcList"),
-            BOUNDED_SPSC_LIST(JCToolsWrappers::newBoundedSpscList, SPSC.class,
+            BOUNDED_SPSC_LIST(JCToolsWrappers::newBoundedSpscList, false, false,
                     "newBoundedSpscList");
 
             private final BiFunction<Integer, Integer, List<MessagePassingQueue<WorkBatch>>> factory;
-            private final Class<?> expectedMarker;
+            private final boolean multiProducer;
+            private final boolean multiConsumer;
             private final String methodName;
 
             JCToolsBoundedQueueListFactory(
                     BiFunction<Integer, Integer, List<MessagePassingQueue<WorkBatch>>> factory,
-                    Class<?> expectedMarker, String methodName) {
+                    boolean multiProducer, boolean multiConsumer, String methodName) {
                 this.factory = factory;
-                this.expectedMarker = expectedMarker;
+                this.multiProducer = multiProducer;
+                this.multiConsumer = multiConsumer;
                 this.methodName = methodName;
             }
 
@@ -591,8 +602,12 @@ public class JCToolsWrapperTest {
                 return factory.apply(size, capacity);
             }
 
-            public Class<?> getExpectedMarker() {
-                return expectedMarker;
+            public boolean isMultiProducer() {
+                return multiProducer;
+            }
+
+            public boolean isMultiConsumer() {
+                return multiConsumer;
             }
 
             public String getMethodName() {
@@ -634,7 +649,8 @@ public class JCToolsWrapperTest {
                 JCToolsBoundedQueueFactory factory) {
             int capacity = 128;
             MessagePassingQueue<WorkBatch> queue = factory.create(capacity);
-            assertBoundedQueueHasExpectedMarkers(queue, capacity, factory.getExpectedMarker());
+            assertBoundedQueueHasExpectedMarkers(queue, capacity, factory.isMultiProducer(),
+                    factory.isMultiConsumer());
         }
 
         // Bounded list-factory tests
@@ -697,8 +713,8 @@ public class JCToolsWrapperTest {
             assertTrue(queues.stream().allMatch(Objects::nonNull), "Expected "
                     + factory.getMethodName() + " to return a list with no null queues");
             assertListImmutable(queues, "Expected list to be immutable");
-            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity,
-                    factory.getExpectedMarker());
+            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity, factory.isMultiProducer(),
+                    factory.isMultiConsumer());
         }
     }
 }

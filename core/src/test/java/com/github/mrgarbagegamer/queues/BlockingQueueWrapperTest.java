@@ -39,8 +39,7 @@ import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.BoundedDelegate;
 import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.Delegate;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPMC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.SPSC;
+import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness.Bounded;
 import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness.Unbounded;
 
@@ -51,44 +50,60 @@ public class BlockingQueueWrapperTest {
     // Helper Methods
     // =========================================================================
 
-    /**
-     * Asserts that a queue implements a bounded wrapper with the specified access mode marker and
-     * expected capacity. All class type assertions are grouped under {@code assertAll()} to ensure
-     * they all execute even if some fail.
-     */
-    private static void assertBoundedQueueHasExpectedMarkers(BlockingQueue<WorkBatch> queue,
-            int expectedCapacity, Class<?> accessModeMarker) {
-        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
-            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
-        }
+    private static Delegate assertQueueIsDelegate(BlockingQueue<WorkBatch> queue) {
+        return assertInstanceOf(Delegate.class, queue, "Queue should be instance of Delegate");
+    }
 
-        assertAll("Bounded queue should implement expected markers and have correct capacity",
-                () -> assertInstanceOf(Delegate.class, queue,
-                        "Queue should be instance of Delegate"),
-                () -> assertInstanceOf(Bounded.class, queue, "Queue should be instance of Bounded"),
-                () -> assertInstanceOf(accessModeMarker, queue,
-                        "Queue should be instance of " + accessModeMarker.getSimpleName()));
-        assertEquals(expectedCapacity, ((Bounded) queue).capacity(), "Expected capacity mismatch");
+    private static void assertQueueIsBounded(BlockingQueue<WorkBatch> queue, int expectedCapacity) {
+        assertInstanceOf(Bounded.class, queue, "Queue should implement Bounded");
+
+        Bounded boundedQueue = (Bounded) queue;
+        assertTrue(boundedQueue.isBounded(), "isBounded() should return true for a bounded queue");
+        assertEquals(expectedCapacity, boundedQueue.capacity(), "Expected capacity mismatch");
+    }
+
+    private static void assertQueueIsUnbounded(BlockingQueue<WorkBatch> queue) {
+        assertInstanceOf(Unbounded.class, queue, "Queue should implement Unbounded");
+
+        Unbounded boundedness = (Unbounded) queue;
+        assertFalse(boundedness.isBounded(),
+                "isBounded() should return false for an unbounded queue");
+    }
+
+    private static void assertQueueHasAccessMode(BlockingQueue<WorkBatch> queue,
+            boolean multiProducer, boolean multiConsumer) {
+        assertInstanceOf(AccessMode.class, queue, "Queue should implement AccessMode");
+
+        AccessMode accessMode = (AccessMode) queue;
+        assertEquals(multiProducer, accessMode.isMultiProducer(), "multiProducer mismatch");
+        assertEquals(multiConsumer, accessMode.isMultiConsumer(), "multiConsumer mismatch");
     }
 
     /**
-     * Asserts that a queue implements an unbounded wrapper with the specified access mode marker.
-     * All assertions are grouped under {@code assertAll()} to ensure they all execute even if some
+     * Asserts that a queue implements a bounded wrapper with the specified access mode and expected
+     * capacity. All class type assertions are grouped under {@code assertAll()} to ensure they all
+     * execute even if some fail.
+     */
+    private static void assertBoundedQueueHasExpectedMarkers(BlockingQueue<WorkBatch> queue,
+            int expectedCapacity, boolean multiProducer, boolean multiConsumer) {
+        assertAll("Bounded queue should implement expected markers and have correct capacity",
+                () -> assertQueueIsDelegate(queue),
+                () -> assertQueueIsBounded(queue, expectedCapacity),
+                () -> assertQueueHasAccessMode(queue, multiProducer, multiConsumer));
+    }
+
+    /**
+     * Asserts that a queue implements an unbounded wrapper with the specified access mode. All
+     * assertions are grouped under {@code assertAll()} to ensure they all execute even if some
      * fail.
      */
     private static void assertUnboundedQueueHasExpectedMarkers(BlockingQueue<WorkBatch> queue,
-            Class<?> accessModeMarker) {
-        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
-            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
-        }
-
+            boolean multiProducer, boolean multiConsumer) {
         assertAll("Unbounded queue should implement expected markers",
-                () -> assertInstanceOf(Delegate.class, queue,
-                        "Queue should be instance of Delegate"),
-                () -> assertInstanceOf(Unbounded.class, queue,
-                        "Queue should be instance of Unbounded"),
-                () -> assertInstanceOf(accessModeMarker, queue,
-                        "Queue should be instance of " + accessModeMarker.getSimpleName()));
+                () -> assertQueueIsDelegate(queue), () -> assertQueueIsUnbounded(queue),
+                () -> assertInstanceOf(AccessMode.class, queue,
+                        "Queue should be instance of AccessMode"),
+                () -> assertQueueHasAccessMode(queue, multiProducer, multiConsumer));
     }
 
     /**
@@ -97,26 +112,13 @@ public class BlockingQueueWrapperTest {
      * information.
      */
     private static void assertAllBoundedQueuesHaveExpectedMarkers(
-            List<BlockingQueue<WorkBatch>> queues, int expectedCapacity,
-            Class<?> accessModeMarker) {
-        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
-            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
-        }
-
-        assertAll("All bounded queues should have expected markers and capacity",
-                IntStream.range(0, queues.size()).mapToObj(i -> {
-                    BlockingQueue<WorkBatch> queue = queues.get(i);
-                    return (Executable) () -> assertAll("Queue at index " + i,
-                            () -> assertInstanceOf(Delegate.class, queue,
-                                    "Index " + i + " should be instance of Delegate"),
-                            () -> assertInstanceOf(Bounded.class, queue,
-                                    "Index " + i + " should be instance of Bounded"),
-                            () -> assertInstanceOf(accessModeMarker, queue,
-                                    "Index " + i + " should be instance of "
-                                            + accessModeMarker.getSimpleName()),
-                            () -> assertEquals(expectedCapacity, ((Bounded) queue).capacity(),
-                                    "Index " + i + " capacity mismatch"));
-                }).toArray(Executable[]::new));
+            List<BlockingQueue<WorkBatch>> queues, int expectedCapacity, boolean multiProducer,
+            boolean multiConsumer) {
+        assertAll("All bounded queues should have expected markers",
+                IntStream.range(0, queues.size())
+                        .mapToObj(i -> (Executable) () -> assertAll("Queue at index " + i,
+                                () -> assertBoundedQueueHasExpectedMarkers(queues.get(i),
+                                        expectedCapacity, multiProducer, multiConsumer))));
     }
 
     /**
@@ -124,23 +126,12 @@ public class BlockingQueueWrapperTest {
      * assertAll with IntStream to ensure all assertions run and include index information.
      */
     private static void assertAllUnboundedQueuesHaveExpectedMarkers(
-            List<BlockingQueue<WorkBatch>> queues, Class<?> accessModeMarker) {
-        if (accessModeMarker.getDeclaringClass() != QueueMarkers.AccessMode.class) {
-            throw new IllegalArgumentException("Provided access mode marker is not a valid marker");
-        }
-
+            List<BlockingQueue<WorkBatch>> queues, boolean multiProducer, boolean multiConsumer) {
         assertAll("All unbounded queues should have expected markers",
-                IntStream.range(0, queues.size()).mapToObj(i -> {
-                    BlockingQueue<WorkBatch> queue = queues.get(i);
-                    return (Executable) () -> assertAll("Queue at index " + i,
-                            () -> assertInstanceOf(Delegate.class, queue,
-                                    "Index " + i + " should be instance of Delegate"),
-                            () -> assertInstanceOf(Unbounded.class, queue,
-                                    "Index " + i + " should be instance of Unbounded"),
-                            () -> assertInstanceOf(accessModeMarker, queue,
-                                    "Index " + i + " should be instance of "
-                                            + accessModeMarker.getSimpleName()));
-                }).toArray(Executable[]::new));
+                IntStream.range(0, queues.size())
+                        .mapToObj(i -> (Executable) () -> assertAll("Queue at index " + i,
+                                () -> assertUnboundedQueueHasExpectedMarkers(queues.get(i),
+                                        multiProducer, multiConsumer))));
     }
 
     /**
@@ -547,7 +538,7 @@ public class BlockingQueueWrapperTest {
             BlockingQueue<WorkBatch> wrappedQueue = BlockingQueueWrappers.wrap(mockPushPullQueue);
 
             verify(mockPushPullQueue, atLeastOnce()).capacity();
-            assertBoundedQueueHasExpectedMarkers(wrappedQueue, queueCapacity, SPSC.class);
+            assertBoundedQueueHasExpectedMarkers(wrappedQueue, queueCapacity, false, false);
         }
 
         @Test
@@ -558,7 +549,7 @@ public class BlockingQueueWrapperTest {
             BlockingQueue<WorkBatch> wrappedQueue = BlockingQueueWrappers.wrap(mockConcurrentQueue);
 
             verify((ConcurrentQueue<?>) mockConcurrentQueue, atLeastOnce()).capacity();
-            assertBoundedQueueHasExpectedMarkers(wrappedQueue, queueCapacity, MPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrappedQueue, queueCapacity, true, true);
         }
 
         @Test
@@ -574,7 +565,7 @@ public class BlockingQueueWrapperTest {
 
             verify(mockBlockingQueue, atLeastOnce()).remainingCapacity();
             verify(mockBlockingQueue, atLeastOnce()).size();
-            assertBoundedQueueHasExpectedMarkers(wrappedQueue, estimatedCapacity, MPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrappedQueue, estimatedCapacity, true, true);
         }
 
         @Test
@@ -584,7 +575,7 @@ public class BlockingQueueWrapperTest {
             BlockingQueue<WorkBatch> wrappedQueue = BlockingQueueWrappers.wrap(mockBlockingQueue);
 
             verify(mockBlockingQueue, atLeastOnce()).remainingCapacity();
-            assertUnboundedQueueHasExpectedMarkers(wrappedQueue, MPMC.class);
+            assertUnboundedQueueHasExpectedMarkers(wrappedQueue, true, true);
         }
 
         // wrap(BlockingQueue<WorkBatch>, int) tests
@@ -626,7 +617,7 @@ public class BlockingQueueWrapperTest {
                     wrapCapacity);
 
             verify(mockPushPullQueue, atLeastOnce()).capacity();
-            assertBoundedQueueHasExpectedMarkers(wrappedQueue, queueCapacity, SPSC.class);
+            assertBoundedQueueHasExpectedMarkers(wrappedQueue, queueCapacity, false, false);
         }
 
         @Test
@@ -636,7 +627,7 @@ public class BlockingQueueWrapperTest {
             BlockingQueue<WorkBatch> wrappedQueue = BlockingQueueWrappers.wrap(mockBlockingQueue,
                     wrapCapacity);
 
-            assertBoundedQueueHasExpectedMarkers(wrappedQueue, wrapCapacity, MPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrappedQueue, wrapCapacity, true, true);
         }
 
         // wrapBoundedMpmc(BlockingQueue<WorkBatch>, int) tests
@@ -677,7 +668,7 @@ public class BlockingQueueWrapperTest {
             BlockingQueue<WorkBatch> wrappedQueue = BlockingQueueWrappers
                     .wrapBoundedMpmc(mockBlockingQueue, wrapCapacity);
 
-            assertBoundedQueueHasExpectedMarkers(wrappedQueue, wrapCapacity, MPMC.class);
+            assertBoundedQueueHasExpectedMarkers(wrappedQueue, wrapCapacity, true, true);
         }
 
         // wrapUnboundedMpmc(BlockingQueue<WorkBatch>) tests
@@ -702,7 +693,7 @@ public class BlockingQueueWrapperTest {
             BlockingQueue<WorkBatch> wrappedQueue = BlockingQueueWrappers
                     .wrapUnboundedMpmc(mockBlockingQueue);
 
-            assertUnboundedQueueHasExpectedMarkers(wrappedQueue, MPMC.class);
+            assertUnboundedQueueHasExpectedMarkers(wrappedQueue, true, true);
         }
 
         // wrapBoundedSpsc(BlockingQueue<WorkBatch>, int) tests
@@ -743,7 +734,7 @@ public class BlockingQueueWrapperTest {
             BlockingQueue<WorkBatch> wrappedQueue = BlockingQueueWrappers
                     .wrapBoundedSpsc(mockBlockingQueue, wrapCapacity);
 
-            assertBoundedQueueHasExpectedMarkers(wrappedQueue, wrapCapacity, SPSC.class);
+            assertBoundedQueueHasExpectedMarkers(wrappedQueue, wrapCapacity, false, false);
         }
 
         // wrapAll(List<? extends BlockingQueue<WorkBatch>>) tests
@@ -782,11 +773,11 @@ public class BlockingQueueWrapperTest {
                     () -> assertEquals(queues.size(), wrappedQueues.size(),
                             "Expected wrapAll to return a list of the same size as the input list"),
                     // First queue: regular BlockingQueue should become Bounded MPMC
-                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(0), 15,
-                            MPMC.class),
+                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(0), 15, true,
+                            true),
                     // Second queue: PushPullBlockingQueue should become Bounded SPSC
-                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(1), 16,
-                            SPSC.class));
+                    () -> assertBoundedQueueHasExpectedMarkers(wrappedQueues.get(1), 16, false,
+                            false));
         }
     }
 
@@ -859,17 +850,19 @@ public class BlockingQueueWrapperTest {
     class FactoryMethodTests {
 
         enum BoundedQueueFactory {
-            BOUNDED_MPMC(BlockingQueueWrappers::newBoundedMpmc, MPMC.class, "newBoundedMpmc"),
-            BOUNDED_SPSC(BlockingQueueWrappers::newBoundedSpsc, SPSC.class, "newBoundedSpsc");
+            BOUNDED_MPMC(BlockingQueueWrappers::newBoundedMpmc, true, true, "newBoundedMpmc"),
+            BOUNDED_SPSC(BlockingQueueWrappers::newBoundedSpsc, false, false, "newBoundedSpsc");
 
             private final IntFunction<BlockingQueue<WorkBatch>> factory;
-            private final Class<?> expectedMarker;
+            private final boolean multiProducer;
+            private final boolean multiConsumer;
             private final String methodName;
 
             BoundedQueueFactory(IntFunction<BlockingQueue<WorkBatch>> factory,
-                    Class<?> expectedMarker, String methodName) {
+                    boolean multiProducer, boolean multiConsumer, String methodName) {
                 this.factory = factory;
-                this.expectedMarker = expectedMarker;
+                this.multiProducer = multiProducer;
+                this.multiConsumer = multiConsumer;
                 this.methodName = methodName;
             }
 
@@ -877,8 +870,12 @@ public class BlockingQueueWrapperTest {
                 return factory.apply(capacity);
             }
 
-            public Class<?> getExpectedMarker() {
-                return expectedMarker;
+            public boolean isMultiProducer() {
+                return multiProducer;
+            }
+
+            public boolean isMultiConsumer() {
+                return multiConsumer;
             }
 
             public String getMethodName() {
@@ -889,20 +886,22 @@ public class BlockingQueueWrapperTest {
         enum BoundedQueueListFactory {
             BOUNDED_MPMC_LIST(
                     (size, capacity) -> BlockingQueueWrappers.newBoundedMpmcList(size, capacity),
-                    MPMC.class, "newBoundedMpmcList"),
+                    true, true, "newBoundedMpmcList"),
             BOUNDED_SPSC_LIST(
                     (size, capacity) -> BlockingQueueWrappers.newBoundedSpscList(size, capacity),
-                    SPSC.class, "newBoundedSpscList");
+                    false, false, "newBoundedSpscList");
 
             private final BiFunction<Integer, Integer, List<BlockingQueue<WorkBatch>>> factory;
-            private final Class<?> expectedMarker;
+            private final boolean multiProducer;
+            private final boolean multiConsumer;
             private final String methodName;
 
             BoundedQueueListFactory(
                     BiFunction<Integer, Integer, List<BlockingQueue<WorkBatch>>> factory,
-                    Class<?> expectedMarker, String methodName) {
+                    boolean multiProducer, boolean multiConsumer, String methodName) {
                 this.factory = factory;
-                this.expectedMarker = expectedMarker;
+                this.multiProducer = multiProducer;
+                this.multiConsumer = multiConsumer;
                 this.methodName = methodName;
             }
 
@@ -910,8 +909,12 @@ public class BlockingQueueWrapperTest {
                 return factory.apply(size, capacity);
             }
 
-            public Class<?> getExpectedMarker() {
-                return expectedMarker;
+            public boolean isMultiProducer() {
+                return multiProducer;
+            }
+
+            public boolean isMultiConsumer() {
+                return multiConsumer;
             }
 
             public String getMethodName() {
@@ -953,7 +956,8 @@ public class BlockingQueueWrapperTest {
                 BoundedQueueFactory factory) {
             int capacity = 16;
             BlockingQueue<WorkBatch> queue = factory.create(capacity);
-            assertBoundedQueueHasExpectedMarkers(queue, capacity, factory.getExpectedMarker());
+            assertBoundedQueueHasExpectedMarkers(queue, capacity, factory.isMultiProducer(),
+                    factory.isMultiConsumer());
         }
 
         // newUnboundedMpmc() tests
@@ -962,7 +966,7 @@ public class BlockingQueueWrapperTest {
         void givenNoArgs_whenNewUnboundedMpmc_thenReturnUnboundedMpmcQueue() {
             BlockingQueue<WorkBatch> queue = BlockingQueueWrappers.newUnboundedMpmc();
 
-            assertUnboundedQueueHasExpectedMarkers(queue, MPMC.class);
+            assertUnboundedQueueHasExpectedMarkers(queue, true, true);
         }
 
         // Bounded list-factory tests
@@ -1026,8 +1030,8 @@ public class BlockingQueueWrapperTest {
                     "Expected all queues in the list returned by " + factory.getMethodName()
                             + " to be non-null when given valid size and capacity");
             assertListImmutable(queues, "Expected list to be immutable");
-            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity,
-                    factory.getExpectedMarker());
+            assertAllBoundedQueuesHaveExpectedMarkers(queues, capacity, factory.isMultiProducer(),
+                    factory.isMultiConsumer());
         }
 
         // newUnboundedMpmcList(int) tests
@@ -1066,7 +1070,7 @@ public class BlockingQueueWrapperTest {
 
             // Use assertAll with IntStream to ensure all assertions run and provide better error
             // messages
-            assertAllUnboundedQueuesHaveExpectedMarkers(queues, MPMC.class);
+            assertAllUnboundedQueuesHaveExpectedMarkers(queues, true, true);
         }
     }
 }

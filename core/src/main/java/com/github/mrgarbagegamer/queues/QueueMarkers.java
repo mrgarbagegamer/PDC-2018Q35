@@ -2,9 +2,6 @@ package com.github.mrgarbagegamer.queues;
 
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
-// TODO: Make AccessMode a sealed interface with the four access mode interfaces as permitted
-// subinterfaces, and make Boundedness a sealed interface with Bounded and Unbounded as permitted
-// subinterfaces. This would allow better type safety and clearer semantics when implementing queues.
 /**
  * Marker interfaces for queue properties. These interfaces provide metadata about the queue's
  * {@link AccessMode} and {@link Boundedness}, simplifying the validation logic of queues in
@@ -32,7 +29,7 @@ public final class QueueMarkers {
     }
 
     /**
-     * A class containing marker interfaces for queue access modes.
+     * A sealed interface for queue access modes.
      * 
      * <p>
      * Each interface represents a specific access mode for a queue, indicating whether it supports
@@ -43,54 +40,140 @@ public final class QueueMarkers {
      * 
      * @since 2026.02 - Queue Injection Refactor
      */
-    public static final class AccessMode {
-
-        /**
-         * Private constructor to prevent instantiation. This class is a utility class that only
-         * contains {@code static} members and should not be instantiated.
-         * 
-         * @throws UnsupportedOperationException always
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} instantiation prevention.
-         * @threading Thread-safe by nature of being uninstantiable.
-         * @memory Allocates a new exception.
-         */
-        @ExcludeFromGeneratedCoverage
-        private AccessMode() {
-            throw new UnsupportedOperationException("This class cannot be instantiated.");
-        }
+    public sealed interface AccessMode
+            permits AccessMode.MPMC, AccessMode.MPSC, AccessMode.SPMC, AccessMode.SPSC {
 
         /**
          * Multi-producer, multi-consumer.
          * 
          * @since 2026.02 - Queue Injection Refactor
          */
-        public interface MPMC {}
+        public non-sealed interface MPMC extends AccessMode {
+            @Override
+            default boolean isMultiProducer() {
+                return true;
+            }
+
+            @Override
+            default boolean isMultiConsumer() {
+                return true;
+            }
+        }
 
         /**
          * Multi-producer, single-consumer.
          * 
          * @since 2026.02 - Queue Injection Refactor
          */
-        public interface MPSC {}
+        public non-sealed interface MPSC extends AccessMode {
+            @Override
+            default boolean isMultiProducer() {
+                return true;
+            }
+
+            @Override
+            default boolean isMultiConsumer() {
+                return false;
+            }
+        }
 
         /**
          * Single-producer, multi-consumer.
          * 
          * @since 2026.02 - Queue Injection Refactor
          */
-        public interface SPMC {}
+        public non-sealed interface SPMC extends AccessMode {
+            @Override
+            default boolean isMultiProducer() {
+                return false;
+            }
+
+            @Override
+            default boolean isMultiConsumer() {
+                return true;
+            }
+        }
 
         /**
          * Single-producer, single-consumer.
          * 
          * @since 2026.02 - Queue Injection Refactor
          */
-        public interface SPSC {}
+        public non-sealed interface SPSC extends AccessMode {
+            @Override
+            default boolean isMultiProducer() {
+                return false;
+            }
+
+            @Override
+            default boolean isMultiConsumer() {
+                return false;
+            }
+        }
+
+        /**
+         * Indicates whether the queue supports multiple producers. This method should not be
+         * implemented directly by queues; instead, it ensures that the compiler will error if a
+         * queue implements multiple access mode interfaces that conflict in their producer support.
+         * 
+         * @return {@code true} if the queue supports multiple producers, {@code false} otherwise
+         * @see #isMultiConsumer()
+         * @since 2026.02 - Queue Injection Refactor
+         * @performance {@code O(1)} access mode check.
+         * @threading Must be thread-safe.
+         * @memory Must not allocate.
+         */
+        public boolean isMultiProducer();
+
+        /**
+         * Indicates whether the queue supports multiple consumers. This method should not be
+         * implemented directly by queues; instead, it ensures that the compiler will error if a
+         * queue implements multiple access mode interfaces that conflict in their consumer support.
+         * 
+         * @return {@code true} if the queue supports multiple consumers, {@code false} otherwise
+         * @see #isMultiProducer()
+         * @since 2026.02 - Queue Injection Refactor
+         * @performance {@code O(1)} access mode check.
+         * @threading Must be thread-safe.
+         * @memory Must not allocate.
+         */
+        public boolean isMultiConsumer();
+
+        /**
+         * Indicates whether the queue supports only a single producer. This is a convenience method
+         * equivalent to {@code !isMultiProducer()}.
+         * 
+         * @return {@code true} if the queue supports only a single producer, {@code false}
+         *         otherwise
+         * @see #isMultiProducer()
+         * @since 2026.02 - Queue Injection Refactor
+         * @performance {@code O(1)} access mode check.
+         * @threading Must be thread-safe.
+         * @memory Must not allocate.
+         */
+        public default boolean isSingleProducer() {
+            return !isMultiProducer();
+        }
+
+        /**
+         * Indicates whether the queue supports only a single consumer. This is a convenience method
+         * equivalent to {@code !isMultiConsumer()}.
+         * 
+         * @return {@code true} if the queue supports only a single consumer, {@code false}
+         *         otherwise
+         * @see #isMultiConsumer()
+         * @since 2026.02 - Queue Injection Refactor
+         * @performance {@code O(1)} access mode check.
+         * @threading Must be thread-safe.
+         * @memory Must not allocate.
+         */
+        public default boolean isSingleConsumer() {
+            return !isMultiConsumer();
+        }
     }
 
     /**
-     * A class containing marker interfaces for queue boundedness.
+     * A sealed interface for queue boundedness.
      * 
      * <p>
      * These interfaces define a queue's capacity characteristics, indicating whether it has a fixed
@@ -101,29 +184,14 @@ public final class QueueMarkers {
      * 
      * @since 2026.02 - Queue Injection Refactor
      */
-    public static final class Boundedness {
-
-        /**
-         * Private constructor to prevent instantiation. This class is a utility class that only
-         * contains {@code static} members and should not be instantiated.
-         * 
-         * @throws UnsupportedOperationException always
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} instantiation prevention.
-         * @threading Thread-safe by nature of being uninstantiable.
-         * @memory Allocates a new exception.
-         */
-        @ExcludeFromGeneratedCoverage
-        private Boundedness() {
-            throw new UnsupportedOperationException("This class cannot be instantiated.");
-        }
+    public sealed interface Boundedness permits Boundedness.Bounded, Boundedness.Unbounded {
 
         /**
          * Queue has a fixed capacity defined by the {@link Bounded#capacity() capacity()} method.
          * 
          * @since 2026.02 - Queue Injection Refactor
          */
-        public interface Bounded {
+        public non-sealed interface Bounded extends Boundedness {
             /**
              * Returns the fixed capacity of the queue. This method should be implemented by any
              * queue that implements the {@link Bounded} interface to provide its capacity
@@ -136,6 +204,11 @@ public final class QueueMarkers {
              * @memory Should not allocate.
              */
             int capacity();
+
+            @Override
+            default boolean isBounded() {
+                return true;
+            }
         }
 
         /**
@@ -144,6 +217,25 @@ public final class QueueMarkers {
          * 
          * @since 2026.02 - Queue Injection Refactor
          */
-        public interface Unbounded {}
+        public non-sealed interface Unbounded extends Boundedness {
+            @Override
+            default boolean isBounded() {
+                return false;
+            }
+        }
+
+        /**
+         * Indicates whether the queue has a fixed capacity. This method should not be implemented
+         * directly by queues; instead, it ensures that the compiler will error if a queue
+         * implements multiple boundedness interfaces that conflict in their boundedness support.
+         * 
+         * @return {@code true} if the queue has a fixed capacity, {@code false} otherwise
+         * @see #capacity()
+         * @since 2026.02 - Queue Injection Refactor
+         * @performance {@code O(1)} boundedness check.
+         * @threading Must be thread-safe.
+         * @memory Must not allocate.
+         */
+        public boolean isBounded();
     }
 }

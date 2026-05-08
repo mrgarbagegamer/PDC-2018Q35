@@ -1105,10 +1105,11 @@ public final class QueueUtils {
 
         // Check for consistency across the list
         @SuppressWarnings("unchecked")
-        List<Bounded> boundedQueues = (List<Bounded>) queues; // Safe cast due to the above check.
-        boolean firstBounded = boundedQueues.getFirst().isBounded();
-        for (Bounded b : boundedQueues) {
-            if (b.isBounded() != firstBounded) {
+        List<Boundedness> boundednessMarkedQueues = (List<Boundedness>) queues; // Safe cast due to
+                                                                                // the above check.
+        boolean isFirstQueueBounded = boundednessMarkedQueues.getFirst().isBounded();
+        for (Boundedness b : boundednessMarkedQueues) {
+            if (b.isBounded() != isFirstQueueBounded) {
                 throw new IllegalArgumentException(
                         listName + " contains a mix of Bounded and Unbounded queues");
             }

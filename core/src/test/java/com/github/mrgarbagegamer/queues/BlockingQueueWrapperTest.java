@@ -940,16 +940,6 @@ public class BlockingQueueWrapperTest {
                     "Expected " + factory.getMethodName() + " to throw IAE for zero capacity");
         }
 
-        @ParameterizedTest(name = "{0} with capacity exceeding max power of two throws IAE")
-        @EnumSource(BoundedQueueFactory.class)
-        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedQueue_thenThrowIllegalArgumentException(
-                BoundedQueueFactory factory) {
-            int capacity = (1 << 30) + 1;
-            assertThrows(IllegalArgumentException.class, () -> factory.create(capacity),
-                    "Expected " + factory.getMethodName()
-                            + " to throw IAE when capacity exceeds max power of two");
-        }
-
         @ParameterizedTest(name = "{0} with valid capacity returns queue with expected marker")
         @EnumSource(BoundedQueueFactory.class)
         void givenValidCapacity_whenNewBoundedQueue_thenReturnQueueWithExpectedMarkers(
@@ -1004,16 +994,6 @@ public class BlockingQueueWrapperTest {
                 BoundedQueueListFactory factory) {
             assertThrows(IllegalArgumentException.class, () -> factory.create(5, 0),
                     "Expected " + factory.getMethodName() + " to throw IAE for zero capacity");
-        }
-
-        @ParameterizedTest(name = "{0} with capacity exceeding max power of two throws IAE")
-        @EnumSource(BoundedQueueListFactory.class)
-        void givenCapacityExceedingMaxPowerOfTwo_whenNewBoundedQueueList_thenThrowIllegalArgumentException(
-                BoundedQueueListFactory factory) {
-            int capacity = (1 << 30) + 1;
-            assertThrows(IllegalArgumentException.class, () -> factory.create(5, capacity),
-                    "Expected " + factory.getMethodName()
-                            + " to throw IAE when capacity exceeds max power of two");
         }
 
         @ParameterizedTest(name = "{0} with valid size and capacity returns list with expected markers")

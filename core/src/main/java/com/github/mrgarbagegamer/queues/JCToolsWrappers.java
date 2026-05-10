@@ -807,7 +807,7 @@ public final class JCToolsWrappers {
     /**
      * Checks if the provided {@code capacity} is valid for creating a bounded queue. The capacity
      * must be positive and must not exceed the maximum power of two that an {@code int} can
-     * represent (i.e., 1 << 30).
+     * represent (i.e., 1 &lt;&lt; 30).
      * 
      * @param capacity the capacity to check.
      * @throws IllegalArgumentException if the capacity is not positive or exceeds the maximum power

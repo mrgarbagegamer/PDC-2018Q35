@@ -187,7 +187,7 @@ public final class QueueMarkers {
     public sealed interface Boundedness permits Boundedness.Bounded, Boundedness.Unbounded {
 
         /**
-         * Queue has a fixed capacity defined by the {@link Bounded#capacity() capacity()} method.
+         * Queue has a fixed capacity defined by the {@link #capacity()} method.
          * 
          * @since 2026.02 - Queue Injection Refactor
          */
@@ -230,7 +230,7 @@ public final class QueueMarkers {
          * implements multiple boundedness interfaces that conflict in their boundedness support.
          * 
          * @return {@code true} if the queue has a fixed capacity, {@code false} otherwise
-         * @see #capacity()
+         * @see Bounded#capacity()
          * @since 2026.02 - Queue Injection Refactor
          * @performance {@code O(1)} boundedness check.
          * @threading Must be thread-safe.

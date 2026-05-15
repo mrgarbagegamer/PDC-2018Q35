@@ -25,9 +25,7 @@ public interface GeneratorFactory extends ForkJoinWorkerThreadFactory {
                         threadName, generatorId, queueStrategy, registry, config);
 
                 @Override
-                public DefaultGeneratorContext getContext() {
-                    return context;
-                }
+                public DefaultGeneratorContext getContext() { return context; }
             };
         };
     }

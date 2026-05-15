@@ -295,9 +295,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 loggerFunction, generatorFactoryProvider, registryQueue, queueStrategyFactory);
     }
 
-    public static Builder builder() {
-        return new Builder();
-    }
+    public static Builder builder() { return new Builder(); }
 
     public static SolverConfiguration forPuzzle(int numClicks, int numThreads, int puzzleNumber) {
         return builder().numClicks(numClicks).numThreads(numThreads)
@@ -327,57 +325,31 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return baseGrid.copy(); // Defensive copy to maintain immutability
     }
 
-    public ShortList getTrueCells() {
-        return trueCells.get();
-    }
+    public ShortList getTrueCells() { return trueCells.get(); }
 
-    public boolean getUseDualMasks() {
-        return useDualMasks.get();
-    }
+    public boolean getUseDualMasks() { return useDualMasks.get(); }
 
-    public LongList getTrueCellMasksLower() {
-        return trueCellMasksLower.get();
-    }
+    public LongList getTrueCellMasksLower() { return trueCellMasksLower.get(); }
 
-    public LongList getTrueCellMasksUpper() {
-        return trueCellMasksUpper.get();
-    }
+    public LongList getTrueCellMasksUpper() { return trueCellMasksUpper.get(); }
 
-    public long getExpectedMaskLower() {
-        return expectedMaskLower.get();
-    }
+    public long getExpectedMaskLower() { return expectedMaskLower.get(); }
 
-    public long getExpectedMaskUpper() {
-        return expectedMaskUpper.get();
-    }
+    public long getExpectedMaskUpper() { return expectedMaskUpper.get(); }
 
-    public ShortList getOddClickIndices() {
-        return oddClickIndices.get();
-    }
+    public ShortList getOddClickIndices() { return oddClickIndices.get(); }
 
-    public ShortList getEvenClickIndices() {
-        return evenClickIndices.get();
-    }
+    public ShortList getEvenClickIndices() { return evenClickIndices.get(); }
 
-    public LongList getSuffixMasksLower() {
-        return suffixMasksLower.get();
-    }
+    public LongList getSuffixMasksLower() { return suffixMasksLower.get(); }
 
-    public LongList getSuffixMasksUpper() {
-        return suffixMasksUpper.get();
-    }
+    public LongList getSuffixMasksUpper() { return suffixMasksUpper.get(); }
 
-    public IntList getOddStartIndices() {
-        return oddStartIndices.get();
-    }
+    public IntList getOddStartIndices() { return oddStartIndices.get(); }
 
-    public IntList getEvenStartIndices() {
-        return evenStartIndices.get();
-    }
+    public IntList getEvenStartIndices() { return evenStartIndices.get(); }
 
-    public Logger getLogger(Class<?> clazz) {
-        return loggerFunction.apply(clazz);
-    }
+    public Logger getLogger(Class<?> clazz) { return loggerFunction.apply(clazz); }
 
     public GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy,
             SolverState solverState, ContextRegistry registry) {
@@ -978,9 +950,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             return this;
         }
 
-        public SolverConfiguration build() {
-            return new SolverConfiguration(this);
-        }
+        public SolverConfiguration build() { return new SolverConfiguration(this); }
     }
 
     private static LongList computeTrueCellMasksLower(ShortList trueCells) {

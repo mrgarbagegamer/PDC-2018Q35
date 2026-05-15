@@ -44,9 +44,7 @@ public interface GeneratorContext {
      */
     WorkBatch resetBatch();
 
-    default int getCurrentBatchSize() {
-        return hasBatch() ? getCurrentBatch().size() : 0;
-    }
+    default int getCurrentBatchSize() { return hasBatch() ? getCurrentBatch().size() : 0; }
 
     ArrayPool getArrayPool();
 

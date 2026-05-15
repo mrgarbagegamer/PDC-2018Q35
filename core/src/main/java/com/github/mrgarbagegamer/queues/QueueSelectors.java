@@ -90,9 +90,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of only accessing thread-local state.
      * @memory Does not allocate.
      */
-    private static boolean handleInterrupted() {
-        return Thread.currentThread().isInterrupted();
-    }
+    private static boolean handleInterrupted() { return Thread.currentThread().isInterrupted(); }
 
     /**
      * Attempts to {@link BackoffStrategy#backoff() backoff} using the provided

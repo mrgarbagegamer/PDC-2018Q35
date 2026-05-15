@@ -1268,9 +1268,7 @@ public final class QueueUtils {
          * @threading Thread-safe.
          * @memory Does not allocate.
          */
-        default boolean isBounded(Q queue) {
-            return QueueUtils.isBoundedQueue(queue);
-        }
+        default boolean isBounded(Q queue) { return QueueUtils.isBoundedQueue(queue); }
 
         /**
          * Offers a {@link WorkBatch} to the provided queue.
@@ -1381,14 +1379,10 @@ public final class QueueUtils {
         }
 
         @Override
-        public int capacityOf(MessagePassingQueue<WorkBatch> queue) {
-            return queue.capacity();
-        }
+        public int capacityOf(MessagePassingQueue<WorkBatch> queue) { return queue.capacity(); }
 
         @Override
-        public int normalizeCapacity(int expectedCapacity) {
-            return roundToPow2(expectedCapacity);
-        }
+        public int normalizeCapacity(int expectedCapacity) { return roundToPow2(expectedCapacity); }
 
         @Override
         public boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity) {
@@ -1402,9 +1396,7 @@ public final class QueueUtils {
         }
 
         @Override
-        public boolean isEmpty(MessagePassingQueue<WorkBatch> queue) {
-            return queue.isEmpty();
-        }
+        public boolean isEmpty(MessagePassingQueue<WorkBatch> queue) { return queue.isEmpty(); }
 
         @Override
         public void dispatchProducerSelectorRequirement(
@@ -1489,9 +1481,7 @@ public final class QueueUtils {
         }
 
         @Override
-        public boolean isEmpty(BlockingQueue<WorkBatch> queue) {
-            return queue.isEmpty();
-        }
+        public boolean isEmpty(BlockingQueue<WorkBatch> queue) { return queue.isEmpty(); }
 
         @Override
         public void dispatchProducerSelectorRequirement(

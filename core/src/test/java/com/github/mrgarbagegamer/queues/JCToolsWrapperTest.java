@@ -125,9 +125,7 @@ public class JCToolsWrapperTest {
         private MessagePassingQueue<WorkBatch> delegate;
 
         @BeforeEach
-        void setUp() {
-            delegate = new Delegate(mockMPQ) {};
-        }
+        void setUp() { delegate = new Delegate(mockMPQ) {}; }
 
         @Test
         void givenNullQueue_whenDelegateConstructor_thenThrowNullPointerException() {
@@ -561,17 +559,11 @@ public class JCToolsWrapperTest {
                 return factory.apply(capacity);
             }
 
-            public boolean isMultiProducer() {
-                return multiProducer;
-            }
+            public boolean isMultiProducer() { return multiProducer; }
 
-            public boolean isMultiConsumer() {
-                return multiConsumer;
-            }
+            public boolean isMultiConsumer() { return multiConsumer; }
 
-            public String getMethodName() {
-                return methodName;
-            }
+            public String getMethodName() { return methodName; }
         }
 
         enum JCToolsBoundedQueueListFactory {
@@ -602,17 +594,11 @@ public class JCToolsWrapperTest {
                 return factory.apply(size, capacity);
             }
 
-            public boolean isMultiProducer() {
-                return multiProducer;
-            }
+            public boolean isMultiProducer() { return multiProducer; }
 
-            public boolean isMultiConsumer() {
-                return multiConsumer;
-            }
+            public boolean isMultiConsumer() { return multiConsumer; }
 
-            public String getMethodName() {
-                return methodName;
-            }
+            public String getMethodName() { return methodName; }
         }
 
         // Bounded single-factory tests

@@ -54,7 +54,7 @@ public class Grid13 extends Grid {
         // this.click((short)58); // row 3, col 10
         // this.click((short)60); // row 3, col 12
     }
-    
+
     /**
      * Copy constructor for {@code Grid13}. Since this constructor does not limit the type of the
      * {@code other} parameter to {@code Grid13}, it can be used to copy any subclass of
@@ -76,12 +76,8 @@ public class Grid13 extends Grid {
      *            the copying process itself is not.
      * @memory Allocates a new {@code Grid13} instance.
      */
-    public Grid13(Grid other) {
-        super(other);
-    }
+    public Grid13(Grid other) { super(other); }
 
     @Override
-    public Grid13 copy() {
-        return new Grid13(this);
-    }
+    public Grid13 copy() { return new Grid13(this); }
 }

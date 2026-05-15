@@ -225,9 +225,7 @@ public final class ArrayPool {
      * @performance {@code O(1)} retrieval and comparison.
      * @memory Does not allocate.
      */
-    public boolean isEmpty() {
-        return size == 0;
-    }
+    public boolean isEmpty() { return size == 0; }
 
     /**
      * Returns the number of arrays currently available in the pool.
@@ -240,7 +238,5 @@ public final class ArrayPool {
      * @performance {@code O(1)} retrieval.
      * @memory Does not allocate.
      */
-    public int size() {
-        return size;
-    }
+    public int size() { return size; }
 }

@@ -174,9 +174,7 @@ public class BlockingQueueWrapperTest {
         private Delegate delegate;
 
         @BeforeEach
-        void setUp() {
-            delegate = new Delegate(mockBlockingQueue) {};
-        }
+        void setUp() { delegate = new Delegate(mockBlockingQueue) {}; }
 
         @Test
         void givenNullQueue_whenDelegateConstructor_thenThrowNullPointerException() {
@@ -866,21 +864,13 @@ public class BlockingQueueWrapperTest {
                 this.methodName = methodName;
             }
 
-            public BlockingQueue<WorkBatch> create(int capacity) {
-                return factory.apply(capacity);
-            }
+            public BlockingQueue<WorkBatch> create(int capacity) { return factory.apply(capacity); }
 
-            public boolean isMultiProducer() {
-                return multiProducer;
-            }
+            public boolean isMultiProducer() { return multiProducer; }
 
-            public boolean isMultiConsumer() {
-                return multiConsumer;
-            }
+            public boolean isMultiConsumer() { return multiConsumer; }
 
-            public String getMethodName() {
-                return methodName;
-            }
+            public String getMethodName() { return methodName; }
         }
 
         enum BoundedQueueListFactory {
@@ -909,17 +899,11 @@ public class BlockingQueueWrapperTest {
                 return factory.apply(size, capacity);
             }
 
-            public boolean isMultiProducer() {
-                return multiProducer;
-            }
+            public boolean isMultiProducer() { return multiProducer; }
 
-            public boolean isMultiConsumer() {
-                return multiConsumer;
-            }
+            public boolean isMultiConsumer() { return multiConsumer; }
 
-            public String getMethodName() {
-                return methodName;
-            }
+            public String getMethodName() { return methodName; }
         }
 
         // Bounded single-factory tests

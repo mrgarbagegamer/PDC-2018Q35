@@ -277,9 +277,7 @@ public class TaskPool {
      * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
      * @memory Does not allocate.
      */
-    public boolean isEmpty() {
-        return size == 0;
-    }
+    public boolean isEmpty() { return size == 0; }
 
     /**
      * Returns the current number of available tasks in the pool.
@@ -294,7 +292,5 @@ public class TaskPool {
      * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
      * @memory Does not allocate.
      */
-    public int size() {
-        return size;
-    }
+    public int size() { return size; }
 }

@@ -90,9 +90,7 @@ public class QueueSelectorsTest {
     }
 
     @AfterEach
-    void clearInterruptStatus() {
-        Thread.interrupted();
-    }
+    void clearInterruptStatus() { Thread.interrupted(); }
 
     @Nested
     class MessagePassingQueueSelectorTest {
@@ -105,13 +103,9 @@ public class QueueSelectorsTest {
         @Mock
         private MessagePassingQueue<WorkBatch> q2;
 
-        private List<MessagePassingQueue<WorkBatch>> twoQueues() {
-            return List.of(q0, q1);
-        }
+        private List<MessagePassingQueue<WorkBatch>> twoQueues() { return List.of(q0, q1); }
 
-        private List<MessagePassingQueue<WorkBatch>> threeQueues() {
-            return List.of(q0, q1, q2);
-        }
+        private List<MessagePassingQueue<WorkBatch>> threeQueues() { return List.of(q0, q1, q2); }
 
         private void verifyOnlyQueueInteractedPoll(MessagePassingQueue<WorkBatch> target,
                 List<MessagePassingQueue<WorkBatch>> allQueues) {
@@ -434,9 +428,7 @@ public class QueueSelectorsTest {
         @Mock
         private BlockingQueue<WorkBatch> bq1;
 
-        private List<BlockingQueue<WorkBatch>> twoQueues() {
-            return List.of(bq0, bq1);
-        }
+        private List<BlockingQueue<WorkBatch>> twoQueues() { return List.of(bq0, bq1); }
 
         private void verifyOnlyQueueInteractedPoll(BlockingQueue<WorkBatch> target,
                 List<BlockingQueue<WorkBatch>> allQueues) throws InterruptedException {

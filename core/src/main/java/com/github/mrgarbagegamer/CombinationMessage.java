@@ -148,25 +148,26 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
         }
 
         switch (outputFormat) {
-        case Index:
-            if (format == Grid.ValueFormat.PackedInt) {
-                for (int i = 0; i < list.length; i++) {
-                    list[i] = Grid.packedToIndex(list[i]); // Convert packed int to index format
+            case Index:
+                if (format == Grid.ValueFormat.PackedInt) {
+                    for (int i = 0; i < list.length; i++) {
+                        list[i] = Grid.packedToIndex(list[i]); // Convert packed int to index format
+                    }
+                    format = Grid.ValueFormat.Index; // Update format to index
                 }
-                format = Grid.ValueFormat.Index; // Update format to index
-            }
-            break;
-        case PackedInt:
-            if (format == Grid.ValueFormat.Index) {
-                for (int i = 0; i < list.length; i++) {
-                    list[i] = (short) Grid.indexToPacked(list[i]); // Convert index to packed int
-                                                                   // format
+                break;
+            case PackedInt:
+                if (format == Grid.ValueFormat.Index) {
+                    for (int i = 0; i < list.length; i++) {
+                        list[i] = (short) Grid.indexToPacked(list[i]); // Convert index to packed
+                                                                       // int
+                                                                       // format
+                    }
+                    format = Grid.ValueFormat.PackedInt; // Update format to packed int
                 }
-                format = Grid.ValueFormat.PackedInt; // Update format to packed int
-            }
-            break;
-        default:
-            throw new IllegalArgumentException("Unsupported output format: " + outputFormat);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported output format: " + outputFormat);
         }
     }
 
@@ -277,9 +278,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * @memory Does not allocate.
      */
     @Override
-    public String getFormat() {
-        return null;
-    }
+    public String getFormat() { return null; }
 
     /**
      * {@inheritDoc}
@@ -293,9 +292,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * @memory Does not allocate.
      */
     @Override
-    public Object[] getParameters() {
-        return null;
-    }
+    public Object[] getParameters() { return null; }
 
     /**
      * {@inheritDoc}
@@ -309,7 +306,5 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * @memory Does not allocate.
      */
     @Override
-    public Throwable getThrowable() {
-        return null;
-    }
+    public Throwable getThrowable() { return null; }
 }

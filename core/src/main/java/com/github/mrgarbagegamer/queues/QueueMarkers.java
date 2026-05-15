@@ -50,14 +50,10 @@ public final class QueueMarkers {
          */
         public non-sealed interface MPMC extends AccessMode {
             @Override
-            default boolean isMultiProducer() {
-                return true;
-            }
+            default boolean isMultiProducer() { return true; }
 
             @Override
-            default boolean isMultiConsumer() {
-                return true;
-            }
+            default boolean isMultiConsumer() { return true; }
         }
 
         /**
@@ -67,14 +63,10 @@ public final class QueueMarkers {
          */
         public non-sealed interface MPSC extends AccessMode {
             @Override
-            default boolean isMultiProducer() {
-                return true;
-            }
+            default boolean isMultiProducer() { return true; }
 
             @Override
-            default boolean isMultiConsumer() {
-                return false;
-            }
+            default boolean isMultiConsumer() { return false; }
         }
 
         /**
@@ -84,14 +76,10 @@ public final class QueueMarkers {
          */
         public non-sealed interface SPMC extends AccessMode {
             @Override
-            default boolean isMultiProducer() {
-                return false;
-            }
+            default boolean isMultiProducer() { return false; }
 
             @Override
-            default boolean isMultiConsumer() {
-                return true;
-            }
+            default boolean isMultiConsumer() { return true; }
         }
 
         /**
@@ -101,14 +89,10 @@ public final class QueueMarkers {
          */
         public non-sealed interface SPSC extends AccessMode {
             @Override
-            default boolean isMultiProducer() {
-                return false;
-            }
+            default boolean isMultiProducer() { return false; }
 
             @Override
-            default boolean isMultiConsumer() {
-                return false;
-            }
+            default boolean isMultiConsumer() { return false; }
         }
 
         /**
@@ -151,9 +135,7 @@ public final class QueueMarkers {
          * @threading Must be thread-safe.
          * @memory Must not allocate.
          */
-        public default boolean isSingleProducer() {
-            return !isMultiProducer();
-        }
+        public default boolean isSingleProducer() { return !isMultiProducer(); }
 
         /**
          * Indicates whether the queue supports only a single consumer. This is a convenience method
@@ -167,9 +149,7 @@ public final class QueueMarkers {
          * @threading Must be thread-safe.
          * @memory Must not allocate.
          */
-        public default boolean isSingleConsumer() {
-            return !isMultiConsumer();
-        }
+        public default boolean isSingleConsumer() { return !isMultiConsumer(); }
     }
 
     /**
@@ -206,9 +186,7 @@ public final class QueueMarkers {
             int capacity();
 
             @Override
-            default boolean isBounded() {
-                return true;
-            }
+            default boolean isBounded() { return true; }
         }
 
         /**
@@ -219,9 +197,7 @@ public final class QueueMarkers {
          */
         public non-sealed interface Unbounded extends Boundedness {
             @Override
-            default boolean isBounded() {
-                return false;
-            }
+            default boolean isBounded() { return false; }
         }
 
         /**

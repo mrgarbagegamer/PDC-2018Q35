@@ -53,9 +53,7 @@ class DefaultGeneratorContext implements GeneratorContext {
     private volatile boolean terminated = false;
 
     @Override
-    public String getName() {
-        return this.name;
-    }
+    public String getName() { return this.name; }
 
     private final SolverConfiguration config;
 
@@ -143,9 +141,7 @@ class DefaultGeneratorContext implements GeneratorContext {
     private final QueueStrategy queueStrategy;
 
     @Override
-    public boolean hasBatch() {
-        return this.currentBatch != null;
-    }
+    public boolean hasBatch() { return this.currentBatch != null; }
 
     @Override
     public WorkBatch getCurrentBatch() {
@@ -193,29 +189,19 @@ class DefaultGeneratorContext implements GeneratorContext {
     }
 
     @Override
-    public WorkBatch resetBatch() {
-        return this.currentBatch = pollBatch();
-    }
+    public WorkBatch resetBatch() { return this.currentBatch = pollBatch(); }
 
     @Override
-    public ArrayPool getArrayPool() {
-        return this.arrayPool;
-    }
+    public ArrayPool getArrayPool() { return this.arrayPool; }
 
     @Override
-    public TaskPool getTaskPool() {
-        return this.taskPool;
-    }
+    public TaskPool getTaskPool() { return this.taskPool; }
 
     @Override
-    public SolverConfiguration getConfiguration() {
-        return this.config;
-    }
+    public SolverConfiguration getConfiguration() { return this.config; }
 
     @Override
-    public QueueStrategy getQueueStrategy() {
-        return this.queueStrategy;
-    }
+    public QueueStrategy getQueueStrategy() { return this.queueStrategy; }
 
     @Override
     public boolean flushCurrentBatch() {

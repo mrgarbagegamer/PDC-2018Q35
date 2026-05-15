@@ -28,29 +28,33 @@ import org.openjdk.jmh.annotations.Warmup;
  *
  * <p>
  * <b>TIER 1: CRITICAL HOT PATH</b> - The {@code click_and_isSolved()} benchmark simulates actual
- * validation loop interactions between state mutation and truth count recalculation, making it ideal
- * for performance counter analysis:
+ * validation loop interactions between state mutation and truth count recalculation, making it
+ * ideal for performance counter analysis:
  * </p>
  *
  * <ul>
  * <li><b>perfnorm (PRIMARY):</b> Reveals data dependency chains and memory latency patterns.
+ * 
  * <pre>
  * java -jar benchmarks/target/benchmarks.jar GridBenchmark.click_and_isSolved -prof perfnorm
  * </pre>
- * Key metrics: cycles/op, L1/L2/L3 cache misses, memory stalls
- * </li>
+ * 
+ * Key metrics: cycles/op, L1/L2/L3 cache misses, memory stalls</li>
  *
  * <li><b>gc (SECONDARY):</b> Validate grid state management allocation patterns.
+ * 
  * <pre>
  * java -jar benchmarks/target/benchmarks.jar GridBenchmark -prof gc
  * </pre>
- * Look for: allocation-free operations
- * </li>
+ * 
+ * Look for: allocation-free operations</li>
  *
  * <li><b>Baseline (no profiler):</b>
+ * 
  * <pre>
  * java -jar benchmarks/target/benchmarks.jar GridBenchmark
  * </pre>
+ * 
  * </li>
  * </ul>
  */

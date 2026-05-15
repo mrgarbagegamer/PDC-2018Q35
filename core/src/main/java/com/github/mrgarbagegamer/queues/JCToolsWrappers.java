@@ -146,54 +146,34 @@ public final class JCToolsWrappers {
         }
 
         @Override
-        public final boolean offer(WorkBatch e) {
-            return delegate.offer(e);
-        }
+        public final boolean offer(WorkBatch e) { return delegate.offer(e); }
 
         @Override
-        public final WorkBatch poll() {
-            return delegate.poll();
-        }
+        public final WorkBatch poll() { return delegate.poll(); }
 
         @Override
-        public final WorkBatch peek() {
-            return delegate.peek();
-        }
+        public final WorkBatch peek() { return delegate.peek(); }
 
         @Override
-        public final int size() {
-            return delegate.size();
-        }
+        public final int size() { return delegate.size(); }
 
         @Override
-        public final void clear() {
-            delegate.clear();
-        }
+        public final void clear() { delegate.clear(); }
 
         @Override
-        public final boolean isEmpty() {
-            return delegate.isEmpty();
-        }
+        public final boolean isEmpty() { return delegate.isEmpty(); }
 
         @Override
-        public final int capacity() {
-            return delegate.capacity();
-        }
+        public final int capacity() { return delegate.capacity(); }
 
         @Override
-        public final boolean relaxedOffer(WorkBatch e) {
-            return delegate.relaxedOffer(e);
-        }
+        public final boolean relaxedOffer(WorkBatch e) { return delegate.relaxedOffer(e); }
 
         @Override
-        public final WorkBatch relaxedPoll() {
-            return delegate.relaxedPoll();
-        }
+        public final WorkBatch relaxedPoll() { return delegate.relaxedPoll(); }
 
         @Override
-        public final WorkBatch relaxedPeek() {
-            return delegate.relaxedPeek();
-        }
+        public final WorkBatch relaxedPeek() { return delegate.relaxedPeek(); }
 
         @Override
         public final int drain(Consumer<WorkBatch> c, int limit) {
@@ -201,19 +181,13 @@ public final class JCToolsWrappers {
         }
 
         @Override
-        public final int fill(Supplier<WorkBatch> s, int limit) {
-            return delegate.fill(s, limit);
-        }
+        public final int fill(Supplier<WorkBatch> s, int limit) { return delegate.fill(s, limit); }
 
         @Override
-        public final int drain(Consumer<WorkBatch> c) {
-            return delegate.drain(c);
-        }
+        public final int drain(Consumer<WorkBatch> c) { return delegate.drain(c); }
 
         @Override
-        public final int fill(Supplier<WorkBatch> s) {
-            return delegate.fill(s);
-        }
+        public final int fill(Supplier<WorkBatch> s) { return delegate.fill(s); }
 
         @Override
         public final void drain(Consumer<WorkBatch> c, WaitStrategy w, ExitCondition e) {
@@ -239,9 +213,7 @@ public final class JCToolsWrappers {
      */
     private static final class BoundedMpmc extends Delegate
             implements AccessMode.MPMC, Boundedness.Bounded {
-        private BoundedMpmc(MessagePassingQueue<WorkBatch> q) {
-            super(q);
-        }
+        private BoundedMpmc(MessagePassingQueue<WorkBatch> q) { super(q); }
     }
 
     /**
@@ -257,9 +229,7 @@ public final class JCToolsWrappers {
      */
     private static final class BoundedMpsc extends Delegate
             implements AccessMode.MPSC, Boundedness.Bounded {
-        private BoundedMpsc(MessagePassingQueue<WorkBatch> q) {
-            super(q);
-        }
+        private BoundedMpsc(MessagePassingQueue<WorkBatch> q) { super(q); }
     }
 
     /**
@@ -275,9 +245,7 @@ public final class JCToolsWrappers {
      */
     private static final class BoundedSpmc extends Delegate
             implements AccessMode.SPMC, Boundedness.Bounded {
-        private BoundedSpmc(MessagePassingQueue<WorkBatch> q) {
-            super(q);
-        }
+        private BoundedSpmc(MessagePassingQueue<WorkBatch> q) { super(q); }
     }
 
     /**
@@ -293,9 +261,7 @@ public final class JCToolsWrappers {
      */
     private static final class BoundedSpsc extends Delegate
             implements AccessMode.SPSC, Boundedness.Bounded {
-        private BoundedSpsc(MessagePassingQueue<WorkBatch> q) {
-            super(q);
-        }
+        private BoundedSpsc(MessagePassingQueue<WorkBatch> q) { super(q); }
     }
 
     /**

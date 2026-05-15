@@ -164,19 +164,13 @@ public final class BlockingQueueWrappers {
 
         // BlockingQueue methods
         @Override
-        public final boolean add(WorkBatch e) {
-            return delegate.add(e);
-        }
+        public final boolean add(WorkBatch e) { return delegate.add(e); }
 
         @Override
-        public final boolean offer(WorkBatch e) {
-            return delegate.offer(e);
-        }
+        public final boolean offer(WorkBatch e) { return delegate.offer(e); }
 
         @Override
-        public final void put(WorkBatch e) throws InterruptedException {
-            delegate.put(e);
-        }
+        public final void put(WorkBatch e) throws InterruptedException { delegate.put(e); }
 
         @Override
         public final boolean offer(WorkBatch e, long timeout, TimeUnit unit)
@@ -185,9 +179,7 @@ public final class BlockingQueueWrappers {
         }
 
         @Override
-        public final WorkBatch take() throws InterruptedException {
-            return delegate.take();
-        }
+        public final WorkBatch take() throws InterruptedException { return delegate.take(); }
 
         @Override
         public final WorkBatch poll(long timeout, TimeUnit unit) throws InterruptedException {
@@ -195,24 +187,16 @@ public final class BlockingQueueWrappers {
         }
 
         @Override
-        public final int remainingCapacity() {
-            return delegate.remainingCapacity();
-        }
+        public final int remainingCapacity() { return delegate.remainingCapacity(); }
 
         @Override
-        public final boolean remove(Object o) {
-            return delegate.remove(o);
-        }
+        public final boolean remove(Object o) { return delegate.remove(o); }
 
         @Override
-        public final boolean contains(Object o) {
-            return delegate.contains(o);
-        }
+        public final boolean contains(Object o) { return delegate.contains(o); }
 
         @Override
-        public final int drainTo(Collection<? super WorkBatch> c) {
-            return delegate.drainTo(c);
-        }
+        public final int drainTo(Collection<? super WorkBatch> c) { return delegate.drainTo(c); }
 
         @Override
         public final int drainTo(Collection<? super WorkBatch> c, int maxElements) {
@@ -221,55 +205,35 @@ public final class BlockingQueueWrappers {
 
         // Queue methods
         @Override
-        public final WorkBatch remove() {
-            return delegate.remove();
-        }
+        public final WorkBatch remove() { return delegate.remove(); }
 
         @Override
-        public final WorkBatch poll() {
-            return delegate.poll();
-        }
+        public final WorkBatch poll() { return delegate.poll(); }
 
         @Override
-        public final WorkBatch element() {
-            return delegate.element();
-        }
+        public final WorkBatch element() { return delegate.element(); }
 
         @Override
-        public final WorkBatch peek() {
-            return delegate.peek();
-        }
+        public final WorkBatch peek() { return delegate.peek(); }
 
         // Collection methods
         @Override
-        public final int size() {
-            return delegate.size();
-        }
+        public final int size() { return delegate.size(); }
 
         @Override
-        public final boolean isEmpty() {
-            return delegate.isEmpty();
-        }
+        public final boolean isEmpty() { return delegate.isEmpty(); }
 
         @Override
-        public final Iterator<WorkBatch> iterator() {
-            return delegate.iterator();
-        }
+        public final Iterator<WorkBatch> iterator() { return delegate.iterator(); }
 
         @Override
-        public final Object[] toArray() {
-            return delegate.toArray();
-        }
+        public final Object[] toArray() { return delegate.toArray(); }
 
         @Override
-        public final <T> T[] toArray(T[] a) {
-            return delegate.toArray(a);
-        }
+        public final <T> T[] toArray(T[] a) { return delegate.toArray(a); }
 
         @Override
-        public final boolean containsAll(Collection<?> c) {
-            return delegate.containsAll(c);
-        }
+        public final boolean containsAll(Collection<?> c) { return delegate.containsAll(c); }
 
         @Override
         public final boolean addAll(Collection<? extends WorkBatch> c) {
@@ -277,19 +241,13 @@ public final class BlockingQueueWrappers {
         }
 
         @Override
-        public final boolean removeAll(Collection<?> c) {
-            return delegate.removeAll(c);
-        }
+        public final boolean removeAll(Collection<?> c) { return delegate.removeAll(c); }
 
         @Override
-        public final boolean retainAll(Collection<?> c) {
-            return delegate.retainAll(c);
-        }
+        public final boolean retainAll(Collection<?> c) { return delegate.retainAll(c); }
 
         @Override
-        public final void clear() {
-            delegate.clear();
-        }
+        public final void clear() { delegate.clear(); }
     }
 
     /**
@@ -404,9 +362,7 @@ public final class BlockingQueueWrappers {
          * @memory Does not allocate.
          */
         @Override
-        public final int capacity() {
-            return capacity;
-        }
+        public final int capacity() { return capacity; }
     }
 
     /**
@@ -446,9 +402,7 @@ public final class BlockingQueueWrappers {
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue
          *         and an {@code int} for the capacity.
          */
-        private BoundedMpmc(BlockingQueue<WorkBatch> q, int capacity) {
-            super(q, capacity);
-        }
+        private BoundedMpmc(BlockingQueue<WorkBatch> q, int capacity) { super(q, capacity); }
 
         /**
          * Constructs a new {@code BoundedMpmc} instance that wraps the provided
@@ -466,9 +420,7 @@ public final class BlockingQueueWrappers {
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue
          *         and an {@code int} for the estimated capacity.
          */
-        private BoundedMpmc(BlockingQueue<WorkBatch> q) {
-            super(q);
-        }
+        private BoundedMpmc(BlockingQueue<WorkBatch> q) { super(q); }
     }
 
     /**
@@ -501,9 +453,7 @@ public final class BlockingQueueWrappers {
          * @threading Thread-safe by nature of construction.
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue.
          */
-        private UnboundedMpmc(BlockingQueue<WorkBatch> q) {
-            super(q);
-        }
+        private UnboundedMpmc(BlockingQueue<WorkBatch> q) { super(q); }
     }
 
     /**
@@ -541,9 +491,7 @@ public final class BlockingQueueWrappers {
          * @memory Allocates a new wrapper object with a reference to the provided delegate queue
          *         and an {@code int} for the capacity.
          */
-        private BoundedSpsc(BlockingQueue<WorkBatch> q, int capacity) {
-            super(q, capacity);
-        }
+        private BoundedSpsc(BlockingQueue<WorkBatch> q, int capacity) { super(q, capacity); }
 
         /**
          * Constructs a new {@code BoundedSpsc} instance that wraps the provided
@@ -558,9 +506,7 @@ public final class BlockingQueueWrappers {
          * @performance {@code O(1)} delegation to the bounded delegate constructor with capacity
          *              estimation.
          */
-        private BoundedSpsc(BlockingQueue<WorkBatch> q) {
-            super(q);
-        }
+        private BoundedSpsc(BlockingQueue<WorkBatch> q) { super(q); }
     }
 
     // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
@@ -805,10 +751,10 @@ public final class BlockingQueueWrappers {
      * @param wrapperConstructor a function that takes a queue and capacity and returns a wrapped
      *                           version of the queue.
      * @return the wrapped queue if it was not already wrapped, or the original queue if it was.
-     * @throws NullPointerException     if the provided {@code queue} or {@code wrapperConstructor} is
-     *                                  {@code null}.
-     * @throws IllegalArgumentException if the provided {@code capacity} is not positive and the queue
-     *                                  isn't already wrapped.
+     * @throws NullPointerException     if the provided {@code queue} or {@code wrapperConstructor}
+     *                                  is {@code null}.
+     * @throws IllegalArgumentException if the provided {@code capacity} is not positive and the
+     *                                  queue isn't already wrapped.
      * @see #isWrapped(BlockingQueue)
      * @see #wrapBoundedMpmc(BlockingQueue, int)
      * @see #wrapBoundedSpsc(BlockingQueue, int)

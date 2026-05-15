@@ -195,17 +195,11 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 ensureDisjoint(odd, even);
             }
 
-            public Parity get(boolean isOdd) {
-                return isOdd ? odd : even;
-            }
+            public Parity get(boolean isOdd) { return isOdd ? odd : even; }
 
-            public Parity odd() {
-                return odd;
-            }
+            public Parity odd() { return odd; }
 
-            public Parity even() {
-                return even;
-            }
+            public Parity even() { return even; }
         }
     }
 
@@ -388,9 +382,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             start = -1;
         }
 
-        WorkItem(SolverConfiguration config) {
-            this(config.numClicks());
-        }
+        WorkItem(SolverConfiguration config) { this(config.numClicks()); }
 
         /**
          * Initializes or re-initializes the {@code WorkItem} with its data.
@@ -446,9 +438,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Does not allocate; returns reference to existing array.
          */
-        public short[] getPrefix() {
-            return prefix;
-        }
+        public short[] getPrefix() { return prefix; }
 
         /**
          * Returns the length of the shared combination {@link #prefix}.
@@ -459,9 +449,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Does not allocate.
          */
-        public int getPrefixLength() {
-            return prefix.length;
-        }
+        public int getPrefixLength() { return prefix.length; }
 
         /**
          * Returns the array of possible final clicks for this work range by retrieving it from the
@@ -487,9 +475,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Does not allocate.
          */
-        public int getStart() {
-            return start;
-        }
+        public int getStart() { return start; }
 
         /**
          * Returns a {@link String} representation of the {@code WorkItem}, useful for debugging.
@@ -632,9 +618,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Does not allocate.
          */
-        void reset() {
-            this.currentWorkItemIndex = 0;
-        }
+        void reset() { this.currentWorkItemIndex = 0; }
 
         /**
          * Checks if there are more {@link WorkItem}s in the batch to iterate over.
@@ -646,9 +630,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory Does not allocate.
          */
         @Override
-        public boolean hasNext() {
-            return currentWorkItemIndex < workItemCount;
-        }
+        public boolean hasNext() { return currentWorkItemIndex < workItemCount; }
 
         /**
          * Returns the next {@link WorkItem} in the iteration. If there are no more elements, a
@@ -749,9 +731,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Thread-safe, as it accesses a constant field.
      * @memory Does not allocate.
      */
-    public int getCapacity() {
-        return capacity;
-    }
+    public int getCapacity() { return capacity; }
 
     /**
      * Adds a new work range to the batch.
@@ -827,9 +807,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Not thread-safe.
      * @memory Does not allocate.
      */
-    public boolean isEmpty() {
-        return workItemCount == 0;
-    }
+    public boolean isEmpty() { return workItemCount == 0; }
 
     /**
      * Checks if the batch is full (can hold no more {@link WorkItem}s).
@@ -843,9 +821,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Not thread-safe.
      * @memory Does not allocate.
      */
-    public boolean isFull() {
-        return workItemCount == capacity;
-    }
+    public boolean isFull() { return workItemCount == capacity; }
 
     /**
      * Returns the number of {@link WorkItem}s currently in the batch.
@@ -859,9 +835,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      * @threading Not thread-safe.
      * @memory Does not allocate.
      */
-    public int size() {
-        return workItemCount;
-    }
+    public int size() { return workItemCount; }
 
     /**
      * Resets the batch to an empty state, making it ready for reuse.

@@ -191,9 +191,7 @@ public final class SolverState {
      * @threading Thread-safe by nature of construction.
      * @memory Does not allocate other than the object itself.
      */
-    public SolverState() {
-        this.startTime = System.currentTimeMillis();
-    }
+    public SolverState() { this.startTime = System.currentTimeMillis(); }
 
     /**
      * Marks that a solution has been found by the {@link Thread#currentThread() current thread} and
@@ -282,9 +280,7 @@ public final class SolverState {
      * @threading Thread-safe by nature of immutability.
      * @memory Does not allocate.
      */
-    public long getStartTime() {
-        return startTime;
-    }
+    public long getStartTime() { return startTime; }
 
     /**
      * {@return the time the solver ended, in milliseconds, or {@code -1L} if the solver is still
@@ -299,9 +295,7 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile long}.
      * @memory Does not allocate.
      */
-    public long getEndTime() {
-        return endTime;
-    }
+    public long getEndTime() { return endTime; }
 
     /**
      * {@return the {@link Thread} that found the solution, or {@code null} if no solution has been
@@ -315,9 +309,7 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile} reference.
      * @memory Does not allocate.
      */
-    public Thread getWinningThread() {
-        return winningThread;
-    }
+    public Thread getWinningThread() { return winningThread; }
 
     /**
      * {@return the combination that solved the puzzle, in {@link Grid.ValueFormat#Index} format, or
@@ -331,9 +323,7 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile} reference.
      * @memory Does not allocate.
      */
-    public short[] getWinningCombination() {
-        return winningCombination;
-    }
+    public short[] getWinningCombination() { return winningCombination; }
 
     /**
      * {@return {@code true} if a solution has been found by any thread, {@code false} otherwise}
@@ -344,9 +334,7 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile boolean}.
      * @memory Does not allocate.
      */
-    public boolean solutionFound() {
-        return solutionFound;
-    }
+    public boolean solutionFound() { return solutionFound; }
 
     /**
      * {@return {@code true} if the generation phase is complete and no more combinations will be
@@ -357,7 +345,5 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile boolean}.
      * @memory Does not allocate.
      */
-    public boolean generationComplete() {
-        return generationComplete;
-    }
+    public boolean generationComplete() { return generationComplete; }
 }

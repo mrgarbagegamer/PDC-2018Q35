@@ -75,9 +75,7 @@ public interface BackoffStrategy {
      * @threading Thread-safe and reusable.
      * @memory Allocates a lambda for the backoff strategy.
      */
-    static BackoffStrategy noOp() {
-        return () -> {};
-    }
+    static BackoffStrategy noOp() { return () -> {}; }
 
     /**
      * Creates a {@code BackoffStrategy} that {@link Thread#yield() yields} the current thread.
@@ -88,9 +86,7 @@ public interface BackoffStrategy {
      * @threading Thread-safe and reusable.
      * @memory Allocates a lambda for the backoff strategy.
      */
-    static BackoffStrategy yield() {
-        return Thread::yield;
-    }
+    static BackoffStrategy yield() { return Thread::yield; }
 
     /**
      * Creates a {@code BackoffStrategy} that {@link LockSupport#parkNanos(long) parks} the current
@@ -104,9 +100,7 @@ public interface BackoffStrategy {
      * @threading Thread-safe and reusable.
      * @memory Allocates a lambda for the backoff strategy.
      */
-    static BackoffStrategy parkNanos(long nanos) {
-        return () -> LockSupport.parkNanos(nanos);
-    }
+    static BackoffStrategy parkNanos(long nanos) { return () -> LockSupport.parkNanos(nanos); }
 
     /**
      * Creates a {@code BackoffStrategy} that calls {@link Thread#onSpinWait()} to indicate that the
@@ -118,7 +112,5 @@ public interface BackoffStrategy {
      * @threading Thread-safe and reusable.
      * @memory Allocates a lambda for the backoff strategy.
      */
-    static BackoffStrategy onSpinWait() {
-        return Thread::onSpinWait;
-    }
+    static BackoffStrategy onSpinWait() { return Thread::onSpinWait; }
 }

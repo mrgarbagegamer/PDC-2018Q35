@@ -1,6 +1,11 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Collection;
 import java.util.List;
@@ -17,8 +22,9 @@ import org.jctools.queues.SpscArrayQueue;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
-import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
+import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueMetadataProvider.BoundedStrategy;
+import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
 import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 
 /**
@@ -104,7 +110,8 @@ public final class JCToolsWrappers {
      * @memory Fixed memory overhead, with allocation dependent on the behavior of the delegate
      *         queue.
      */
-    public static abstract class Delegate implements MessagePassingQueue<WorkBatch> {
+    public static abstract class Delegate
+            implements MessagePassingQueue<WorkBatch>, QueueMetadataProvider {
         /**
          * The underlying delegate queue that all method calls are forwarded to. This is the actual
          * {@link MessagePassingQueue} that performs the operations, while the wrapper classes
@@ -128,6 +135,8 @@ public final class JCToolsWrappers {
          */
         protected final MessagePassingQueue<WorkBatch> delegate;
 
+        private final AccessMode accessMode;
+
         /**
          * Constructs a new {@code Delegate} that wraps the provided {@code MessagePassingQueue}.
          * 
@@ -141,68 +150,44 @@ public final class JCToolsWrappers {
          * @threading Thread-safe by nature of being immutable after construction.
          * @memory Allocates a new wrapper object with a reference to the provided queue.
          */
-        protected Delegate(MessagePassingQueue<WorkBatch> delegate) {
+        protected Delegate(MessagePassingQueue<WorkBatch> delegate, AccessMode accessMode) {
             this.delegate = requireNonNull(delegate, "delegate must not be null");
+            this.accessMode = requireNonNull(accessMode, "accessMode must not be null");
         }
 
-        @Override
-        public final boolean offer(WorkBatch e) { return delegate.offer(e); }
+        // @formatter:off
 
-        @Override
-        public final WorkBatch poll() { return delegate.poll(); }
+        // QueueMetadataProvider methods
+        @Override public final int capacity() { return delegate.capacity(); }
+        @Override public final AccessMode accessMode() { return accessMode; }
 
-        @Override
-        public final WorkBatch peek() { return delegate.peek(); }
-
-        @Override
-        public final int size() { return delegate.size(); }
-
-        @Override
-        public final void clear() { delegate.clear(); }
-
-        @Override
-        public final boolean isEmpty() { return delegate.isEmpty(); }
-
-        @Override
-        public final int capacity() { return delegate.capacity(); }
-
-        @Override
-        public final boolean relaxedOffer(WorkBatch e) { return delegate.relaxedOffer(e); }
-
-        @Override
-        public final WorkBatch relaxedPoll() { return delegate.relaxedPoll(); }
-
-        @Override
-        public final WorkBatch relaxedPeek() { return delegate.relaxedPeek(); }
-
-        @Override
-        public final int drain(Consumer<WorkBatch> c, int limit) {
+        // MessagePassingQueue methods
+        @Override public final boolean offer(WorkBatch e) { return delegate.offer(e); }
+        @Override public final WorkBatch poll() { return delegate.poll(); }
+        @Override public final WorkBatch peek() { return delegate.peek(); }
+        @Override public final int size() { return delegate.size(); }
+        @Override public final void clear() { delegate.clear(); }
+        @Override public final boolean isEmpty() { return delegate.isEmpty(); }
+        @Override public final boolean relaxedOffer(WorkBatch e) { return delegate.relaxedOffer(e); }
+        @Override public final WorkBatch relaxedPoll() { return delegate.relaxedPoll(); }
+        @Override public final WorkBatch relaxedPeek() { return delegate.relaxedPeek(); }
+        @Override public final int drain(Consumer<WorkBatch> c, int limit) {
             return delegate.drain(c, limit);
         }
-
-        @Override
-        public final int fill(Supplier<WorkBatch> s, int limit) { return delegate.fill(s, limit); }
-
-        @Override
-        public final int drain(Consumer<WorkBatch> c) { return delegate.drain(c); }
-
-        @Override
-        public final int fill(Supplier<WorkBatch> s) { return delegate.fill(s); }
-
-        @Override
-        public final void drain(Consumer<WorkBatch> c, WaitStrategy w, ExitCondition e) {
+        @Override public final int fill(Supplier<WorkBatch> s, int limit) { return delegate.fill(s, limit); }
+        @Override public final int drain(Consumer<WorkBatch> c) { return delegate.drain(c); }
+        @Override public final int fill(Supplier<WorkBatch> s) { return delegate.fill(s); }
+        @Override public final void drain(Consumer<WorkBatch> c, WaitStrategy w, ExitCondition e) {
             delegate.drain(c, w, e);
         }
-
-        @Override
-        public final void fill(Supplier<WorkBatch> s, WaitStrategy w, ExitCondition e) {
+        @Override public final void fill(Supplier<WorkBatch> s, WaitStrategy w, ExitCondition e) {
             delegate.fill(s, w, e);
         }
+        // @formatter:on
     }
 
     /**
-     * A wrapper class for bounded MPMC queues that extends {@link Delegate} and implements the
-     * {@link AccessMode.MPMC} and {@link Boundedness.Bounded} interfaces.
+     * A wrapper class for bounded MPMC queues that extends {@link Delegate}.
      *
      * @see #newBoundedMpmc(int)
      * @see org.jctools.queues.MpmcArrayQueue MpmcArrayQueue
@@ -211,14 +196,12 @@ public final class JCToolsWrappers {
      * @threading Thread-safe.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    private static final class BoundedMpmc extends Delegate
-            implements AccessMode.MPMC, Boundedness.Bounded {
-        private BoundedMpmc(MessagePassingQueue<WorkBatch> q) { super(q); }
+    private static final class BoundedMpmc extends Delegate implements BoundedStrategy {
+        private BoundedMpmc(MessagePassingQueue<WorkBatch> q) { super(q, MPMC); }
     }
 
     /**
-     * A wrapper class for bounded MPSC queues that extends {@link Delegate} and implements the
-     * {@link AccessMode.MPSC} and {@link Boundedness.Bounded} interfaces.
+     * A wrapper class for bounded MPSC queues that extends {@link Delegate}.
      *
      * @see #newBoundedMpsc(int)
      * @see org.jctools.queues.MpscArrayQueue MpscArrayQueue
@@ -227,14 +210,12 @@ public final class JCToolsWrappers {
      * @threading Thread-safe for multiple producers and a single consumer.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    private static final class BoundedMpsc extends Delegate
-            implements AccessMode.MPSC, Boundedness.Bounded {
-        private BoundedMpsc(MessagePassingQueue<WorkBatch> q) { super(q); }
+    private static final class BoundedMpsc extends Delegate implements BoundedStrategy {
+        private BoundedMpsc(MessagePassingQueue<WorkBatch> q) { super(q, MPSC); }
     }
 
     /**
-     * A wrapper class for bounded SPMC queues that extends {@link Delegate} and implements the
-     * {@link AccessMode.SPMC} and {@link Boundedness.Bounded} interfaces.
+     * A wrapper class for bounded SPMC queues that extends {@link Delegate}.
      *
      * @see #newBoundedSpmc(int)
      * @see org.jctools.queues.SpmcArrayQueue SpmcArrayQueue
@@ -243,14 +224,12 @@ public final class JCToolsWrappers {
      * @threading Thread-safe for a single producer and multiple consumers.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    private static final class BoundedSpmc extends Delegate
-            implements AccessMode.SPMC, Boundedness.Bounded {
-        private BoundedSpmc(MessagePassingQueue<WorkBatch> q) { super(q); }
+    private static final class BoundedSpmc extends Delegate implements BoundedStrategy {
+        private BoundedSpmc(MessagePassingQueue<WorkBatch> q) { super(q, SPMC); }
     }
 
     /**
-     * A wrapper class for bounded SPSC queues that extends {@link Delegate} and implements the
-     * {@link AccessMode.SPSC} and {@link Boundedness.Bounded} interfaces.
+     * A wrapper class for bounded SPSC queues that extends {@link Delegate}.
      *
      * @see #newBoundedSpsc(int)
      * @see org.jctools.queues.SpscArrayQueue SpscArrayQueue
@@ -259,9 +238,8 @@ public final class JCToolsWrappers {
      * @threading Thread-safe for a single producer and a single consumer.
      * @memory Fixed memory overhead for the wrapper object.
      */
-    private static final class BoundedSpsc extends Delegate
-            implements AccessMode.SPSC, Boundedness.Bounded {
-        private BoundedSpsc(MessagePassingQueue<WorkBatch> q) { super(q); }
+    private static final class BoundedSpsc extends Delegate implements BoundedStrategy {
+        private BoundedSpsc(MessagePassingQueue<WorkBatch> q) { super(q, SPSC); }
     }
 
     /**
@@ -289,11 +267,11 @@ public final class JCToolsWrappers {
      * @threading Thread-safe.
      * @memory Allocates a new wrapper object if the queue is not already wrapped.
      */
-    public static MessagePassingQueue<WorkBatch> wrap(MessagePassingQueue<WorkBatch> queue) {
+    public static Delegate wrap(MessagePassingQueue<WorkBatch> queue) {
         // If already wrapped, return as-is
         requireNonNull(queue, "Queue must not be null");
         if (isWrapped(queue)) {
-            return queue;
+            return (Delegate) queue;
         }
 
         if (queue.capacity() == MessagePassingQueue.UNBOUNDED_CAPACITY) {
@@ -329,8 +307,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new wrapper object if needed.
      * @memory Allocates a new wrapper object if the queue is not already wrapped.
      */
-    public static MessagePassingQueue<WorkBatch> wrapBoundedMpmc(
-            MessagePassingQueue<WorkBatch> queue) {
+    public static Delegate wrapBoundedMpmc(MessagePassingQueue<WorkBatch> queue) {
         return wrapIfNeeded(queue, BoundedMpmc::new);
     }
 
@@ -348,8 +325,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new wrapper object if needed.
      * @memory Allocates a new wrapper object if the queue is not already wrapped.
      */
-    public static MessagePassingQueue<WorkBatch> wrapBoundedMpsc(
-            MessagePassingQueue<WorkBatch> queue) {
+    public static Delegate wrapBoundedMpsc(MessagePassingQueue<WorkBatch> queue) {
         return wrapIfNeeded(queue, BoundedMpsc::new);
     }
 
@@ -367,8 +343,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new wrapper object if needed.
      * @memory Allocates a new wrapper object if the queue is not already wrapped.
      */
-    public static MessagePassingQueue<WorkBatch> wrapBoundedSpmc(
-            MessagePassingQueue<WorkBatch> queue) {
+    public static Delegate wrapBoundedSpmc(MessagePassingQueue<WorkBatch> queue) {
         return wrapIfNeeded(queue, BoundedSpmc::new);
     }
 
@@ -386,8 +361,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new wrapper object if needed.
      * @memory Allocates a new wrapper object if the queue is not already wrapped.
      */
-    public static MessagePassingQueue<WorkBatch> wrapBoundedSpsc(
-            MessagePassingQueue<WorkBatch> queue) {
+    public static Delegate wrapBoundedSpsc(MessagePassingQueue<WorkBatch> queue) {
         return wrapIfNeeded(queue, BoundedSpsc::new);
     }
 
@@ -411,9 +385,8 @@ public final class JCToolsWrappers {
      * @memory Allocates a new list of wrapped queues (and the wrapper objects themselves, if not
      *         already wrapped), along with intermediate stream objects for the wrapping process.
      */
-    public static List<MessagePassingQueue<WorkBatch>> wrapAll(
-            List<? extends MessagePassingQueue<WorkBatch>> queues) {
-        return queues.stream().map(JCToolsWrappers::wrap).collect(Collectors.toUnmodifiableList());
+    public static List<Delegate> wrapAll(List<? extends MessagePassingQueue<WorkBatch>> queues) {
+        return queues.stream().map(JCToolsWrappers::wrap).collect(toUnmodifiableList());
     }
 
     /**
@@ -494,11 +467,11 @@ public final class JCToolsWrappers {
      * @memory Allocates a new wrapper object if the queue is not already wrapped, otherwise does
      *         not allocate.
      */
-    private static MessagePassingQueue<WorkBatch> wrapIfNeeded(MessagePassingQueue<WorkBatch> queue,
-            Function<MessagePassingQueue<WorkBatch>, MessagePassingQueue<WorkBatch>> wrapperConstructor) {
-        requireNonNull(queue, "Queue must not be null");
+    private static Delegate wrapIfNeeded(MessagePassingQueue<WorkBatch> queue,
+            Function<MessagePassingQueue<WorkBatch>, Delegate> wrapperConstructor) {
+        requireNonNull(queue, "queue must not be null");
         requireNonNull(wrapperConstructor, "Wrapper constructor must not be null");
-        return isWrapped(queue) ? queue : wrapperConstructor.apply(queue);
+        return isWrapped(queue) ? (Delegate) queue : wrapperConstructor.apply(queue);
     }
 
     /**
@@ -518,7 +491,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new queue instance.
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
-    public static MessagePassingQueue<WorkBatch> newBoundedMpmc(int capacity) {
+    public static Delegate newBoundedMpmc(int capacity) {
         checkCapacity(capacity);
         return new BoundedMpmc(new MpmcArrayQueue<>(capacity));
     }
@@ -540,16 +513,16 @@ public final class JCToolsWrappers {
      * limit()} it to the desired {@code size} before
      * {@link Stream#collect(java.util.stream.Collector) collecting} it into an
      * {@link Collectors#toUnmodifiableList() unmodifiable list}. The call of
-     * {@code .collect(Collectors.toUnmodifiableList())} is less concise than {@code .toList()}, but
-     * it ensures that the returned list is an immutable, {@code null}-prohibiting list. This is
-     * important, as the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy
-     * constructor} calls {@link List#copyOf(Collection)} on the provided list of queues, which will
-     * incur an additional copy if the list is not {@code null}-prohibiting. By using
+     * {@code .collect(toUnmodifiableList())} is less concise than {@code .toList()}, but it ensures
+     * that the returned list is an immutable, {@code null}-prohibiting list. This is important, as
+     * the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy constructor} calls
+     * {@link List#copyOf(Collection)} on the provided list of queues, which will incur an
+     * additional copy if the list is not {@code null}-prohibiting. By using
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
      * 
-     * @param size     the number of bounded MPMC queues to create in the list.
-     * @param capacity the positive capacity of each bounded MPMC queue in the list.
+     * @param listSize      the number of bounded MPMC queues to create in the list.
+     * @param queueCapacity the positive capacity of each bounded MPMC queue in the list.
      * @return an unmodifiable list of new {@code MessagePassingQueue} instances wrapped in
      *         {@code BoundedMpmc} wrappers with the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
@@ -561,9 +534,9 @@ public final class JCToolsWrappers {
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
      */
-    public static List<MessagePassingQueue<WorkBatch>> newBoundedMpmcList(int size, int capacity) {
-        return Stream.generate(() -> newBoundedMpmc(capacity)).limit(size)
-                .collect(Collectors.toUnmodifiableList());
+    public static List<Delegate> newBoundedMpmcList(int listSize, int queueCapacity) {
+        return Stream.generate(() -> newBoundedMpmc(queueCapacity)).limit(listSize)
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -581,7 +554,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new queue instance.
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
-    public static MessagePassingQueue<WorkBatch> newBoundedMpsc(int capacity) {
+    public static Delegate newBoundedMpsc(int capacity) {
         checkCapacity(capacity);
         return new BoundedMpsc(new MpscArrayQueue<>(capacity));
     }
@@ -602,16 +575,16 @@ public final class JCToolsWrappers {
      * limit()} it to the desired {@code size} before
      * {@link Stream#collect(java.util.stream.Collector) collecting} it into an
      * {@link Collectors#toUnmodifiableList() unmodifiable list}. The call of
-     * {@code .collect(Collectors.toUnmodifiableList())} is less concise than {@code .toList()}, but
-     * it ensures that the returned list is an immutable, {@code null}-prohibiting list. This is
-     * important, as the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy
-     * constructor} calls {@link List#copyOf(Collection)} on the provided list of queues, which will
-     * incur an additional copy if the list is not {@code null}-prohibiting. By using
+     * {@code .collect(toUnmodifiableList())} is less concise than {@code .toList()}, but it ensures
+     * that the returned list is an immutable, {@code null}-prohibiting list. This is important, as
+     * the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy constructor} calls
+     * {@link List#copyOf(Collection)} on the provided list of queues, which will incur an
+     * additional copy if the list is not {@code null}-prohibiting. By using
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
      *
-     * @param size     the number of bounded MPSC queues to create in the list.
-     * @param capacity the positive capacity of each bounded MPSC queue in the list.
+     * @param listSize      the number of bounded MPSC queues to create in the list.
+     * @param queueCapacity the positive capacity of each bounded MPSC queue in the list.
      * @return an unmodifiable list of new bounded MPSC {@code MessagePassingQueue} instances with
      *         the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
@@ -627,9 +600,9 @@ public final class JCToolsWrappers {
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
      */
-    public static List<MessagePassingQueue<WorkBatch>> newBoundedMpscList(int size, int capacity) {
-        return Stream.generate(() -> newBoundedMpsc(capacity)).limit(size)
-                .collect(Collectors.toUnmodifiableList());
+    public static List<Delegate> newBoundedMpscList(int listSize, int queueCapacity) {
+        return Stream.generate(() -> newBoundedMpsc(queueCapacity)).limit(listSize)
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -650,7 +623,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new queue instance.
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
-    public static MessagePassingQueue<WorkBatch> newBoundedSpmc(int capacity) {
+    public static Delegate newBoundedSpmc(int capacity) {
         checkCapacity(capacity);
         return new BoundedSpmc(new SpmcArrayQueue<>(capacity));
     }
@@ -671,16 +644,16 @@ public final class JCToolsWrappers {
      * limit()} it to the desired {@code size} before
      * {@link Stream#collect(java.util.stream.Collector) collecting} it into an
      * {@link Collectors#toUnmodifiableList() unmodifiable list}. The call of
-     * {@code .collect(Collectors.toUnmodifiableList())} is less concise than {@code .toList()}, but
-     * it ensures that the returned list is an immutable, {@code null}-prohibiting list. This is
-     * important, as the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy
-     * constructor} calls {@link List#copyOf(Collection)} on the provided list of queues, which will
-     * incur an additional copy if the list is not {@code null}-prohibiting. By using
+     * {@code .collect(toUnmodifiableList())} is less concise than {@code .toList()}, but it ensures
+     * that the returned list is an immutable, {@code null}-prohibiting list. This is important, as
+     * the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy constructor} calls
+     * {@link List#copyOf(Collection)} on the provided list of queues, which will incur an
+     * additional copy if the list is not {@code null}-prohibiting. By using
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
      *
-     * @param size     the number of bounded SPMC queues to create in the list.
-     * @param capacity the positive capacity of each bounded SPMC queue in the list.
+     * @param listSize      the number of bounded SPMC queues to create in the list.
+     * @param queueCapacity the positive capacity of each bounded SPMC queue in the list.
      * @return an unmodifiable list of new bounded SPMC {@code MessagePassingQueue} instances with
      *         the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
@@ -696,9 +669,9 @@ public final class JCToolsWrappers {
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
      */
-    public static List<MessagePassingQueue<WorkBatch>> newBoundedSpmcList(int size, int capacity) {
-        return Stream.generate(() -> newBoundedSpmc(capacity)).limit(size)
-                .collect(Collectors.toUnmodifiableList());
+    public static List<Delegate> newBoundedSpmcList(int listSize, int queueCapacity) {
+        return Stream.generate(() -> newBoundedSpmc(queueCapacity)).limit(listSize)
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -719,7 +692,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of creating a new queue instance.
      * @memory Allocates a new wrapper object and a new underlying queue instance.
      */
-    public static MessagePassingQueue<WorkBatch> newBoundedSpsc(int capacity) {
+    public static Delegate newBoundedSpsc(int capacity) {
         checkCapacity(capacity);
         return new BoundedSpsc(new SpscArrayQueue<>(capacity));
     }
@@ -740,16 +713,16 @@ public final class JCToolsWrappers {
      * limit()} it to the desired {@code size} before
      * {@link Stream#collect(java.util.stream.Collector) collecting} it into an
      * {@link Collectors#toUnmodifiableList() unmodifiable list}. The call of
-     * {@code .collect(Collectors.toUnmodifiableList())} is less concise than {@code .toList()}, but
-     * it ensures that the returned list is an immutable, {@code null}-prohibiting list. This is
-     * important, as the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy
-     * constructor} calls {@link List#copyOf(Collection)} on the provided list of queues, which will
-     * incur an additional copy if the list is not {@code null}-prohibiting. By using
+     * {@code .collect(toUnmodifiableList())} is less concise than {@code .toList()}, but it ensures
+     * that the returned list is an immutable, {@code null}-prohibiting list. This is important, as
+     * the {@link JCToolsQueueStrategy#JCToolsQueueStrategy JCToolsQueueStrategy constructor} calls
+     * {@link List#copyOf(Collection)} on the provided list of queues, which will incur an
+     * additional copy if the list is not {@code null}-prohibiting. By using
      * {@code toUnmodifiableList()}, we can avoid this unnecessary copy and improve performance.
      * </p>
      *
-     * @param size     the number of bounded SPSC queues to create in the list.
-     * @param capacity the positive capacity of each bounded SPSC queue in the list.
+     * @param listSize      the number of bounded SPSC queues to create in the list.
+     * @param queueCapacity the positive capacity of each bounded SPSC queue in the list.
      * @return an unmodifiable list of new bounded SPSC {@code MessagePassingQueue} instances with
      *         the specified capacity.
      * @throws IllegalArgumentException if the provided {@code size} or {@code capacity} is
@@ -765,9 +738,9 @@ public final class JCToolsWrappers {
      * @memory Allocates a list of new wrapper objects and underlying queue instances for each queue
      *         in the list, along with an internal stream and collector for the generation process.
      */
-    public static List<MessagePassingQueue<WorkBatch>> newBoundedSpscList(int size, int capacity) {
-        return Stream.generate(() -> newBoundedSpsc(capacity)).limit(size)
-                .collect(Collectors.toUnmodifiableList());
+    public static List<Delegate> newBoundedSpscList(int listSize, int queueCapacity) {
+        return Stream.generate(() -> newBoundedSpsc(queueCapacity)).limit(listSize)
+                .collect(toUnmodifiableList());
     }
 
     /**
@@ -787,7 +760,7 @@ public final class JCToolsWrappers {
      * @threading Thread-safe by nature of being a stateless validation method.
      * @memory Does not allocate.
      */
-    private static void checkCapacity(int capacity) {
+    private static int checkCapacity(int capacity) {
         final int maxCapacity = 1 << 30; // Maximum power of two that an int can represent
 
         if (capacity <= 0) {
@@ -796,5 +769,6 @@ public final class JCToolsWrappers {
             throw new IllegalArgumentException(
                     "Capacity must not exceed " + maxCapacity + ": " + capacity);
         }
+        return capacity;
     }
 }

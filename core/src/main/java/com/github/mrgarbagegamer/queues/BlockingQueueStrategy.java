@@ -23,9 +23,11 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.Delegate;
 import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
+// TODO: Update Javadocs to reflect the new design.
 // TODO: Write unit tests for the class.
 /**
  * A {@link QueueStrategy} implementation that uses {@link BlockingQueue}s for communication between
@@ -359,13 +361,11 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * @threading Thread-safe by nature of construction.
      * @memory Allocates new lists for the queues (and potential streams for validation).
      */
-    @SuppressWarnings("unchecked")
-    public BlockingQueueStrategy(List<? extends BlockingQueue<WorkBatch>> gtmQueues,
-            List<? extends BlockingQueue<WorkBatch>> mtgQueues, SolverConfiguration config,
-            QueueSelector<? extends BlockingQueue<WorkBatch>> generatorPollSelector,
-            QueueSelector<? extends BlockingQueue<WorkBatch>> generatorOfferSelector,
-            QueueSelector<? extends BlockingQueue<WorkBatch>> monkeyPollSelector,
-            QueueSelector<? extends BlockingQueue<WorkBatch>> monkeyOfferSelector,
+    public BlockingQueueStrategy(List<Delegate> gtmQueues, List<Delegate> mtgQueues,
+            SolverConfiguration config, QueueSelector<? super Delegate> generatorPollSelector,
+            QueueSelector<? super Delegate> generatorOfferSelector,
+            QueueSelector<? super Delegate> monkeyPollSelector,
+            QueueSelector<? super Delegate> monkeyOfferSelector,
             BackoffStrategy generatorBackoffStrategy, BackoffStrategy monkeyBackoffStrategy,
             BooleanSupplier generatorShouldContinue, BooleanSupplier monkeyShouldContinue) {
         final int generatorCount = config.numThreads() / 2;
@@ -376,12 +376,21 @@ public class BlockingQueueStrategy implements QueueStrategy {
                 monkeyPollSelector, monkeyOfferSelector, standardQueueSize, generatorCount,
                 monkeyCount);
 
+        @SuppressWarnings("unchecked")
+        final var gps = (QueueSelector<BlockingQueue<WorkBatch>>) generatorPollSelector;
+        @SuppressWarnings("unchecked")
+        final var gos = (QueueSelector<BlockingQueue<WorkBatch>>) generatorOfferSelector;
+        @SuppressWarnings("unchecked")
+        final var mps = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyPollSelector;
+        @SuppressWarnings("unchecked")
+        final var mos = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyOfferSelector;
+
         this.gtmQueues = List.copyOf(gtmQueues);
         this.mtgQueues = List.copyOf(mtgQueues);
-        this.generatorPollSelector = (QueueSelector<BlockingQueue<WorkBatch>>) generatorPollSelector;
-        this.generatorOfferSelector = (QueueSelector<BlockingQueue<WorkBatch>>) generatorOfferSelector;
-        this.monkeyPollSelector = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyPollSelector;
-        this.monkeyOfferSelector = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyOfferSelector;
+        this.generatorPollSelector = gps;
+        this.generatorOfferSelector = gos;
+        this.monkeyPollSelector = mps;
+        this.monkeyOfferSelector = mos;
         this.generatorBackoff = generatorBackoffStrategy;
         this.monkeyBackoff = monkeyBackoffStrategy;
 
@@ -497,8 +506,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy singleSingle(
             Q gtmQueue, Q mtgQueue, SolverConfiguration config, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final BlockingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
-        final List<BlockingQueue<WorkBatch>> wrappedMtgQueues = List.of(wrap(mtgQueue));
+        final Delegate wrappedGtmQueue = wrap(gtmQueue);
+        final List<Delegate> wrappedMtgQueues = List.of(wrap(mtgQueue));
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
                 wrappedGtmQueue);
@@ -672,19 +681,24 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *         normal operation after construction.
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy singleMulti(Q gtmQueue,
-            List<? extends Q> mtgQueues, SolverConfiguration config,
-            QueueSelector<? extends Q> generatorPollSelector,
-            QueueSelector<? extends Q> monkeyOfferSelector, BackoffStrategy generatorBackoff,
+            List<Q> mtgQueues, SolverConfiguration config,
+            QueueSelector<? super Q> generatorPollSelector,
+            QueueSelector<? super Q> monkeyOfferSelector, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final BlockingQueue<WorkBatch> wrappedGtmQueue = wrap(gtmQueue);
-        final List<BlockingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final Delegate wrappedGtmQueue = wrap(gtmQueue);
+        final List<Delegate> wrappedMtgQueues = wrapAll(mtgQueues);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
                 wrappedGtmQueue);
 
-        return new BlockingQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
-                generatorPollSelector, EXCLUSIVE, EXCLUSIVE, monkeyOfferSelector, generatorBackoff,
-                monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
+        @SuppressWarnings("unchecked")
+        final var gps = (QueueSelector<BlockingQueue<WorkBatch>>) generatorPollSelector;
+        @SuppressWarnings("unchecked")
+        final var mos = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyOfferSelector;
+
+        return new BlockingQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config, gps,
+                EXCLUSIVE, EXCLUSIVE, mos, generatorBackoff, monkeyBackoff, generatorShouldContinue,
+                monkeyShouldContinue);
     }
 
     /**
@@ -721,7 +735,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *         normal operation after construction.
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy singleMulti(Q gtmQueue,
-            List<? extends Q> mtgQueues, SolverConfiguration config, SolverState solverState) {
+            List<Q> mtgQueues, SolverConfiguration config, SolverState solverState) {
         return singleMulti(gtmQueue, mtgQueues, config, PREFERRED, PREFERRED, DEFAULT_BACKOFF,
                 DEFAULT_BACKOFF, solverState);
     }
@@ -762,8 +776,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
         // The gtmQueue should have a capacity equal to the total capacity of the mtgQueues (the
         // passed queueSize) to ensure that the in-flight batch limit is consistent.
         final int numMonkeys = config.numThreads() / 2;
-        final BlockingQueue<WorkBatch> gtmQueue = newBoundedMpmc(queueSize * numMonkeys);
-        final List<BlockingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(numMonkeys, queueSize);
+        final Delegate gtmQueue = newBoundedMpmc(queueSize * numMonkeys);
+        final List<Delegate> mtgQueues = newBoundedSpscList(numMonkeys, queueSize);
         return singleMulti(gtmQueue, mtgQueues, config, solverState);
     }
 
@@ -862,19 +876,24 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *         normal operation after construction.
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy multiSingle(
-            List<? extends Q> gtmQueues, Q mtgQueue, SolverConfiguration config,
-            QueueSelector<? extends Q> generatorOfferSelector,
-            QueueSelector<? extends Q> monkeyPollSelector, BackoffStrategy generatorBackoff,
+            List<Q> gtmQueues, Q mtgQueue, SolverConfiguration config,
+            QueueSelector<? super Q> generatorOfferSelector,
+            QueueSelector<? super Q> monkeyPollSelector, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final List<BlockingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
-        final BlockingQueue<WorkBatch> wrappedMtgQueue = wrap(mtgQueue);
+        final List<Delegate> wrappedGtmQueues = wrapAll(gtmQueues);
+        final Delegate wrappedMtgQueue = wrap(mtgQueue);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
                 wrappedGtmQueues);
 
+        @SuppressWarnings("unchecked")
+        final var gos = (QueueSelector<BlockingQueue<WorkBatch>>) generatorOfferSelector;
+        @SuppressWarnings("unchecked")
+        final var mps = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyPollSelector;
+
         return new BlockingQueueStrategy(wrappedGtmQueues, List.of(wrappedMtgQueue), config,
-                EXCLUSIVE, generatorOfferSelector, monkeyPollSelector, EXCLUSIVE, generatorBackoff,
-                monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
+                EXCLUSIVE, gos, mps, EXCLUSIVE, generatorBackoff, monkeyBackoff,
+                generatorShouldContinue, monkeyShouldContinue);
     }
 
     /**
@@ -912,8 +931,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *         normal operation after construction.
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy multiSingle(
-            List<? extends Q> gtmQueues, Q mtgQueue, SolverConfiguration config,
-            SolverState solverState) {
+            List<Q> gtmQueues, Q mtgQueue, SolverConfiguration config, SolverState solverState) {
         return multiSingle(gtmQueues, mtgQueue, config, PREFERRED, PREFERRED, DEFAULT_BACKOFF,
                 DEFAULT_BACKOFF, solverState);
     }
@@ -952,9 +970,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
     public static BlockingQueueStrategy multiSingle(SolverConfiguration config, int queueSize,
             SolverState solverState) {
         final int numGenerators = config.numThreads() / 2;
-        final List<BlockingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(numGenerators,
-                queueSize);
-        final BlockingQueue<WorkBatch> mtgQueue = newBoundedMpmc(numGenerators);
+        final List<Delegate> gtmQueues = newBoundedSpscList(numGenerators, queueSize);
+        final Delegate mtgQueue = newBoundedMpmc(numGenerators);
         return multiSingle(gtmQueues, mtgQueue, config, solverState);
     }
 
@@ -1058,21 +1075,29 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *         normal operation after construction.
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy multiMulti(
-            List<? extends Q> gtmQueues, List<? extends Q> mtgQueues, SolverConfiguration config,
-            QueueSelector<? extends Q> generatorPollSelector,
-            QueueSelector<? extends Q> generatorOfferSelector,
-            QueueSelector<? extends Q> monkeyPollSelector,
-            QueueSelector<? extends Q> monkeyOfferSelector, BackoffStrategy generatorBackoff,
+            List<Q> gtmQueues, List<Q> mtgQueues, SolverConfiguration config,
+            QueueSelector<? super Q> generatorPollSelector,
+            QueueSelector<? super Q> generatorOfferSelector,
+            QueueSelector<? super Q> monkeyPollSelector,
+            QueueSelector<? super Q> monkeyOfferSelector, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final List<BlockingQueue<WorkBatch>> wrappedGtmQueues = wrapAll(gtmQueues);
-        final List<BlockingQueue<WorkBatch>> wrappedMtgQueues = wrapAll(mtgQueues);
+        final List<Delegate> wrappedGtmQueues = wrapAll(gtmQueues);
+        final List<Delegate> wrappedMtgQueues = wrapAll(mtgQueues);
         final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
         final BooleanSupplier monkeyShouldContinue = forMonkeyBlocking(solverState,
                 wrappedGtmQueues);
 
-        return new BlockingQueueStrategy(wrappedGtmQueues, wrappedMtgQueues, config,
-                generatorPollSelector, generatorOfferSelector, monkeyPollSelector,
-                monkeyOfferSelector, generatorBackoff, monkeyBackoff, generatorShouldContinue,
+        @SuppressWarnings("unchecked")
+        final var gps = (QueueSelector<BlockingQueue<WorkBatch>>) generatorPollSelector;
+        @SuppressWarnings("unchecked")
+        final var gos = (QueueSelector<BlockingQueue<WorkBatch>>) generatorOfferSelector;
+        @SuppressWarnings("unchecked")
+        final var mps = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyPollSelector;
+        @SuppressWarnings("unchecked")
+        final var mos = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyOfferSelector;
+
+        return new BlockingQueueStrategy(wrappedGtmQueues, wrappedMtgQueues, config, gps, gos, mps,
+                mos, generatorBackoff, monkeyBackoff, generatorShouldContinue,
                 monkeyShouldContinue);
     }
 
@@ -1108,7 +1133,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      *         normal operation after construction.
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy multiMulti(
-            List<? extends Q> gtmQueues, List<? extends Q> mtgQueues, SolverConfiguration config,
+            List<Q> gtmQueues, List<Q> mtgQueues, SolverConfiguration config,
             SolverState solverState) {
         return multiMulti(gtmQueues, mtgQueues, config, PREFERRED, PREFERRED, PREFERRED, PREFERRED,
                 DEFAULT_BACKOFF, DEFAULT_BACKOFF, solverState);
@@ -1143,10 +1168,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
     public static BlockingQueueStrategy multiMulti(SolverConfiguration config, int queueSize,
             SolverState solverState) {
         final int numGenerators = config.numThreads() / 2;
-        final List<BlockingQueue<WorkBatch>> gtmQueues = newBoundedSpscList(numGenerators,
-                queueSize);
-        final List<BlockingQueue<WorkBatch>> mtgQueues = newBoundedSpscList(numGenerators,
-                queueSize);
+        final List<Delegate> gtmQueues = newBoundedSpscList(numGenerators, queueSize);
+        final List<Delegate> mtgQueues = newBoundedSpscList(numGenerators, queueSize);
         return multiMulti(gtmQueues, mtgQueues, config, solverState);
     }
 

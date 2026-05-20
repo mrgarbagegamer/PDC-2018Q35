@@ -11,7 +11,7 @@ import org.jctools.queues.MessagePassingQueue;
 import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
 
 /**
  * A utility class providing common {@link QueueSelector} implementations for different queue types.
@@ -544,7 +544,7 @@ public final class QueueSelectors {
                     BooleanSupplier shouldContinue) {
                 return PREFERRED.offer(batch, 0, queues, backoff, shouldContinue);
             }
-        }
+        };
     }
 
     /**

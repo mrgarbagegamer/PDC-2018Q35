@@ -1,12 +1,14 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
-import java.util.function.Predicate;
 
 import org.jctools.queues.MessagePassingQueue;
 
@@ -17,17 +19,14 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPMC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.MPSC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.SPMC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.AccessMode.SPSC;
-import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness;
-import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness.Bounded;
-import com.github.mrgarbagegamer.queues.QueueMarkers.Boundedness.Unbounded;
+import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
 import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors;
 
+// TODO: Replace Javadocs mentioning the old marker interface system with references to the new
+// QueueMetadataProvider interface and its methods.
+// TODO: Fix Javadocs for the validation methods to reflect new validation logic.
 // TODO: Write unit tests for the class.
 
 /**
@@ -203,16 +202,16 @@ public final class QueueUtils {
          * @threading Not thread-safe.
          * @memory Allocates temporary objects during validation for stream operations.
          */
-        public static <Q extends MessagePassingQueue<WorkBatch>> void requireValidArguments(
-                List<? extends Q> gtmQueues, List<? extends Q> mtgQueues,
-                QueueSelector<? extends Q> generatorPollSelector,
-                QueueSelector<? extends Q> generatorOfferSelector,
-                QueueSelector<? extends Q> monkeyPollSelector,
-                QueueSelector<? extends Q> monkeyOfferSelector, int queueSize, int generatorCount,
+        public static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> void requireValidArguments(
+                List<Q> gtmQueues, List<Q> mtgQueues,
+                QueueSelector<? super Q> generatorPollSelector,
+                QueueSelector<? super Q> generatorOfferSelector,
+                QueueSelector<? super Q> monkeyPollSelector,
+                QueueSelector<? super Q> monkeyOfferSelector, int queueSize, int generatorCount,
                 int monkeyCount) {
             QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, queueSize,
-                    generatorCount, monkeyCount, JCTOOLS_OPS);
+                    generatorCount, monkeyCount, JCToolsOps.of());
         }
 
         /**
@@ -239,9 +238,9 @@ public final class QueueUtils {
          * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in
          *         {@code mtgQueues}.
          */
-        public static void preallocateInto(List<? extends MessagePassingQueue<WorkBatch>> mtgQueues,
-                int batchesPerQueue, SolverConfiguration config) {
-            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config, JCTOOLS_OPS);
+        public static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
+                List<Q> mtgQueues, int batchesPerQueue, SolverConfiguration config) {
+            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config, JCToolsOps.of());
         }
 
         /**
@@ -267,8 +266,8 @@ public final class QueueUtils {
          * @memory Allocates {@code capacity} {@code WorkBatch}es per queue in {@code mtgQueues},
          *         where capacity is derived from the first queue.
          */
-        public static void preallocateInto(List<? extends MessagePassingQueue<WorkBatch>> mtgQueues,
-                SolverConfiguration config) {
+        public static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
+                List<Q> mtgQueues, SolverConfiguration config) {
             requireNotEmptyOrNull(mtgQueues, "mtg");
             preallocateInto(mtgQueues, mtgQueues.getFirst().capacity(), config);
         }
@@ -361,16 +360,16 @@ public final class QueueUtils {
          * @threading Not thread-safe.
          * @memory Allocates temporary objects during validation for stream operations.
          */
-        public static <Q extends BlockingQueue<WorkBatch>> void requireValidArguments(
-                List<? extends Q> gtmQueues, List<? extends Q> mtgQueues,
-                QueueSelector<? extends Q> generatorPollSelector,
-                QueueSelector<? extends Q> generatorOfferSelector,
-                QueueSelector<? extends Q> monkeyPollSelector,
-                QueueSelector<? extends Q> monkeyOfferSelector, int queueSize, int generatorCount,
+        public static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> void requireValidArguments(
+                List<Q> gtmQueues, List<Q> mtgQueues,
+                QueueSelector<? super Q> generatorPollSelector,
+                QueueSelector<? super Q> generatorOfferSelector,
+                QueueSelector<? super Q> monkeyPollSelector,
+                QueueSelector<? super Q> monkeyOfferSelector, int queueSize, int generatorCount,
                 int monkeyCount) {
             QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, queueSize,
-                    generatorCount, monkeyCount, BLOCKING_OPS);
+                    generatorCount, monkeyCount, BlockingOps.of());
         }
 
         /**
@@ -397,9 +396,9 @@ public final class QueueUtils {
          * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in
          *         {@code mtgQueues}.
          */
-        public static void preallocateInto(List<? extends BlockingQueue<WorkBatch>> mtgQueues,
-                int batchesPerQueue, SolverConfiguration config) {
-            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config, BLOCKING_OPS);
+        public static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
+                List<Q> mtgQueues, int batchesPerQueue, SolverConfiguration config) {
+            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config, BlockingOps.of());
         }
 
         /**
@@ -425,297 +424,11 @@ public final class QueueUtils {
          * @memory Allocates {@code capacity} {@code WorkBatch}es per queue in {@code mtgQueues},
          *         where capacity is derived from the first queue.
          */
-        public static void preallocateInto(List<? extends BlockingQueue<WorkBatch>> mtgQueues,
-                SolverConfiguration config) {
+        public static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
+                List<Q> mtgQueues, SolverConfiguration config) {
             requireNotEmptyOrNull(mtgQueues, "mtg");
-            final int batchesPerQueue = BLOCKING_OPS.capacityOf(mtgQueues.getFirst());
+            final int batchesPerQueue = mtgQueues.getFirst().capacity();
             preallocateInto(mtgQueues, batchesPerQueue, config);
-        }
-    }
-
-    /**
-     * Determines if a queue supports only single-producer access.
-     * 
-     * @param queue the queue to check
-     * @return {@code true} if the queue supports only single-producer access, {@code false}
-     *         otherwise
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} check.
-     * @threading Thread-safe.
-     * @memory Does not allocate.
-     */
-    private static boolean isSingleProducerQueue(Object queue) {
-        return queue instanceof AccessMode mode && mode.isSingleProducer();
-    }
-
-    /**
-     * Determines if a queue supports only single-consumer access.
-     * 
-     * @param queue the queue to check
-     * @return {@code true} if the queue supports only single-consumer access, {@code false}
-     *         otherwise
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} check.
-     * @threading Thread-safe.
-     * @memory Does not allocate.
-     */
-    private static boolean isSingleConsumerQueue(Object queue) {
-        return queue instanceof AccessMode mode && mode.isSingleConsumer();
-    }
-
-    /**
-     * Determines if a queue is bounded (has fixed capacity).
-     * 
-     * <p>
-     * This method checks boundedness by:
-     * <ul>
-     * <li>First checking if the queue implements {@link Boundedness.Bounded} directly</li>
-     * <li>Then checking if it's a {@link MessagePassingQueue} with bounded capacity</li>
-     * <li>Finally checking if it's a {@link BlockingQueue} with bounded capacity</li>
-     * </ul>
-     * </p>
-     * 
-     * @param queue the queue to check
-     * @return {@code true} if the queue is bounded, {@code false} otherwise
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} check.
-     * @threading Thread-safe.
-     * @memory Does not allocate.
-     */
-    private static boolean isBoundedQueue(Object queue) {
-        if (queue instanceof Boundedness b) {
-            return b.isBounded();
-        }
-        if (queue instanceof MessagePassingQueue<?> mpq) {
-            return mpq.capacity() != MessagePassingQueue.UNBOUNDED_CAPACITY;
-        }
-        if (queue instanceof BlockingQueue<?> bq) {
-            return bq.remainingCapacity() != Integer.MAX_VALUE;
-        }
-        return false;
-    }
-
-    /**
-     * Validates that the provided prefix is not {@code null}. This is internally used by the
-     * validation methods to ensure that the prefix used in exception messages is not itself
-     * {@code null}, which would cause a {@link NullPointerException} when constructing the
-     * exception messages and obscure the original validation failure.
-     * 
-     * @param prefix the prefix to validate
-     * @return the validated prefix if it is not {@code null}
-     * @throws NullPointerException if {@code prefix} is {@code null}
-     * @see #requireNotEmptyOrNull(List, String)
-     * @see Objects#requireNonNull(Object, String)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} validation.
-     * @threading Thread-safe as it does not modify any shared state.
-     * @memory Does not allocate.
-     */
-    private static String requirePrefixNonNull(String prefix) {
-        return requireNonNull(prefix, "prefix must not be null");
-    }
-
-    /**
-     * Creates a standardized name for a list of queues based on the provided prefix, in the form of
-     * "{prefix}Queues". This is used for constructing consistent and informative exception messages
-     * during validation.
-     * 
-     * @param prefix the prefix to use in the list name
-     * @return a standardized name for a list of queues based on the provided prefix
-     * @see #elementName(String)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} string concatenation.
-     * @threading Thread-safe as it does not modify any shared state.
-     * @memory Allocates a new string for the list name (and an implicit {@link StringBuilder} for
-     *         concatenation).
-     */
-    private static String listName(String prefix) {
-        // Dear compiler: Please allocate the StringBuilder needed for this concatenation on the
-        // stack and not on the heap to save an intermediate allocation. Thanks, - me.
-        return requirePrefixNonNull(prefix) + "Queues";
-    }
-
-    /**
-     * Creates a standardized name for an individual queue element based on the provided prefix, in
-     * the form of "{prefix}Queue". This is used for constructing consistent and informative
-     * exception messages during validation.
-     * 
-     * @param prefix the prefix to use in the element name
-     * @return a standardized name for an individual queue element based on the provided prefix
-     * @see #listName(String)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} string concatenation.
-     * @threading Thread-safe as it does not modify any shared state.
-     * @memory Allocates a new string for the element name (and an implicit {@link StringBuilder}
-     *         for concatenation).
-     */
-    private static String elementName(String prefix) {
-        // Dear compiler: Please allocate the StringBuilder needed for this concatenation on the
-        // stack and not on the heap to save an intermediate allocation. Thanks, - me.
-        return requirePrefixNonNull(prefix) + "Queue";
-    }
-
-    /**
-     * Validates that the provided list of queues is not {@code null}, empty, or containing any
-     * {@code null} elements. This is a common validation step for both the
-     * {@link CombinationGeneratorTask generator}-to-{@link TestClickCombination monkey} and
-     * monkey-to-generator queue lists, so it is extracted into a shared method to avoid code
-     * duplication.
-     * 
-     * @param <Q>    the type of queue
-     * @param queues the list of queues to validate
-     * @param prefix the prefix to use in exception messages for this list of queues
-     * @throws NullPointerException     if {@code queues} is {@code null} or contains any
-     *                                  {@code null} elements, or if {@code prefix} is {@code null}
-     * @throws IllegalArgumentException if {@code queues} is empty
-     * @see #requirePrefixNonNull(String)
-     * @see Objects#requireNonNull(Object, String)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(queues.size())} validation.
-     * @threading Not thread-safe.
-     * @memory Allocates temporary objects during validation for stream operations.
-     */
-    private static <Q> List<Q> requireNotEmptyOrNull(List<Q> queues, String prefix) {
-        final String listName = listName(prefix);
-        requireNonNull(queues, listName + " must not be null");
-
-        if (queues.isEmpty()) {
-            throw new IllegalArgumentException(listName + " must not be empty");
-        } else if (queues.stream().anyMatch(Objects::isNull)) {
-            throw new NullPointerException(listName + " must not contain null elements");
-        } else {
-            return queues;
-        }
-    }
-
-    /**
-     * Validates that there is no overlap between the two provided lists of queues. Since the
-     * architecture of the solver relies on a strict separation between the directions of queue
-     * access, any overlap between the {@link CombinationGeneratorTask
-     * generator}-to-{@link TestClickCombination monkey} queues and monkey-to-generator queues would
-     * lead to subtle bugs and performance issues from unintended access patterns.
-     * 
-     * @param <Q>     the type of queue
-     * @param a       the first list of queues to check for overlap
-     * @param aPrefix the prefix to use in exception messages for the first list of queues
-     * @param b       the second list of queues to check for overlap
-     * @param bPrefix the prefix to use in exception messages for the second list of queues
-     * @throws NullPointerException     if either list is {@code null}, or if either prefix is
-     *                                  {@code null}
-     * @throws IllegalArgumentException if there is any overlap between the two lists of queues
-     * @see #requirePrefixNonNull(String)
-     * @see Collections#disjoint(java.util.Collection, java.util.Collection)
-     *      Collections.disjoint(Collection, Collection)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(a.size() * b.size())} worst case validation if there is no overlap.
-     * @threading Not thread-safe.
-     * @memory Does not allocate.
-     */
-    private static <Q> void requireNoOverlap(List<? extends Q> a, String aPrefix,
-            List<? extends Q> b, String bPrefix) {
-        if (!Collections.disjoint(a, b)) {
-            throw new IllegalArgumentException(listName(aPrefix) + " and " + listName(bPrefix)
-                    + " must not contain overlapping queues");
-        }
-    }
-
-    /**
-     * Validates that the provided list of queues does not contain any duplicate queues. For
-     * simplicity in method size, we use {@link java.util.stream.Stream#distinct() stream
-     * operations} to check for duplicates, at the cost of intermediate allocations.
-     * 
-     * @param <Q>    the type of queue
-     * @param queues the list of queues to check for duplicates
-     * @param prefix the prefix to use in exception messages for this list of queues
-     * @throws NullPointerException     if {@code queues} is {@code null}, or if {@code prefix} is
-     *                                  {@code null}
-     * @throws IllegalArgumentException if there are any duplicate queues in the list
-     * @see #requirePrefixNonNull(String)
-     * @see java.util.Collection#stream() Collection.stream()
-     * @see java.util.stream.Stream#count() Stream.count()
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(queues.size())} validation with intermediate allocations for stream
-     *              operations.
-     * @threading Not thread-safe.
-     * @memory Allocates temporary objects during validation for stream operations.
-     */
-    private static <Q> void requireNoDuplicates(List<Q> queues, String prefix) {
-        if (queues.size() != queues.stream().distinct().count()) {
-            throw new IllegalArgumentException(
-                    listName(prefix) + " must not contain duplicate queues");
-        }
-    }
-
-    /**
-     * Validates that the provided count matches the size of the list of queues.
-     * 
-     * @param <Q>          the type of queue
-     * @param queues       the list of queues to check the size of
-     * @param count        the expected count of queues
-     * @param prefix       the prefix to use in exception messages for this list of queues
-     * @param selectorName the name of the {@link QueueSelector selector} for which this validation
-     *                     is being performed, used in exception messages
-     * @param role         the role (e.g., "producer" or "consumer") associated with this count,
-     *                     used in exception messages
-     * @throws NullPointerException     if {@code queues} is {@code null}, or if {@code prefix} or
-     *                                  {@code selectorName} or {@code role} is {@code null}
-     * @throws IllegalArgumentException if {@code count} does not equal the size of {@code queues}
-     * @see #requirePrefixNonNull(String)
-     * @see Objects#requireNonNull(Object, String)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} validation.
-     * @threading Not thread-safe.
-     * @memory Does not allocate.
-     */
-    private static <Q> void requireCountEqualsSize(List<Q> queues, int count, String prefix,
-            String selectorName, String role) {
-        if (count != queues.size()) {
-            throw new IllegalArgumentException(role + " count must equal queue count for "
-                    + listName(prefix) + " in " + selectorName + " selector");
-        }
-    }
-
-    /**
-     * Validates that there is exactly one queue in the provided list, and that it supports
-     * multi-access for the given role.
-     * 
-     * @param <Q>            the type of queue
-     * @param queues         the list of queues to validate for exclusive {@link QueueSelector
-     *                       selector} requirements
-     * @param prefix         the prefix to use in exception messages for this list of queues
-     * @param threadCount    the number of threads associated with the role for which this
-     *                       validation is being performed
-     * @param isSingleAccess the {@link Predicate} to check if a queue supports single-access for
-     *                       the given role
-     * @param role           the role (e.g., "producer" or "consumer") associated with this
-     *                       validation, used in exception messages
-     * @throws NullPointerException     if {@code queues} is {@code null}, or if {@code prefix} or
-     *                                  {@code role} is {@code null}
-     * @throws IllegalArgumentException if {@code queues} does not contain exactly one queue, or if
-     *                                  the single queue does not support multi-access for the given
-     *                                  role when there are multiple threads of that role.
-     * @see #requirePrefixNonNull(String)
-     * @see Objects#requireNonNull(Object, String)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} validation.
-     * @threading Not thread-safe.
-     * @memory Does not allocate.
-     */
-    private static <Q> void requireExclusiveSelector(List<Q> queues, String prefix, int threadCount,
-            Predicate<? super Q> isSingleAccess, String role) {
-        final String listName = listName(prefix);
-
-        if (queues.size() != 1) {
-            throw new IllegalArgumentException(
-                    listName + " must contain exactly one queue for exclusive selector");
-        }
-
-        // The queue must be able to handle multiple threads of the given role, unless there is
-        // only one thread of that role.
-        final Q queue = queues.getFirst();
-        if (threadCount > 1 && isSingleAccess.test(queue)) {
-            throw new IllegalArgumentException(
-                    listName + " must support multiple " + role + " for exclusive selector");
         }
     }
 
@@ -818,12 +531,12 @@ public final class QueueUtils {
      * @threading Not thread-safe.
      * @memory Allocates temporary objects during validation for stream operations.
      */
-    private static <Q> void requireValidArguments(List<? extends Q> gtmQueues,
-            List<? extends Q> mtgQueues, QueueSelector<? extends Q> generatorPollSelector,
-            QueueSelector<? extends Q> generatorOfferSelector,
-            QueueSelector<? extends Q> monkeyPollSelector,
-            QueueSelector<? extends Q> monkeyOfferSelector, int queueSize, int generatorCount,
-            int monkeyCount, QueueOps<Q> ops) {
+    private static <Q extends QueueMetadataProvider> void requireValidArguments(List<Q> gtmQueues,
+            List<Q> mtgQueues, QueueSelector<? super Q> generatorPollSelector,
+            QueueSelector<? super Q> generatorOfferSelector,
+            QueueSelector<? super Q> monkeyPollSelector,
+            QueueSelector<? super Q> monkeyOfferSelector, int queueSize, int generatorCount,
+            int monkeyCount, QueueOps<? super Q> ops) {
 
         validateCountsAndSize(queueSize, generatorCount, monkeyCount);
 
@@ -852,13 +565,20 @@ public final class QueueUtils {
 
         // Validate that the selectors' requirements are compatible with the queue configurations
         // and thread counts
-        requireNonNull(ops);
-        ops.dispatchConsumerSelectorRequirement(mtgQueues, generatorPollSelector, "mtg",
+        requireNonNull(ops, "ops must not be null");
+
+        @SuppressWarnings("unchecked")
+        QueueOps<Q> typedOps = (QueueOps<Q>) ops; // Safe cast since we only call type-compatible
+                                                  // methods on ops below
+
+        typedOps.dispatchConsumerSelectorRequirement(mtgQueues, generatorPollSelector, "mtg",
                 generatorCount);
-        ops.dispatchProducerSelectorRequirement(gtmQueues, generatorOfferSelector, "gtm",
+        typedOps.dispatchProducerSelectorRequirement(gtmQueues, generatorOfferSelector, "gtm",
                 generatorCount);
-        ops.dispatchConsumerSelectorRequirement(gtmQueues, monkeyPollSelector, "gtm", monkeyCount);
-        ops.dispatchProducerSelectorRequirement(mtgQueues, monkeyOfferSelector, "mtg", monkeyCount);
+        typedOps.dispatchConsumerSelectorRequirement(gtmQueues, monkeyPollSelector, "gtm",
+                monkeyCount);
+        typedOps.dispatchProducerSelectorRequirement(mtgQueues, monkeyOfferSelector, "mtg",
+                monkeyCount);
     }
 
     /**
@@ -899,11 +619,44 @@ public final class QueueUtils {
     }
 
     /**
+     * Validates that the provided list of queues is not {@code null}, empty, or containing any
+     * {@code null} elements. This is a common validation step for both the
+     * {@link CombinationGeneratorTask generator}-to-{@link TestClickCombination monkey} and
+     * monkey-to-generator queue lists, so it is extracted into a shared method to avoid code
+     * duplication.
+     * 
+     * @param <Q>    the type of queue
+     * @param queues the list of queues to validate
+     * @param prefix the prefix to use in exception messages for this list of queues
+     * @throws NullPointerException     if {@code queues} is {@code null} or contains any
+     *                                  {@code null} elements, or if {@code prefix} is {@code null}
+     * @throws IllegalArgumentException if {@code queues} is empty
+     * @see #requirePrefixNonNull(String)
+     * @see Objects#requireNonNull(Object, String)
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(queues.size())} validation.
+     * @threading Not thread-safe.
+     * @memory Allocates temporary objects during validation for stream operations.
+     */
+    private static <Q> List<Q> requireNotEmptyOrNull(List<Q> queues, String prefix) {
+        final String listName = listName(prefix);
+        requireNonNull(queues, listName + " must not be null");
+
+        if (queues.isEmpty()) {
+            throw new IllegalArgumentException(listName + " must not be empty");
+        } else if (queues.stream().anyMatch(Objects::isNull)) {
+            throw new NullPointerException(listName + " must not contain null elements");
+        } else {
+            return queues;
+        }
+    }
+
+    /**
      * Validates that the provided list of queues meets the following criteria:
      * <ul>
      * <li>{@link #requireNoDuplicates(List, String) No duplicate queues}</li>
      * <li>{@link QueueOps#requireWrapped(List, String) Proper wrapping}</li>
-     * <li>{@link #requireProperlyMarked(List, String) Proper marker interfaces}</li>
+     * <li>{@link #requireConsistentMetadata(List, String) Proper marker interfaces}</li>
      * <li>{@link QueueOps#isCapacityAcceptable Acceptable} capacity if {@link Boundedness.Bounded
      * bounded}, based on the expected capacity and queue type</li>
      * <li>{@link QueueOps#isEmpty(Object)} at initialization</li>
@@ -925,8 +678,8 @@ public final class QueueUtils {
      * @threading Not thread-safe.
      * @memory Allocates temporary objects during validation for stream operations.
      */
-    private static <Q> void requireValidQueueList(List<? extends Q> queues, String prefix,
-            int expectedCapacity, QueueOps<Q> ops) {
+    private static <Q extends QueueMetadataProvider> void requireValidQueueList(List<Q> queues,
+            String prefix, int expectedCapacity, QueueOps<? super Q> ops) {
         requirePrefixNonNull(prefix);
 
         final String listName = listName(prefix);
@@ -935,9 +688,8 @@ public final class QueueUtils {
         // Check for duplicates.
         requireNoDuplicates(queues, prefix);
 
-        // Check for proper wrapping and marker interfaces.
-        ops.requireWrapped(queues, listName);
-        requireProperlyMarked(queues, listName);
+        // Check for proper marker interfaces.
+        requireConsistentMetadata(queues, listName);
 
         // Find the normalized capacity based on the expected capacity and queue type.
         final int normalizedCapacity = ops.normalizeCapacity(expectedCapacity);
@@ -945,8 +697,8 @@ public final class QueueUtils {
         // Ensure that each queue is empty and has an acceptable capacity if bounded.
         for (int i = 0; i < queues.size(); i++) {
             final Q queue = queues.get(i);
-            if (ops.isBounded(queue)) {
-                final int actualCapacity = ops.capacityOf(queue);
+            if (queue.boundedness().isBounded()) {
+                final int actualCapacity = queue.capacity();
                 if (!ops.isCapacityAcceptable(actualCapacity, normalizedCapacity)) {
                     throw new IllegalArgumentException(elementName + " capacity at index " + i
                             + " must be " + normalizedCapacity + ", but was " + actualCapacity);
@@ -956,6 +708,114 @@ public final class QueueUtils {
                 throw new IllegalArgumentException(
                         elementName + " at index " + i + " must be empty at initialization");
             }
+        }
+    }
+
+    /**
+     * Validates that the provided list of queues does not contain any duplicate queues. For
+     * simplicity in method size, we use {@link java.util.stream.Stream#distinct() stream
+     * operations} to check for duplicates, at the cost of intermediate allocations.
+     * 
+     * @param <Q>    the type of queue
+     * @param queues the list of queues to check for duplicates
+     * @param prefix the prefix to use in exception messages for this list of queues
+     * @throws NullPointerException     if {@code queues} is {@code null}, or if {@code prefix} is
+     *                                  {@code null}
+     * @throws IllegalArgumentException if there are any duplicate queues in the list
+     * @see #requirePrefixNonNull(String)
+     * @see java.util.Collection#stream() Collection.stream()
+     * @see java.util.stream.Stream#count() Stream.count()
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(queues.size())} validation with intermediate allocations for stream
+     *              operations.
+     * @threading Not thread-safe.
+     * @memory Allocates temporary objects during validation for stream operations.
+     */
+    private static void requireNoDuplicates(List<?> queues, String prefix) {
+        if (queues.size() != queues.stream().distinct().count()) {
+            throw new IllegalArgumentException(
+                    listName(prefix) + " must not contain duplicate queues");
+        }
+    }
+
+    /**
+     * Validates that the provided list of queues is properly marked with consistent {@code enum}
+     * values for {@link QueueMetadataProvider#boundedness()} and
+     * {@link QueueMetadataProvider#accessMode()}.
+     * 
+     * <p>
+     * Each queue in the list must return the same value for
+     * {@code QueueMetadataProvider.boundedness()}, either {@link Boundedness#BOUNDED} or
+     * {@link Boundedness#UNBOUNDED}. Additionally, all queues in the list must return the same
+     * value for {@code QueueMetadataProvider.accessMode()}, which indicates the access mode. This
+     * validation ensures that the queues are consistently configured for their intended use and
+     * prevents misconfigurations that could lead to subtle bugs and performance issues in the
+     * solver.
+     * </p>
+     * 
+     * @param <Q>      the type of queue
+     * @param queues   the list of queues to validate for proper marker interfaces
+     * @param listName the {@link #listName(String) standardized name} for this list of queues to
+     *                 use in exception messages
+     * @throws NullPointerException     if {@code queues} or {@code listName} is {@code null}
+     * @throws IllegalArgumentException if any queue contains a mix of bounded and unbounded queues,
+     *                                  or if any queue contains a mix of access mode markers
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(queues.size())} validation without intermediate allocations for stream
+     *              operations.
+     * @threading Not thread-safe.
+     * @memory Does not allocate.
+     */
+    private static void requireConsistentMetadata(List<? extends QueueMetadataProvider> queues,
+            String listName) {
+        // Check for consistency of boundedness across the list
+        Boundedness firstBoundedness = queues.getFirst().boundedness();
+        for (int i = 0; i < queues.size(); i++) {
+            Boundedness b = queues.get(i).boundedness();
+            if (b != firstBoundedness) {
+                throw new IllegalArgumentException("Boundedness mismatch at index " + i + " in "
+                        + listName + ": expected " + firstBoundedness + " but found " + b);
+            }
+        }
+
+        // Check for consistency of access modes across the list
+        AccessMode firstAccessMode = queues.getFirst().accessMode();
+        for (int i = 0; i < queues.size(); i++) {
+            AccessMode am = queues.get(i).accessMode();
+            if (am != firstAccessMode) {
+                throw new IllegalArgumentException("AccessMode mismatch at index " + i + " in "
+                        + listName + ": expected " + firstAccessMode + " but found " + am);
+            }
+        }
+    }
+
+    /**
+     * Validates that there is no overlap between the two provided lists of queues. Since the
+     * architecture of the solver relies on a strict separation between the directions of queue
+     * access, any overlap between the {@link CombinationGeneratorTask
+     * generator}-to-{@link TestClickCombination monkey} queues and monkey-to-generator queues would
+     * lead to subtle bugs and performance issues from unintended access patterns.
+     * 
+     * @param <Q>     the type of queue
+     * @param a       the first list of queues to check for overlap
+     * @param aPrefix the prefix to use in exception messages for the first list of queues
+     * @param b       the second list of queues to check for overlap
+     * @param bPrefix the prefix to use in exception messages for the second list of queues
+     * @throws NullPointerException     if either list is {@code null}, or if either prefix is
+     *                                  {@code null}
+     * @throws IllegalArgumentException if there is any overlap between the two lists of queues
+     * @see #requirePrefixNonNull(String)
+     * @see Collections#disjoint(java.util.Collection, java.util.Collection)
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(a.size() * b.size())} worst case validation if there is no overlap.
+     * @threading Not thread-safe.
+     * @memory Does not allocate.
+     */
+    private static <Q> void requireNoOverlap(List<Q> a, String aPrefix, List<? extends Q> b,
+            String bPrefix) {
+        if (!Collections.disjoint(a, b)) {
+            throw new IllegalArgumentException(listName(aPrefix) + " and " + listName(bPrefix)
+                    + " must not contain overlapping queues");
         }
     }
 
@@ -982,8 +842,8 @@ public final class QueueUtils {
      * @threading Not thread-safe.
      * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in {@code mtgQueues}.
      */
-    private static <Q> void preallocateInto(List<? extends Q> mtgQueues, int batchesPerQueue,
-            SolverConfiguration config, QueueOps<Q> ops) {
+    private static <Q extends QueueMetadataProvider> void preallocateInto(List<Q> mtgQueues,
+            int batchesPerQueue, SolverConfiguration config, QueueOps<? super Q> ops) {
         requireNotEmptyOrNull(mtgQueues, "mtg");
         requireNonNull(config, "config must not be null");
         requireNonNull(ops, "ops must not be null");
@@ -993,11 +853,10 @@ public final class QueueUtils {
         } else if (batchesPerQueue == 0) {
             return;
         }
-
-        mtgQueues.forEach(queue -> {
+        for (Q queue : mtgQueues) {
             for (int i = 0; i < batchesPerQueue; i++) {
                 if (!ops.offer(queue, new WorkBatch(config))) {
-                    if (ops.isBounded(queue) && ops.capacityOf(queue) <= batchesPerQueue) {
+                    if (queue.boundedness().isBounded() && queue.capacity() <= batchesPerQueue) {
                         throw new IllegalStateException(
                                 "Failed to preallocate WorkBatch into bounded queue with insufficient capacity");
                     } else {
@@ -1005,128 +864,6 @@ public final class QueueUtils {
                                 "Failed to preallocate WorkBatch into unbounded queue");
                     }
                 }
-            }
-        });
-    }
-
-    /**
-     * Validates that the provided list of queues does not contain any single-access only queues if
-     * there are multiple threads of the given role (e.g., multiple producers or multiple
-     * consumers). Since sequential {@link QueueSelector selectors} allows a thread to access
-     * multiple queues in sequence, it is a requirement that all queues in the list support
-     * multi-access for the given role to prevent visibility and concurrency issues.
-     * 
-     * @param <Q>            the type of queue
-     * @param queues         the list of queues to validate for sequential access requirements
-     * @param prefix         the prefix to use in exception messages for this list of queues
-     * @param threadCount    the number of threads associated with the role for which this
-     *                       validation is being performed
-     * @param isSingleAccess the {@link Predicate} to check if a queue supports single-access for
-     *                       the given role
-     * @param queueTypes     the description of the types of single-access queues (e.g., "SPSC or
-     *                       SPMC") to use in exception messages
-     * @param role           the role (e.g., "producer" or "consumer") associated with this
-     *                       validation, used in exception messages
-     * @throws NullPointerException     if {@code queues}, {@code prefix}, {@code isSingleAccess},
-     *                                  {@code queueTypes}, or {@code role} is {@code null}
-     * @throws IllegalArgumentException if there are multiple threads of the given role and any
-     *                                  queue in the list supports only single-access for that role
-     * @see #requirePrefixNonNull(String)
-     * @see java.util.Collection#stream() Collection.stream()
-     * @see java.util.stream.Stream#anyMatch(java.util.function.Predicate)
-     *      Stream.anyMatch(Predicate)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(queues.size())} validation with intermediate allocations for stream
-     *              operations.
-     * @threading Not thread-safe.
-     * @memory Allocates temporary objects during validation for stream operations.
-     */
-    private static <Q> void requireSequentialAccess(List<Q> queues, String prefix, int threadCount,
-            Predicate<? super Q> isSingleAccess, String queueTypes, String role) {
-        if (threadCount > 1 && queues.stream().anyMatch(isSingleAccess)) {
-            throw new IllegalArgumentException(listName(prefix) + " must not contain " + queueTypes
-                    + " queues if there are multiple " + role);
-        }
-    }
-
-    /**
-     * Validates that the provided list of queues is properly marked with the appropriate marker
-     * interfaces for {@link Boundedness boundedness} and {@link AccessMode access mode}.
-     * 
-     * <p>
-     * Each queue in the list must implement either the {@link Bounded} or {@link Unbounded} marker
-     * interface, but not both. Additionally, all queues in the list must implement the same access
-     * mode marker interface: either {@link SPSC}, {@link SPMC}, {@link MPSC}, or {@link MPMC}, and
-     * no queue can implement more than one access mode marker. This validation ensures that the
-     * queues are consistently configured for their intended use and prevents misconfigurations that
-     * could lead to subtle bugs and performance issues in the solver.
-     * </p>
-     * 
-     * <p>
-     * Rather than using multiple stream operations to check for each marker interface separately,
-     * this method performs a single-pass validation through the list of queues, using
-     * {@code boolean} flags to track whether we have seen any queues with each marker interface.
-     * This approach is more complicated and less declarative than separate stream checks, but it is
-     * more efficient, as it avoids multiple iterations over the list of queues and intermediate
-     * allocations for stream operations.
-     * </p>
-     * 
-     * @param <Q>      the type of queue
-     * @param queues   the list of queues to validate for proper marker interfaces
-     * @param listName the {@link #listName(String) standardized name} for this list of queues to
-     *                 use in exception messages
-     * @throws NullPointerException     if {@code queues} or {@code listName} is {@code null}
-     * @throws IllegalArgumentException if any queue implements both {@code Bounded} and
-     *                                  {@code Unbounded}, or if there is a mix of bounded and
-     *                                  unbounded queues in the list, or if any queue implements
-     *                                  more than one access mode marker, or if there is a mix of
-     *                                  queues with different access mode markers in the list
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(queues.size())} validation without intermediate allocations for stream
-     *              operations.
-     * @threading Not thread-safe.
-     * @memory Does not allocate.
-     */
-    private static <Q> void requireProperlyMarked(List<Q> queues, String listName) {
-        // Sealed interfaces guarantee we only need to check for exact implementation
-        for (Q q : queues) {
-            // Boundedness check: sealed interface ensures only Bounded or Unbounded
-            if (!(q instanceof Boundedness)) {
-                throw new IllegalArgumentException(
-                        listName + " contains queues that do not implement Boundedness");
-            }
-
-            // Access mode check: sealed interface ensures exactly one access mode
-            if (!(q instanceof AccessMode)) {
-                throw new IllegalArgumentException(
-                        listName + " contains queues that do not implement AccessMode");
-            }
-        }
-
-        // Check for consistency across the list
-        @SuppressWarnings("unchecked")
-        List<Boundedness> boundednessMarkedQueues = (List<Boundedness>) queues; // Safe cast due to
-                                                                                // the above check.
-        boolean isFirstQueueBounded = boundednessMarkedQueues.getFirst().isBounded();
-        for (Boundedness b : boundednessMarkedQueues) {
-            if (b.isBounded() != isFirstQueueBounded) {
-                throw new IllegalArgumentException(
-                        listName + " contains a mix of Bounded and Unbounded queues");
-            }
-        }
-
-        // Check for consistency of access modes across the list
-        @SuppressWarnings("unchecked")
-        List<AccessMode> accessMarkedQueues = (List<AccessMode>) queues; // Safe cast due to the
-                                                                         // above check.
-        AccessMode firstMode = accessMarkedQueues.getFirst();
-        boolean firstMultiProducer = firstMode.isMultiProducer();
-        boolean firstMultiConsumer = firstMode.isMultiConsumer();
-        for (AccessMode amq : accessMarkedQueues) {
-            if (amq.isMultiProducer() != firstMultiProducer
-                    || amq.isMultiConsumer() != firstMultiConsumer) {
-                throw new IllegalArgumentException(
-                        listName + " contains a mix of queues with different access mode markers");
             }
         }
     }
@@ -1158,51 +895,7 @@ public final class QueueUtils {
      *         the specific operations (e.g., checking for wrapping may involve intermediate
      *         objects).
      */
-    private interface QueueOps<Q> {
-        /**
-         * Checks that the provided list of queues are properly wrapped with the appropriate wrapper
-         * classes, necessary for the validation and preallocation logic to work correctly with the
-         * specific queue types. This method should generally delegate to the specific wrapper
-         * utility class's validation method, allowing the encapsulation of queue-specific wrapping
-         * requirements.
-         * 
-         * @param queues   the list of queues to check for proper wrapping
-         * @param listName the {@link #listName(String) standardized name} for this list of queues
-         *                 to use in exception messages
-         * @throws NullPointerException     if {@code queues}, {@code listName}, or any of the
-         *                                  queues in the list are {@code null}
-         * @throws IllegalArgumentException if the list of queues is empty, or if any queue in the
-         *                                  list is not properly wrapped
-         * @see BlockingQueueWrappers#requireWrapped(List, String)
-         * @see JCToolsWrappers#requireWrapped(List, String)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(queues.size())} validation.
-         * @threading Not thread-safe.
-         * @memory Allocates temporary objects during validation for stream operations, depending on
-         *         the specific implementation of the wrapping checks.
-         */
-        void requireWrapped(List<? extends Q> queues, String listName);
-
-        /**
-         * Returns the capacity of the given queue if it is {@link Bounded}, or an appropriate value
-         * (e.g., {@link Integer#MAX_VALUE}) if it is {@link Unbounded}, to be used for capacity
-         * validation against the expected capacity.
-         * 
-         * @param queue the queue for which to get the capacity
-         * @return the capacity of the queue if it is bounded, or an appropriate value if it is
-         *         unbounded
-         * @throws NullPointerException if {@code queue} is {@code null}
-         * @see #isBounded(Object)
-         * @see #normalizeCapacity(int)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} retrieval of capacity, depending on the specific queue type and
-         *              how it manages capacity information.
-         * @threading Implementation dependent, but should be thread-safe if capacity is fixed at
-         *            initialization.
-         * @memory Should not allocate.
-         */
-        int capacityOf(Q queue);
-
+    private interface QueueOps<Q extends QueueMetadataProvider> {
         /**
          * Normalizes the expected capacity based on the requirements of the specific queue type.
          * For example, JCTools' {@link MessagePassingQueue} requires capacities to be powers of 2,
@@ -1247,28 +940,6 @@ public final class QueueUtils {
          * @memory Does not allocate.
          */
         boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity);
-
-        /**
-         * Checks whether the provided queue is bounded.
-         * 
-         * <p>
-         * This method determines if the queue has a fixed capacity. It checks the queue for:
-         * <ul>
-         * <li>Implementation of {@link Boundedness} interface</li>
-         * <li>Direct capacity properties of {@link MessagePassingQueue} or
-         * {@link BlockingQueue}</li>
-         * </ul>
-         * </p>
-         * 
-         * @param queue the queue to check for boundedness
-         * @return {@code true} if the queue is bounded, {@code false} otherwise
-         * @throws NullPointerException if {@code queue} is {@code null}
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} check.
-         * @threading Thread-safe.
-         * @memory Does not allocate.
-         */
-        default boolean isBounded(Q queue) { return QueueUtils.isBoundedQueue(queue); }
 
         /**
          * Offers a {@link WorkBatch} to the provided queue.
@@ -1340,7 +1011,7 @@ public final class QueueUtils {
          * @memory May allocate temporary objects for validation messages or stream operations.
          */
         void dispatchProducerSelectorRequirement(List<? extends Q> queues,
-                QueueSelector<? extends Q> selector, String prefix, int producerCount);
+                QueueSelector<? super Q> selector, String prefix, int producerCount);
 
         /**
          * Dispatch selector-specific validation for a consumer selector.
@@ -1368,18 +1039,15 @@ public final class QueueUtils {
          * @memory May allocate temporary objects for validation messages or stream operations.
          */
         void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
-                QueueSelector<? extends Q> selector, String prefix, int consumerCount);
+                QueueSelector<? super Q> selector, String prefix, int consumerCount);
     }
 
-    private static final QueueOps<MessagePassingQueue<WorkBatch>> JCTOOLS_OPS = new QueueOps<MessagePassingQueue<WorkBatch>>() {
-        @Override
-        public void requireWrapped(List<? extends MessagePassingQueue<WorkBatch>> queues,
-                String listName) {
-            JCToolsWrappers.requireWrapped(queues, listName);
-        }
+    private record JCToolsOps<Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider>()
+            implements QueueOps<Q> {
 
-        @Override
-        public int capacityOf(MessagePassingQueue<WorkBatch> queue) { return queue.capacity(); }
+        static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> JCToolsOps<Q> of() {
+            return new JCToolsOps<>();
+        }
 
         @Override
         public int normalizeCapacity(int expectedCapacity) { return roundToPow2(expectedCapacity); }
@@ -1391,82 +1059,55 @@ public final class QueueUtils {
         }
 
         @Override
-        public boolean offer(MessagePassingQueue<WorkBatch> queue, WorkBatch batch) {
-            return queue.offer(batch);
-        }
+        public boolean offer(Q queue, WorkBatch batch) { return queue.offer(batch); }
 
         @Override
-        public boolean isEmpty(MessagePassingQueue<WorkBatch> queue) { return queue.isEmpty(); }
+        public boolean isEmpty(Q queue) { return queue.isEmpty(); }
 
         @Override
-        public void dispatchProducerSelectorRequirement(
-                List<? extends MessagePassingQueue<WorkBatch>> queues,
-                QueueSelector<? extends MessagePassingQueue<WorkBatch>> selector, String prefix,
-                int producerCount) {
+        public void dispatchProducerSelectorRequirement(List<? extends Q> queues,
+                QueueSelector<? super Q> selector, String prefix, int producerCount) {
             if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
                     || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
-                requireSequentialAccess(queues, prefix, producerCount,
-                        q -> isSingleProducerQueue(q), "single-producer", "producers");
+                Role.PRODUCER.requireSequentialAccess(queues, prefix, producerCount);
             } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
                 requireCountEqualsSize(queues, producerCount, prefix, "biased sequential",
                         "Producer");
-                requireSequentialAccess(queues, prefix, producerCount,
-                        q -> isSingleProducerQueue(q), "single-producer", "producers");
+                Role.PRODUCER.requireSequentialAccess(queues, prefix, producerCount);
             } else if (selector == JCToolsQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
             } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, producerCount,
-                        q -> isSingleProducerQueue(q), "producers");
+                Role.PRODUCER.requireExclusiveSelector(queues, prefix, producerCount);
             }
         }
 
         @Override
-        public void dispatchConsumerSelectorRequirement(
-                List<? extends MessagePassingQueue<WorkBatch>> queues,
-                QueueSelector<? extends MessagePassingQueue<WorkBatch>> selector, String prefix,
-                int consumerCount) {
+        public void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
+                QueueSelector<? super Q> selector, String prefix, int consumerCount) {
             if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
                     || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
-                requireSequentialAccess(queues, prefix, consumerCount,
-                        q -> isSingleConsumerQueue(q), "single-consumer", "consumers");
+                Role.CONSUMER.requireSequentialAccess(queues, prefix, consumerCount);
             } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "biased sequential",
                         "Consumer");
-                requireSequentialAccess(queues, prefix, consumerCount,
-                        q -> isSingleConsumerQueue(q), "single-consumer", "consumers");
+                Role.CONSUMER.requireSequentialAccess(queues, prefix, consumerCount);
             } else if (selector == JCToolsQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
             } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, consumerCount,
-                        q -> isSingleConsumerQueue(q), "consumers");
+                Role.CONSUMER.requireExclusiveSelector(queues, prefix, consumerCount);
             }
         }
-    };
+    }
 
-    private static final QueueOps<BlockingQueue<WorkBatch>> BLOCKING_OPS = new QueueOps<BlockingQueue<WorkBatch>>() {
-        @Override
-        public void requireWrapped(List<? extends BlockingQueue<WorkBatch>> queues,
-                String listName) {
-            BlockingQueueWrappers.requireWrapped(queues, listName);
+    private record BlockingOps<Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider>()
+            implements QueueOps<Q> {
+
+        static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> BlockingOps<Q> of() {
+            return new BlockingOps<>();
         }
 
         @Override
-        public int capacityOf(BlockingQueue<WorkBatch> queue) {
-            int capacity;
-            return switch (queue) {
-                case Bounded bq -> bq.capacity();
-                case Unbounded _ -> Integer.MAX_VALUE;
-                case ConcurrentQueue<?> cq -> cq.capacity();
-                default -> (capacity = queue.remainingCapacity()) == Integer.MAX_VALUE
-                        ? Integer.MAX_VALUE
-                        : capacity + queue.size();
-            };
-        }
-
-        @Override
-        public int normalizeCapacity(int expectedCapacity) {
-            return expectedCapacity; // no rounding needed
-        }
+        public int normalizeCapacity(int expectedCapacity) { return expectedCapacity; }
 
         @Override
         public boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity) {
@@ -1476,37 +1117,173 @@ public final class QueueUtils {
         }
 
         @Override
-        public boolean offer(BlockingQueue<WorkBatch> queue, WorkBatch batch) {
-            return queue.offer(batch);
-        }
+        public boolean offer(Q queue, WorkBatch batch) { return queue.offer(batch); }
 
         @Override
-        public boolean isEmpty(BlockingQueue<WorkBatch> queue) { return queue.isEmpty(); }
+        public boolean isEmpty(Q queue) { return queue.isEmpty(); }
 
         @Override
-        public void dispatchProducerSelectorRequirement(
-                List<? extends BlockingQueue<WorkBatch>> queues,
-                QueueSelector<? extends BlockingQueue<WorkBatch>> selector, String prefix,
-                int producerCount) {
+        public void dispatchProducerSelectorRequirement(List<? extends Q> queues,
+                QueueSelector<? super Q> selector, String prefix, int producerCount) {
             if (selector == BlockingQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
             } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, producerCount,
-                        q -> isSingleProducerQueue(q), "producers");
+                Role.PRODUCER.requireExclusiveSelector(queues, prefix, producerCount);
             }
         }
 
         @Override
-        public void dispatchConsumerSelectorRequirement(
-                List<? extends BlockingQueue<WorkBatch>> queues,
-                QueueSelector<? extends BlockingQueue<WorkBatch>> selector, String prefix,
-                int consumerCount) {
+        public void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
+                QueueSelector<? super Q> selector, String prefix, int consumerCount) {
             if (selector == BlockingQueueSelectors.PREFERRED) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
             } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
-                requireExclusiveSelector(queues, prefix, consumerCount,
-                        q -> isSingleConsumerQueue(q), "consumers");
+                Role.CONSUMER.requireExclusiveSelector(queues, prefix, consumerCount);
             }
         }
-    };
+    }
+
+    private enum Role {
+        PRODUCER("producer", SPSC, MPSC) {
+            @Override
+            boolean isSingleAccess(QueueMetadataProvider qmp) {
+                return qmp.accessMode().isSingleProducer();
+            }
+        },
+        CONSUMER("consumer", SPSC, SPMC) {
+            @Override
+            boolean isSingleAccess(QueueMetadataProvider qmp) {
+                return qmp.accessMode().isSingleConsumer();
+            }
+        };
+
+        private final String name;
+        private final String types;
+
+        private Role(String name, AccessMode firstMode, AccessMode secondMode) {
+            this.name = name;
+            this.types = firstMode + " or " + secondMode;
+        }
+
+        abstract boolean isSingleAccess(QueueMetadataProvider q);
+
+        public String getName() { return name; }
+
+        public String getTypes() { return types; }
+
+        public void requireSequentialAccess(List<? extends QueueMetadataProvider> queues,
+                String prefix, int threadCount) {
+            if (threadCount > 1 && queues.stream().anyMatch(this::isSingleAccess)) {
+                throw new IllegalArgumentException(listName(prefix) + " must not contain "
+                        + getTypes() + " queues if there are multiple " + getName() + "s");
+            }
+        }
+
+        public void requireExclusiveSelector(List<? extends QueueMetadataProvider> queues,
+                String prefix, int threadCount) {
+            final String listName = listName(prefix);
+
+            if (queues.size() != 1) {
+                throw new IllegalArgumentException(
+                        listName + " must contain exactly one queue for exclusive selector");
+            }
+
+            // The queue must be able to handle multiple threads of the given role, unless there is
+            // only one thread of that role.
+            final QueueMetadataProvider queue = queues.getFirst();
+            if (threadCount > 1 && isSingleAccess(queue)) {
+                throw new IllegalArgumentException(listName + " must support multiple " + getName()
+                        + "s for exclusive selector");
+            }
+        }
+    }
+
+    /**
+     * Validates that the provided prefix is not {@code null}. This is internally used by the
+     * validation methods to ensure that the prefix used in exception messages is not itself
+     * {@code null}, which would cause a {@link NullPointerException} when constructing the
+     * exception messages and obscure the original validation failure.
+     * 
+     * @param prefix the prefix to validate
+     * @return the validated prefix if it is not {@code null}
+     * @throws NullPointerException if {@code prefix} is {@code null}
+     * @see #requireNotEmptyOrNull(List, String)
+     * @see Objects#requireNonNull(Object, String)
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(1)} validation.
+     * @threading Thread-safe as it does not modify any shared state.
+     * @memory Does not allocate.
+     */
+    private static String requirePrefixNonNull(String prefix) {
+        return requireNonNull(prefix, "prefix must not be null");
+    }
+
+    /**
+     * Creates a standardized name for a list of queues based on the provided prefix, in the form of
+     * "{prefix}Queues". This is used for constructing consistent and informative exception messages
+     * during validation.
+     * 
+     * @param prefix the prefix to use in the list name
+     * @return a standardized name for a list of queues based on the provided prefix
+     * @see #elementName(String)
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(1)} string concatenation.
+     * @threading Thread-safe as it does not modify any shared state.
+     * @memory Allocates a new string for the list name (and an implicit {@link StringBuilder} for
+     *         concatenation).
+     */
+    private static String listName(String prefix) {
+        // Dear compiler: Please allocate the StringBuilder needed for this concatenation on the
+        // stack and not on the heap to save an intermediate allocation. Thanks, - me.
+        return requirePrefixNonNull(prefix) + "Queues";
+    }
+
+    /**
+     * Creates a standardized name for an individual queue element based on the provided prefix, in
+     * the form of "{prefix}Queue". This is used for constructing consistent and informative
+     * exception messages during validation.
+     * 
+     * @param prefix the prefix to use in the element name
+     * @return a standardized name for an individual queue element based on the provided prefix
+     * @see #listName(String)
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(1)} string concatenation.
+     * @threading Thread-safe as it does not modify any shared state.
+     * @memory Allocates a new string for the element name (and an implicit {@link StringBuilder}
+     *         for concatenation).
+     */
+    private static String elementName(String prefix) {
+        // Dear compiler: Please allocate the StringBuilder needed for this concatenation on the
+        // stack and not on the heap to save an intermediate allocation. Thanks, - me.
+        return requirePrefixNonNull(prefix) + "Queue";
+    }
+
+    /**
+     * Validates that the provided count matches the size of the list of queues.
+     * 
+     * @param <Q>          the type of queue
+     * @param queues       the list of queues to check the size of
+     * @param count        the expected count of queues
+     * @param prefix       the prefix to use in exception messages for this list of queues
+     * @param selectorName the name of the {@link QueueSelector selector} for which this validation
+     *                     is being performed, used in exception messages
+     * @param role         the role (e.g., "producer" or "consumer") associated with this count,
+     *                     used in exception messages
+     * @throws NullPointerException     if {@code queues} is {@code null}, or if {@code prefix} or
+     *                                  {@code selectorName} or {@code role} is {@code null}
+     * @throws IllegalArgumentException if {@code count} does not equal the size of {@code queues}
+     * @see #requirePrefixNonNull(String)
+     * @see Objects#requireNonNull(Object, String)
+     * @since 2026.02 - Queue Injection Refactor
+     * @performance {@code O(1)} validation.
+     * @threading Not thread-safe.
+     * @memory Does not allocate.
+     */
+    private static void requireCountEqualsSize(List<?> queues, int count, String prefix,
+            String selectorName, String role) {
+        if (count != queues.size()) {
+            throw new IllegalArgumentException(role + " count must equal queue count for "
+                    + listName(prefix) + " in " + selectorName + " selector");
+        }
+    }
 }

@@ -3,6 +3,13 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.linearSequentialJCTools;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.randomSequentialJCTools;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Collections;
@@ -21,8 +28,6 @@ import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
-import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
-import com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors;
 
 // TODO: Replace Javadocs mentioning the old marker interface system with references to the new
 // QueueMetadataProvider interface and its methods.
@@ -1067,16 +1072,15 @@ public final class QueueUtils {
         @Override
         public void dispatchProducerSelectorRequirement(List<? extends Q> queues,
                 QueueSelector<? super Q> selector, String prefix, int producerCount) {
-            if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
-                    || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
+            if (selector == randomSequentialJCTools() || selector == linearSequentialJCTools()) {
                 Role.PRODUCER.requireSequentialAccess(queues, prefix, producerCount);
-            } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
+            } else if (selector == biasedSequentialJCTools()) {
                 requireCountEqualsSize(queues, producerCount, prefix, "biased sequential",
                         "Producer");
                 Role.PRODUCER.requireSequentialAccess(queues, prefix, producerCount);
-            } else if (selector == JCToolsQueueSelectors.PREFERRED) {
+            } else if (selector == preferredJCTools()) {
                 requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
-            } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
+            } else if (selector == exclusiveJCTools()) {
                 Role.PRODUCER.requireExclusiveSelector(queues, prefix, producerCount);
             }
         }
@@ -1084,16 +1088,15 @@ public final class QueueUtils {
         @Override
         public void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
                 QueueSelector<? super Q> selector, String prefix, int consumerCount) {
-            if (selector == JCToolsQueueSelectors.RANDOM_SEQUENTIAL
-                    || selector == JCToolsQueueSelectors.LINEAR_SEQUENTIAL) {
+            if (selector == randomSequentialJCTools() || selector == linearSequentialJCTools()) {
                 Role.CONSUMER.requireSequentialAccess(queues, prefix, consumerCount);
-            } else if (selector == JCToolsQueueSelectors.BIASED_SEQUENTIAL) {
+            } else if (selector == biasedSequentialJCTools()) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "biased sequential",
                         "Consumer");
                 Role.CONSUMER.requireSequentialAccess(queues, prefix, consumerCount);
-            } else if (selector == JCToolsQueueSelectors.PREFERRED) {
+            } else if (selector == preferredJCTools()) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
-            } else if (selector == JCToolsQueueSelectors.EXCLUSIVE) {
+            } else if (selector == exclusiveJCTools()) {
                 Role.CONSUMER.requireExclusiveSelector(queues, prefix, consumerCount);
             }
         }
@@ -1125,9 +1128,9 @@ public final class QueueUtils {
         @Override
         public void dispatchProducerSelectorRequirement(List<? extends Q> queues,
                 QueueSelector<? super Q> selector, String prefix, int producerCount) {
-            if (selector == BlockingQueueSelectors.PREFERRED) {
+            if (selector == preferredBlocking()) {
                 requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
-            } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
+            } else if (selector == exclusiveBlocking()) {
                 Role.PRODUCER.requireExclusiveSelector(queues, prefix, producerCount);
             }
         }
@@ -1135,9 +1138,9 @@ public final class QueueUtils {
         @Override
         public void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
                 QueueSelector<? super Q> selector, String prefix, int consumerCount) {
-            if (selector == BlockingQueueSelectors.PREFERRED) {
+            if (selector == preferredBlocking()) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");
-            } else if (selector == BlockingQueueSelectors.EXCLUSIVE) {
+            } else if (selector == exclusiveBlocking()) {
                 Role.CONSUMER.requireExclusiveSelector(queues, prefix, consumerCount);
             }
         }

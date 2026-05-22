@@ -6,8 +6,8 @@ import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrap;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerator;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyBlocking;
-import static com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors.EXCLUSIVE;
-import static com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors.PREFERRED;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
 import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.preallocateInto;
 import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.requireValidArguments;
 import static java.util.Objects.requireNonNull;
@@ -24,7 +24,6 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.Delegate;
-import com.github.mrgarbagegamer.queues.QueueSelectors.BlockingQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
 // TODO: Update Javadocs to reflect the new design.
@@ -513,8 +512,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
                 wrappedGtmQueue);
 
         return new BlockingQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
-                EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, generatorBackoff, monkeyBackoff,
-                generatorShouldContinue, monkeyShouldContinue);
+                exclusiveBlocking(), exclusiveBlocking(), exclusiveBlocking(), exclusiveBlocking(),
+                generatorBackoff, monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
     }
 
     /**
@@ -697,8 +696,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
         final var mos = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyOfferSelector;
 
         return new BlockingQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config, gps,
-                EXCLUSIVE, EXCLUSIVE, mos, generatorBackoff, monkeyBackoff, generatorShouldContinue,
-                monkeyShouldContinue);
+                exclusiveBlocking(), exclusiveBlocking(), mos, generatorBackoff, monkeyBackoff,
+                generatorShouldContinue, monkeyShouldContinue);
     }
 
     /**
@@ -706,7 +705,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
      * {@link #singleMulti(BlockingQueue, List, SolverConfiguration, QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)}
      * that uses the {@link #DEFAULT_BACKOFF default backoff strategy} for both
      * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys} and the
-     * {@link BlockingQueueSelectors#PREFERRED PREFERRED} {@link QueueSelector selector} for
+     * {@link QueueSelectors#preferredBlocking() PREFERRED} {@link QueueSelector selector} for
      * {@link #generatorPollSelector generator polling} and {@link #monkeyOfferSelector monkey
      * offering}.
      * 
@@ -736,8 +735,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy singleMulti(Q gtmQueue,
             List<Q> mtgQueues, SolverConfiguration config, SolverState solverState) {
-        return singleMulti(gtmQueue, mtgQueues, config, PREFERRED, PREFERRED, DEFAULT_BACKOFF,
-                DEFAULT_BACKOFF, solverState);
+        return singleMulti(gtmQueue, mtgQueues, config, preferredBlocking(), preferredBlocking(),
+                DEFAULT_BACKOFF, DEFAULT_BACKOFF, solverState);
     }
 
     /**
@@ -892,7 +891,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
         final var mps = (QueueSelector<BlockingQueue<WorkBatch>>) monkeyPollSelector;
 
         return new BlockingQueueStrategy(wrappedGtmQueues, List.of(wrappedMtgQueue), config,
-                EXCLUSIVE, gos, mps, EXCLUSIVE, generatorBackoff, monkeyBackoff,
+                exclusiveBlocking(), gos, mps, exclusiveBlocking(), generatorBackoff, monkeyBackoff,
                 generatorShouldContinue, monkeyShouldContinue);
     }
 
@@ -932,8 +931,8 @@ public class BlockingQueueStrategy implements QueueStrategy {
      */
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy multiSingle(
             List<Q> gtmQueues, Q mtgQueue, SolverConfiguration config, SolverState solverState) {
-        return multiSingle(gtmQueues, mtgQueue, config, PREFERRED, PREFERRED, DEFAULT_BACKOFF,
-                DEFAULT_BACKOFF, solverState);
+        return multiSingle(gtmQueues, mtgQueue, config, preferredBlocking(), preferredBlocking(),
+                DEFAULT_BACKOFF, DEFAULT_BACKOFF, solverState);
     }
 
     /**
@@ -1135,8 +1134,9 @@ public class BlockingQueueStrategy implements QueueStrategy {
     public static <Q extends BlockingQueue<WorkBatch>> BlockingQueueStrategy multiMulti(
             List<Q> gtmQueues, List<Q> mtgQueues, SolverConfiguration config,
             SolverState solverState) {
-        return multiMulti(gtmQueues, mtgQueues, config, PREFERRED, PREFERRED, PREFERRED, PREFERRED,
-                DEFAULT_BACKOFF, DEFAULT_BACKOFF, solverState);
+        return multiMulti(gtmQueues, mtgQueues, config, preferredBlocking(), preferredBlocking(),
+                preferredBlocking(), preferredBlocking(), DEFAULT_BACKOFF, DEFAULT_BACKOFF,
+                solverState);
     }
 
     /**

@@ -7,9 +7,9 @@ import static com.github.mrgarbagegamer.queues.JCToolsWrappers.newBoundedMpmcLis
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.newBoundedSpscList;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrap;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
-import static com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors.BIASED_SEQUENTIAL;
-import static com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors.EXCLUSIVE;
-import static com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors.PREFERRED;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
+import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.preallocateInto;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.requireValidArguments;
 import static java.util.Objects.requireNonNull;
@@ -27,7 +27,6 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.JCToolsWrappers.Delegate;
-import com.github.mrgarbagegamer.queues.QueueSelectors.JCToolsQueueSelectors;
 import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 
 // TODO: Update Javadocs to reflect the new design.
@@ -54,14 +53,14 @@ import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
  * behavior of the {@link BackoffStrategy} implementations. Selection strategies that involve
  * polling/offering to multiple queues may reduce contention and balance the load better but require
  * multi-producer or multi-consumer suppport from the queues, creating higher overhead per the
- * Single Writer principle. In contrast, {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} or
- * {@link JCToolsQueueSelectors#PREFERRED PREFERRED} strategies can reduce access overhead and
+ * Single Writer principle. In contrast, {@link QueueSelectors#exclusiveJCTools() EXCLUSIVE} or
+ * {@link QueueSelectors#preferredJCTools() PREFERRED} strategies can reduce access overhead and
  * improve cache locality, but may lead to contention and load imbalance. Benchmarking different
  * configurations with realistic workloads is recommended to identify the best setup for a given use
  * case.
  * </p>
  * 
- * @see JCToolsQueueSelectors
+ * @see QueueSelectors
  * @see JCToolsWrappers
  * @see QueueUtils.JCToolsUtils
  * @since 2026.02 - Queue Injection Refactor
@@ -500,7 +499,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * {@link TestClickCombination monkeys} have a single dedicated queue for communication in each
      * direction. The provided queues are {@link JCToolsWrappers#wrap wrapped} for simpler
      * validation. Since there is only one queue in each direction, the
-     * {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} selector is used for all operations, and
+     * {@link QueueSelectors#exclusiveJCTools() EXCLUSIVE} selector is used for all operations, and
      * the necessary {@link BooleanSupplier}s for continuation are created using the helper methods
      * in {@link ContinuationPredicates}.
      * </p>
@@ -547,8 +546,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, wrappedGtmQueue);
 
         return new JCToolsQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config,
-                EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, EXCLUSIVE, generatorBackoff, monkeyBackoff,
-                generatorShouldContinue, monkeyShouldContinue);
+                exclusiveJCTools(), exclusiveJCTools(), exclusiveJCTools(), exclusiveJCTools(),
+                generatorBackoff, monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
     }
 
     /**
@@ -667,7 +666,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * <h4>Selector Requirements</h4>
      * <p>
      * The {@link #generatorPollSelector} and {@link #monkeyOfferSelector} are configurable in this
-     * strategy, but if either is set to {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
+     * strategy, but if either is set to {@link QueueSelectors#exclusiveJCTools() EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues must all support multi-consumer or
      * multi-producer access, respectively, to ensure correctness. The
@@ -733,8 +732,8 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         final var mos = (QueueSelector<MessagePassingQueue<WorkBatch>>) monkeyOfferSelector;
 
         return new JCToolsQueueStrategy(List.of(wrappedGtmQueue), wrappedMtgQueues, config, gps,
-                EXCLUSIVE, EXCLUSIVE, mos, generatorBackoff, monkeyBackoff, generatorShouldContinue,
-                monkeyShouldContinue);
+                exclusiveJCTools(), exclusiveJCTools(), mos, generatorBackoff, monkeyBackoff,
+                generatorShouldContinue, monkeyShouldContinue);
     }
 
     /**
@@ -742,7 +741,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * {@link #singleMulti(MessagePassingQueue, List, SolverConfiguration, QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)}
      * that uses the {@link #DEFAULT_GENERATOR_BACKOFF} and {@link #DEFAULT_MONKEY_BACKOFF}
      * {@link BackoffStrategy backoff strategies} and the
-     * {@link JCToolsQueueSelectors#BIASED_SEQUENTIAL BIASED_SEQUENTIAL} {@link QueueSelector
+     * {@link QueueSelectors#biasedSequentialJCTools() BIASED_SEQUENTIAL} {@link QueueSelector
      * selector} for {@link #generatorPollSelector generator polling} and
      * {@link #monkeyOfferSelector monkey offering}.
      * 
@@ -772,8 +771,9 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      */
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy singleMulti(
             Q gtmQueue, List<Q> mtgQueues, SolverConfiguration config, SolverState solverState) {
-        return singleMulti(gtmQueue, mtgQueues, config, BIASED_SEQUENTIAL, BIASED_SEQUENTIAL,
-                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF, solverState);
+        return singleMulti(gtmQueue, mtgQueues, config, biasedSequentialJCTools(),
+                biasedSequentialJCTools(), DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF,
+                solverState);
     }
 
     /**
@@ -863,7 +863,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * <h4>Selector Requirements</h4>
      * <p>
      * The {@link #generatorOfferSelector} and {@link #monkeyPollSelector} are configurable in this
-     * strategy, but if either is set to {@link JCToolsQueueSelectors#EXCLUSIVE EXCLUSIVE} and the
+     * strategy, but if either is set to {@link QueueSelectors#exclusiveJCTools() EXCLUSIVE} and the
      * {@link SolverConfiguration#numThreads() number of threads} is greater than 2 (i.e. more than
      * one generator/monkey pair), then the provided queues must all support multi-consumer or
      * multi-producer access, respectively, to ensure correctness. The
@@ -930,7 +930,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
         final var mps = (QueueSelector<MessagePassingQueue<WorkBatch>>) monkeyPollSelector;
 
         return new JCToolsQueueStrategy(wrappedGtmQueues, List.of(wrappedMtgQueue), config,
-                EXCLUSIVE, gos, mps, EXCLUSIVE, generatorBackoff, monkeyBackoff,
+                exclusiveJCTools(), gos, mps, exclusiveJCTools(), generatorBackoff, monkeyBackoff,
                 generatorShouldContinue, monkeyShouldContinue);
     }
 
@@ -938,7 +938,7 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      * Convenience overload of
      * {@link #multiSingle(List, MessagePassingQueue, SolverConfiguration, QueueSelector, QueueSelector, BackoffStrategy, BackoffStrategy, SolverState)}
      * that uses the {@link #DEFAULT_GENERATOR_BACKOFF} and {@link #DEFAULT_MONKEY_BACKOFF} for the
-     * backoff strategies and the {@link JCToolsQueueSelectors#BIASED_SEQUENTIAL BIASED_SEQUENTIAL}
+     * backoff strategies and the {@link QueueSelectors#biasedSequentialJCTools() BIASED_SEQUENTIAL}
      * selector for {@link #generatorOfferSelector generator offering} and
      * {@link #monkeyPollSelector monkey polling}.
      * 
@@ -969,8 +969,9 @@ public class JCToolsQueueStrategy implements QueueStrategy {
      */
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy multiSingle(
             List<Q> gtmQueues, Q mtgQueue, SolverConfiguration config, SolverState solverState) {
-        return multiSingle(gtmQueues, mtgQueue, config, BIASED_SEQUENTIAL, BIASED_SEQUENTIAL,
-                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF, solverState);
+        return multiSingle(gtmQueues, mtgQueue, config, biasedSequentialJCTools(),
+                biasedSequentialJCTools(), DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF,
+                solverState);
     }
 
     /**
@@ -1174,8 +1175,9 @@ public class JCToolsQueueStrategy implements QueueStrategy {
     public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy multiMulti(
             List<Q> gtmQueues, List<Q> mtgQueues, SolverConfiguration config,
             SolverState solverState) {
-        return multiMulti(gtmQueues, mtgQueues, config, PREFERRED, PREFERRED, PREFERRED, PREFERRED,
-                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF, solverState);
+        return multiMulti(gtmQueues, mtgQueues, config, preferredJCTools(), preferredJCTools(),
+                preferredJCTools(), preferredJCTools(), DEFAULT_GENERATOR_BACKOFF,
+                DEFAULT_MONKEY_BACKOFF, solverState);
     }
 
     /**

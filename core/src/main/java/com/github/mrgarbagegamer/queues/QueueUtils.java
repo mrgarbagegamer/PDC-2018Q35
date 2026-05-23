@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
+import java.util.function.Predicate;
 
 import org.jctools.queues.MessagePassingQueue;
 
@@ -1147,28 +1148,21 @@ public final class QueueUtils {
     }
 
     private enum Role {
-        PRODUCER("producer", SPSC, MPSC) {
-            @Override
-            boolean isSingleAccess(QueueMetadataProvider qmp) {
-                return qmp.accessMode().isSingleProducer();
-            }
-        },
-        CONSUMER("consumer", SPSC, SPMC) {
-            @Override
-            boolean isSingleAccess(QueueMetadataProvider qmp) {
-                return qmp.accessMode().isSingleConsumer();
-            }
-        };
+        PRODUCER("producer", SPSC, MPSC, (qmp) -> qmp.accessMode().isSingleProducer()),
+        CONSUMER("consumer", SPSC, SPMC, (qmp) -> qmp.accessMode().isSingleConsumer());
 
         private final String name;
         private final String types;
+        private final Predicate<QueueMetadataProvider> singleAccess;
 
-        private Role(String name, AccessMode firstMode, AccessMode secondMode) {
+        private Role(String name, AccessMode firstMode, AccessMode secondMode,
+                Predicate<QueueMetadataProvider> singleAccess) {
             this.name = name;
             this.types = firstMode + " or " + secondMode;
+            this.singleAccess = singleAccess;
         }
 
-        abstract boolean isSingleAccess(QueueMetadataProvider q);
+        public boolean isSingleAccess(QueueMetadataProvider qmp) { return singleAccess.test(qmp); }
 
         public String getName() { return name; }
 

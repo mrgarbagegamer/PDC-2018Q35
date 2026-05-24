@@ -970,7 +970,7 @@ public class BlockingQueueStrategy implements QueueStrategy {
             SolverState solverState) {
         final int numGenerators = config.numThreads() / 2;
         final List<Delegate> gtmQueues = newBoundedSpscList(numGenerators, queueSize);
-        final Delegate mtgQueue = newBoundedMpmc(numGenerators);
+        final Delegate mtgQueue = newBoundedMpmc(numGenerators * queueSize);
         return multiSingle(gtmQueues, mtgQueue, config, solverState);
     }
 

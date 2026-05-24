@@ -697,18 +697,14 @@ public final class QueueUtils {
         // Check for proper marker interfaces.
         requireConsistentMetadata(queues, listName);
 
-        // Find the normalized capacity based on the expected capacity and queue type.
-        final int normalizedCapacity = ops.normalizeCapacity(expectedCapacity);
-
         // Ensure that each queue is empty and has an acceptable capacity if bounded.
         for (int i = 0; i < queues.size(); i++) {
             final Q queue = queues.get(i);
-            if (queue.boundedness().isBounded()) {
-                final int actualCapacity = queue.capacity();
-                if (!ops.isCapacityAcceptable(actualCapacity, normalizedCapacity)) {
-                    throw new IllegalArgumentException(elementName + " capacity at index " + i
-                            + " must be " + normalizedCapacity + ", but was " + actualCapacity);
-                }
+            final int actualCapacity = queue.capacity();
+            if (!queue.isCapacityAcceptable(expectedCapacity)) {
+                throw new IllegalArgumentException(
+                        "%s capacity at index %d (%d) is not acceptable. Expected: %d"
+                                .formatted(expectedCapacity, i, actualCapacity, expectedCapacity));
             }
             if (!ops.isEmpty(queue)) {
                 throw new IllegalArgumentException(
@@ -903,51 +899,6 @@ public final class QueueUtils {
      */
     private interface QueueOps<Q extends QueueMetadataProvider> {
         /**
-         * Normalizes the expected capacity based on the requirements of the specific queue type.
-         * For example, JCTools' {@link MessagePassingQueue} requires capacities to be powers of 2,
-         * so this method would need to {@link QueueUtils#roundToPow2(int) round} the expected
-         * capacity up to the next power of 2 for JCTools queues.
-         * 
-         * @param expectedCapacity the expected capacity to normalize based on the queue type's
-         *                         requirements
-         * @return the normalized expected capacity to use for validation against the actual
-         *         capacity of the queues
-         * @throws IllegalArgumentException if the expected capacity is invalid for the specific
-         *                                  queue type (e.g., negative or zero capacity, or capacity
-         *                                  that exceeds maximum limits)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} normalization.
-         * @threading Thread-safe.
-         * @memory Should not allocate.
-         */
-        int normalizeCapacity(int expectedCapacity);
-
-        /**
-         * Check whether the actual capacity is acceptable for the expected capacity.
-         * 
-         * <p>
-         * Different queue implementations have different requirements for capacity. JCTools queues
-         * generally require capacities to be powers of 2 and will often throw exceptions or behave
-         * incorrectly if the requested capacity is not a power of 2. Consequently, for JCTools,
-         * this method enforces an exact match against the {@link #normalizeCapacity(int)
-         * normalized} (rounded) capacity. Standard {@link BlockingQueue}s are typically more
-         * flexible, but specialized implementations like Conversant's {@link ConcurrentQueue} also
-         * require power-of-2 capacities. For these, we accept either the exact expected capacity or
-         * the rounded power-of-2 version.
-         * </p>
-         * 
-         * @param actualCapacity   the actual capacity of the queue instance
-         * @param expectedCapacity the expected (normalized) capacity
-         * @return {@code true} if the actual capacity is acceptable for the given queue type
-         * @see #normalizeCapacity(int)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} check.
-         * @threading Thread-safe.
-         * @memory Does not allocate.
-         */
-        boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity);
-
-        /**
          * Offers a {@link WorkBatch} to the provided queue.
          * 
          * <p>
@@ -1056,15 +1007,6 @@ public final class QueueUtils {
         }
 
         @Override
-        public int normalizeCapacity(int expectedCapacity) { return roundToPow2(expectedCapacity); }
-
-        @Override
-        public boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity) {
-            // JCTools already normalized, so exact match only
-            return actualCapacity == expectedCapacity;
-        }
-
-        @Override
         public boolean offer(Q queue, WorkBatch batch) { return queue.offer(batch); }
 
         @Override
@@ -1108,16 +1050,6 @@ public final class QueueUtils {
 
         static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> BlockingOps<Q> of() {
             return new BlockingOps<>();
-        }
-
-        @Override
-        public int normalizeCapacity(int expectedCapacity) { return expectedCapacity; }
-
-        @Override
-        public boolean isCapacityAcceptable(int actualCapacity, int expectedCapacity) {
-            // Accept exact match or power-of-2 rounded (Conversant, etc.)
-            return actualCapacity == expectedCapacity
-                    || actualCapacity == roundToPow2(expectedCapacity);
         }
 
         @Override

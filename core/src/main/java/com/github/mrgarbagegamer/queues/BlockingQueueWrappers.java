@@ -175,6 +175,12 @@ public final class BlockingQueueWrappers {
         // @formatter:off
         // QueueMetadataProvider methods
         @Override public final AccessMode accessMode() { return accessMode; }
+        @Override public final boolean isCapacityAcceptable(int capacity) {
+            // ConcurrentQueues must have a capacity with a rounded power of two, so let's
+            // allow inexact matches:
+            return !this.boundedness().isBounded() || this.capacity() == capacity
+                    || this.capacity() == roundToPow2(capacity);
+        }
 
         // BlockingQueue methods
         @Override public final boolean add(WorkBatch e) { return delegate.add(e); }

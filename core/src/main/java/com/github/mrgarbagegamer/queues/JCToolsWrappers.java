@@ -158,6 +158,10 @@ public final class JCToolsWrappers {
         // @formatter:off
 
         // QueueMetadataProvider methods
+        @Override public final boolean isCapacityAcceptable(int capacity) {
+            return !this.boundedness().isBounded() || this.capacity() == capacity
+                    || this.capacity() == QueueUtils.roundToPow2(capacity);
+        }
         @Override public final int capacity() { return delegate.capacity(); }
         @Override public final AccessMode accessMode() { return accessMode; }
 

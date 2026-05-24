@@ -11,7 +11,8 @@ import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness
  * API for accessing queue metadata, regardless of the underlying queue type.
  * 
  * @since 2026.05 - Queue Metadata Interface
- * @performance All methods must be {@code O(1)} retrievals of immutable properties.
+ * @performance All methods, except for {@link #isCapacityAcceptable(int)}, must be {@code O(1)}
+ *              retrievals of immutable properties.
  * @threading All methods must be thread-safe, as the metadata should be immutable after
  *            construction.
  * @memory All methods must not allocate, as they should simply return existing properties of the
@@ -57,6 +58,24 @@ public interface QueueMetadataProvider {
      * @see org.jctools.queues.MessagePassingQueue#capacity()
      */
     int capacity();
+
+    /**
+     * Determines whether the queue's capacity is acceptable for a given expected capacity.
+     * {@link Boundedness#UNBOUNDED Unbounded} queues can accommodate any expected capacity, while
+     * the behavior of {@link Boundedness#BOUNDED bounded} queues is implementation-dependent.
+     * 
+     * <p>
+     * The default implementation of this method requires an exact match for bounded queues.
+     * </p>
+     * 
+     * @param expectedCapacity the expected capacity to check against the queue's actual capacity.
+     * @return {@code true} if the queue's capacity is acceptable for the given expected capacity,
+     *         {@code false} otherwise.
+     * @since 2026.05 - Public Capacity Validation API
+     */
+    default boolean isCapacityAcceptable(int expectedCapacity) {
+        return !this.boundedness().isBounded() || this.capacity() == expectedCapacity;
+    }
 
     /**
      * Represents the access mode of a queue, indicating whether it supports multiple producers

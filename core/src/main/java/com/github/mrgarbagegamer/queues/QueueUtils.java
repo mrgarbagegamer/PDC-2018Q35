@@ -179,7 +179,7 @@ public final class QueueUtils {
          * configuration issues.
          * </p>
          * 
-         * @param <Q>                    the type of queue, which must extend
+         * @param <G>                    the type of queue, which must extend
          *                               {@code MessagePassingQueue<WorkBatch>}
          * @param gtmQueues              the list of {@link CombinationGeneratorTask
          *                               generator}-to-{@link TestClickCombination monkey} queues
@@ -208,16 +208,17 @@ public final class QueueUtils {
          * @threading Not thread-safe.
          * @memory Allocates temporary objects during validation for stream operations.
          */
-        public static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> void requireValidArguments(
-                List<Q> gtmQueues, List<Q> mtgQueues,
-                QueueSelector<? super Q> generatorPollSelector,
-                QueueSelector<? super Q> generatorOfferSelector,
-                QueueSelector<? super Q> monkeyPollSelector,
-                QueueSelector<? super Q> monkeyOfferSelector, int queueSize, int generatorCount,
+        public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> void requireValidArguments(
+                List<? extends QueueWrapper<G>> gtmQueues,
+                List<? extends QueueWrapper<M>> mtgQueues,
+                QueueSelector<? super M> generatorPollSelector,
+                QueueSelector<? super G> generatorOfferSelector,
+                QueueSelector<? super G> monkeyPollSelector,
+                QueueSelector<? super M> monkeyOfferSelector, int queueSize, int generatorCount,
                 int monkeyCount) {
             QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, queueSize,
-                    generatorCount, monkeyCount, JCToolsOps.of());
+                    generatorCount, monkeyCount, JCToolsOps.of(), JCToolsOps.of());
         }
 
         /**
@@ -244,9 +245,10 @@ public final class QueueUtils {
          * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in
          *         {@code mtgQueues}.
          */
-        public static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
-                List<Q> mtgQueues, int batchesPerQueue, SolverConfiguration config) {
-            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config, JCToolsOps.of());
+        public static <Q extends MessagePassingQueue<WorkBatch>> void preallocateInto(
+                List<? extends QueueWrapper<Q>> mtgQueues, int batchesPerQueue,
+                SolverConfiguration config) {
+            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config);
         }
 
         /**
@@ -272,8 +274,8 @@ public final class QueueUtils {
          * @memory Allocates {@code capacity} {@code WorkBatch}es per queue in {@code mtgQueues},
          *         where capacity is derived from the first queue.
          */
-        public static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
-                List<Q> mtgQueues, SolverConfiguration config) {
+        public static <Q extends MessagePassingQueue<WorkBatch>> void preallocateInto(
+                List<? extends QueueWrapper<Q>> mtgQueues, SolverConfiguration config) {
             requireNotEmptyOrNull(mtgQueues, "mtg");
             preallocateInto(mtgQueues, mtgQueues.getFirst().capacity(), config);
         }
@@ -366,16 +368,17 @@ public final class QueueUtils {
          * @threading Not thread-safe.
          * @memory Allocates temporary objects during validation for stream operations.
          */
-        public static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> void requireValidArguments(
-                List<Q> gtmQueues, List<Q> mtgQueues,
-                QueueSelector<? super Q> generatorPollSelector,
-                QueueSelector<? super Q> generatorOfferSelector,
-                QueueSelector<? super Q> monkeyPollSelector,
-                QueueSelector<? super Q> monkeyOfferSelector, int queueSize, int generatorCount,
+        public static <G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>> void requireValidArguments(
+                List<? extends QueueWrapper<G>> gtmQueues,
+                List<? extends QueueWrapper<M>> mtgQueues,
+                QueueSelector<? super M> generatorPollSelector,
+                QueueSelector<? super G> generatorOfferSelector,
+                QueueSelector<? super G> monkeyPollSelector,
+                QueueSelector<? super M> monkeyOfferSelector, int queueSize, int generatorCount,
                 int monkeyCount) {
             QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, queueSize,
-                    generatorCount, monkeyCount, BlockingOps.of());
+                    generatorCount, monkeyCount, BlockingOps.of(), BlockingOps.of());
         }
 
         /**
@@ -402,9 +405,10 @@ public final class QueueUtils {
          * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in
          *         {@code mtgQueues}.
          */
-        public static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
-                List<Q> mtgQueues, int batchesPerQueue, SolverConfiguration config) {
-            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config, BlockingOps.of());
+        public static <Q extends BlockingQueue<WorkBatch>> void preallocateInto(
+                List<? extends QueueWrapper<Q>> mtgQueues, int batchesPerQueue,
+                SolverConfiguration config) {
+            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config);
         }
 
         /**
@@ -430,8 +434,8 @@ public final class QueueUtils {
          * @memory Allocates {@code capacity} {@code WorkBatch}es per queue in {@code mtgQueues},
          *         where capacity is derived from the first queue.
          */
-        public static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> void preallocateInto(
-                List<Q> mtgQueues, SolverConfiguration config) {
+        public static <Q extends BlockingQueue<WorkBatch>> void preallocateInto(
+                List<? extends QueueWrapper<Q>> mtgQueues, SolverConfiguration config) {
             requireNotEmptyOrNull(mtgQueues, "mtg");
             final int batchesPerQueue = mtgQueues.getFirst().capacity();
             preallocateInto(mtgQueues, batchesPerQueue, config);
@@ -537,12 +541,13 @@ public final class QueueUtils {
      * @threading Not thread-safe.
      * @memory Allocates temporary objects during validation for stream operations.
      */
-    private static <Q extends QueueMetadataProvider> void requireValidArguments(List<Q> gtmQueues,
-            List<Q> mtgQueues, QueueSelector<? super Q> generatorPollSelector,
-            QueueSelector<? super Q> generatorOfferSelector,
-            QueueSelector<? super Q> monkeyPollSelector,
-            QueueSelector<? super Q> monkeyOfferSelector, int queueSize, int generatorCount,
-            int monkeyCount, QueueOps<? super Q> ops) {
+    private static <G, M> void requireValidArguments(List<? extends QueueWrapper<G>> gtmQueues,
+            List<? extends QueueWrapper<M>> mtgQueues,
+            QueueSelector<? super M> generatorPollSelector,
+            QueueSelector<? super G> generatorOfferSelector,
+            QueueSelector<? super G> monkeyPollSelector,
+            QueueSelector<? super M> monkeyOfferSelector, int queueSize, int generatorCount,
+            int monkeyCount, QueueOps<? super G> gtmOps, QueueOps<? super M> mtgOps) {
 
         validateCountsAndSize(queueSize, generatorCount, monkeyCount);
 
@@ -557,8 +562,8 @@ public final class QueueUtils {
 
         // Check the queues for proper wrapping, marker interfaces, capacities, and element
         // emptiness
-        requireValidQueueList(gtmQueues, "gtm", gtmQueueSize, ops);
-        requireValidQueueList(mtgQueues, "mtg", mtgQueueSize, ops);
+        requireValidQueueList(gtmQueues, "gtm", gtmQueueSize);
+        requireValidQueueList(mtgQueues, "mtg", mtgQueueSize);
 
         // Perform an overlap check to prevent access pattern problems
         requireNoOverlap(gtmQueues, "gtm", mtgQueues, "mtg");
@@ -571,19 +576,19 @@ public final class QueueUtils {
 
         // Validate that the selectors' requirements are compatible with the queue configurations
         // and thread counts
-        requireNonNull(ops, "ops must not be null");
+        requireNonNull(gtmOps, "generatorOps must not be null");
+        requireNonNull(mtgOps, "monkeyOps must not be null");
 
-        @SuppressWarnings("unchecked")
-        QueueOps<Q> typedOps = (QueueOps<Q>) ops; // Safe cast since we only call type-compatible
-                                                  // methods on ops below
+        final QueueOps<G> typedGtmOps = gtmOps.asType();
+        final QueueOps<M> typedMtgOps = mtgOps.asType();
 
-        typedOps.dispatchConsumerSelectorRequirement(mtgQueues, generatorPollSelector, "mtg",
+        typedMtgOps.dispatchConsumerSelectorRequirement(mtgQueues, generatorPollSelector, "mtg",
                 generatorCount);
-        typedOps.dispatchProducerSelectorRequirement(gtmQueues, generatorOfferSelector, "gtm",
+        typedGtmOps.dispatchProducerSelectorRequirement(gtmQueues, generatorOfferSelector, "gtm",
                 generatorCount);
-        typedOps.dispatchConsumerSelectorRequirement(gtmQueues, monkeyPollSelector, "gtm",
+        typedGtmOps.dispatchConsumerSelectorRequirement(gtmQueues, monkeyPollSelector, "gtm",
                 monkeyCount);
-        typedOps.dispatchProducerSelectorRequirement(mtgQueues, monkeyOfferSelector, "mtg",
+        typedMtgOps.dispatchProducerSelectorRequirement(mtgQueues, monkeyOfferSelector, "mtg",
                 monkeyCount);
     }
 
@@ -685,7 +690,7 @@ public final class QueueUtils {
      * @memory Allocates temporary objects during validation for stream operations.
      */
     private static <Q extends QueueMetadataProvider> void requireValidQueueList(List<Q> queues,
-            String prefix, int expectedCapacity, QueueOps<? super Q> ops) {
+            String prefix, int expectedCapacity) {
         requirePrefixNonNull(prefix);
 
         final String listName = listName(prefix);
@@ -697,20 +702,8 @@ public final class QueueUtils {
         // Check for proper marker interfaces.
         requireConsistentMetadata(queues, listName);
 
-        // Ensure that each queue is empty and has an acceptable capacity if bounded.
-        for (int i = 0; i < queues.size(); i++) {
-            final Q queue = queues.get(i);
-            final int actualCapacity = queue.capacity();
-            if (!queue.isCapacityAcceptable(expectedCapacity)) {
-                throw new IllegalArgumentException(
-                        "%s capacity at index %d (%d) is not acceptable. Expected: %d"
-                                .formatted(expectedCapacity, i, actualCapacity, expectedCapacity));
-            }
-            if (!ops.isEmpty(queue)) {
-                throw new IllegalArgumentException(
-                        elementName + " at index " + i + " must be empty at initialization");
-            }
-        }
+        // Check for capacity requirements for bounded queues.
+        requireAcceptableCapacity(queues, expectedCapacity, elementName);
     }
 
     /**
@@ -791,6 +784,19 @@ public final class QueueUtils {
         }
     }
 
+    private static void requireAcceptableCapacity(List<? extends QueueMetadataProvider> queues,
+            int expectedCapacity, String elementName) {
+        for (int i = 0; i < queues.size(); i++) {
+            final QueueMetadataProvider queue = queues.get(i);
+            final int actualCapacity = queue.capacity();
+            if (!queue.isCapacityAcceptable(expectedCapacity)) {
+                throw new IllegalArgumentException(
+                        "%s capacity at index %d (%d) is not acceptable. Expected: %d"
+                                .formatted(elementName, i, actualCapacity, expectedCapacity));
+            }
+        }
+    }
+
     /**
      * Validates that there is no overlap between the two provided lists of queues. Since the
      * architecture of the solver relies on a strict separation between the directions of queue
@@ -813,8 +819,8 @@ public final class QueueUtils {
      * @threading Not thread-safe.
      * @memory Does not allocate.
      */
-    private static <Q> void requireNoOverlap(List<Q> a, String aPrefix, List<? extends Q> b,
-            String bPrefix) {
+    private static <Q> void requireNoOverlap(List<? extends Q> a, String aPrefix,
+            List<? extends Q> b, String bPrefix) {
         if (!Collections.disjoint(a, b)) {
             throw new IllegalArgumentException(listName(aPrefix) + " and " + listName(bPrefix)
                     + " must not contain overlapping queues");
@@ -844,20 +850,19 @@ public final class QueueUtils {
      * @threading Not thread-safe.
      * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in {@code mtgQueues}.
      */
-    private static <Q extends QueueMetadataProvider> void preallocateInto(List<Q> mtgQueues,
-            int batchesPerQueue, SolverConfiguration config, QueueOps<? super Q> ops) {
+    private static <Q> void preallocateInto(List<? extends QueueWrapper<Q>> mtgQueues,
+            int batchesPerQueue, SolverConfiguration config) {
         requireNotEmptyOrNull(mtgQueues, "mtg");
         requireNonNull(config, "config must not be null");
-        requireNonNull(ops, "ops must not be null");
         if (batchesPerQueue < 0) {
             throw new IllegalArgumentException(
                     "batchesPerQueue must be non-negative: " + batchesPerQueue);
         } else if (batchesPerQueue == 0) {
             return;
         }
-        for (Q queue : mtgQueues) {
+        for (QueueWrapper<Q> queue : mtgQueues) {
             for (int i = 0; i < batchesPerQueue; i++) {
-                if (!ops.offer(queue, new WorkBatch(config))) {
+                if (!queue.offer(new WorkBatch(config))) {
                     if (queue.boundedness().isBounded() && queue.capacity() <= batchesPerQueue) {
                         throw new IllegalStateException(
                                 "Failed to preallocate WorkBatch into bounded queue with insufficient capacity");
@@ -897,49 +902,7 @@ public final class QueueUtils {
      *         the specific operations (e.g., checking for wrapping may involve intermediate
      *         objects).
      */
-    private interface QueueOps<Q extends QueueMetadataProvider> {
-        /**
-         * Offers a {@link WorkBatch} to the provided queue.
-         * 
-         * <p>
-         * This method abstracts the specific offer operation of the underlying queue
-         * implementation. For {@link MessagePassingQueue}, it calls
-         * {@link MessagePassingQueue#offer(Object)}, and for {@link BlockingQueue}, it calls
-         * {@link BlockingQueue#offer(Object)}. This is primarily used during the
-         * {@link #preallocateInto(List, int, SolverConfiguration, QueueOps) preallocation} phase to
-         * populate queues with initial batches.
-         * </p>
-         * 
-         * @param queue the queue to offer the batch to
-         * @param batch the {@code WorkBatch} to offer
-         * @return {@code true} if the batch was successfully added to the queue, {@code false}
-         *         otherwise (e.g., if the queue is full)
-         * @throws NullPointerException if {@code queue} or {@code batch} is {@code null}
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance Implementation dependent.
-         * @threading Thread-safe if the underlying queue's offer method is thread-safe.
-         * @memory Does not allocate by itself.
-         */
-        boolean offer(Q queue, WorkBatch batch);
-
-        /**
-         * Checks if the provided queue is empty.
-         * 
-         * <p>
-         * This method is used during validation to ensure that queues are in a clean state at
-         * initialization. It delegates to the {@code isEmpty()} method of the respective queue
-         * interface.
-         * </p>
-         * 
-         * @param queue the queue to check for emptiness
-         * @return {@code true} if the queue contains no elements
-         * @throws NullPointerException if {@code queue} is {@code null}
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} check.
-         * @threading Thread-safe if the underlying queue's {@code isEmpty()} method is thread-safe.
-         * @memory Does not allocate.
-         */
-        boolean isEmpty(Q queue);
+    private interface QueueOps<Q> {
 
         /**
          * Dispatch selector-specific validation for a producer selector.
@@ -967,7 +930,7 @@ public final class QueueUtils {
          * @threading Not thread-safe.
          * @memory May allocate temporary objects for validation messages or stream operations.
          */
-        void dispatchProducerSelectorRequirement(List<? extends Q> queues,
+        void dispatchProducerSelectorRequirement(List<? extends QueueWrapper<Q>> queues,
                 QueueSelector<? super Q> selector, String prefix, int producerCount);
 
         /**
@@ -995,25 +958,24 @@ public final class QueueUtils {
          * @threading Not thread-safe.
          * @memory May allocate temporary objects for validation messages or stream operations.
          */
-        void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
+        void dispatchConsumerSelectorRequirement(List<? extends QueueWrapper<Q>> queues,
                 QueueSelector<? super Q> selector, String prefix, int consumerCount);
+
+        default <T extends Q> QueueOps<T> asType() {
+            @SuppressWarnings("unchecked")
+            QueueOps<T> typedOps = (QueueOps<T>) this;
+            return typedOps;
+        }
     }
 
-    private record JCToolsOps<Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider>()
-            implements QueueOps<Q> {
+    private record JCToolsOps<Q extends MessagePassingQueue<WorkBatch>>() implements QueueOps<Q> {
 
-        static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> JCToolsOps<Q> of() {
+        static <Q extends MessagePassingQueue<WorkBatch>> JCToolsOps<Q> of() {
             return new JCToolsOps<>();
         }
 
         @Override
-        public boolean offer(Q queue, WorkBatch batch) { return queue.offer(batch); }
-
-        @Override
-        public boolean isEmpty(Q queue) { return queue.isEmpty(); }
-
-        @Override
-        public void dispatchProducerSelectorRequirement(List<? extends Q> queues,
+        public void dispatchProducerSelectorRequirement(List<? extends QueueWrapper<Q>> queues,
                 QueueSelector<? super Q> selector, String prefix, int producerCount) {
             if (selector == randomSequentialJCTools() || selector == linearSequentialJCTools()) {
                 Role.PRODUCER.requireSequentialAccess(queues, prefix, producerCount);
@@ -1029,7 +991,7 @@ public final class QueueUtils {
         }
 
         @Override
-        public void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
+        public void dispatchConsumerSelectorRequirement(List<? extends QueueWrapper<Q>> queues,
                 QueueSelector<? super Q> selector, String prefix, int consumerCount) {
             if (selector == randomSequentialJCTools() || selector == linearSequentialJCTools()) {
                 Role.CONSUMER.requireSequentialAccess(queues, prefix, consumerCount);
@@ -1045,21 +1007,14 @@ public final class QueueUtils {
         }
     }
 
-    private record BlockingOps<Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider>()
-            implements QueueOps<Q> {
+    private record BlockingOps<Q extends BlockingQueue<WorkBatch>>() implements QueueOps<Q> {
 
-        static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> BlockingOps<Q> of() {
+        static <Q extends BlockingQueue<WorkBatch>> BlockingOps<Q> of() {
             return new BlockingOps<>();
         }
 
         @Override
-        public boolean offer(Q queue, WorkBatch batch) { return queue.offer(batch); }
-
-        @Override
-        public boolean isEmpty(Q queue) { return queue.isEmpty(); }
-
-        @Override
-        public void dispatchProducerSelectorRequirement(List<? extends Q> queues,
+        public void dispatchProducerSelectorRequirement(List<? extends QueueWrapper<Q>> queues,
                 QueueSelector<? super Q> selector, String prefix, int producerCount) {
             if (selector == preferredBlocking()) {
                 requireCountEqualsSize(queues, producerCount, prefix, "preferred", "Producer");
@@ -1069,7 +1024,7 @@ public final class QueueUtils {
         }
 
         @Override
-        public void dispatchConsumerSelectorRequirement(List<? extends Q> queues,
+        public void dispatchConsumerSelectorRequirement(List<? extends QueueWrapper<Q>> queues,
                 QueueSelector<? super Q> selector, String prefix, int consumerCount) {
             if (selector == preferredBlocking()) {
                 requireCountEqualsSize(queues, consumerCount, prefix, "preferred", "Consumer");

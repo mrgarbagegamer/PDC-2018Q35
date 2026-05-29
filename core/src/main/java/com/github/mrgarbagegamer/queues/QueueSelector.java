@@ -55,8 +55,8 @@ public interface QueueSelector<Q> {
      * Offers a {@link WorkBatch} to the given queues.
      *
      * <p>
-     * The selector will loop, backing off between attempts, until either the batch is accepted,
-     * the thread {@link Thread#isInterrupted() is interrupted}, or {@code shouldContinue} returns
+     * The selector will loop, backing off between attempts, until either the batch is accepted, the
+     * thread {@link Thread#isInterrupted() is interrupted}, or {@code shouldContinue} returns
      * {@code false}.
      * </p>
      *
@@ -74,4 +74,21 @@ public interface QueueSelector<Q> {
      */
     boolean offer(WorkBatch batch, int threadId, List<? extends Q> queues, BackoffStrategy backoff,
             BooleanSupplier shouldContinue);
+
+    /**
+     * Casts this selector to work on a queue type {@code T} that is a subtype of {@code Q}. Since a
+     * {@code QueueSelector<T>} only consumes {@code T} (i.e., takes in lists of {@code T}s), it is
+     * safe to treat a {@code QueueSelector<? super T>} as a {@code QueueSelector<T>} per the PECS
+     * (Producer Extends, Consumer Super) principle. This method provides a convenient way to
+     * perform this cast without unchecked warnings at the call site.
+     * 
+     * @param <T> the specific queue type to cast this selector to
+     * @return this selector, cast to {@code QueueSelector<T>}
+     * @since 2026.05 - Queue Wrapper Interface
+     * @performance {@code O(1)} cast.
+     * @threading Must be thread-safe.
+     * @memory Must not allocate.
+     */
+    @SuppressWarnings("unchecked")
+    default <T extends Q> QueueSelector<T> asType() { return (QueueSelector<T>) this; }
 }

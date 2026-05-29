@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
@@ -94,7 +95,7 @@ public final class JCToolsWrappers {
         protected final Q delegate;
 
         protected AbstractWrapper(Q delegate) {
-            this.delegate = requireNonNull(delegate, "delegate must not be null");
+            this.delegate = mustNotBeNull(delegate, "delegate");
         }
 
         // QueueWrapper methods
@@ -130,7 +131,7 @@ public final class JCToolsWrappers {
 
         protected AbstractJCWrapper(Q delegate, AccessMode accessMode) {
             super(delegate);
-            this.accessMode = requireNonNull(accessMode, "accessMode must not be null");
+            this.accessMode = mustNotBeNull(accessMode, "accessMode");
         }
 
         // QueueMetadataProvider methods
@@ -157,7 +158,7 @@ public final class JCToolsWrappers {
 
         private static <Q extends MessagePassingQueue<WorkBatch>> BoundedJCWrapper<Q> create(
                 Q delegate) {
-            requireNonNull(delegate, "delegate must not be null");
+            mustNotBeNull(delegate, "delegate");
             if (delegate.capacity() == MessagePassingQueue.UNBOUNDED_CAPACITY) {
                 throw new IllegalArgumentException(
                         "Cannot create a bounded wrapper for an unbounded queue");

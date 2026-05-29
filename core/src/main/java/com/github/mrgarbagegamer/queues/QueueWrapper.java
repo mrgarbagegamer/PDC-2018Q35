@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static java.util.Objects.requireNonNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
@@ -55,8 +55,8 @@ public interface QueueWrapper<Q> extends QueueMetadataProvider {
      * @memory Allocates a new list to hold the unwrapped queues plus stream overhead.
      */
     static <Q> List<Q> unwrapAll(List<? extends QueueWrapper<Q>> wrappers) {
-        return requireNonNull(wrappers, "wrappers must not be null").stream()
-                .map(QueueWrapper::unwrap).collect(toUnmodifiableList());
+        return mustNotBeNull(wrappers, "wrappers").stream().map(QueueWrapper::unwrap)
+                .collect(toUnmodifiableList());
     }
 
     /**

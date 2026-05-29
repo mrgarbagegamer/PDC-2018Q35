@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static java.util.Objects.requireNonNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -167,7 +167,7 @@ public final class ContinuationPredicates {
      *         itself does not allocate.
      */
     public static BooleanSupplier forGenerator(SolverState state) {
-        requireNonNull(state, "state must not be null");
+        mustNotBeNull(state, "state");
 
         return () -> !state.solutionFound();
     }
@@ -355,9 +355,9 @@ public final class ContinuationPredicates {
      */
     private static <Q> BooleanSupplier forMonkeyGenericList(SolverState state, List<Q> gtmQueues,
             Predicate<? super Q> singleQueueEmpty) {
-        requireNonNull(state, "state must not be null");
-        requireNonNull(gtmQueues, "gtmQueues must not be null");
-        requireNonNull(singleQueueEmpty, "singleQueueEmpty must not be null");
+        mustNotBeNull(state, "state");
+        mustNotBeNull(gtmQueues, "gtmQueues");
+        mustNotBeNull(singleQueueEmpty, "singleQueueEmpty");
 
         return switch (gtmQueues.size()) {
             case 0 -> throw new IllegalArgumentException("gtmQueues must not be empty");
@@ -397,9 +397,9 @@ public final class ContinuationPredicates {
      */
     private static <Q> BooleanSupplier forMonkeyGenericSingle(SolverState state, Q gtmQueue,
             Predicate<? super Q> singleQueueEmpty) {
-        requireNonNull(state, "state must not be null");
-        requireNonNull(gtmQueue, "gtmQueue must not be null");
-        requireNonNull(singleQueueEmpty, "singleQueueEmpty must not be null");
+        mustNotBeNull(state, "state");
+        mustNotBeNull(gtmQueue, "gtmQueue");
+        mustNotBeNull(singleQueueEmpty, "singleQueueEmpty");
 
         return monkeyCheck(state, () -> singleQueueEmpty.test(gtmQueue));
     }

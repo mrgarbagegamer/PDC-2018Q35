@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
 import static java.util.Objects.requireNonNull;
@@ -109,7 +110,7 @@ public final class BlockingQueueWrappers {
         protected final Q delegate;
 
         protected AbstractWrapper(Q delegate) {
-            this.delegate = requireNonNull(delegate, "delegate must not be null");
+            this.delegate = mustNotBeNull(delegate, "delegate");
         }
 
         // QueueWrapper methods
@@ -145,7 +146,7 @@ public final class BlockingQueueWrappers {
 
         protected AbstractBlockingWrapper(Q delegate, AccessMode accessMode) {
             super(delegate);
-            this.accessMode = requireNonNull(accessMode, "accessMode must not be null");
+            this.accessMode = mustNotBeNull(accessMode, "accessMode");
         }
 
         // QueueMetadataProvider methods
@@ -223,10 +224,9 @@ public final class BlockingQueueWrappers {
     // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
 
     public static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrap(Q delegate) {
-        requireNonNull(delegate, "delegate must not be null");
 
         // Check if the delegate already provides metadata:
-        if (delegate instanceof QueueMetadataProvider) {
+        if (mustNotBeNull(delegate, "delegate") instanceof QueueMetadataProvider) {
             // This is a safe cast since the check above (and Q's upper bound) guarantees that the
             // delegate implements both interfaces:
             final var metadataDelegate = (BlockingQueue<WorkBatch> & QueueMetadataProvider) delegate;

@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
@@ -10,7 +11,6 @@ import static com.github.mrgarbagegamer.queues.QueueSelectors.linearSequentialJC
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.randomSequentialJCTools;
-import static java.util.Objects.requireNonNull;
 
 import java.util.Collections;
 import java.util.List;
@@ -569,15 +569,15 @@ public final class QueueUtils {
         requireNoOverlap(gtmQueues, "gtm", mtgQueues, "mtg");
 
         // Ensure non-nullity of the selectors
-        requireNonNull(generatorPollSelector, "generatorPollSelector must not be null");
-        requireNonNull(generatorOfferSelector, "generatorOfferSelector must not be null");
-        requireNonNull(monkeyPollSelector, "monkeyPollSelector must not be null");
-        requireNonNull(monkeyOfferSelector, "monkeyOfferSelector must not be null");
+        mustNotBeNull(generatorPollSelector, "generatorPollSelector");
+        mustNotBeNull(generatorOfferSelector, "generatorOfferSelector");
+        mustNotBeNull(monkeyPollSelector, "monkeyPollSelector");
+        mustNotBeNull(monkeyOfferSelector, "monkeyOfferSelector");
 
         // Validate that the selectors' requirements are compatible with the queue configurations
         // and thread counts
-        requireNonNull(gtmOps, "generatorOps must not be null");
-        requireNonNull(mtgOps, "monkeyOps must not be null");
+        mustNotBeNull(gtmOps, "generatorOps");
+        mustNotBeNull(mtgOps, "monkeyOps");
 
         final QueueOps<G> typedGtmOps = gtmOps.asType();
         final QueueOps<M> typedMtgOps = mtgOps.asType();
@@ -651,7 +651,7 @@ public final class QueueUtils {
      */
     private static <Q> List<Q> requireNotEmptyOrNull(List<Q> queues, String prefix) {
         final String listName = listName(prefix);
-        requireNonNull(queues, listName + " must not be null");
+        mustNotBeNull(queues, listName);
 
         if (queues.isEmpty()) {
             throw new IllegalArgumentException(listName + " must not be empty");
@@ -853,7 +853,7 @@ public final class QueueUtils {
     private static <Q> void preallocateInto(List<? extends QueueWrapper<Q>> mtgQueues,
             int batchesPerQueue, SolverConfiguration config) {
         requireNotEmptyOrNull(mtgQueues, "mtg");
-        requireNonNull(config, "config must not be null");
+        mustNotBeNull(config, "config");
         if (batchesPerQueue < 0) {
             throw new IllegalArgumentException(
                     "batchesPerQueue must be non-negative: " + batchesPerQueue);
@@ -1099,7 +1099,7 @@ public final class QueueUtils {
      * @memory Does not allocate.
      */
     private static String requirePrefixNonNull(String prefix) {
-        return requireNonNull(prefix, "prefix must not be null");
+        return mustNotBeNull(prefix, "prefix");
     }
 
     /**

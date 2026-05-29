@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedMpmcList;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedSpscList;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrap;
@@ -10,7 +11,6 @@ import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
 import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.preallocateInto;
 import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.requireValidArguments;
-import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -103,7 +103,7 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
             BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
             BooleanSupplier monkeyShouldContinue) {
         // Validate args:
-        final int sideCount = requireNonNull(config, "config must not be null").numThreads() / 2;
+        final int sideCount = mustNotBeNull(config, "config").numThreads() / 2;
         requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
                 monkeyPollSelector, monkeyOfferSelector, config.queueSize(), sideCount, sideCount);
 

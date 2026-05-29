@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerator;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyJCTools;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.newBoundedMpmcList;
@@ -10,7 +11,6 @@ import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.preallocateInto;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.requireValidArguments;
-import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -134,7 +134,7 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
             BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
             BooleanSupplier monkeyShouldContinue) {
         // Validate args:
-        final int sideCount = requireNonNull(config, "config must not be null").numThreads() / 2;
+        final int sideCount = mustNotBeNull(config, "config").numThreads() / 2;
         requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
                 monkeyPollSelector, monkeyOfferSelector, config.queueSize(), sideCount, sideCount);
 

@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
@@ -84,10 +85,6 @@ public class QueueValidationContext<G, M> {
 
             return new QueueValidationContext<>(this);
         }
-    }
-
-    private static <T> List<T> copyOfNonNullList(List<? extends T> list, String name) {
-        return List.copyOf(mustNotBeNull(list, name));
     }
 
     private static void requireParameterSet(Object parameter, String parameterName) {

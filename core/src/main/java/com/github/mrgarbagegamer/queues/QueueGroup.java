@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
@@ -13,7 +14,7 @@ class QueueGroup<Q> {
     private QueueGroup(QueueDirection direction, List<? extends QueueWrapper<Q>> wrappedQueues,
             QueueSelector<? super Q> offerSelector, QueueSelector<? super Q> pollSelector) {
         this.direction = mustNotBeNull(direction, "direction");
-        this.wrappedQueues = List.copyOf(mustNotBeNull(wrappedQueues, "wrappedQueues"));
+        this.wrappedQueues = copyOfNonNullList(wrappedQueues, "wrappedQueues");
         this.offerSelector = mustNotBeNull(offerSelector, "offerSelector").asType();
         this.pollSelector = mustNotBeNull(pollSelector, "pollSelector").asType();
     }

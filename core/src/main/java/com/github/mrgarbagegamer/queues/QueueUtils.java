@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
@@ -106,21 +107,9 @@ import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
  * @memory Allocates temporary objects during validation for stream operations.
  */
 public final class QueueUtils {
-    /**
-     * Private constructor to prevent instantiation of this utility class. This class is a utility
-     * class that only contains {@code static} members and should not be instantiated.
-     * 
-     * @throws UnsupportedOperationException always
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} instantiation prevention.
-     * @threading Thread-safe by nature of being uninstantiable.
-     * @memory Allocates a new exception.
-     */
+
     @ExcludeFromGeneratedCoverage
-    private QueueUtils() {
-        throw new UnsupportedOperationException(
-                "QueueUtils is a utility class and cannot be instantiated");
-    }
+    private QueueUtils() { utilityClassError("QueueUtils"); }
 
     /**
      * A utility class for validating and preallocating JCTools queues.
@@ -140,21 +129,8 @@ public final class QueueUtils {
      */
     public static class JCToolsUtils {
 
-        /**
-         * Private constructor to prevent instantiation of this utility class. This class is a
-         * utility class that only contains {@code static} members and should not be instantiated.
-         * 
-         * @throws UnsupportedOperationException always
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} instantiation prevention.
-         * @threading Thread-safe by nature of being uninstantiable.
-         * @memory Allocates a new exception.
-         */
         @ExcludeFromGeneratedCoverage
-        private JCToolsUtils() {
-            throw new UnsupportedOperationException(
-                    "JCToolsUtils is a utility class and cannot be instantiated");
-        }
+        private JCToolsUtils() { utilityClassError("JCToolsUtils"); }
 
         /**
          * Checks the provided arguments for configuring {@link MessagePassingQueue JCTools queues}.
@@ -300,21 +276,8 @@ public final class QueueUtils {
      */
     public static class BlockingQueueUtils {
 
-        /**
-         * Private constructor to prevent instantiation of this utility class. This class is a
-         * utility class that only contains {@code static} members and should not be instantiated.
-         * 
-         * @throws UnsupportedOperationException always
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(1)} instantiation prevention.
-         * @threading Thread-safe by nature of being uninstantiable.
-         * @memory Allocates a new exception.
-         */
         @ExcludeFromGeneratedCoverage
-        private BlockingQueueUtils() {
-            throw new UnsupportedOperationException(
-                    "BlockingQueueUtils is a utility class and cannot be instantiated");
-        }
+        private BlockingQueueUtils() { utilityClassError("BlockingQueueUtils"); }
 
         /**
          * Checks the provided arguments for configuring {@link BlockingQueue}s.

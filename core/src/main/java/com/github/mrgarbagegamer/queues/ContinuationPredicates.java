@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -80,10 +81,7 @@ public final class ContinuationPredicates {
      * @memory Allocates a new exception when called.
      */
     @ExcludeFromGeneratedCoverage
-    private ContinuationPredicates() {
-        throw new UnsupportedOperationException(
-                "ContinuationPredicates is a utility class and cannot be instantiated");
-    }
+    private ContinuationPredicates() { utilityClassError("ContinuationPredicates"); }
 
     /**
      * A "predicate" that always returns {@code true}, indicating that a {@link QueueSelector

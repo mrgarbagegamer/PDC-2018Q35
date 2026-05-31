@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
+
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;
@@ -31,21 +33,9 @@ import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
  * @memory Does not allocate.
  */
 public final class QueueSelectors {
-    /**
-     * Private constructor to prevent instantiation of this utility class. This class is a utility
-     * class that only contains {@code static} members and should not be instantiated.
-     * 
-     * @throws UnsupportedOperationException always
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} instantiation prevention.
-     * @threading Thread-safe by nature of being uninstantiable.
-     * @memory Allocates a new exception.
-     */
+
     @ExcludeFromGeneratedCoverage
-    private QueueSelectors() {
-        throw new UnsupportedOperationException(
-                "QueueSelectors is a utility class and cannot be instantiated.");
-    }
+    private QueueSelectors() { utilityClassError("QueueSelectors"); }
 
     /**
      * Checks if the {@link Thread#currentThread() current thread} {@link Thread#isInterrupted() is

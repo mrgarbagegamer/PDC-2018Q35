@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
@@ -71,21 +72,8 @@ import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 public final class JCToolsWrappers {
     // TODO: Add Javadocs for public members.
 
-    /**
-     * Private constructor to prevent instantiation. This class is a utility class that only
-     * contains {@code static} methods and should not be instantiated.
-     * 
-     * @throws UnsupportedOperationException always
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} instantiation prevention.
-     * @threading Thread-safe by nature of being uninstantiable.
-     * @memory Allocates a new exception.
-     */
     @ExcludeFromGeneratedCoverage
-    private JCToolsWrappers() {
-        throw new UnsupportedOperationException(
-                "JCToolsWrappers is a utility class and cannot be instantiated");
-    }
+    private JCToolsWrappers() { utilityClassError("JCToolsWrappers"); }
 
     public static interface JCToolsWrapper<Q extends MessagePassingQueue<WorkBatch>>
             extends QueueWrapper<Q> {}

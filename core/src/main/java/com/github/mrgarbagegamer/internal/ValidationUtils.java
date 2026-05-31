@@ -24,4 +24,9 @@ public final class ValidationUtils {
         }
         return List.copyOf(list);
     }
+
+    // TODO: Broadly implement this method in the codebase.
+    public static void utilityClassError(String className) {
+        throw new AssertionError(className + " is a utility class and cannot be instantiated");
+    }
 }

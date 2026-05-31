@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
 import static java.util.Objects.requireNonNull;
@@ -86,21 +87,8 @@ import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 public final class BlockingQueueWrappers {
     // TODO: Add Javadocs for public members.
 
-    /**
-     * Private constructor to prevent instantiation. This class is a utility class that only
-     * contains {@code static} methods and should not be instantiated.
-     * 
-     * @throws UnsupportedOperationException always
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} instantiation prevention.
-     * @threading Thread-safe by nature of being uninstantiable.
-     * @memory Allocates a new exception.
-     */
     @ExcludeFromGeneratedCoverage
-    private BlockingQueueWrappers() {
-        throw new UnsupportedOperationException(
-                "BlockingQueueWrappers is a utility class and cannot be instantiated");
-    }
+    private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
 
     public static interface BlockingWrapper<Q extends BlockingQueue<WorkBatch>>
             extends QueueWrapper<Q> {}

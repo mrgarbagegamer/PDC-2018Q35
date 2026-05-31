@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedMpmcList;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedSpscList;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrap;
@@ -102,10 +101,8 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
             QueueSelector<? super M> monkeyOfferSelector, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
             BooleanSupplier monkeyShouldContinue) {
-        // Validate args:
-        final int sideCount = mustNotBeNull(config, "config").numThreads() / 2;
         requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
-                monkeyPollSelector, monkeyOfferSelector, config.queueSize(), sideCount, sideCount);
+                monkeyPollSelector, monkeyOfferSelector, config);
 
         // Delegate to the main constructor of AbstractQueueStrategy for unwrapping. Preallocation
         // is a caller responsibility, so it should be done before calling the constructor.

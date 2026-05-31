@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerator;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyJCTools;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.newBoundedMpmcList;
@@ -134,9 +133,8 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
             BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
             BooleanSupplier monkeyShouldContinue) {
         // Validate args:
-        final int sideCount = mustNotBeNull(config, "config").numThreads() / 2;
         requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
-                monkeyPollSelector, monkeyOfferSelector, config.queueSize(), sideCount, sideCount);
+                monkeyPollSelector, monkeyOfferSelector, config);
 
         // Delegate to the main constructor of AbstractQueueStrategy for unwrapping. Preallocation
         // is a caller responsibility, so it should be done before calling the constructor.

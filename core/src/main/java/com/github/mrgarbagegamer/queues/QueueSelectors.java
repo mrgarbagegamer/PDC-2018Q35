@@ -12,6 +12,7 @@ import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
+import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 
 /**
  * A utility class providing common {@link QueueSelector} implementations for different queue types.
@@ -88,6 +89,10 @@ public final class QueueSelectors {
             Thread.currentThread().interrupt();
             return true;
         }
+    }
+
+    interface SelectorValidator {
+        void validate(SelectorValidationTarget<?> target);
     }
 
     // TODO: Consider returning QueueSelector<Q> with <Q extends QueueType> to allow better type
@@ -342,12 +347,13 @@ public final class QueueSelectors {
      * A set of {@link QueueSelector} implementations for {@link MessagePassingQueue}s from the
      * JCTools library.
      */
-    private enum JCToolsSelector implements QueueSelector<MessagePassingQueue<WorkBatch>> {
+    private enum JCToolsSelector
+            implements QueueSelector<MessagePassingQueue<WorkBatch>>, SelectorValidator {
 
         // TODO: Consider replacing the while loops in this enum with do-while loops,
         // since the selector should try once before giving up.
 
-        RANDOM_SEQUENTIAL {
+        RANDOM_SEQUENTIAL(SelectorRules.SEQUENTIAL) {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
@@ -394,7 +400,7 @@ public final class QueueSelectors {
             }
         },
 
-        LINEAR_SEQUENTIAL {
+        LINEAR_SEQUENTIAL(SelectorRules.SEQUENTIAL) {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
@@ -435,7 +441,7 @@ public final class QueueSelectors {
             }
         },
 
-        BIASED_SEQUENTIAL {
+        BIASED_SEQUENTIAL(SelectorRules.SEQUENTIAL, SelectorRules.COUNT_AT_LEAST_SIZE) {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
@@ -489,7 +495,7 @@ public final class QueueSelectors {
             }
         },
 
-        PREFERRED {
+        PREFERRED(SelectorRules.COUNT_AT_LEAST_SIZE) {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
@@ -524,7 +530,7 @@ public final class QueueSelectors {
             }
         },
 
-        EXCLUSIVE {
+        EXCLUSIVE(SelectorRules.EXCLUSIVE) {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
@@ -539,16 +545,28 @@ public final class QueueSelectors {
                 return PREFERRED.offer(batch, 0, queues, backoff, shouldContinue);
             }
         };
+
+        private final List<SelectorRule> rules;
+
+        JCToolsSelector(SelectorRule... rules) { this.rules = List.of(rules); }
+
+        @Override
+        public void validate(SelectorValidationTarget<?> target) {
+            for (SelectorRule rule : rules) {
+                rule.validate(target, this);
+            }
+        }
     }
 
     /**
      * A set of {@link QueueSelector} implementations for {@link BlockingQueue}s.
      */
-    private enum BlockingQueueSelector implements QueueSelector<BlockingQueue<WorkBatch>> {
+    private enum BlockingQueueSelector
+            implements QueueSelector<BlockingQueue<WorkBatch>>, SelectorValidator {
 
         // TODO: Consider other selection strategies for BlockingQueues.
 
-        PREFERRED {
+        PREFERRED(SelectorRules.COUNT_AT_LEAST_SIZE) {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
                     BackoffStrategy backoff, BooleanSupplier shouldContinue) {
@@ -585,7 +603,7 @@ public final class QueueSelectors {
             }
         },
 
-        EXCLUSIVE {
+        EXCLUSIVE(SelectorRules.EXCLUSIVE) {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
                     BackoffStrategy backoff, BooleanSupplier shouldContinue) {
@@ -599,6 +617,17 @@ public final class QueueSelectors {
                 return PREFERRED.offer(batch, 0, queues, backoff, shouldContinue);
             }
         };
+
+        private final List<SelectorRule> rules;
+
+        BlockingQueueSelector(SelectorRule... rules) { this.rules = List.of(rules); }
+
+        @Override
+        public void validate(SelectorValidationTarget<?> target) {
+            for (SelectorRule rule : rules) {
+                rule.validate(target, this);
+            }
+        }
     }
 
     // TODO: Revisit CLQs to see if they're worth supporting in this package.

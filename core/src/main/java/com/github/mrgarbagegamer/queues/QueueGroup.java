@@ -5,51 +5,93 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
 
+import com.github.mrgarbagegamer.SolverConfiguration;
+import com.github.mrgarbagegamer.queues.QueueSelectors.SelectorValidator;
+
 class QueueGroup<Q> {
     private final QueueDirection direction;
     private final List<QueueWrapper<Q>> wrappedQueues;
     private final QueueSelector<Q> offerSelector;
     private final QueueSelector<Q> pollSelector;
 
+    private final int producerCount;
+    private final int consumerCount;
+
     private QueueGroup(QueueDirection direction, List<? extends QueueWrapper<Q>> wrappedQueues,
-            QueueSelector<? super Q> offerSelector, QueueSelector<? super Q> pollSelector) {
+            QueueSelector<? super Q> offerSelector, QueueSelector<? super Q> pollSelector,
+            SolverConfiguration solverConfig) {
         this.direction = mustNotBeNull(direction, "direction");
         this.wrappedQueues = copyOfNonNullList(wrappedQueues, "wrappedQueues");
         this.offerSelector = mustNotBeNull(offerSelector, "offerSelector").asType();
         this.pollSelector = mustNotBeNull(pollSelector, "pollSelector").asType();
+
+        // Get the thread counts from the config:
+        final int threadCount = mustNotBeNull(solverConfig, "solverConfig").numThreads();
+        this.producerCount = threadCount / 2;
+        this.consumerCount = threadCount / 2;
     }
 
     static <G> QueueGroup<G> newGtmGroup(List<? extends QueueWrapper<G>> gtmQueues,
             QueueSelector<? super G> generatorOfferSelector,
-            QueueSelector<? super G> monkeyPollSelector) {
+            QueueSelector<? super G> monkeyPollSelector, SolverConfiguration solverConfig) {
         return new QueueGroup<>(QueueDirection.GENERATOR_TO_MONKEY, gtmQueues,
-                generatorOfferSelector, monkeyPollSelector);
+                generatorOfferSelector, monkeyPollSelector, solverConfig);
     }
 
     static <M> QueueGroup<M> newMtgGroup(List<? extends QueueWrapper<M>> mtgQueues,
             QueueSelector<? super M> monkeyOfferSelector,
-            QueueSelector<? super M> generatorPollSelector) {
+            QueueSelector<? super M> generatorPollSelector, SolverConfiguration solverConfig) {
         return new QueueGroup<>(QueueDirection.MONKEY_TO_GENERATOR, mtgQueues, monkeyOfferSelector,
-                generatorPollSelector);
+                generatorPollSelector, solverConfig);
     }
 
-    private List<QueueWrapper<Q>> wrappedQueues() { return List.copyOf(wrappedQueues); }
+    void validateSelectors() {
+        // Handle the producer selector first
+        if (this.offerSelector instanceof SelectorValidator offerValidator) {
+            offerValidator.validate(this.producerTarget());
+        }
 
-    private List<Q> queues() { return QueueWrapper.unwrapAll(wrappedQueues); }
+        // Handle the consumer selector
+        if (this.pollSelector instanceof SelectorValidator pollValidator) {
+            pollValidator.validate(this.consumerTarget());
+        }
+    }
 
-    private QueueSelector<Q> pollSelector() { return pollSelector; }
+    private SelectorValidationTarget<Q> producerTarget() {
+        return SelectorValidationTarget.newProducerTarget(this, producerCount);
+    }
 
-    private QueueSelector<Q> offerSelector() { return offerSelector; }
+    private SelectorValidationTarget<Q> consumerTarget() {
+        return SelectorValidationTarget.newConsumerTarget(this, consumerCount);
+    }
 
-    private String listName() { return direction.listName(); }
+    // TODO: Remove getters if unnecessary
 
-    private String elementName() { return direction.elementName(); }
+    List<QueueWrapper<Q>> wrappedQueues() { return this.wrappedQueues; }
 
-    private String producersName() { return direction.producersName(); }
+    private List<Q> queues() { return QueueWrapper.unwrapAll(this.wrappedQueues); }
 
-    private String consumersName() { return direction.consumersName(); }
+    private QueueSelector<Q> pollSelector() { return this.pollSelector; }
 
-    enum QueueDirection {
+    private QueueSelector<Q> offerSelector() { return this.offerSelector; }
+
+    private int producerCount() { return this.producerCount; }
+
+    private int consumerCount() { return this.consumerCount; }
+
+    String listName() { return this.direction.listName(); }
+
+    String elementName() { return this.direction.elementName(); }
+
+    String producerName() { return this.direction.producerName(); }
+
+    String consumerName() { return this.direction.consumerName(); }
+
+    String producerSelectorPlacement() { return this.direction.producerSelectorPlacement(); }
+
+    String consumerSelectorPlacement() { return this.direction.consumerSelectorPlacement(); }
+
+    private enum QueueDirection {
         GENERATOR_TO_MONKEY("gtm", "generator", "monkey"),
         MONKEY_TO_GENERATOR("mtg", "monkey", "generator");
 
@@ -63,16 +105,16 @@ class QueueGroup<Q> {
             this.consumerName = mustNotBeNull(consumerName, "consumerName");
         }
 
-        final String listName() { return prefix + "Queues"; }
+        final String listName() { return this.prefix + "Queues"; }
 
-        final String elementName() { return prefix + "Queue"; }
+        final String elementName() { return this.prefix + "Queue"; }
 
-        final String producersName() { return producerName + "s"; }
+        final String producerName() { return this.producerName; }
 
-        final String consumersName() { return consumerName + "s"; }
+        final String consumerName() { return this.consumerName; }
 
-        final String producerSelectorName() { return producerName + "OfferSelector"; }
+        final String producerSelectorPlacement() { return this.producerName + "OfferSelector"; }
 
-        final String consumerSelectorName() { return consumerName + "PollSelector"; }
+        final String consumerSelectorPlacement() { return this.consumerName + "PollSelector"; }
     }
 }

@@ -12,22 +12,16 @@ public class QueueValidationContext<G, M> {
     private final QueueGroup<G> gtmGroup;
     private final QueueGroup<M> mtgGroup;
 
-    private final int queueSize;
-    private final int generatorCount;
-    private final int monkeyCount;
+    private final SolverConfiguration solverConfig;
 
     private QueueValidationContext(Builder<G, M> builder) {
         // Let's construct the QueueGroups:
-
         this.gtmGroup = QueueGroup.newGtmGroup(builder.gtmQueues, builder.generatorOfferSelector,
-                builder.monkeyPollSelector);
+                builder.monkeyPollSelector, builder.solverConfig);
         this.mtgGroup = QueueGroup.newMtgGroup(builder.mtgQueues, builder.monkeyOfferSelector,
-                builder.generatorPollSelector);
+                builder.generatorPollSelector, builder.solverConfig);
 
-        // Now we can grab the other parameters from the solver config:
-        this.queueSize = builder.solverConfig.queueSize();
-        this.generatorCount = builder.solverConfig.numThreads() / 2;
-        this.monkeyCount = builder.solverConfig.numThreads() / 2;
+        this.solverConfig = builder.solverConfig;
     }
 
     // Builder method:
@@ -35,6 +29,20 @@ public class QueueValidationContext<G, M> {
             List<? extends QueueWrapper<M>> mtgQueues) {
         return new Builder<>(gtmQueues, mtgQueues);
     }
+
+    public void validateSelectors() {
+        // Delegate to the QueueGroups for selector validation.
+        this.gtmGroup.validateSelectors();
+        this.mtgGroup.validateSelectors();
+    }
+
+    // TODO: Remove getters if unnecessary
+
+    private QueueGroup<G> gtmGroup() { return this.gtmGroup; }
+
+    private QueueGroup<M> mtgGroup() { return this.mtgGroup; }
+
+    private SolverConfiguration solverConfig() { return this.solverConfig; }
 
     public static class Builder<G, M> {
         private final List<? extends QueueWrapper<G>> gtmQueues;

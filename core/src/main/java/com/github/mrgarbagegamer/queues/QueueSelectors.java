@@ -131,7 +131,7 @@ public final class QueueSelectors {
      * @memory Does not allocate.
      */
     public static QueueSelector<MessagePassingQueue<WorkBatch>> randomSequentialJCTools() {
-        return JCToolsSelectors.RANDOM_SEQUENTIAL;
+        return JCToolsSelector.RANDOM_SEQUENTIAL;
     }
 
     /**
@@ -162,7 +162,7 @@ public final class QueueSelectors {
      * @memory Does not allocate.
      */
     public static QueueSelector<MessagePassingQueue<WorkBatch>> linearSequentialJCTools() {
-        return JCToolsSelectors.LINEAR_SEQUENTIAL;
+        return JCToolsSelector.LINEAR_SEQUENTIAL;
     }
 
     /**
@@ -204,7 +204,7 @@ public final class QueueSelectors {
      * @memory Does not allocate.
      */
     public static QueueSelector<MessagePassingQueue<WorkBatch>> biasedSequentialJCTools() {
-        return JCToolsSelectors.BIASED_SEQUENTIAL;
+        return JCToolsSelector.BIASED_SEQUENTIAL;
     }
 
     /**
@@ -239,7 +239,7 @@ public final class QueueSelectors {
      * @memory Does not allocate.
      */
     public static QueueSelector<MessagePassingQueue<WorkBatch>> preferredJCTools() {
-        return JCToolsSelectors.PREFERRED;
+        return JCToolsSelector.PREFERRED;
     }
 
     /**
@@ -268,7 +268,7 @@ public final class QueueSelectors {
      * @memory Does not allocate.
      */
     public static QueueSelector<MessagePassingQueue<WorkBatch>> exclusiveJCTools() {
-        return JCToolsSelectors.EXCLUSIVE;
+        return JCToolsSelector.EXCLUSIVE;
     }
 
     /**
@@ -306,7 +306,7 @@ public final class QueueSelectors {
      * @memory Does not allocate.
      */
     public static QueueSelector<BlockingQueue<WorkBatch>> preferredBlocking() {
-        return BlockingQueueSelectors.PREFERRED;
+        return BlockingQueueSelector.PREFERRED;
     }
 
     /**
@@ -335,14 +335,14 @@ public final class QueueSelectors {
      * @memory Does not allocate.
      */
     public static QueueSelector<BlockingQueue<WorkBatch>> exclusiveBlocking() {
-        return BlockingQueueSelectors.EXCLUSIVE;
+        return BlockingQueueSelector.EXCLUSIVE;
     }
 
     /**
      * A set of {@link QueueSelector} implementations for {@link MessagePassingQueue}s from the
      * JCTools library.
      */
-    private enum JCToolsSelectors implements QueueSelector<MessagePassingQueue<WorkBatch>> {
+    private enum JCToolsSelector implements QueueSelector<MessagePassingQueue<WorkBatch>> {
 
         // TODO: Consider replacing the while loops in this enum with do-while loops,
         // since the selector should try once before giving up.
@@ -544,7 +544,7 @@ public final class QueueSelectors {
     /**
      * A set of {@link QueueSelector} implementations for {@link BlockingQueue}s.
      */
-    private enum BlockingQueueSelectors implements QueueSelector<BlockingQueue<WorkBatch>> {
+    private enum BlockingQueueSelector implements QueueSelector<BlockingQueue<WorkBatch>> {
 
         // TODO: Consider other selection strategies for BlockingQueues.
 

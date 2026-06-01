@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.QueueWrapper.unwrapAll;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -23,23 +23,19 @@ abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
     private final BooleanSupplier generatorShouldContinue;
     private final BooleanSupplier monkeyShouldContinue;
 
-    protected AbstractQueueStrategy(List<? extends QueueWrapper<G>> gtmQueues,
-            List<? extends QueueWrapper<M>> mtgQueues,
-            QueueSelector<? super M> generatorPollSelector,
-            QueueSelector<? super G> generatorOfferSelector,
-            QueueSelector<? super G> monkeyPollSelector,
-            QueueSelector<? super M> monkeyOfferSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
-            BooleanSupplier monkeyShouldContinue) {
-        // We let the caller perform the validation and preallocation of queue lists, so we can now
-        // just unwrap the queues and store them here:
+    protected AbstractQueueStrategy(QueueValidationContext<G, M> context,
+            BackoffStrategy generatorBackoff, BackoffStrategy monkeyBackoff,
+            BooleanSupplier generatorShouldContinue, BooleanSupplier monkeyShouldContinue) {
+        // Validate the context:
+        mustNotBeNull(context, "context").validateAll();
 
-        this.gtmQueues = List.copyOf(unwrapAll(gtmQueues));
-        this.mtgQueues = List.copyOf(unwrapAll(mtgQueues));
-        this.generatorPollSelector = generatorPollSelector.asType();
-        this.generatorOfferSelector = generatorOfferSelector.asType();
-        this.monkeyPollSelector = monkeyPollSelector.asType();
-        this.monkeyOfferSelector = monkeyOfferSelector.asType();
+        // Get the queues and selectors from the context:
+        this.gtmQueues = context.gtmGroup().queues();
+        this.mtgQueues = context.mtgGroup().queues();
+        this.generatorPollSelector = context.mtgGroup().pollSelector();
+        this.generatorOfferSelector = context.gtmGroup().offerSelector();
+        this.monkeyPollSelector = context.gtmGroup().pollSelector();
+        this.monkeyOfferSelector = context.mtgGroup().offerSelector();
         this.generatorBackoff = generatorBackoff;
         this.monkeyBackoff = monkeyBackoff;
         this.generatorShouldContinue = generatorShouldContinue;

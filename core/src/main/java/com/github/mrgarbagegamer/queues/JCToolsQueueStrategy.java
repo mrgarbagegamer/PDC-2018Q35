@@ -8,7 +8,6 @@ import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
-import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.requireValidArguments;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -131,15 +130,16 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
             QueueSelector<? super M> monkeyOfferSelector, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
             BooleanSupplier monkeyShouldContinue) {
-        // Validate args:
-        requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
-                monkeyPollSelector, monkeyOfferSelector, config);
+        // Build the context:
+        final QueueValidationContext<G, M> context = QueueValidationContext
+                .builder(gtmQueues, mtgQueues).generatorPollSelector(generatorPollSelector)
+                .generatorOfferSelector(generatorOfferSelector)
+                .monkeyPollSelector(monkeyPollSelector).monkeyOfferSelector(monkeyOfferSelector)
+                .solverConfig(config).build();
 
-        // Delegate to the main constructor of AbstractQueueStrategy for unwrapping. Preallocation
-        // is a caller responsibility, so it should be done before calling the constructor.
-        super(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
-                monkeyPollSelector, monkeyOfferSelector, generatorBackoff, monkeyBackoff,
-                generatorShouldContinue, monkeyShouldContinue);
+        // Delegate to the AbstractQueueStrategy constructor for validation and field init:
+        super(context, generatorBackoff, monkeyBackoff, generatorShouldContinue,
+                monkeyShouldContinue);
     }
 
     private static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> ofDefaults(

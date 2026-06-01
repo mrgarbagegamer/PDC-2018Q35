@@ -92,11 +92,11 @@ class QueueGroup<Q> {
 
     List<QueueWrapper<Q>> wrappedQueues() { return this.wrappedQueues; }
 
-    private List<Q> queues() { return QueueWrapper.unwrapAll(this.wrappedQueues); }
+    List<Q> queues() { return QueueWrapper.unwrapAll(this.wrappedQueues); }
 
-    private QueueSelector<Q> pollSelector() { return this.pollSelector; }
+    QueueSelector<Q> pollSelector() { return this.pollSelector; }
 
-    private QueueSelector<Q> offerSelector() { return this.offerSelector; }
+    QueueSelector<Q> offerSelector() { return this.offerSelector; }
 
     private int producerCount() { return this.producerCount; }
 

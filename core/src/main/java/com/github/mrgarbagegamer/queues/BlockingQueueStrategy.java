@@ -8,7 +8,6 @@ import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerat
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
-import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.requireValidArguments;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -21,7 +20,6 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.BlockingQueueWrappers.BlockingWrapper;
-import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
 
 // TODO: Update Javadocs to reflect the new design.
 // TODO: Write unit tests for the class.
@@ -50,7 +48,6 @@ import com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils;
  * </p>
  * 
  * @see BlockingQueueSelectors
- * @see BlockingQueueUtils
  * @see BlockingQueueWrappers
  * @since 2026.02 - Queue Injection Refactor
  * @performance Typically {@code O(1)} for queue operations, but can vary based on the queue
@@ -100,14 +97,16 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
             QueueSelector<? super M> monkeyOfferSelector, BackoffStrategy generatorBackoff,
             BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
             BooleanSupplier monkeyShouldContinue) {
-        requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
-                monkeyPollSelector, monkeyOfferSelector, config);
+        // Build the context:
+        final QueueValidationContext<G, M> context = QueueValidationContext
+                .builder(gtmQueues, mtgQueues).generatorPollSelector(generatorPollSelector)
+                .generatorOfferSelector(generatorOfferSelector)
+                .monkeyPollSelector(monkeyPollSelector).monkeyOfferSelector(monkeyOfferSelector)
+                .solverConfig(config).build();
 
-        // Delegate to the main constructor of AbstractQueueStrategy for unwrapping. Preallocation
-        // is a caller responsibility, so it should be done before calling the constructor.
-        super(gtmQueues, mtgQueues, generatorPollSelector, generatorOfferSelector,
-                monkeyPollSelector, monkeyOfferSelector, generatorBackoff, monkeyBackoff,
-                generatorShouldContinue, monkeyShouldContinue);
+        // Delegate to the main constructor of AbstractQueueStrategy for validation and field init:
+        super(context, generatorBackoff, monkeyBackoff, generatorShouldContinue,
+                monkeyShouldContinue);
     }
 
     private static <G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>> BlockingQueueStrategy<G, M> ofDefaults(

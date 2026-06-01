@@ -23,7 +23,6 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.BoundedStrategy;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
-import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
 
 // TODO: Fix class-level Javadoc.
 /**
@@ -37,10 +36,10 @@ import com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils;
  * {@link AccessMode access modes} (e.g., {@link AccessMode.MPMC MPMC}, {@link AccessMode.SPSC
  * SPSC}) and {@link Boundedness boundedness} ({@link Boundedness.Bounded bounded} vs
  * {@link Boundedness.Unbounded unbounded}). By wrapping the queues in specific wrapper classes, we
- * can ensure that the rest of the system, particularly the validation utilities in
- * {@link JCToolsUtils}, can reliably determine the properties of the queues. This saves the need
- * for large chains of {@code instanceof} checks throughout the codebase, which are error-prone,
- * difficult to maintain, and unscalable for future queue types.
+ * can ensure that the rest of the system, particularly the validation utilities, can reliably
+ * determine the properties of the queues. This saves the need for large chains of
+ * {@code instanceof} checks throughout the codebase, which are error-prone, difficult to maintain,
+ * and unscalable for future queue types.
  * </p>
  * 
  * <p>

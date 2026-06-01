@@ -82,11 +82,11 @@ public class QueueValidationContext<G, M> {
         this.mtgGroup.validateSelectors();
     }
 
-    // TODO: Remove getters if unnecessary
+    QueueGroup<G> gtmGroup() { return this.gtmGroup; }
 
-    private QueueGroup<G> gtmGroup() { return this.gtmGroup; }
+    QueueGroup<M> mtgGroup() { return this.mtgGroup; }
 
-    private QueueGroup<M> mtgGroup() { return this.mtgGroup; }
+    // TODO: Remove getter if unnecessary
 
     private SolverConfiguration solverConfig() { return this.solverConfig; }
 

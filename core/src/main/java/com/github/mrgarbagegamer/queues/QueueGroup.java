@@ -45,6 +45,29 @@ class QueueGroup<Q> {
                 generatorPollSelector, solverConfig);
     }
 
+    void validateIntegrity() { QueueListValidator.validateIntegrity(this); }
+
+    void validateMetadata(int expectedCapacity) {
+        // Validate consistency of the two metadata enums across all queues in the group:
+        this.validateConsistentBoundedness();
+        this.validateConsistentAccessMode();
+
+        // Validate that the capacity of each queue is acceptable for the solver configuration:
+        this.validateCapacity(expectedCapacity);
+    }
+
+    private void validateConsistentBoundedness() {
+        MetadataValidator.validateConsistentBoundedness(this);
+    }
+
+    private void validateConsistentAccessMode() {
+        MetadataValidator.validateConsistentAccessMode(this);
+    }
+
+    private void validateCapacity(int expectedCapacity) {
+        MetadataValidator.validateCapacity(this, expectedCapacity);
+    }
+
     void validateSelectors() {
         // Handle the producer selector first
         if (this.offerSelector instanceof SelectorValidator offerValidator) {

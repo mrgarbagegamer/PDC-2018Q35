@@ -30,7 +30,53 @@ public class QueueValidationContext<G, M> {
         return new Builder<>(gtmQueues, mtgQueues);
     }
 
-    public void validateSelectors() {
+    public void validateAll() {
+        // 1. Validate the integrity of the queue lists (e.g. no nulls, no duplicates, not empty):
+        this.validateIntegrity();
+
+        // 2. Validate that there are no overlapping queues between the GTM and MTG groups:
+        this.validateNoOverlap();
+
+        // 3. Validate the metadata of the queues (e.g. consistent boundedness and access mode,
+        // sufficient capacity):
+        this.validateMetadata();
+
+        // 4. Validate that the selectors are compatible with the queues in their respective groups:
+        this.validateSelectors();
+    }
+
+    void validateIntegrity() {
+        this.gtmGroup.validateIntegrity();
+        this.mtgGroup.validateIntegrity();
+    }
+
+    void validateNoOverlap() { QueueListValidator.validateNoOverlap(this.gtmGroup, this.mtgGroup); }
+
+    void validateMetadata() {
+        // Get the expected capacity from the solver configuration:
+        final int expectedCapacity = this.solverConfig.queueSize();
+
+        // For capacity N = expectedCapacity, G = # of GTM queues, and M = # of MTG queues, the
+        // potential capacity configurations for each group, excluding potential rounding of
+        // capacities, are:
+
+        // 1. 1 gtmQueue with capacity N, 1 mtgQueue with capacity N (single-single)
+        // 2. 1 gtmQueue with capacity N * M, M mtgQueues with capacity N (single-multi)
+        // 3. G gtmQueues with capacity N, 1 mtgQueue with capacity N * G (multi-single)
+        // 4. G gtmQueues with capacity N, M mtgQueues with capacity N (multi-multi)
+
+        final int gtmCount = this.gtmGroup.wrappedQueues().size();
+        final int mtgCount = this.mtgGroup.wrappedQueues().size();
+
+        final int gtmExpected = gtmCount == 1 ? expectedCapacity * mtgCount : expectedCapacity;
+        final int mtgExpected = mtgCount == 1 ? expectedCapacity * gtmCount : expectedCapacity;
+
+        // Validate the metadata for each group using the calculated expected capacities:
+        this.gtmGroup.validateMetadata(gtmExpected);
+        this.mtgGroup.validateMetadata(mtgExpected);
+    }
+
+    void validateSelectors() {
         // Delegate to the QueueGroups for selector validation.
         this.gtmGroup.validateSelectors();
         this.mtgGroup.validateSelectors();
@@ -80,7 +126,15 @@ public class QueueValidationContext<G, M> {
         }
 
         public Builder<G, M> solverConfig(SolverConfiguration config) {
-            this.solverConfig = mustNotBeNull(config, "solverConfig");
+            // Ensure that the queueSize is greater than 0 and that numThreads is greater than 1
+            // (since we need at least one producer and one consumer):
+            if (mustNotBeNull(config, "solverConfig").queueSize() <= 0) {
+                throw new IllegalArgumentException("solverConfig.queueSize must be greater than 0");
+            } else if (config.numThreads() <= 1) {
+                throw new IllegalArgumentException(
+                        "solverConfig.numThreads must be greater than 1");
+            }
+            this.solverConfig = config;
             return this;
         }
 

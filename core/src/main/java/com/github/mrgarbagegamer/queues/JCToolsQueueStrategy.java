@@ -8,7 +8,6 @@ import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
-import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.preallocateInto;
 import static com.github.mrgarbagegamer.queues.QueueUtils.JCToolsUtils.requireValidArguments;
 
 import java.util.List;
@@ -187,7 +186,7 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final var mtgQueues = newBoundedMpmcList(1, queueSize);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, exclusiveJCTools(),
                 exclusiveJCTools(), exclusiveJCTools(), exclusiveJCTools());
@@ -217,13 +216,13 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
     public static JCToolsQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
             SolverState solverState) {
         final int queueSize = config.queueSize();
-        final int numMonkeys = config.numThreads() / 2;
+        final int numGenerators = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
-        final var mtgQueues = newBoundedMpmcList(numMonkeys, queueSize);
+        final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
+        final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize * numMonkeys, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize * numGenerators);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, biasedSequentialJCTools(),
                 exclusiveJCTools(), exclusiveJCTools(), biasedSequentialJCTools());
@@ -254,13 +253,13 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
     public static JCToolsQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
             SolverState solverState) {
         final int queueSize = config.queueSize();
-        final int numGenerators = config.numThreads() / 2;
+        final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedMpmcList(numGenerators, queueSize);
-        final var mtgQueues = newBoundedMpmcList(1, queueSize * numGenerators);
+        final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize * numGenerators, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize * numMonkeys);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, exclusiveJCTools(),
                 biasedSequentialJCTools(), biasedSequentialJCTools(), exclusiveJCTools());
@@ -296,11 +295,11 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final int numGenerators = config.numThreads() / 2;
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedMpmcList(numGenerators, queueSize);
-        final var mtgQueues = newBoundedMpmcList(numMonkeys, queueSize);
+        final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, preferredJCTools(),
                 preferredJCTools(), preferredJCTools(), preferredJCTools());

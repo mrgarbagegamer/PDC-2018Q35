@@ -8,7 +8,6 @@ import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerat
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
-import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.preallocateInto;
 import static com.github.mrgarbagegamer.queues.QueueUtils.BlockingQueueUtils.requireValidArguments;
 
 import java.util.List;
@@ -154,7 +153,7 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         final var mtgQueues = newBoundedMpmcList(1, queueSize);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, exclusiveBlocking(),
                 exclusiveBlocking(), exclusiveBlocking(), exclusiveBlocking());
@@ -184,13 +183,13 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
     public static BlockingQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
             SolverState solverState) {
         final int queueSize = config.queueSize();
-        final int numMonkeys = config.numThreads() / 2;
+        final int numGenerators = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
-        final var mtgQueues = newBoundedSpscList(numMonkeys, queueSize);
+        final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
+        final var mtgQueues = newBoundedSpscList(numGenerators, queueSize);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, preferredBlocking(),
                 exclusiveBlocking(), exclusiveBlocking(), preferredBlocking());
@@ -220,13 +219,13 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
     public static BlockingQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
             SolverState solverState) {
         final int queueSize = config.queueSize();
-        final int numGenerators = config.numThreads() / 2;
+        final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedSpscList(numGenerators, queueSize);
-        final var mtgQueues = newBoundedMpmcList(1, queueSize * numGenerators);
+        final var gtmQueues = newBoundedSpscList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize * numGenerators, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize * numMonkeys);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, exclusiveBlocking(),
                 preferredBlocking(), preferredBlocking(), exclusiveBlocking());
@@ -262,11 +261,11 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         final int numGenerators = config.numThreads() / 2;
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedSpscList(numGenerators, queueSize);
-        final var mtgQueues = newBoundedSpscList(numMonkeys, queueSize);
+        final var gtmQueues = newBoundedSpscList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedSpscList(numGenerators, queueSize);
 
         // Preallocate:
-        preallocateInto(mtgQueues, queueSize, config);
+        QueuePreallocator.preallocate(mtgQueues, config, queueSize);
 
         return ofDefaults(gtmQueues, mtgQueues, config, solverState, preferredBlocking(),
                 preferredBlocking(), preferredBlocking(), preferredBlocking());

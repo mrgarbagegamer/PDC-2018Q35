@@ -183,65 +183,6 @@ public final class QueueUtils {
             QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, config);
         }
-
-        /**
-         * Preallocates {@link WorkBatch}es into the provided list of {@code mtgQueues} based on the
-         * given {@code batchesPerQueue} and {@code config}.
-         * 
-         * @param mtgQueues       the list of {@link TestClickCombination
-         *                        monkey}-to-{@link CombinationGeneratorTask generator} queues to
-         *                        preallocate into
-         * @param batchesPerQueue the number of {@code WorkBatch}es to preallocate into each queue
-         * @param config          the {@link SolverConfiguration} to use for creating the
-         *                        {@code WorkBatch}es
-         * @throws NullPointerException     if {@code mtgQueues} or {@code config} is {@code null},
-         *                                  or if {@code mtgQueues} contains any {@code null}
-         *                                  elements
-         * @throws IllegalArgumentException if {@code batchesPerQueue} is negative, or if
-         *                                  preallocation fails due to capacity constraints of the
-         *                                  queues
-         * @see #preallocateInto(List, SolverConfiguration)
-         * @see BlockingQueueUtils#preallocateInto(List, int, SolverConfiguration)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(mtgQueues.size() * batchesPerQueue)} preallocation.
-         * @threading Not thread-safe.
-         * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in
-         *         {@code mtgQueues}.
-         */
-        public static <Q extends MessagePassingQueue<WorkBatch>> void preallocateInto(
-                List<? extends QueueWrapper<Q>> mtgQueues, int batchesPerQueue,
-                SolverConfiguration config) {
-            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config);
-        }
-
-        /**
-         * An overload of {@link #preallocateInto(List, int, SolverConfiguration)} that derives the
-         * {@code batchesPerQueue} from the capacity of the first queue in {@code mtgQueues}.
-         * 
-         * @param mtgQueues the list of {@link TestClickCombination
-         *                  monkey}-to-{@link CombinationGeneratorTask generator} queues to
-         *                  preallocate into
-         * @param config    the {@link SolverConfiguration} to use for creating the
-         *                  {@code WorkBatch}es
-         * @throws NullPointerException     if {@code mtgQueues} or {@code config} is {@code null},
-         *                                  or if {@code mtgQueues} contains any {@code null}
-         *                                  elements
-         * @throws IllegalArgumentException if {@code mtgQueues} is empty, or if preallocation fails
-         *                                  due to capacity constraints of the queues based on the
-         *                                  derived capacity
-         * @see BlockingQueueUtils#preallocateInto(List, SolverConfiguration)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(mtgQueues.size() * capacity)} preallocation, where capacity is
-         *              derived from the first queue.
-         * @threading Not thread-safe.
-         * @memory Allocates {@code capacity} {@code WorkBatch}es per queue in {@code mtgQueues},
-         *         where capacity is derived from the first queue.
-         */
-        public static <Q extends MessagePassingQueue<WorkBatch>> void preallocateInto(
-                List<? extends QueueWrapper<Q>> mtgQueues, SolverConfiguration config) {
-            requireNotEmptyOrNull(mtgQueues, "mtg");
-            preallocateInto(mtgQueues, mtgQueues.getFirst().capacity(), config);
-        }
     }
 
     /**
@@ -327,66 +268,6 @@ public final class QueueUtils {
                 QueueSelector<? super M> monkeyOfferSelector, SolverConfiguration config) {
             QueueUtils.requireValidArguments(gtmQueues, mtgQueues, generatorPollSelector,
                     generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector, config);
-        }
-
-        /**
-         * Preallocates {@link WorkBatch}es into the provided list of {@code mtgQueues} based on the
-         * given {@code batchesPerQueue} and {@code config}.
-         * 
-         * @param mtgQueues       the list of {@link TestClickCombination
-         *                        monkey}-to-{@link CombinationGeneratorTask generator} queues to
-         *                        preallocate into
-         * @param batchesPerQueue the number of {@code WorkBatch}es to preallocate into each queue
-         * @param config          the {@link SolverConfiguration} to use for creating the
-         *                        {@code WorkBatch}es
-         * @throws NullPointerException     if {@code mtgQueues} or {@code config} is {@code null},
-         *                                  or if {@code mtgQueues} contains any {@code null}
-         *                                  elements
-         * @throws IllegalArgumentException if {@code batchesPerQueue} is negative, or if
-         *                                  preallocation fails due to capacity constraints of the
-         *                                  queues
-         * @see #preallocateInto(List, SolverConfiguration)
-         * @see JCToolsUtils#preallocateInto(List, int, SolverConfiguration)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(mtgQueues.size() * batchesPerQueue)} preallocation.
-         * @threading Not thread-safe.
-         * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in
-         *         {@code mtgQueues}.
-         */
-        public static <Q extends BlockingQueue<WorkBatch>> void preallocateInto(
-                List<? extends QueueWrapper<Q>> mtgQueues, int batchesPerQueue,
-                SolverConfiguration config) {
-            QueueUtils.preallocateInto(mtgQueues, batchesPerQueue, config);
-        }
-
-        /**
-         * Preallocates {@link WorkBatch}es into the provided list of {@code mtgQueues}, deriving
-         * the {@code batchesPerQueue} from the capacity of the first queue in {@code mtgQueues}.
-         * 
-         * @param mtgQueues the list of {@link TestClickCombination
-         *                  monkey}-to-{@link CombinationGeneratorTask generator} queues to
-         *                  preallocate into
-         * @param config    the {@link SolverConfiguration} to use for creating the
-         *                  {@code WorkBatch}es
-         * @throws NullPointerException     if {@code mtgQueues} or {@code config} is {@code null},
-         *                                  or if if {@code mtgQueues} contains any {@code null}
-         *                                  elements
-         * @throws IllegalArgumentException if {@code mtgQueues} is empty, or if preallocation fails
-         *                                  due to capacity constraints of the queues based on the
-         *                                  derived capacity
-         * @see JCToolsUtils#preallocateInto(List, SolverConfiguration)
-         * @since 2026.02 - Queue Injection Refactor
-         * @performance {@code O(mtgQueues.size() * capacity)} preallocation, where capacity is
-         *              derived from the first queue.
-         * @threading Not thread-safe.
-         * @memory Allocates {@code capacity} {@code WorkBatch}es per queue in {@code mtgQueues},
-         *         where capacity is derived from the first queue.
-         */
-        public static <Q extends BlockingQueue<WorkBatch>> void preallocateInto(
-                List<? extends QueueWrapper<Q>> mtgQueues, SolverConfiguration config) {
-            requireNotEmptyOrNull(mtgQueues, "mtg");
-            final int batchesPerQueue = mtgQueues.getFirst().capacity();
-            preallocateInto(mtgQueues, batchesPerQueue, config);
         }
     }
 
@@ -761,54 +642,6 @@ public final class QueueUtils {
         if (!Collections.disjoint(a, b)) {
             throw new IllegalArgumentException(listName(aPrefix) + " and " + listName(bPrefix)
                     + " must not contain overlapping queues");
-        }
-    }
-
-    /**
-     * Preallocates {@link WorkBatch}es into the provided list of queues based on the specified
-     * number of batches per queue.
-     * 
-     * @param <Q>             the type of queue
-     * @param mtgQueues       the list of {@link TestClickCombination
-     *                        monkey}-to-{@link CombinationGeneratorTask generator} queues to
-     *                        preallocate into
-     * @param batchesPerQueue the number of {@code WorkBatch}es to preallocate into each queue
-     * @param config          the {@link SolverConfiguration} to use for creating the
-     *                        {@code WorkBatch}es
-     * @param ops             the {@link QueueOps} implementation to use for queue-specific
-     *                        operations
-     * @throws NullPointerException     if {@code mtgQueues}, {@code config}, {@code ops}, or any of
-     *                                  the queues in {@code mtgQueues} are {@code null}
-     * @throws IllegalArgumentException if {@code batchesPerQueue} is negative, or if preallocation
-     *                                  fails due to capacity constraints of the queues based on the
-     *                                  derived capacity and the number of batches per queue.
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(mtgQueues.size() * batchesPerQueue)} preallocation.
-     * @threading Not thread-safe.
-     * @memory Allocates {@code batchesPerQueue} {@code WorkBatch}es per queue in {@code mtgQueues}.
-     */
-    private static <Q> void preallocateInto(List<? extends QueueWrapper<Q>> mtgQueues,
-            int batchesPerQueue, SolverConfiguration config) {
-        requireNotEmptyOrNull(mtgQueues, "mtg");
-        mustNotBeNull(config, "config");
-        if (batchesPerQueue < 0) {
-            throw new IllegalArgumentException(
-                    "batchesPerQueue must be non-negative: " + batchesPerQueue);
-        } else if (batchesPerQueue == 0) {
-            return;
-        }
-        for (QueueWrapper<Q> queue : mtgQueues) {
-            for (int i = 0; i < batchesPerQueue; i++) {
-                if (!queue.offer(new WorkBatch(config))) {
-                    if (queue.boundedness().isBounded() && queue.capacity() <= batchesPerQueue) {
-                        throw new IllegalStateException(
-                                "Failed to preallocate WorkBatch into bounded queue with insufficient capacity");
-                    } else {
-                        throw new IllegalStateException(
-                                "Failed to preallocate WorkBatch into unbounded queue");
-                    }
-                }
-            }
         }
     }
 

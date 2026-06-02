@@ -1,6 +1,14 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
+
+import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+
 final class SelectorRules {
+
+    @ExcludeFromGeneratedCoverage
+    private SelectorRules() { utilityClassError("SelectorRules"); }
 
     @FunctionalInterface
     interface SelectorRule {
@@ -8,8 +16,11 @@ final class SelectorRules {
     }
 
     static final SelectorRule SEQUENTIAL = (target, selector) -> {
-        final int threadCount = target.threadCount();
+        final int threadCount = mustNotBeNull(target, "target").threadCount();
         final var wrappedQueues = target.wrappedQueues();
+
+        mustNotBeNull(selector, "selector");
+
         if (threadCount > 1) {
             for (int i = 0; i < wrappedQueues.size(); i++) {
                 final var queue = wrappedQueues.get(i);
@@ -24,8 +35,11 @@ final class SelectorRules {
     };
 
     static final SelectorRule COUNT_AT_LEAST_SIZE = (target, selector) -> {
-        final int threadCount = target.threadCount();
+        final int threadCount = mustNotBeNull(target, "target").threadCount();
         final int queueCount = target.wrappedQueues().size();
+
+        mustNotBeNull(selector, "selector");
+
         if (threadCount < queueCount) {
             fail(target, selector, "%s size (%d) is less than thread count (%d)"
                     .formatted(target.listName(), queueCount, threadCount));
@@ -33,8 +47,10 @@ final class SelectorRules {
     };
 
     static final SelectorRule EXCLUSIVE = (target, selector) -> {
-        final var wrappedQueues = target.wrappedQueues();
+        final var wrappedQueues = mustNotBeNull(target, "target").wrappedQueues();
         final int size = wrappedQueues.size();
+
+        mustNotBeNull(selector, "selector");
 
         if (size != 1) {
             fail(target, selector, "%s must contain exactly one queue, but contains %d"

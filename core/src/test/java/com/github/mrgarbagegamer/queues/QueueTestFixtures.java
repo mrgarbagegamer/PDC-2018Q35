@@ -182,6 +182,9 @@ public final class QueueTestFixtures {
                 BackoffStrategy backoff, BooleanSupplier shouldContinue) {
             return false;
         }
+
+        @Override
+        public String toString() { return "DummySelector"; }
     };
 
     /**

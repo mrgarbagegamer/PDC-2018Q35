@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
+import static com.github.mrgarbagegamer.queues.QueueTestFixtures.dummySelector;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.atLeastOnce;
@@ -24,8 +25,8 @@ public class MetadataValidatorTest {
 
     private static <Q> QueueGroup<Q> createSpyGroupWithQueues(
             List<? extends QueueWrapper<Q>> queues) {
-        final var group = QueueGroup.newGtmGroup(queues, QueueTestFixtures.dummySelector(),
-                QueueTestFixtures.dummySelector(), DUMMY_SOLVER_CONFIG);
+        final var group = QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
+                DUMMY_SOLVER_CONFIG);
 
         return spy(group);
     }

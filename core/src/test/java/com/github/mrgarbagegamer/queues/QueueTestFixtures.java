@@ -1,6 +1,13 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
+import static java.util.Objects.checkIndex;
+import static java.util.stream.Collectors.toUnmodifiableList;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Stream;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
@@ -23,14 +30,13 @@ public final class QueueTestFixtures {
         private final boolean acceptableCapacityOverride;
         private boolean empty;
 
-        MockQueueWrapper(Q underlyingQueue, Boundedness boundedness, AccessMode accessMode,
-                int capacity, boolean acceptableCapacityOverride, boolean empty) {
-            this.underlyingQueue = underlyingQueue;
-            this.boundedness = boundedness;
-            this.accessMode = accessMode;
-            this.capacity = capacity;
-            this.acceptableCapacityOverride = acceptableCapacityOverride;
-            this.empty = empty;
+        MockQueueWrapper(MockQueueBuilder<Q> builder) {
+            this.underlyingQueue = builder.underlyingQueue;
+            this.boundedness = builder.boundedness;
+            this.accessMode = builder.accessMode;
+            this.capacity = builder.capacity;
+            this.acceptableCapacityOverride = builder.acceptableCapacityOverride;
+            this.empty = builder.empty;
         }
 
         @Override
@@ -92,7 +98,7 @@ public final class QueueTestFixtures {
         }
 
         public MockQueueBuilder<Q> accessMode(AccessMode mode) {
-            this.accessMode = mode;
+            this.accessMode = mustNotBeNull(mode, "mode");
             return this;
         }
 
@@ -111,9 +117,54 @@ public final class QueueTestFixtures {
             return this;
         }
 
-        public MockQueueWrapper<Q> build() {
-            return new MockQueueWrapper<>(underlyingQueue, boundedness, accessMode, capacity,
-                    acceptableCapacityOverride, empty);
+        public MockQueueWrapper<Q> build() { return new MockQueueWrapper<>(this); }
+    }
+
+    /**
+     * Generates a list of perfectly uniform, valid MockQueueWrappers for baseline testing.
+     * 
+     * @param <Q>      the type of the underlying queues being wrapped
+     * @param count    the number of queues to generate in the list
+     * @param template the builder that will be used to generate each queue in the list (each queue
+     *                 will be built from the template, so they will all be identical)
+     * @return a list of MockQueueWrappers where each queue is built from the provided template,
+     *         resulting in a perfectly uniform list of valid queues
+     */
+    public static <Q> List<MockQueueWrapper<Q>> createUniformList(int count,
+            MockQueueBuilder<Q> template) {
+        mustNotBeNull(template, "template");
+        return Stream.generate(template::build).limit(count).collect(toUnmodifiableList());
+    }
+
+    /**
+     * Generates a list where exactly one queue (at the specified index) is misconfigured. Excellent
+     * for testing indexed exception messages.
+     * 
+     * @param <Q>         the type of the underlying queues being wrapped
+     * @param count       the total number of queues in the list
+     * @param poisonIndex the index at which the misconfigured "poison pill" queue should be placed
+     * @param template    a builder for the well-behaved queues that should fill the rest of the
+     *                    list
+     * @param poison      a builder for the misconfigured "poison pill" queue that should be placed
+     *                    at {@code poisonIndex}
+     * @return a list of MockQueueWrappers where all queues are built from the template except for
+     *         the one at {@code poisonIndex}, which is built from poison
+     */
+    public static <Q> List<MockQueueWrapper<Q>> createListWithPoisonPill(int count, int poisonIndex,
+            MockQueueBuilder<Q> template, MockQueueBuilder<Q> poison) {
+        mustNotBeNull(template, "template");
+        mustNotBeNull(poison, "poison");
+        checkIndex(poisonIndex, count);
+
+        List<MockQueueWrapper<Q>> list = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            if (i == poisonIndex) {
+                list.add(poison.build());
+            } else {
+                list.add(template.build());
+            }
         }
+
+        return List.copyOf(list);
     }
 }

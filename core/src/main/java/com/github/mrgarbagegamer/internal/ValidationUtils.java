@@ -15,7 +15,8 @@ public final class ValidationUtils {
     }
 
     public static <T> List<T> copyOfNonNullList(List<? extends T> list, String fieldName) {
-        for (int i = 0; i < requireNonNull(list, fieldName + " must not be null").size(); i++) {
+        mustNotBeNull(list, fieldName);
+        for (int i = 0; i < list.size(); i++) {
             if (list.get(i) == null) {
                 throw new NullPointerException(
                         "%s must not contain null elements (null element at index %d)"

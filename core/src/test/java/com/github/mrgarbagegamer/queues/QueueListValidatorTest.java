@@ -9,16 +9,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class QueueListValidatorTest {
 
-    // validateIntegrity() tests:
+    // validateNonEmptiness() tests:
 
     @Test
-    void givenNullGroup_whenValidateIntegrity_thenThrowNullPointerException() {
-        assertThatThrownBy(() -> QueueListValidator.validateIntegrity(null))
+    void givenNullGroup_whenValidateNonEmptiness_thenThrowNullPointerException() {
+        assertThatThrownBy(() -> QueueListValidator.validateNonEmptiness(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("group must not be null");
     }
 
-    // TODO: Write tests for the emptiness check in validateIntegrity()
+    // TODO: Write tests for the emptiness check in validateNonEmptiness()
+
+    // validateNoDuplicates() tests:
+
+    // TODO: Write tests for the null check in validateNoDuplicates()
     // TODO: Write tests for the duplicate check in validateIntegrity()
 
     // validateNoOverlap() tests:

@@ -11,16 +11,16 @@ final class QueueListValidator {
     @ExcludeFromGeneratedCoverage
     private QueueListValidator() { utilityClassError("QueueListValidator"); }
 
-    static void validateIntegrity(QueueGroup<?> group) {
-        final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
-
+    static void validateNonEmptiness(QueueGroup<?> group) {
         // Ensure the list inside the group is not empty:
-        if (wrappedQueues.isEmpty()) {
+        if (mustNotBeNull(group, "group").wrappedQueues().isEmpty()) {
             throw new IllegalArgumentException(
                     failureMessage(group, "The list must contain at least one queue"));
         }
+    }
 
-        // Null elements are impossible here; QueueGroup uses copyOfNonNullList()/List.copyOf().
+    static void validateNoDuplicates(QueueGroup<?> group) {
+        final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         // Ensure that there are no duplicate queues in the list:
         if (wrappedQueues.size() != wrappedQueues.stream().distinct().count()) {

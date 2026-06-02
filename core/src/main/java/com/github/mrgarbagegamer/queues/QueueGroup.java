@@ -45,7 +45,10 @@ class QueueGroup<Q> {
                 generatorPollSelector, solverConfig);
     }
 
-    void validateIntegrity() { QueueListValidator.validateIntegrity(this); }
+    void validateIntegrity() {
+        QueueListValidator.validateNonEmptiness(this);
+        QueueListValidator.validateNoDuplicates(this);
+    }
 
     void validateMetadata(int expectedCapacity) {
         // Validate consistency of the two metadata enums across all queues in the group:

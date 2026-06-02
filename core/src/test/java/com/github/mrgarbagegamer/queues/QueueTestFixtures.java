@@ -7,6 +7,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Stream;
 
 import com.github.mrgarbagegamer.WorkBatch;
@@ -167,4 +168,28 @@ public final class QueueTestFixtures {
 
         return List.copyOf(list);
     }
+
+    private static final QueueSelector<Object> DUMMY_SELECTOR = new QueueSelector<>() {
+
+        @Override
+        public WorkBatch poll(int threadId, List<? extends Object> queues, BackoffStrategy backoff,
+                BooleanSupplier shouldContinue) {
+            return null;
+        }
+
+        @Override
+        public boolean offer(WorkBatch batch, int threadId, List<? extends Object> queues,
+                BackoffStrategy backoff, BooleanSupplier shouldContinue) {
+            return false;
+        }
+    };
+
+    /**
+     * {@return a dummy QueueSelector that can be used in tests where the selector's behavior is not
+     * under test} This QueueSelector will return {@code null} for polls and {@code false} for
+     * offers.
+     * 
+     * @param <Q> the type of the queues that would be passed to the selector
+     */
+    public static <Q> QueueSelector<Q> dummySelector() { return DUMMY_SELECTOR.asType(); }
 }

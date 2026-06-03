@@ -16,12 +16,14 @@ final class SelectorValidationTarget<Q> {
         this.threadCount = threadCount;
     }
 
-    static <Q> SelectorValidationTarget<Q> newProducerTarget(QueueGroup<Q> group, int producerCount) {
-        return new SelectorValidationTarget<>(group, ValidationRole.PRODUCER, producerCount);
+    static <Q> SelectorValidationTarget<Q> newProducerTarget(QueueGroup<Q> group) {
+        return new SelectorValidationTarget<>(group, ValidationRole.PRODUCER,
+                group.producerCount());
     }
 
-    static <Q> SelectorValidationTarget<Q> newConsumerTarget(QueueGroup<Q> group, int consumerCount) {
-        return new SelectorValidationTarget<>(group, ValidationRole.CONSUMER, consumerCount);
+    static <Q> SelectorValidationTarget<Q> newConsumerTarget(QueueGroup<Q> group) {
+        return new SelectorValidationTarget<>(group, ValidationRole.CONSUMER,
+                group.consumerCount());
     }
 
     public List<QueueWrapper<Q>> wrappedQueues() { return group.wrappedQueues(); }

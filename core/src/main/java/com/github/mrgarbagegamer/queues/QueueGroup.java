@@ -84,14 +84,12 @@ class QueueGroup<Q> {
     }
 
     private SelectorValidationTarget<Q> producerTarget() {
-        return SelectorValidationTarget.newProducerTarget(this, producerCount);
+        return SelectorValidationTarget.newProducerTarget(this);
     }
 
     private SelectorValidationTarget<Q> consumerTarget() {
-        return SelectorValidationTarget.newConsumerTarget(this, consumerCount);
+        return SelectorValidationTarget.newConsumerTarget(this);
     }
-
-    // TODO: Remove getters if unnecessary
 
     List<QueueWrapper<Q>> wrappedQueues() { return this.wrappedQueues; }
 
@@ -101,9 +99,9 @@ class QueueGroup<Q> {
 
     QueueSelector<Q> offerSelector() { return this.offerSelector; }
 
-    private int producerCount() { return this.producerCount; }
+    int producerCount() { return this.producerCount; }
 
-    private int consumerCount() { return this.consumerCount; }
+    int consumerCount() { return this.consumerCount; }
 
     String listName() { return this.direction.listName(); }
 

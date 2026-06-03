@@ -124,15 +124,16 @@ public final class QueueTestFixtures {
     /**
      * Generates a list of perfectly uniform, valid MockQueueWrappers for baseline testing.
      * 
-     * @param <Q>      the type of the underlying queues being wrapped
-     * @param count    the number of queues to generate in the list
      * @param template the builder that will be used to generate each queue in the list (each queue
      *                 will be built from the template, so they will all be identical)
+     * @param count    the number of queues to generate in the list
+     * 
+     * @param <Q>      the type of the underlying queues being wrapped
      * @return a list of MockQueueWrappers where each queue is built from the provided template,
      *         resulting in a perfectly uniform list of valid queues
      */
-    public static <Q> List<MockQueueWrapper<Q>> createUniformList(int count,
-            MockQueueBuilder<Q> template) {
+    public static <Q> List<MockQueueWrapper<Q>> createUniformList(MockQueueBuilder<Q> template,
+            int count) {
         mustNotBeNull(template, "template");
         return Stream.generate(template::build).limit(count).collect(toUnmodifiableList());
     }
@@ -141,18 +142,19 @@ public final class QueueTestFixtures {
      * Generates a list where exactly one queue (at the specified index) is misconfigured. Excellent
      * for testing indexed exception messages.
      * 
-     * @param <Q>         the type of the underlying queues being wrapped
-     * @param count       the total number of queues in the list
-     * @param poisonIndex the index at which the misconfigured "poison pill" queue should be placed
      * @param template    a builder for the well-behaved queues that should fill the rest of the
      *                    list
      * @param poison      a builder for the misconfigured "poison pill" queue that should be placed
      *                    at {@code poisonIndex}
+     * @param count       the total number of queues in the list
+     * @param poisonIndex the index at which the misconfigured "poison pill" queue should be placed
+     * 
+     * @param <Q>         the type of the underlying queues being wrapped
      * @return a list of MockQueueWrappers where all queues are built from the template except for
      *         the one at {@code poisonIndex}, which is built from poison
      */
-    public static <Q> List<MockQueueWrapper<Q>> createListWithPoisonPill(int count, int poisonIndex,
-            MockQueueBuilder<Q> template, MockQueueBuilder<Q> poison) {
+    public static <Q> List<MockQueueWrapper<Q>> createListWithPoisonPill(
+            MockQueueBuilder<Q> template, MockQueueBuilder<Q> poison, int count, int poisonIndex) {
         mustNotBeNull(template, "template");
         mustNotBeNull(poison, "poison");
         checkIndex(poisonIndex, count);

@@ -41,8 +41,8 @@ final class SelectorRules {
         mustNotBeNull(selector, "selector");
 
         if (threadCount < queueCount) {
-            fail(target, selector, "%s size (%d) is less than thread count (%d)"
-                    .formatted(target.listName(), queueCount, threadCount));
+            fail(target, selector, "%s thread count (%d) is less than queue count (%d)"
+                    .formatted(target.listName(), threadCount, queueCount));
         }
     };
 

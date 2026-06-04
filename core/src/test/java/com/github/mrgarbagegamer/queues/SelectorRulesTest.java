@@ -110,7 +110,47 @@ class SelectorRulesTest {
     }
 
     @Nested
-    class CountAtLeastSizeTests {}
+    class CountAtLeastSizeTests {
+        // Helper method for generating the producer targets:
+        private static SelectorValidationTarget<Void> getTarget(int generatorCount, int listSize) {
+            final var target = createProducerGtmTargetFromBuilder(generatorCount,
+                    MockQueueBuilder.create(), listSize);
+            return target;
+        }
+
+        @Test
+        void givenProducerTargetWithGeneratorCountGreaterThanListSize_whenValidate_thenPass() {
+            final int generatorCount = 3;
+            final int listSize = 2;
+            final var target = getTarget(generatorCount, listSize);
+
+            assertThatNoException()
+                    .isThrownBy(() -> COUNT_AT_LEAST_SIZE.validate(target, dummySelector()));
+        }
+
+        @Test
+        void givenProducerTargetWithGeneratorCountEqualToListSize_whenValidate_thenPass() {
+            final int generatorCount = 2;
+            final int listSize = 2;
+            final var target = getTarget(generatorCount, listSize);
+
+            assertThatNoException()
+                    .isThrownBy(() -> COUNT_AT_LEAST_SIZE.validate(target, dummySelector()));
+        }
+
+        @Test
+        void givenProducerTargetWithGeneratorCountLessThanListSize_whenValidate_thenThrowIllegalArgumentException() {
+            final int generatorCount = 2;
+            final int listSize = 3;
+            final var target = getTarget(generatorCount, listSize);
+
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> COUNT_AT_LEAST_SIZE.validate(target, dummySelector()))
+                    .withMessageContaining("generator count (%d)", generatorCount)
+                    .withMessageContaining("is less than %s size (%d)", target.listName(),
+                            listSize);
+        }
+    }
 
     @Nested
     class ExclusiveTests {}

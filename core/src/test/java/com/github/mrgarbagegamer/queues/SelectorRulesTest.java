@@ -153,5 +153,63 @@ class SelectorRulesTest {
     }
 
     @Nested
-    class ExclusiveTests {}
+    class ExclusiveTests {
+        @Test
+        void givenProducerTargetWithNoQueues_whenValidate_thenThrowIllegalArgumentException() {
+            final var target = createProducerGtmTargetWithQueues(2, List.of());
+
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()))
+                    .withMessageContaining("must contain exactly one queue")
+                    .withMessageContaining("but contains 0");
+        }
+
+        @Test
+        void givenProducerTargetWithMultipleQueues_whenValidate_thenThrowIllegalArgumentException() {
+            final var target = createProducerGtmTargetFromBuilder(2, MockQueueBuilder.create(), 2);
+
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()))
+                    .withMessageContaining("must contain exactly one queue")
+                    .withMessageContaining("but contains 2");
+        }
+
+        @Test
+        void givenSingleThreadProducerTargetWithASingleSingleAccessQueue_whenValidate_thenPass() {
+            final var target = createProducerGtmTargetFromBuilder(1,
+                    MockQueueBuilder.<Void>create().accessMode(AccessMode.SPSC), 1);
+
+            assertThatNoException().isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()));
+        }
+
+        @Test
+        void givenSingleThreadProducerTargetWithASingleMultiAccessQueue_whenValidate_thenPass() {
+            final var target = createProducerGtmTargetFromBuilder(1, MockQueueBuilder.create(), 1);
+
+            assertThatNoException().isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()));
+        }
+
+        @Test
+        void givenMultiThreadProducerTargetWithASingleSingleAccessQueue_whenValidate_thenThrowIllegalArgumentException() {
+            final int producerCount = 2;
+
+            final var target = createProducerGtmTargetFromBuilder(producerCount,
+                    MockQueueBuilder.<Void>create().accessMode(AccessMode.SPSC), 1);
+
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()))
+                    .withMessageContaining("gtmQueue").withMessageContaining("single-producer")
+                    .withMessageContaining("%d generators", producerCount);
+        }
+
+        @Test
+        void givenMultiThreadProducerTargetWithASingleMultiAccessQueue_whenValidate_thenPass() {
+            final int producerCount = 2;
+
+            final var target = createProducerGtmTargetFromBuilder(producerCount,
+                    MockQueueBuilder.create(), 1);
+
+            assertThatNoException().isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()));
+        }
+    }
 }

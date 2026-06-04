@@ -76,21 +76,21 @@ class SelectorRulesTest {
     @Nested
     class SequentialTests {
         @Test
-        void givenSingleThreadProducerTarget_whenValidateSequential_thenPass() {
+        void givenSingleThreadProducerTarget_whenValidate_thenPass() {
             final var target = createProducerGtmTargetFromBuilder(1, MockQueueBuilder.create(), 1);
 
             assertThatNoException().isThrownBy(() -> SEQUENTIAL.validate(target, dummySelector()));
         }
 
         @Test
-        void givenMultiThreadProducerTargetWithOnlyMultiProducerQueues_whenValidateSequential_thenPass() {
+        void givenMultiThreadProducerTargetWithOnlyMultiProducerQueues_whenValidate_thenPass() {
             final var target = createProducerGtmTargetFromBuilder(2, MockQueueBuilder.create(), 2);
 
             assertThatNoException().isThrownBy(() -> SEQUENTIAL.validate(target, dummySelector()));
         }
 
         @Test
-        void givenMultiThreadProducerTargetWithASingleProducerQueue_whenValidateSequential_thenThrowIllegalArgumentException() {
+        void givenMultiThreadProducerTargetWithASingleProducerQueue_whenValidate_thenThrowIllegalArgumentException() {
             final int producerCount = 2;
             final int queueCount = 3;
             final int poisonIndex = 1;

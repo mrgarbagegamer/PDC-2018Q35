@@ -30,21 +30,17 @@ import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 @ExtendWith(MockitoExtension.class)
 class SelectorRulesTest {
 
-    private static SelectorValidationTarget<Void> createProducerGtmTargetWithQueues(
-            int producerCount, List<MockQueueWrapper<Void>> queues) {
+    private static <Q> SelectorValidationTarget<Q> createProducerGtmTargetWithQueues(
+            int producerCount, List<MockQueueWrapper<Q>> queues) {
         final SolverConfiguration config = SolverConfiguration.builder()
                 .numThreads(producerCount * 2).build();
-
-        QueueSelector<Void> dummySelector = dummySelector();
-
-        QueueGroup<Void> group = QueueGroup.newGtmGroup(queues, dummySelector, dummySelector,
-                config);
+        final var group = QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(), config);
 
         return SelectorValidationTarget.newProducerTarget(group);
     }
 
-    private static SelectorValidationTarget<Void> createProducerGtmTargetFromBuilder(
-            int producerCount, MockQueueBuilder<Void> builder, int queueCount) {
+    private static <Q> SelectorValidationTarget<Q> createProducerGtmTargetFromBuilder(
+            int producerCount, MockQueueBuilder<Q> builder, int queueCount) {
         final var queues = createUniformList(builder, queueCount);
         return createProducerGtmTargetWithQueues(producerCount, queues);
     }
@@ -96,9 +92,8 @@ class SelectorRulesTest {
             final int poisonIndex = 1;
 
             // Create a list with one single-producer queue and multiple multi-producer queues:
-            final var queues = createListWithPoisonPill(MockQueueBuilder.<Void>create(),
-                    MockQueueBuilder.<Void>create().accessMode(AccessMode.SPSC), queueCount,
-                    poisonIndex);
+            final var queues = createListWithPoisonPill(MockQueueBuilder.create(),
+                    MockQueueBuilder.create().accessMode(AccessMode.SPSC), queueCount, poisonIndex);
             final var target = createProducerGtmTargetWithQueues(producerCount, queues);
 
             assertThatIllegalArgumentException()
@@ -112,10 +107,9 @@ class SelectorRulesTest {
     @Nested
     class CountAtLeastSizeTests {
         // Helper method for generating the producer targets:
-        private static SelectorValidationTarget<Void> getTarget(int generatorCount, int listSize) {
-            final var target = createProducerGtmTargetFromBuilder(generatorCount,
-                    MockQueueBuilder.create(), listSize);
-            return target;
+        private static <Q> SelectorValidationTarget<Q> getTarget(int generatorCount, int listSize) {
+            return createProducerGtmTargetFromBuilder(generatorCount, MockQueueBuilder.create(),
+                    listSize);
         }
 
         @Test
@@ -167,7 +161,7 @@ class SelectorRulesTest {
         @Test
         void givenSingleThreadProducerTargetWithASingleSingleAccessQueue_whenValidate_thenPass() {
             final var target = createProducerGtmTargetFromBuilder(1,
-                    MockQueueBuilder.<Void>create().accessMode(AccessMode.SPSC), 1);
+                    MockQueueBuilder.create().accessMode(AccessMode.SPSC), 1);
 
             assertThatNoException().isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()));
         }
@@ -184,7 +178,7 @@ class SelectorRulesTest {
             final int producerCount = 2;
 
             final var target = createProducerGtmTargetFromBuilder(producerCount,
-                    MockQueueBuilder.<Void>create().accessMode(AccessMode.SPSC), 1);
+                    MockQueueBuilder.create().accessMode(AccessMode.SPSC), 1);
 
             assertThatIllegalArgumentException()
                     .isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()))

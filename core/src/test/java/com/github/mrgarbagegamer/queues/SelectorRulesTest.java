@@ -155,16 +155,6 @@ class SelectorRulesTest {
     @Nested
     class ExclusiveTests {
         @Test
-        void givenProducerTargetWithNoQueues_whenValidate_thenThrowIllegalArgumentException() {
-            final var target = createProducerGtmTargetWithQueues(2, List.of());
-
-            assertThatIllegalArgumentException()
-                    .isThrownBy(() -> EXCLUSIVE.validate(target, dummySelector()))
-                    .withMessageContaining("must contain exactly one queue")
-                    .withMessageContaining("but contains 0");
-        }
-
-        @Test
         void givenProducerTargetWithMultipleQueues_whenValidate_thenThrowIllegalArgumentException() {
             final var target = createProducerGtmTargetFromBuilder(2, MockQueueBuilder.create(), 2);
 

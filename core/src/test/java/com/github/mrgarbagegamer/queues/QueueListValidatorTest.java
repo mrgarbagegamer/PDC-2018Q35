@@ -1,14 +1,14 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.QueueTestFixtures.createUniformList;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.dummySelector;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.List;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,127 +19,124 @@ import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueBuilder;
 @ExtendWith(MockitoExtension.class)
 public class QueueListValidatorTest {
 
-    private static final SolverConfiguration DUMMY_SOLVER_CONFIG = SolverConfiguration.builder()
-            .numThreads(4).build();
+    private static final int DEFAULT_NUM_THREADS = 4;
 
-    private static <Q> QueueGroup<Q> createSpyGroupWithQueues(
-            List<? extends QueueWrapper<Q>> queues) {
-        final var group = QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
-                DUMMY_SOLVER_CONFIG);
-
-        return spy(group);
+    private static <Q> QueueGroup<Q> createGroupWithQueues(List<? extends QueueWrapper<Q>> queues) {
+        return QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
+                SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
     }
 
-    // validateIntegrity() tests:
-
-    @Test
-    void givenNullGroup_whenValidateNonEmptiness_thenThrowNullPointerException() {
-        assertThatThrownBy(() -> QueueListValidator.validateNonEmptiness(null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("group must not be null");
+    private static <Q> QueueGroup<Q> createGroupWithUniformQueues(MockQueueBuilder<Q> builder,
+            int count) {
+        return createGroupWithQueues(createUniformList(builder, count));
     }
 
-    @Test
-    void givenGroupWithEmptyList_whenValidateNonEmptiness_thenThrowIllegalArgumentException() {
-        final var group = createSpyGroupWithQueues(List.of());
+    @Nested
+    class ValidateNonEmptinessTests {
+        @Test
+        void givenNullGroup_thenThrowNullPointerException() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> QueueListValidator.validateNonEmptiness(null));
+        }
 
-        assertThatThrownBy(() -> QueueListValidator.validateNonEmptiness(group))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining(group.listName())
-                .hasMessageContaining("must contain at least one queue");
+        @Test
+        void givenGroupWithEmptyList_thenThrowIllegalArgumentException() {
+            final var group = createGroupWithQueues(List.of());
 
-        // Verify that wrappedQueues() and listName() were called on the group:
-        verify(group).wrappedQueues();
-        verify(group, atLeast(2)).listName();
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> QueueListValidator.validateNonEmptiness(group))
+                    .withMessageContaining("must contain at least one queue");
+        }
+
+        @Test
+        void givenGroupWithNonEmptyList_thenSucceeds() {
+            final var group = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
+
+            assertThatNoException()
+                    .isThrownBy(() -> QueueListValidator.validateNonEmptiness(group));
+        }
     }
 
-    @Test
-    void givenGroupWithNonEmptyList_whenValidateNonEmptiness_thenSucceeds() {
-        final var wrappedQueues = List.of(MockQueueBuilder.create().build());
-        final var group = createSpyGroupWithQueues(wrappedQueues);
+    @Nested
+    class ValidateNoDuplicatesTests {
+        @Test
+        void givenNullGroup_thenThrowNullPointerException() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> QueueListValidator.validateNoDuplicates(null));
+        }
 
-        QueueListValidator.validateNonEmptiness(group);
+        @Test
+        void givenGroupWithDuplicateQueues_thenThrowIllegalArgumentException() {
+            final var queue = MockQueueBuilder.create().build();
+            final var uniqueQueue = MockQueueBuilder.create().build();
+            final var wrappedQueues = List.of(queue, uniqueQueue, queue);
+            final var group = createGroupWithQueues(wrappedQueues);
 
-        // Verify that wrappedQueues() was called at least once on the group:
-        verify(group, atLeastOnce()).wrappedQueues();
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> QueueListValidator.validateNoDuplicates(group))
+                    .withMessageContaining(
+                            "gtmQueue at index 0 is the same as gtmQueue at index 2");
+        }
+
+        @Test
+        void givenGroupWithUniqueQueues_thenSucceeds() {
+            final var wrappedQueues = List.of(MockQueueBuilder.create().build(),
+                    MockQueueBuilder.create().build());
+            final var group = createGroupWithQueues(wrappedQueues);
+
+            assertThatNoException()
+                    .isThrownBy(() -> QueueListValidator.validateNoDuplicates(group));
+        }
     }
 
-    // validateNoDuplicates() tests:
+    @Nested
+    class ValidateNoOverlapTests {
+        @Test
+        void givenNullGtmGroup_thenThrowNullPointerException() {
+            final var mtgGroup = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
 
-    @Test
-    void givenNullGroup_whenValidateNoDuplicates_thenThrowNullPointerException() {
-        assertThatThrownBy(() -> QueueListValidator.validateNoDuplicates(null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("group must not be null");
-    }
+            assertThatNullPointerException()
+                    .isThrownBy(() -> QueueListValidator.validateNoOverlap(null, mtgGroup))
+                    .withMessageContaining("gtmGroup must not be null");
+        }
 
-    @Test
-    void givenGroupWithDuplicateQueues_whenValidateNoDuplicates_thenThrowIllegalArgumentException() {
-        final var queue = MockQueueBuilder.create().build();
-        final var wrappedQueues = List.of(queue, queue);
-        final var group = createSpyGroupWithQueues(wrappedQueues);
+        @Test
+        void givenNullMtgGroup_thenThrowNullPointerException() {
+            final var gtmGroup = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
 
-        assertThatThrownBy(() -> QueueListValidator.validateNoDuplicates(group))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining(group.listName())
-                .hasMessageContaining("must not contain duplicate queues");
+            assertThatNullPointerException()
+                    .isThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, null))
+                    .withMessageContaining("mtgGroup must not be null");
+        }
 
-        // Verify that wrappedQueues() and listName() were called on the group:
-        verify(group).wrappedQueues();
-        verify(group, atLeast(2)).listName();
-    }
+        @Test
+        void givenGroupsWithOverlappingQueues_thenThrowIllegalArgumentException() {
+            final var duplicateQueue = MockQueueBuilder.create().build();
+            final var uniqueQueue1 = MockQueueBuilder.create().build();
+            final var uniqueQueue2 = MockQueueBuilder.create().build();
+            final var gtmGroup = createGroupWithQueues(List.of(uniqueQueue1, duplicateQueue));
+            final var mtgGroup = createGroupWithQueues(List.of(uniqueQueue2, duplicateQueue));
 
-    @Test
-    void givenGroupWithUniqueQueues_whenValidateNoDuplicates_thenSucceeds() {
-        final var wrappedQueues = List.of(MockQueueBuilder.create().build(),
-                MockQueueBuilder.create().build());
-        final var group = createSpyGroupWithQueues(wrappedQueues);
+            // The exception message has "gtmQueue" twice since the validation method uses the
+            // group's elementName() to refer to the elements and the createGroupWithQueues() method
+            // invokes QueueGroup.newGtmGroup().
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, mtgGroup))
+                    .withMessageContaining(
+                            "gtmQueue at index 1 is the same as gtmQueue at index 1");
+        }
 
-        QueueListValidator.validateNoDuplicates(group);
+        @Test
+        void givenGroupsWithNoOverlappingQueues_thenSucceeds() {
+            final int queueCount = 2;
 
-        // Verify that wrappedQueues() was called at least once on the group:
-        verify(group, atLeastOnce()).wrappedQueues();
-    }
+            final var gtmGroup = createGroupWithUniformQueues(MockQueueBuilder.create(),
+                    queueCount);
+            final var mtgGroup = createGroupWithUniformQueues(MockQueueBuilder.create(),
+                    queueCount);
 
-    // validateNoOverlap() tests:
-
-    @Test
-    void givenNullGtmGroup_whenValidateNoOverlap_thenThrowNullPointerException() {
-        final var mtgGroup = createSpyGroupWithQueues(List.of(MockQueueBuilder.create().build()));
-
-        assertThatThrownBy(() -> QueueListValidator.validateNoOverlap(null, mtgGroup))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("gtmGroup must not be null");
-    }
-
-    @Test
-    void givenNullMtgGroup_whenValidateNoOverlap_thenThrowNullPointerException() {
-        final var gtmGroup = createSpyGroupWithQueues(List.of(MockQueueBuilder.create().build()));
-
-        assertThatThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, null))
-                .isInstanceOf(NullPointerException.class)
-                .hasMessageContaining("mtgGroup must not be null");
-    }
-
-    @Test
-    void givenGroupsWithOverlappingQueues_whenValidateNoOverlap_thenThrowIllegalArgumentException() {
-        final var queue = MockQueueBuilder.create().build();
-        final var gtmGroup = createSpyGroupWithQueues(List.of(queue));
-        final var mtgGroup = createSpyGroupWithQueues(List.of(queue));
-
-        assertThatThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, mtgGroup))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining(gtmGroup.listName()).hasMessageContaining(mtgGroup.listName())
-                .hasMessageContaining("must not contain overlapping queues");
-    }
-
-    @Test
-    void givenGroupsWithNoOverlappingQueues_whenValidateNoOverlap_thenSucceeds() {
-        final var gtmGroup = createSpyGroupWithQueues(List.of(MockQueueBuilder.create().build()));
-        final var mtgGroup = createSpyGroupWithQueues(List.of(MockQueueBuilder.create().build()));
-
-        QueueListValidator.validateNoOverlap(gtmGroup, mtgGroup);
-
-        // Verify that wrappedQueues() was called at least once on each group:
-        verify(gtmGroup, atLeastOnce()).wrappedQueues();
-        verify(mtgGroup, atLeastOnce()).wrappedQueues();
+            assertThatNoException()
+                    .isThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, mtgGroup));
+        }
     }
 }

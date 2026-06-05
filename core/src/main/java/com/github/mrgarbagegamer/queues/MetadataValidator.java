@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
@@ -9,7 +10,7 @@ final class MetadataValidator {
     private MetadataValidator() { utilityClassError("MetadataValidator"); }
 
     static void validateConsistentBoundedness(QueueGroup<?> group) {
-        final var wrappedQueues = group.wrappedQueues();
+        final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         // Ensure that all queues in the group have the same boundedness:
         final var firstBoundedness = wrappedQueues.get(0).boundedness();
@@ -24,7 +25,7 @@ final class MetadataValidator {
     }
 
     static void validateConsistentAccessMode(QueueGroup<?> group) {
-        final var wrappedQueues = group.wrappedQueues();
+        final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         // Ensure that all queues in the group have the same access mode:
         final var firstAccessMode = wrappedQueues.get(0).accessMode();
@@ -39,7 +40,7 @@ final class MetadataValidator {
     }
 
     static void validateCapacity(QueueGroup<?> group, int expectedCapacity) {
-        final var wrappedQueues = group.wrappedQueues();
+        final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         for (int i = 0; i < wrappedQueues.size(); i++) {
             final var queue = wrappedQueues.get(i);

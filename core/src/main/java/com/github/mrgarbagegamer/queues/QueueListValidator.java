@@ -3,29 +3,35 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
-import java.util.Collections;
-
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
 final class QueueListValidator {
     @ExcludeFromGeneratedCoverage
     private QueueListValidator() { utilityClassError("QueueListValidator"); }
 
+    // TODO: Remove validateNonEmptiness() in favor of checking for emptiness in the builder or
+    // QueueGroup constructor.
     static void validateNonEmptiness(QueueGroup<?> group) {
+        final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
+
         // Ensure the list inside the group is not empty:
-        if (mustNotBeNull(group, "group").wrappedQueues().isEmpty()) {
-            throw new IllegalArgumentException(
-                    failureMessage(group, "The list must contain at least one queue"));
+        if (wrappedQueues.isEmpty()) {
+            fail(group, "%s must contain at least one queue".formatted(group.listName()));
         }
     }
 
     static void validateNoDuplicates(QueueGroup<?> group) {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
+        final String elementName = group.elementName();
 
         // Ensure that there are no duplicate queues in the list:
-        if (wrappedQueues.size() != wrappedQueues.stream().distinct().count()) {
-            throw new IllegalArgumentException(
-                    failureMessage(group, "The list must not contain duplicate queues"));
+        for (int i = 0; i < wrappedQueues.size(); i++) {
+            int indexOf = wrappedQueues.indexOf(wrappedQueues.get(i));
+            int lastIndexOf = wrappedQueues.lastIndexOf(wrappedQueues.get(i));
+            if (indexOf != lastIndexOf) {
+                fail(group, "%s at index %d is the same as %s at index %d".formatted(elementName,
+                        indexOf, elementName, lastIndexOf));
+            }
         }
     }
 
@@ -34,14 +40,19 @@ final class QueueListValidator {
         final var mtgQueues = mustNotBeNull(mtgGroup, "mtgGroup").wrappedQueues();
 
         // Ensure that there are no queues that are present in both groups:
-        if (!Collections.disjoint(gtmQueues, mtgQueues)) {
-            throw new IllegalArgumentException(
-                    "Validation failed for %s and %s: The groups must not contain overlapping queues"
-                            .formatted(gtmGroup.listName(), mtgGroup.listName()));
+        for (int i = 0; i < gtmQueues.size(); i++) {
+            int index = mtgQueues.indexOf(gtmQueues.get(i));
+            if (index != -1) {
+                throw new IllegalArgumentException(
+                        "Validation failed for %s and %s: %s at index %d is the same as %s at index %d"
+                                .formatted(gtmGroup.listName(), mtgGroup.listName(),
+                                        gtmGroup.elementName(), i, mtgGroup.elementName(), index));
+            }
         }
     }
 
-    private static String failureMessage(QueueGroup<?> group, String reason) {
-        return "Validation failed for %s: %s".formatted(group.listName(), reason);
+    private static void fail(QueueGroup<?> group, String reason) {
+        throw new IllegalArgumentException(
+                "Validation failed for %s: %s".formatted(group.listName(), reason));
     }
 }

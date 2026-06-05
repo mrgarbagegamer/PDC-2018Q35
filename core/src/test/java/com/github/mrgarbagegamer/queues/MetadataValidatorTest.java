@@ -1,15 +1,16 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
+import static com.github.mrgarbagegamer.queues.QueueTestFixtures.createListWithPoisonPill;
+import static com.github.mrgarbagegamer.queues.QueueTestFixtures.createUniformList;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.dummySelector;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.atLeast;
-import static org.mockito.Mockito.atLeastOnce;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.verify;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.List;
 
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -20,124 +21,122 @@ import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueBuilder;
 @ExtendWith(MockitoExtension.class)
 public class MetadataValidatorTest {
 
-    private static final SolverConfiguration DUMMY_SOLVER_CONFIG = SolverConfiguration.builder()
-            .numThreads(4).build();
+    private static final int DEFAULT_NUM_THREADS = 4;
 
-    private static <Q> QueueGroup<Q> createSpyGroupWithQueues(
-            List<? extends QueueWrapper<Q>> queues) {
-        final var group = QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
-                DUMMY_SOLVER_CONFIG);
-
-        return spy(group);
+    private static <Q> QueueGroup<Q> createGroupWithQueues(List<? extends QueueWrapper<Q>> queues) {
+        return QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
+                SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
     }
 
-    // validateConsistentBoundedness() tests:
-
-    @Test
-    void givenNullGroup_whenValidateConsistentBoundedness_thenThrowNullPointerException() {
-        assertThatThrownBy(() -> MetadataValidator.validateConsistentBoundedness(null))
-                .isInstanceOf(NullPointerException.class);
+    private static <Q> QueueGroup<Q> createGroupWithUniformQueues(MockQueueBuilder<Q> builder,
+            int count) {
+        return createGroupWithQueues(createUniformList(builder, count));
     }
 
-    @Test
-    void givenGroupWithConsistentBoundedness_whenValidateConsistentBoundedness_thenSucceeds() {
-        final var wrappedQueues = List.of(MockQueueBuilder.create().build(),
-                MockQueueBuilder.create().build());
-        final var group = createSpyGroupWithQueues(wrappedQueues);
+    @Nested
+    class ValidateConsistentBoundednessTests {
+        @Test
+        void givenNullGroup_thenThrowNullPointerException() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> MetadataValidator.validateConsistentBoundedness(null));
+        }
 
-        MetadataValidator.validateConsistentBoundedness(group);
+        @Test
+        void givenGroupWithConsistentBoundedness_thenSucceeds() {
+            final var group = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
 
-        // Verify that wrappedQueues() was called at least once on the group:
-        verify(group, atLeastOnce()).wrappedQueues();
+            assertThatNoException()
+                    .isThrownBy(() -> MetadataValidator.validateConsistentBoundedness(group));
+        }
+
+        @Test
+        void givenGroupWithInconsistentBoundedness_thenThrowIllegalArgumentException() {
+            final int queueCount = 2;
+            final int poisonIndex = 1;
+
+            final var wrappedQueues = createListWithPoisonPill(MockQueueBuilder.create(),
+                    MockQueueBuilder.create().unbounded(), queueCount, poisonIndex);
+            final var group = createGroupWithQueues(wrappedQueues);
+
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> MetadataValidator.validateConsistentBoundedness(group))
+                    .withMessageContaining("gtmQueue at index %d", poisonIndex)
+                    .withMessageContaining(
+                            "has different boundedness (UNBOUNDED) than the first queue (BOUNDED)");
+        }
     }
 
-    @Test
-    void givenGroupWithInconsistentBoundedness_whenValidateConsistentBoundedness_thenThrowIllegalArgumentException() {
-        final var boundedQueue = MockQueueBuilder.create().build();
-        final var unboundedQueue = MockQueueBuilder.create().unbounded().build();
-        final var wrappedQueues = List.of(boundedQueue, unboundedQueue);
-        final var group = createSpyGroupWithQueues(wrappedQueues);
+    @Nested
+    class ValidateConsistentAccessModeTests {
+        @Test
+        void givenNullGroup_thenThrowNullPointerException() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> MetadataValidator.validateConsistentAccessMode(null));
+        }
 
-        assertThatThrownBy(() -> MetadataValidator.validateConsistentBoundedness(group))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining(group.listName())
-                .hasMessageContaining("has different boundedness");
+        @Test
+        void givenGroupWithConsistentAccessMode_thenSucceeds() {
+            final var group = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
 
-        // Verify that wrappedQueues() and listName() were called on the group:
-        verify(group).wrappedQueues();
-        verify(group, atLeast(2)).listName();
+            assertThatNoException()
+                    .isThrownBy(() -> MetadataValidator.validateConsistentAccessMode(group));
+        }
+
+        @Test
+        void givenGroupWithInconsistentAccessMode_thenThrowIllegalArgumentException() {
+            final int queueCount = 2;
+            final int poisonIndex = 1;
+
+            final var wrappedQueues = createListWithPoisonPill(MockQueueBuilder.create(),
+                    MockQueueBuilder.create().accessMode(SPSC), queueCount, poisonIndex);
+            final var group = createGroupWithQueues(wrappedQueues);
+
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> MetadataValidator.validateConsistentAccessMode(group))
+                    .withMessageContaining("gtmQueue at index %d", poisonIndex)
+                    .withMessageContaining(
+                            "has different access mode (SPSC) than the first queue (MPMC)");
+        }
     }
 
-    // validateConsistentAccessMode() tests:
+    @Nested
+    class ValidateCapacityTests {
+        @Test
+        void givenNullGroup_thenThrowNullPointerException() {
+            assertThatNullPointerException()
+                    .isThrownBy(() -> MetadataValidator.validateCapacity(null, 10));
+        }
 
-    @Test
-    void givenNullGroup_whenValidateConsistentAccessMode_thenThrowNullPointerException() {
-        assertThatThrownBy(() -> MetadataValidator.validateConsistentAccessMode(null))
-                .isInstanceOf(NullPointerException.class);
-    }
+        @Test
+        void givenGroupWithAcceptableCapacity_thenSucceeds() {
+            final int capacity = 20;
 
-    @Test
-    void givenGroupWithConsistentAccessMode_whenValidateConsistentAccessMode_thenSucceeds() {
-        final var wrappedQueues = List.of(MockQueueBuilder.create().build(),
-                MockQueueBuilder.create().build());
-        final var group = createSpyGroupWithQueues(wrappedQueues);
+            final var group = createGroupWithUniformQueues(
+                    MockQueueBuilder.create().capacity(capacity), 2);
 
-        MetadataValidator.validateConsistentAccessMode(group);
+            assertThatNoException()
+                    .isThrownBy(() -> MetadataValidator.validateCapacity(group, capacity));
+        }
 
-        // Verify that wrappedQueues() was called at least once on the group:
-        verify(group, atLeastOnce()).wrappedQueues();
-    }
+        @Test
+        void givenGroupWithUnacceptableCapacity_thenThrowIllegalArgumentException() {
+            final int queueCount = 2;
+            final int expectedCapacity = 20;
+            final int unacceptableCapacity = 10;
+            final int poisonIndex = 1;
 
-    @Test
-    void givenGroupWithInconsistentAccessMode_whenValidateConsistentAccessMode_thenThrowIllegalArgumentException() {
-        final var mpmcQueue = MockQueueBuilder.create().build();
-        final var spscQueue = MockQueueBuilder.create().accessMode(SPSC).build();
-        final var wrappedQueues = List.of(mpmcQueue, spscQueue);
-        final var group = createSpyGroupWithQueues(wrappedQueues);
+            final var wrappedQueues = createListWithPoisonPill(
+                    MockQueueBuilder.create().capacity(expectedCapacity),
+                    MockQueueBuilder.create().capacity(unacceptableCapacity).rejectsCapacity(),
+                    queueCount, poisonIndex);
+            final var group = createGroupWithQueues(wrappedQueues);
 
-        assertThatThrownBy(() -> MetadataValidator.validateConsistentAccessMode(group))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining(group.listName())
-                .hasMessageContaining("has different access mode");
-
-        // Verify that wrappedQueues() and listName() were called on the group:
-        verify(group).wrappedQueues();
-        verify(group, atLeast(2)).listName();
-    }
-
-    // validateCapacity() tests:
-
-    @Test
-    void givenNullGroup_whenValidateCapacity_thenThrowNullPointerException() {
-        assertThatThrownBy(() -> MetadataValidator.validateCapacity(null, 10))
-                .isInstanceOf(NullPointerException.class);
-    }
-
-    @Test
-    void givenGroupWithAcceptableCapacity_whenValidateCapacity_thenSucceeds() {
-        final int capacity = 20;
-        final var wrappedQueues = List.of(MockQueueBuilder.create().capacity(capacity).build(),
-                MockQueueBuilder.create().capacity(capacity).build());
-        final var group = createSpyGroupWithQueues(wrappedQueues);
-
-        MetadataValidator.validateCapacity(group, capacity);
-
-        // Verify that wrappedQueues() was called at least once on the group:
-        verify(group, atLeastOnce()).wrappedQueues();
-    }
-
-    @Test
-    void givenGroupWithUnacceptableCapacity_whenValidateCapacity_thenThrowIllegalArgumentException() {
-        final var acceptableQueue = MockQueueBuilder.create().capacity(20).build();
-        final var unacceptableQueue = MockQueueBuilder.create().capacity(10).rejectsCapacity()
-                .build();
-        final var wrappedQueues = List.of(acceptableQueue, unacceptableQueue);
-        final var group = createSpyGroupWithQueues(wrappedQueues);
-
-        assertThatThrownBy(() -> MetadataValidator.validateCapacity(group, 20))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining(group.listName())
-                .hasMessageContaining("has unacceptable capacity");
-
-        // Verify that wrappedQueues() and listName() were called on the group:
-        verify(group).wrappedQueues();
-        verify(group, atLeast(2)).listName();
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> MetadataValidator.validateCapacity(group, expectedCapacity))
+                    .withMessageContaining("gtmQueue at index %d", poisonIndex)
+                    .withMessageContaining(
+                            "has unacceptable capacity (%d) for expected capacity %d",
+                            unacceptableCapacity, expectedCapacity);
+        }
     }
 }

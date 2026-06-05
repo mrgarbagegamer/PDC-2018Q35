@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
@@ -29,6 +30,9 @@ class QueueGroup<Q> {
         final int threadCount = mustNotBeNull(solverConfig, "solverConfig").numThreads();
         this.producerCount = threadCount / 2;
         this.consumerCount = threadCount / 2;
+
+        // Verify that the list isn't empty.
+        mustNotBeEmpty(this.wrappedQueues, direction.listName());
     }
 
     static <G> QueueGroup<G> newGtmGroup(List<? extends QueueWrapper<G>> gtmQueues,
@@ -45,10 +49,7 @@ class QueueGroup<Q> {
                 generatorPollSelector, solverConfig);
     }
 
-    void validateIntegrity() {
-        QueueListValidator.validateNonEmptiness(this);
-        QueueListValidator.validateNoDuplicates(this);
-    }
+    void validateIntegrity() { QueueListValidator.validateNoDuplicates(this); }
 
     void validateMetadata(int expectedCapacity) {
         // Validate consistency of the two metadata enums across all queues in the group:

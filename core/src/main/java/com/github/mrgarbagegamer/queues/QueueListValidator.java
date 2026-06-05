@@ -9,17 +9,6 @@ final class QueueListValidator {
     @ExcludeFromGeneratedCoverage
     private QueueListValidator() { utilityClassError("QueueListValidator"); }
 
-    // TODO: Remove validateNonEmptiness() in favor of checking for emptiness in the builder or
-    // QueueGroup constructor.
-    static void validateNonEmptiness(QueueGroup<?> group) {
-        final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
-
-        // Ensure the list inside the group is not empty:
-        if (wrappedQueues.isEmpty()) {
-            fail(group, "%s must contain at least one queue".formatted(group.listName()));
-        }
-    }
-
     static void validateNoDuplicates(QueueGroup<?> group) {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
         final String elementName = group.elementName();

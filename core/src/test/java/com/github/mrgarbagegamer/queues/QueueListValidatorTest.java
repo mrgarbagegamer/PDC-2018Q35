@@ -32,32 +32,6 @@ public class QueueListValidatorTest {
     }
 
     @Nested
-    class ValidateNonEmptinessTests {
-        @Test
-        void givenNullGroup_thenThrowNullPointerException() {
-            assertThatNullPointerException()
-                    .isThrownBy(() -> QueueListValidator.validateNonEmptiness(null));
-        }
-
-        @Test
-        void givenGroupWithEmptyList_thenThrowIllegalArgumentException() {
-            final var group = createGroupWithQueues(List.of());
-
-            assertThatIllegalArgumentException()
-                    .isThrownBy(() -> QueueListValidator.validateNonEmptiness(group))
-                    .withMessageContaining("must contain at least one queue");
-        }
-
-        @Test
-        void givenGroupWithNonEmptyList_thenSucceeds() {
-            final var group = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
-
-            assertThatNoException()
-                    .isThrownBy(() -> QueueListValidator.validateNonEmptiness(group));
-        }
-    }
-
-    @Nested
     class ValidateNoDuplicatesTests {
         @Test
         void givenNullGroup_thenThrowNullPointerException() {

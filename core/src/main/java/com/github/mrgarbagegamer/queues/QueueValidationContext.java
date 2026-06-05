@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
@@ -103,6 +104,10 @@ public class QueueValidationContext<G, M> {
                 List<? extends QueueWrapper<M>> mtgQueues) {
             this.gtmQueues = copyOfNonNullList(gtmQueues, "gtmQueues");
             this.mtgQueues = copyOfNonNullList(mtgQueues, "mtgQueues");
+
+            // Check for emptiness:
+            mustNotBeEmpty(this.gtmQueues, "gtmQueues");
+            mustNotBeEmpty(this.mtgQueues, "mtgQueues");
         }
 
         public Builder<G, M> generatorPollSelector(QueueSelector<? super M> selector) {

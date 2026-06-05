@@ -14,6 +14,14 @@ public final class ValidationUtils {
         return requireNonNull(obj, fieldName + " must not be null");
     }
 
+    // Method to ensure a list isn't empty:
+    public static <T> List<T> mustNotBeEmpty(List<T> list, String fieldName) {
+        if (mustNotBeNull(list, fieldName).isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " must not be empty");
+        }
+        return list; // We won't return List.copyOf here, since this method is meant to validate.
+    }
+
     public static <T> List<T> copyOfNonNullList(List<? extends T> list, String fieldName) {
         mustNotBeNull(list, fieldName);
         for (int i = 0; i < list.size(); i++) {

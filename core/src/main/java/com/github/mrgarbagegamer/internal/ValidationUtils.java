@@ -4,11 +4,10 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 
+// TODO: Write Javadocs
 @ExcludeFromGeneratedCoverage
 public final class ValidationUtils {
-    private ValidationUtils() {
-        throw new AssertionError("ValidationUtils is a utility class and cannot be instantiated");
-    }
+    private ValidationUtils() { utilityClassError("ValidationUtils"); }
 
     public static <T> T mustNotBeNull(T obj, String fieldName) {
         return requireNonNull(obj, fieldName + " must not be null");
@@ -37,5 +36,12 @@ public final class ValidationUtils {
     // TODO: Broadly implement this method in the codebase.
     public static void utilityClassError(String className) {
         throw new AssertionError(className + " is a utility class and cannot be instantiated");
+    }
+
+    public static <T> T mustBeSet(T parameter, String parameterName) {
+        if (parameter == null) {
+            throw new IllegalStateException(parameterName + " must be set before building.");
+        }
+        return parameter;
     }
 }

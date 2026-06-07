@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 
 import java.util.List;
 
@@ -144,20 +145,13 @@ public class QueueValidationContext<G, M> {
         }
 
         public QueueValidationContext<G, M> build() {
-            requireParameterSet(generatorPollSelector, "generatorPollSelector");
-            requireParameterSet(generatorOfferSelector, "generatorOfferSelector");
-            requireParameterSet(monkeyPollSelector, "monkeyPollSelector");
-            requireParameterSet(monkeyOfferSelector, "monkeyOfferSelector");
-            requireParameterSet(solverConfig, "solverConfig");
+            mustBeSet(generatorPollSelector, "generatorPollSelector");
+            mustBeSet(generatorOfferSelector, "generatorOfferSelector");
+            mustBeSet(monkeyPollSelector, "monkeyPollSelector");
+            mustBeSet(monkeyOfferSelector, "monkeyOfferSelector");
+            mustBeSet(solverConfig, "solverConfig");
 
             return new QueueValidationContext<>(this);
-        }
-    }
-
-    private static void requireParameterSet(Object parameter, String parameterName) {
-        if (parameter == null) {
-            throw new IllegalStateException(
-                    "Parameter " + parameterName + " must be set before building.");
         }
     }
 }

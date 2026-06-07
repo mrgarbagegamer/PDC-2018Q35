@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
@@ -252,9 +253,7 @@ public final class JCToolsWrappers {
     private static int checkCapacity(int capacity) {
         final int maxCapacity = 1 << 30; // Maximum power of two that an int can represent
 
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("capacity must be positive, was: " + capacity);
-        } else if (capacity > maxCapacity) {
+        if (mustBePositive(capacity, "capacity") > maxCapacity) {
             throw new IllegalArgumentException(
                     "capacity must not exceed " + maxCapacity + ", was: " + capacity);
         }

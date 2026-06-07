@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -198,14 +199,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                     "numClicks must be in the range 1 to " + Grid.NUM_CELLS);
         } else if (numThreads <= 1) {
             throw new IllegalArgumentException("numThreads must be greater than 1");
-        } else if (batchSize <= 0) {
-            throw new IllegalArgumentException("batchSize must be positive");
-        } else if (arrayPoolSize <= 0) {
-            throw new IllegalArgumentException("arrayPoolSize must be positive");
-        } else if (taskPoolSize <= 0) {
-            throw new IllegalArgumentException("taskPoolSize must be positive");
-        } else if (queueSize <= 0) {
-            throw new IllegalArgumentException("queueSize must be positive");
         }
 
         // We can't validate the values of the Supplier parameters here, else we'd be forcing
@@ -217,10 +210,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
         this.numClicks = numClicks;
         this.numThreads = numThreads;
-        this.batchSize = batchSize;
-        this.arrayPoolSize = arrayPoolSize;
-        this.taskPoolSize = taskPoolSize;
-        this.queueSize = queueSize;
+        this.batchSize = mustBePositive(batchSize, "batchSize");
+        this.arrayPoolSize = mustBePositive(arrayPoolSize, "arrayPoolSize");
+        this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
+        this.queueSize = mustBePositive(queueSize, "queueSize");
         this.baseGrid = requireNonNull(baseGrid); // Avoid a copy, in hopes that the caller
                                                   // maintains immutability
         this.trueCells = StableValue.supplier(trueCells);
@@ -476,34 +469,22 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder batchSize(int batchSize) {
-            if (batchSize <= 0) {
-                throw new IllegalArgumentException("batchSize must be positive");
-            }
-            this.batchSize = batchSize;
+            this.batchSize = mustBePositive(batchSize, "batchSize");
             return this;
         }
 
         public Builder arrayPoolSize(int arrayPoolSize) {
-            if (arrayPoolSize <= 0) {
-                throw new IllegalArgumentException("arrayPoolSize must be positive");
-            }
-            this.arrayPoolSize = arrayPoolSize;
+            this.arrayPoolSize = mustBePositive(arrayPoolSize, "arrayPoolSize");
             return this;
         }
 
         public Builder taskPoolSize(int taskPoolSize) {
-            if (taskPoolSize <= 0) {
-                throw new IllegalArgumentException("taskPoolSize must be positive");
-            }
-            this.taskPoolSize = taskPoolSize;
+            this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
             return this;
         }
 
         public Builder queueSize(int queueSize) {
-            if (queueSize <= 0) {
-                throw new IllegalArgumentException("queueSize must be positive");
-            }
-            this.queueSize = queueSize;
+            this.queueSize = mustBePositive(queueSize, "queueSize");
             return this;
         }
 

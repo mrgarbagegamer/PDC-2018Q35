@@ -44,4 +44,11 @@ public final class ValidationUtils {
         }
         return parameter;
     }
+
+    public static int mustBePositive(int value, String fieldName) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(fieldName + " must be positive, was: " + value);
+        }
+        return value;
+    }
 }

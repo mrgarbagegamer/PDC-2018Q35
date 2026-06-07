@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
 import java.util.concurrent.BlockingQueue;
@@ -122,9 +123,7 @@ public final class QueueUtils {
         // performance boost.
         final int MAX_POW_OF_2 = 1 << 30;
 
-        if (n <= 0) {
-            throw new IllegalArgumentException("n must be positive: " + n);
-        } else if (n > MAX_POW_OF_2) {
+        if (mustBePositive(n, "n") > MAX_POW_OF_2) {
             throw new IllegalArgumentException(
                     "Value is too large to round to a power of 2 without overflow: " + n);
         } else {

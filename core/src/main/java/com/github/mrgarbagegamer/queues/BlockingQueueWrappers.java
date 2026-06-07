@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
@@ -154,8 +155,7 @@ public final class BlockingQueueWrappers {
 
         private BoundedBlockingWrapper(Q delegate, AccessMode accessMode, int capacity) {
             super(delegate, accessMode);
-            validateCapacity(capacity);
-            this.capacity = capacity;
+            this.capacity = mustBePositive(capacity, "capacity");
         }
 
         @Override
@@ -330,13 +330,6 @@ public final class BlockingQueueWrappers {
     private static int estimateCapacity(BlockingQueue<WorkBatch> queue) {
         return queue instanceof ConcurrentQueue<?> cq ? cq.capacity()
                 : Math.min(queue.remainingCapacity() + queue.size(), Integer.MAX_VALUE);
-    }
-
-    private static int validateCapacity(int capacity) {
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("capacity must be positive");
-        }
-        return capacity;
     }
 
     private static boolean isBounded(BlockingQueue<WorkBatch> queue) {

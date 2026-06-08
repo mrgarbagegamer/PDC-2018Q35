@@ -2,17 +2,17 @@ package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
-import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedMpmcList;
-import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.newBoundedSpscList;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
-import static com.github.mrgarbagegamer.queues.QueueWrapper.unwrapAll;
+import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
+import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
+import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.CombinationGeneratorTask;
 import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.SolverConfiguration;
@@ -20,8 +20,6 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 
-// TODO: Move the newBoundedXyzList() methods to this class and return unwrapped lists, since the
-// unwrapping is just confusing boilerplate.
 // TODO: Update Javadocs to reflect the new design.
 // TODO: Write unit tests for the class.
 /**
@@ -71,8 +69,9 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
             SolverState solverState) {
         final int queueSize = config.queueSize();
 
-        final var gtmQueues = unwrapAll(newBoundedMpmcList(1, queueSize));
-        final var mtgQueues = unwrapAll(newBoundedMpmcList(1, queueSize));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedMpmcList(1, queueSize);
+        final var mtgQueues = newBoundedMpmcList(1, queueSize);
 
         return builder(gtmQueues, mtgQueues, config, solverState).asSingleSingle()
                 .preallocateQueues(queueSize).build();
@@ -83,10 +82,10 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         final int queueSize = config.queueSize();
         final int numGenerators = config.numThreads() / 2;
 
-        final var gtmQueues = unwrapAll(newBoundedMpmcList(1, queueSize * numGenerators));
-        final var mtgQueues = unwrapAll(newBoundedSpscList(numGenerators, queueSize));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
+        final var mtgQueues = newBoundedSpscList(numGenerators, queueSize);
 
-        // Use the constructor to avoid unnecessary wrapping and unwrapping.
         return builder(gtmQueues, mtgQueues, config, solverState).asSingleMulti()
                 .preallocateQueues(queueSize).build();
     }
@@ -96,10 +95,10 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         final int queueSize = config.queueSize();
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = unwrapAll(newBoundedSpscList(numMonkeys, queueSize));
-        final var mtgQueues = unwrapAll(newBoundedMpmcList(1, queueSize * numMonkeys));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedSpscList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
 
-        // Use the constructor to avoid unnecessary wrapping and unwrapping.
         return builder(gtmQueues, mtgQueues, config, solverState).asMultiSingle()
                 .preallocateQueues(queueSize * numMonkeys).build();
     }
@@ -110,10 +109,10 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         final int numGenerators = config.numThreads() / 2;
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = unwrapAll(newBoundedSpscList(numMonkeys, queueSize));
-        final var mtgQueues = unwrapAll(newBoundedSpscList(numGenerators, queueSize));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedSpscList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedSpscList(numGenerators, queueSize);
 
-        // Use the constructor to avoid unnecessary wrapping and unwrapping.
         return builder(gtmQueues, mtgQueues, config, solverState).asMultiMulti()
                 .preallocateQueues(queueSize).build();
     }
@@ -225,5 +224,17 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
             // 4. Construct the strategy:
             return new BlockingQueueStrategy<>(this);
         }
+    }
+
+    // Utility methods for creating lists of unwrapped queues (with return types subject to change):
+
+    private static List<DisruptorBlockingQueue<WorkBatch>> newBoundedMpmcList(int listSize,
+            int queueCapacity) {
+        return newBoundedImmutableQueueList(listSize, queueCapacity, DisruptorBlockingQueue::new);
+    }
+
+    private static List<PushPullBlockingQueue<WorkBatch>> newBoundedSpscList(int listSize,
+            int queueCapacity) {
+        return newBoundedImmutableQueueList(listSize, queueCapacity, PushPullBlockingQueue::new);
     }
 }

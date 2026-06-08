@@ -3,16 +3,16 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyJCTools;
-import static com.github.mrgarbagegamer.queues.JCToolsWrappers.newBoundedMpmcList;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
-import static com.github.mrgarbagegamer.queues.QueueWrapper.unwrapAll;
+import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
 
 import java.util.List;
 
 import org.jctools.queues.MessagePassingQueue;
+import org.jctools.queues.MpmcArrayQueue;
 
 import com.github.mrgarbagegamer.CombinationGeneratorTask;
 import com.github.mrgarbagegamer.QueueStrategy;
@@ -21,8 +21,6 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 
-// TODO: Move the newBoundedXyzList() methods to this class and return unwrapped lists, since the
-// unwrapping is just confusing boilerplate.
 // TODO: Update Javadocs to reflect the new design.
 // TODO: Write unit tests for the class.
 /**
@@ -81,8 +79,9 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
             SolverState solverState) {
         final int queueSize = config.queueSize();
 
-        final var gtmQueues = unwrapAll(newBoundedMpmcList(1, queueSize));
-        final var mtgQueues = unwrapAll(newBoundedMpmcList(1, queueSize));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedMpmcList(1, queueSize);
+        final var mtgQueues = newBoundedMpmcList(1, queueSize);
 
         return builder(gtmQueues, mtgQueues, config, solverState).asSingleSingle()
                 .preallocateQueues(queueSize).build();
@@ -94,8 +93,9 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final int queueSize = config.queueSize();
         final int numGenerators = config.numThreads() / 2;
 
-        final var gtmQueues = unwrapAll(newBoundedMpmcList(1, queueSize * numGenerators));
-        final var mtgQueues = unwrapAll(newBoundedMpmcList(numGenerators, queueSize));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
+        final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
 
         return builder(gtmQueues, mtgQueues, config, solverState).asSingleMulti()
                 .preallocateQueues(queueSize).build();
@@ -106,8 +106,9 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final int queueSize = config.queueSize();
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = unwrapAll(newBoundedMpmcList(numMonkeys, queueSize));
-        final var mtgQueues = unwrapAll(newBoundedMpmcList(1, queueSize * numMonkeys));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
 
         return builder(gtmQueues, mtgQueues, config, solverState).asMultiSingle()
                 .preallocateQueues(queueSize * numMonkeys).build();
@@ -119,10 +120,10 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final int numGenerators = config.numThreads() / 2;
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = unwrapAll(newBoundedMpmcList(numMonkeys, queueSize));
-        final var mtgQueues = unwrapAll(newBoundedMpmcList(numGenerators, queueSize));
+        // Create queues (defined as vars to allow easier switching of implementations later)
+        final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
+        final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
 
-        // Use the constructor to avoid unnecessary wrapping and unwrapping.
         return builder(gtmQueues, mtgQueues, config, solverState).asMultiMulti()
                 .preallocateQueues(queueSize).build();
     }
@@ -234,5 +235,12 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
             // 4. Construct the strategy:
             return new JCToolsQueueStrategy<>(this);
         }
+    }
+
+    // Utility method for creating lists of unwrapped queues (with return types subject to change):
+
+    private static List<MpmcArrayQueue<WorkBatch>> newBoundedMpmcList(int listSize,
+            int queueCapacity) {
+        return newBoundedImmutableQueueList(listSize, queueCapacity, MpmcArrayQueue::new);
     }
 }

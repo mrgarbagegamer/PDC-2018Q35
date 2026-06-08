@@ -32,6 +32,8 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortLists;
 import it.unimi.dsi.fastutil.shorts.ShortPredicate;
 
+// TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
+// potentially performing eager initialization of some fields.
 // TODO: Add class-level Javadoc
 public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
         int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
@@ -206,7 +208,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         // validation at build-time.
 
         // Note that null checks are not performed on Supplier parameters, since
-        // StableValue.supplier() will handle that for us.
+        // LazyConstant.of() will handle that for us.
 
         this.numClicks = numClicks;
         this.numThreads = numThreads;
@@ -216,18 +218,18 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         this.queueSize = mustBePositive(queueSize, "queueSize");
         this.baseGrid = requireNonNull(baseGrid); // Avoid a copy, in hopes that the caller
                                                   // maintains immutability
-        this.trueCells = StableValue.supplier(trueCells);
-        this.useDualMasks = StableValue.supplier(useDualMasks);
-        this.trueCellMasksLower = StableValue.supplier(trueCellMasksLower);
-        this.trueCellMasksUpper = StableValue.supplier(trueCellMasksUpper);
-        this.expectedMaskLower = StableValue.supplier(expectedMaskLower);
-        this.expectedMaskUpper = StableValue.supplier(expectedMaskUpper);
-        this.oddClickIndices = StableValue.supplier(oddClickIndices);
-        this.evenClickIndices = StableValue.supplier(evenClickIndices);
-        this.suffixMasksLower = StableValue.supplier(suffixMasksLower);
-        this.suffixMasksUpper = StableValue.supplier(suffixMasksUpper);
-        this.oddStartIndices = StableValue.supplier(oddStartIndices);
-        this.evenStartIndices = StableValue.supplier(evenStartIndices);
+        this.trueCells = LazyConstant.of(trueCells);
+        this.useDualMasks = LazyConstant.of(useDualMasks);
+        this.trueCellMasksLower = LazyConstant.of(trueCellMasksLower);
+        this.trueCellMasksUpper = LazyConstant.of(trueCellMasksUpper);
+        this.expectedMaskLower = LazyConstant.of(expectedMaskLower);
+        this.expectedMaskUpper = LazyConstant.of(expectedMaskUpper);
+        this.oddClickIndices = LazyConstant.of(oddClickIndices);
+        this.evenClickIndices = LazyConstant.of(evenClickIndices);
+        this.suffixMasksLower = LazyConstant.of(suffixMasksLower);
+        this.suffixMasksUpper = LazyConstant.of(suffixMasksUpper);
+        this.oddStartIndices = LazyConstant.of(oddStartIndices);
+        this.evenStartIndices = LazyConstant.of(evenStartIndices);
         this.solutionHandler = requireNonNull(solutionHandler);
         this.loggerFunction = requireNonNull(loggerFunction);
         this.generatorFactoryProvider = requireNonNull(generatorFactoryProvider);

@@ -26,26 +26,24 @@ final class SelectorValidationTarget<Q> {
                 group.consumerCount());
     }
 
-    public List<QueueWrapper<Q>> wrappedQueues() { return group.wrappedQueues(); }
+    List<QueueWrapper<Q>> wrappedQueues() { return group.wrappedQueues(); }
 
-    public String listName() { return group.listName(); }
+    String listName() { return group.listName(); }
 
-    public String elementName() { return group.elementName(); }
+    String elementName() { return group.elementName(); }
 
-    public String selectorPlacement() {
+    String selectorPlacement() {
         return role.isProducer() ? group.producerSelectorPlacement()
                 : group.consumerSelectorPlacement();
     }
 
-    public String roleName() { return role.getName(); }
+    String roleName() { return role.getName(); }
 
-    public String actorName() {
-        return role.isProducer() ? group.producerName() : group.consumerName();
-    }
+    String actorName() { return role.isProducer() ? group.producerName() : group.consumerName(); }
 
-    public int threadCount() { return threadCount; }
+    int threadCount() { return threadCount; }
 
-    public boolean isSingleAccess(QueueMetadataProvider qmp) { return role.isSingleAccess(qmp); }
+    boolean isSingleAccess(QueueMetadataProvider qmp) { return role.isSingleAccess(qmp); }
 
     private enum ValidationRole {
         PRODUCER("producer", (qmp) -> qmp.accessMode().isSingleProducer()),

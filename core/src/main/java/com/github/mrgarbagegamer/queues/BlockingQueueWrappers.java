@@ -9,7 +9,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Stream;
@@ -19,79 +18,15 @@ import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.BoundedStrategy;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.UnboundedStrategy;
 
-// TODO: Fix class-level Javadoc.
-/**
- * A utility class that provides wrappers for various {@link BlockingQueue} implementations to
- * standardize their interfaces and characteristics for use in the {@link BlockingQueueStrategy}.
- * 
- * <h2>Architecture Role</h2>
- * <p>
- * This class serves as a central point for adapting different {@code BlockingQueue} implementations
- * to a common interface, allowing the queues to be properly categorized by their {@link AccessMode
- * access modes} (e.g., {@link AccessMode#MPMC MPMC}, {@link AccessMode#SPSC SPSC}) and
- * {@link Boundedness boundedness} ({@link Boundedness#BOUNDED bounded} vs
- * {@link Boundedness#UNBOUNDED unbounded}). By wrapping the queues in specific wrapper classes, we
- * can ensure that the rest of the system, particularly the validation utilities, can reliably
- * determine the properties of the queues. This saves the need for large chains of
- * {@code instanceof} checks throughout the codebase, which are error-prone, difficult to maintain,
- * and unscalable for future queue types.
- * </p>
- * 
- * <p>
- * All wrapper classes extend a common class that implements the full {@code BlockingQueue}
- * interface through forwarding to the underlying delegate queue. This allows the wrappers to be
- * used interchangeably with the original queues while providing additional metadata about their
- * access modes and boundedness. The wrapping is done through the static {@link #wrap(BlockingQueue)
- * wrap} methods, which can auto-detect the type of the provided queue and wrap it in the
- * appropriate wrapper class.
- * </p>
- * 
- * <p>
- * At the moment, only three wrapper classes are implemented, out of the 8 possible combinations.
- * More can be added as needed in the future, but the current set covers the most common and
- * relevant queue types used in the system, such as {@link ArrayBlockingQueue},
- * {@link LinkedBlockingQueue}, and {@link PushPullBlockingQueue}.
- * </p>
- * 
- * <h2>Performance Characteristics</h2>
- * <p>
- * The wrapping process itself is designed to be efficient, with the auto-detection logic in the
- * {@code #wrap(BlockingQueue) wrap} method using simple type checks and capacity estimation to
- * determine the appropriate wrapper. The actual wrapper classes delegate all method calls to the
- * underlying queue, so there is minimal overhead introduced by the wrappers themselves. Inlining
- * and JIT optimizations should further reduce any overhead, making the wrapped queues perform
- * similarly to their original counterparts in most cases, apart from the added indirection and
- * virtual method calls.
- * </p>
- * 
- * <h2>Thread Safety</h2>
- * <p>
- * This class makes no assumptions about the thread safety of the underlying queues, as it simply
- * delegates all operations to them. It is the responsibility of the caller to ensure that the
- * provided queues are thread-safe if they will be used in a concurrent context. The wrapper classes
- * themselves do not introduce any additional synchronization or thread-safety guarantees, so they
- * will be as thread-safe as the underlying queues.
- * </p>
- * 
- * @see QueueMarkers
- * @since 2026.02 - Queue Injection Refactor
- * @performance {@code O(1)} wrapping of queues, with minimal overhead for delegation.
- * @threading Thread-safe as long as the underlying queues are thread-safe.
- * @memory Minimal, fixed memory overhead for the wrapper objects.
- */
-public final class BlockingQueueWrappers {
-    // TODO: Add Javadocs for public members.
+final class BlockingQueueWrappers {
 
     @ExcludeFromGeneratedCoverage
     private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
 
-    public static interface BlockingWrapper<Q extends BlockingQueue<WorkBatch>>
-            extends QueueWrapper<Q> {}
+    static interface BlockingWrapper<Q extends BlockingQueue<WorkBatch>> extends QueueWrapper<Q> {}
 
     private static abstract class AbstractWrapper<Q extends BlockingQueue<WorkBatch>>
             implements BlockingWrapper<Q> {
@@ -210,7 +145,7 @@ public final class BlockingQueueWrappers {
 
     // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
 
-    public static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrap(Q delegate) {
+    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrap(Q delegate) {
 
         // Check if the delegate already provides metadata:
         if (mustNotBeNull(delegate, "delegate") instanceof QueueMetadataProvider) {
@@ -232,27 +167,26 @@ public final class BlockingQueueWrappers {
         }
     }
 
-    public static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapWithCapacity(
-            Q delegate, int capacity) {
+    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapWithCapacity(Q delegate,
+            int capacity) {
         return BoundedBlockingWrapper.ofWithCapacity(delegate, capacity);
     }
 
-    public static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapBoundedMpmc(
-            Q delegate, int capacity) {
+    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapBoundedMpmc(Q delegate,
+            int capacity) {
         return BoundedBlockingWrapper.ofExplicit(delegate, MPMC, capacity);
     }
 
-    public static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapUnboundedMpmc(
-            Q delegate) {
+    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapUnboundedMpmc(Q delegate) {
         return UnboundedBlockingWrapper.ofExplicit(delegate, MPMC);
     }
 
-    public static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapBoundedSpsc(
-            Q delegate, int capacity) {
+    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapBoundedSpsc(Q delegate,
+            int capacity) {
         return BoundedBlockingWrapper.ofExplicit(delegate, SPSC, capacity);
     }
 
-    public static <Q extends BlockingQueue<WorkBatch>> List<BlockingWrapper<Q>> wrapAll(
+    static <Q extends BlockingQueue<WorkBatch>> List<BlockingWrapper<Q>> wrapAll(
             List<? extends Q> delegates) {
         // This is safe because of the upper bound of Q and the fact that we only read from the
         // list, never writing to it (making it a producer of Qs, per the PECS principle).
@@ -301,32 +235,6 @@ public final class BlockingQueueWrappers {
                 .collect(toUnmodifiableList());
     }
 
-    /**
-     * Estimates the capacity of a given {@link BlockingQueue}.
-     * 
-     * <p>
-     * Since not all {@code BlockingQueue} implementations provide a direct way to retrieve their
-     * capacity, this method attempts to estimate it. If the queue is an instance of
-     * {@link ConcurrentQueue}, it uses the {@link ConcurrentQueue#capacity()} method provided by
-     * that interface. For other types of queues, it estimates the capacity by summing the current
-     * {@link BlockingQueue#size()} of the queue and its {@link BlockingQueue#remainingCapacity()}.
-     * This estimation is not guaranteed to be accurate for all queue implementations, but it
-     * provides a reasonable approximation for many common types of queues used in practice.
-     * </p>
-     * 
-     * @param queue the non-{@code null} {@code BlockingQueue} for which to estimate the capacity.
-     * @throws NullPointerException if the provided {@code queue} is {@code null}.
-     * @return an estimate of the capacity of the provided {@code BlockingQueue}, based on its type
-     *         and characteristics.
-     * @see #wrap(BlockingQueue)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} capacity retrieval for {@code ConcurrentQueue} instances, and
-     *              {@code O(1)} estimation for other queues.
-     * @threading Thread-safe if the queue is a {@code ConcurrentQueue}, but not thread-safe for
-     *            other types of queues. Estimation may be inaccurate if concurrent modifications
-     *            occur during the process.
-     * @memory Does not allocate.
-     */
     private static int estimateCapacity(BlockingQueue<WorkBatch> queue) {
         return queue instanceof ConcurrentQueue<?> cq ? cq.capacity()
                 : Math.min(queue.remainingCapacity() + queue.size(), Integer.MAX_VALUE);

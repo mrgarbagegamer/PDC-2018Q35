@@ -8,12 +8,13 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
-// TODO: Write Javadoc for this class and its (public) members.
-public final class QueuePreallocator {
+final class QueuePreallocator {
     @ExcludeFromGeneratedCoverage
     private QueuePreallocator() { utilityClassError("QueuePreallocator"); }
 
-    public static void preallocate(List<? extends QueueWrapper<?>> mtgQueues,
+    // TODO: Split this method into smaller methods that validate the preallocation conditions and
+    // perform the preallocation, respectively, to improve readability and maintainability.
+    static void preallocate(List<? extends QueueWrapper<?>> mtgQueues,
             SolverConfiguration solverConfig, int batchesPerQueue) {
 
         // Check that all queues are empty and have sufficient capacity for the preallocation:

@@ -9,8 +9,7 @@ import java.util.List;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 
-// TODO: Write Javadoc for this class and its (public) members.
-public class QueueValidationContext<G, M> {
+class QueueValidationContext<G, M> {
     private final QueueGroup<G> gtmGroup;
     private final QueueGroup<M> mtgGroup;
 

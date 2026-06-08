@@ -21,61 +21,14 @@ import org.jctools.queues.SpscArrayQueue;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.BoundedStrategy;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
 
-// TODO: Fix class-level Javadoc.
-/**
- * A utility class that provides wrappers for various {@link MessagePassingQueue} implementations to
- * standardize their interfaces and characteristics for use in the {@link JCToolsQueueStrategy}.
- * 
- * <h2>Architecture Role</h2>
- * <p>
- * This class serves as a central point for adapting different {@code MessagePassingQueue}
- * implementations to a common interface, allowing the queues to be properly categorized by their
- * {@link AccessMode access modes} (e.g., {@link AccessMode.MPMC MPMC}, {@link AccessMode.SPSC
- * SPSC}) and {@link Boundedness boundedness} ({@link Boundedness.Bounded bounded} vs
- * {@link Boundedness.Unbounded unbounded}). By wrapping the queues in specific wrapper classes, we
- * can ensure that the rest of the system, particularly the validation utilities, can reliably
- * determine the properties of the queues. This saves the need for large chains of
- * {@code instanceof} checks throughout the codebase, which are error-prone, difficult to maintain,
- * and unscalable for future queue types.
- * </p>
- * 
- * <p>
- * All wrapper classes extend a common class that wraps the underlying JCTools queue. This allows
- * the wrappers to be used interchangeably while providing additional metadata about their
- * capabilities without complex type checking.
- * </p>
- * 
- * <h2>Performance Characteristics</h2>
- * <p>
- * The wrapping process is designed to have minimal impact. Method calls are directly delegated to
- * the underlying {@code MessagePassingQueue}, relying on JVM method inlining and JIT compilation to
- * mostly eliminate any virtual dispatch overhead.
- * </p>
- * 
- * <h2>Thread Safety</h2>
- * <p>
- * The wrapper classes do not add synchronization. They rely on the underlying JCTools queues,
- * meaning operations are only thread-safe if they adhere to the bounded constraints of the specific
- * access mode (e.g., single producer for SPSC, multiple producers for MPMC).
- * </p>
- * 
- * @see QueueMarkers
- * @since 2026.02 - Queue Injection Refactor
- * @performance {@code O(1)} wrapping process with minimal delegation overhead in core operations.
- * @threading Thread-safety matches the delegated queue's respective access boundaries.
- * @memory Minimal, fixed overhead for the wrapper object instantiation.
- */
-public final class JCToolsWrappers {
-    // TODO: Add Javadocs for public members.
+final class JCToolsWrappers {
 
     @ExcludeFromGeneratedCoverage
     private JCToolsWrappers() { utilityClassError("JCToolsWrappers"); }
 
-    public static interface JCToolsWrapper<Q extends MessagePassingQueue<WorkBatch>>
+    static interface JCToolsWrapper<Q extends MessagePassingQueue<WorkBatch>>
             extends QueueWrapper<Q> {}
 
     private static abstract class AbstractWrapper<Q extends MessagePassingQueue<WorkBatch>>
@@ -167,7 +120,7 @@ public final class JCToolsWrappers {
     }
 
     @SuppressWarnings("unchecked")
-    public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrap(Q delegate) {
+    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrap(Q delegate) {
         // The unchecked casts are safe because the upper bound of Q ensures that it is a
         // MessagePassingQueue<WorkBatch> and the instanceof check ensures that it also implements
         // QueueMetadataProvider, so a wrapper of the appropriate type will be returned.
@@ -177,27 +130,27 @@ public final class JCToolsWrappers {
                 : BoundedJCWrapper.create(delegate));
     }
 
-    public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedMpmc(
+    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedMpmc(
             Q delegate) {
         return BoundedJCWrapper.of(delegate, MPMC);
     }
 
-    public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedMpsc(
+    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedMpsc(
             Q delegate) {
         return BoundedJCWrapper.of(delegate, MPSC);
     }
 
-    public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedSpmc(
+    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedSpmc(
             Q delegate) {
         return BoundedJCWrapper.of(delegate, SPMC);
     }
 
-    public static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedSpsc(
+    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedSpsc(
             Q delegate) {
         return BoundedJCWrapper.of(delegate, SPSC);
     }
 
-    public static <Q extends MessagePassingQueue<WorkBatch>> List<JCToolsWrapper<Q>> wrapAll(
+    static <Q extends MessagePassingQueue<WorkBatch>> List<JCToolsWrapper<Q>> wrapAll(
             List<? extends Q> delegates) {
         // This is safe because of the upper bound of Q and the fact that we only read from the
         // list, never writing to it (making it a producer of Qs, per the PECS principle).

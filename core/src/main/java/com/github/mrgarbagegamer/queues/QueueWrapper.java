@@ -7,32 +7,7 @@ import java.util.List;
 
 import com.github.mrgarbagegamer.WorkBatch;
 
-/**
- * A base interface for queue wrappers that provides access to the underlying queue and its
- * {@link QueueMetadataProvider metadata}.
- * 
- * <p>
- * This interface separates custom queues built to fit into the validation and pre-allocation logic
- * of {@link QueueUtils} from external queues wrapped to fit into the same logic. By extending
- * {@code QueueMetadataProvider}, it ensures that all queues in the system provide consistent
- * metadata about their access mode and boundedness, which is crucial for the validation logic in
- * {@link QueueUtils}.
- * </p>
- * 
- * <h2>Unwrapping</h2>
- * <p>
- * Added layers of indirection, such as queue wrappers, can introduce meaningful overhead in the
- * critical path of queue operations by harming inlining efforts. The {@link #unwrap()} method seeks
- * to mitigate this overhead by removing a single layer of wrapping, reducing overhead and improving
- * performance.
- * </p>
- * 
- * @param <Q> the type of the underlying queue being wrapped.
- * @see BlockingQueueWrappers
- * @see JCToolsWrappers
- * @since 2026.05 - Queue Wrapper Interface
- */
-public interface QueueWrapper<Q> extends QueueMetadataProvider {
+interface QueueWrapper<Q> extends QueueMetadataProvider {
     /**
      * Unwraps the underlying queue from this wrapper.
      * 

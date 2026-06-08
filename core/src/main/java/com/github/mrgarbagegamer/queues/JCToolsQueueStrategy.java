@@ -1,16 +1,16 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forGenerator;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyJCTools;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.newBoundedMpmcList;
-import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrap;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.unwrapAll;
 
 import java.util.List;
-import java.util.function.BooleanSupplier;
 
 import org.jctools.queues.MessagePassingQueue;
 
@@ -20,8 +20,9 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
-import com.github.mrgarbagegamer.queues.JCToolsWrappers.JCToolsWrapper;
 
+// TODO: Move the newBoundedXyzList() methods to this class and return unwrapped lists, since the
+// unwrapping is just confusing boilerplate.
 // TODO: Update Javadocs to reflect the new design.
 // TODO: Write unit tests for the class.
 /**
@@ -67,150 +68,25 @@ import com.github.mrgarbagegamer.queues.JCToolsWrappers.JCToolsWrapper;
  */
 public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
         extends AbstractQueueStrategy<G, M> {
-    /**
-     * The default {@link BackoffStrategy} used for {@link CombinationGeneratorTask generators} in
-     * the {@code static} factory methods.
-     * 
-     * <p>
-     * This strategy uses a simple {@link BackoffStrategy#sleep(long, int) sleep-based} approach,
-     * sleeping for a fixed amount of time (500 microseconds) on each backoff attempt. Based on the
-     * current performance of the generators, which are generally slower than the monkeys and thus
-     * have lower contention on each type of queue, a more aggressive backoff strategy is used to
-     * increase overall throughput. Further tuning of this strategy may be beneficial based on
-     * further benchmarking and analysis, but this provides a reasonable starting point.
-     * </p>
-     * 
-     * @see #DEFAULT_MONKEY_BACKOFF
-     * @see #multiMulti(List, List, SolverConfiguration, SolverState)
-     * @see #multiSingle(List, MessagePassingQueue, SolverConfiguration, SolverState)
-     * @see #singleMulti(MessagePassingQueue, List, SolverConfiguration, SolverState)
-     * @see #singleSingle(MessagePassingQueue, MessagePassingQueue, SolverConfiguration,
-     *      SolverState)
-     * @see JCToolsQueueSelectors
-     * @see QueueSelector
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} sleep calls.
-     * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
-     * @memory Should not allocate during normal operation if implemented properly.
-     */
+
     private static final BackoffStrategy DEFAULT_GENERATOR_BACKOFF = BackoffStrategy.sleep(0,
             500_000);
-    /**
-     * The default {@link BackoffStrategy} used for {@link TestClickCombination monkeys} in the
-     * {@code static} factory methods.
-     * 
-     * <p>
-     * This strategy uses a simple {@link BackoffStrategy#sleep(long, int) sleep-based} approach,
-     * sleeping for a fixed amount of time (1 millisecond) on each backoff attempt. Based on the
-     * current performance of the monkeys, which are generally faster than the generators and thus
-     * have higher contention on each type of queue, a more aggressive backoff strategy is used to
-     * reduce contention and improve overall throughput. Further tuning of this strategy may be
-     * beneficial based on further benchmarking and analysis, but this provides a reasonable
-     * starting point.
-     * </p>
-     * 
-     * @see #DEFAULT_GENERATOR_BACKOFF
-     * @see #multiMulti(List, List, SolverConfiguration, SolverState)
-     * @see #multiSingle(List, MessagePassingQueue, SolverConfiguration, SolverState)
-     * @see #singleMulti(MessagePassingQueue, List, SolverConfiguration, SolverState)
-     * @see #singleSingle(MessagePassingQueue, MessagePassingQueue, SolverConfiguration,
-     *      SolverState)
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} sleep calls.
-     * @threading Should be thread-safe if stateful, otherwise reusable and stateless.
-     * @memory Should not allocate during normal operation if implemented properly.
-     */
     private static final BackoffStrategy DEFAULT_MONKEY_BACKOFF = BackoffStrategy.sleep(1, 0);
 
-    private JCToolsQueueStrategy(List<? extends JCToolsWrapper<G>> gtmQueues,
-            List<? extends JCToolsWrapper<M>> mtgQueues, SolverConfiguration config,
-            QueueSelector<? super M> generatorPollSelector,
-            QueueSelector<? super G> generatorOfferSelector,
-            QueueSelector<? super G> monkeyPollSelector,
-            QueueSelector<? super M> monkeyOfferSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff, BooleanSupplier generatorShouldContinue,
-            BooleanSupplier monkeyShouldContinue) {
-        // Build the context:
-        final QueueValidationContext<G, M> context = QueueValidationContext
-                .builder(gtmQueues, mtgQueues).generatorPollSelector(generatorPollSelector)
-                .generatorOfferSelector(generatorOfferSelector)
-                .monkeyPollSelector(monkeyPollSelector).monkeyOfferSelector(monkeyOfferSelector)
-                .solverConfig(config).build();
-
-        // Delegate to the AbstractQueueStrategy constructor for validation and field init:
-        super(context, generatorBackoff, monkeyBackoff, generatorShouldContinue,
-                monkeyShouldContinue);
-    }
-
-    private static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> ofDefaults(
-            List<? extends JCToolsWrapper<G>> gtmQueues,
-            List<? extends JCToolsWrapper<M>> mtgQueues, SolverConfiguration config,
-            SolverState solverState, QueueSelector<? super M> generatorPollSelector,
-            QueueSelector<? super G> generatorOfferSelector,
-            QueueSelector<? super G> monkeyPollSelector,
-            QueueSelector<? super M> monkeyOfferSelector) {
-        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
-        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState,
-                QueueWrapper.unwrapAll(gtmQueues));
-
-        return new JCToolsQueueStrategy<>(gtmQueues, mtgQueues, config, generatorPollSelector,
-                generatorOfferSelector, monkeyPollSelector, monkeyOfferSelector,
-                DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF, generatorShouldContinue,
-                monkeyShouldContinue);
-    }
+    private JCToolsQueueStrategy(Builder<G, M> builder) { super(builder); }
 
     // Static factory methods for common configurations:
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> singleSingle(
-            G gtmQueue, M mtgQueue, SolverConfiguration config, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
-        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, gtmQueue);
-
-        return new JCToolsQueueStrategy<>(List.of(wrap(gtmQueue)), List.of(wrap(mtgQueue)), config,
-                exclusiveJCTools(), exclusiveJCTools(), exclusiveJCTools(), exclusiveJCTools(),
-                generatorBackoff, monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
-    }
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> singleSingle(
-            G gtmQueue, M mtgQueue, SolverConfiguration config, SolverState solverState) {
-        return singleSingle(gtmQueue, mtgQueue, config, DEFAULT_GENERATOR_BACKOFF,
-                DEFAULT_MONKEY_BACKOFF, solverState);
-    }
 
     public static JCToolsQueueStrategy<?, ?> singleSingle(SolverConfiguration config,
             SolverState solverState) {
         final int queueSize = config.queueSize();
 
-        final var gtmQueues = newBoundedMpmcList(1, queueSize);
-        final var mtgQueues = newBoundedMpmcList(1, queueSize);
+        final var gtmQueues = unwrapAll(newBoundedMpmcList(1, queueSize));
+        final var mtgQueues = unwrapAll(newBoundedMpmcList(1, queueSize));
 
-        // Preallocate:
-        QueuePreallocator.preallocate(mtgQueues, config, queueSize);
+        return builder(gtmQueues, mtgQueues, config, solverState).asSingleSingle()
+                .preallocateQueues(queueSize).build();
 
-        return ofDefaults(gtmQueues, mtgQueues, config, solverState, exclusiveJCTools(),
-                exclusiveJCTools(), exclusiveJCTools(), exclusiveJCTools());
-    }
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> singleMulti(
-            G gtmQueue, List<? extends M> mtgQueues, SolverConfiguration config,
-            QueueSelector<? super M> generatorPollSelector,
-            QueueSelector<? super M> monkeyOfferSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
-        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, gtmQueue);
-
-        return new JCToolsQueueStrategy<>(List.of(wrap(gtmQueue)), wrapAll(mtgQueues), config,
-                generatorPollSelector, exclusiveJCTools(), exclusiveJCTools(), monkeyOfferSelector,
-                generatorBackoff, monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
-    }
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> singleMulti(
-            G gtmQueue, List<? extends M> mtgQueues, SolverConfiguration config,
-            SolverState solverState) {
-        return singleMulti(gtmQueue, mtgQueues, config, biasedSequentialJCTools(),
-                biasedSequentialJCTools(), DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF,
-                solverState);
     }
 
     public static JCToolsQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
@@ -218,36 +94,11 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final int queueSize = config.queueSize();
         final int numGenerators = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
-        final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
+        final var gtmQueues = unwrapAll(newBoundedMpmcList(1, queueSize * numGenerators));
+        final var mtgQueues = unwrapAll(newBoundedMpmcList(numGenerators, queueSize));
 
-        // Preallocate:
-        QueuePreallocator.preallocate(mtgQueues, config, queueSize * numGenerators);
-
-        return ofDefaults(gtmQueues, mtgQueues, config, solverState, biasedSequentialJCTools(),
-                exclusiveJCTools(), exclusiveJCTools(), biasedSequentialJCTools());
-    }
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> multiSingle(
-            List<? extends G> gtmQueues, M mtgQueue, SolverConfiguration config,
-            QueueSelector<? super G> generatorOfferSelector,
-            QueueSelector<? super G> monkeyPollSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
-        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, gtmQueues);
-
-        return new JCToolsQueueStrategy<>(wrapAll(gtmQueues), List.of(wrap(mtgQueue)), config,
-                exclusiveJCTools(), generatorOfferSelector, monkeyPollSelector, exclusiveJCTools(),
-                generatorBackoff, monkeyBackoff, generatorShouldContinue, monkeyShouldContinue);
-    }
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> multiSingle(
-            List<? extends G> gtmQueues, M mtgQueue, SolverConfiguration config,
-            SolverState solverState) {
-        // We currently use a biased sequential strategy for both sides of the multi-single config.
-        return multiSingle(gtmQueues, mtgQueue, config, biasedSequentialJCTools(),
-                biasedSequentialJCTools(), DEFAULT_GENERATOR_BACKOFF, DEFAULT_MONKEY_BACKOFF,
-                solverState);
+        return builder(gtmQueues, mtgQueues, config, solverState).asSingleMulti()
+                .preallocateQueues(queueSize).build();
     }
 
     public static JCToolsQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
@@ -255,38 +106,11 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final int queueSize = config.queueSize();
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
-        final var mtgQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
+        final var gtmQueues = unwrapAll(newBoundedMpmcList(numMonkeys, queueSize));
+        final var mtgQueues = unwrapAll(newBoundedMpmcList(1, queueSize * numMonkeys));
 
-        // Preallocate:
-        QueuePreallocator.preallocate(mtgQueues, config, queueSize * numMonkeys);
-
-        return ofDefaults(gtmQueues, mtgQueues, config, solverState, exclusiveJCTools(),
-                biasedSequentialJCTools(), biasedSequentialJCTools(), exclusiveJCTools());
-    }
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> multiMulti(
-            List<? extends G> gtmQueues, List<? extends M> mtgQueues, SolverConfiguration config,
-            QueueSelector<? super M> generatorPollSelector,
-            QueueSelector<? super G> generatorOfferSelector,
-            QueueSelector<? super G> monkeyPollSelector,
-            QueueSelector<? super M> monkeyOfferSelector, BackoffStrategy generatorBackoff,
-            BackoffStrategy monkeyBackoff, SolverState solverState) {
-        final BooleanSupplier generatorShouldContinue = forGenerator(solverState);
-        final BooleanSupplier monkeyShouldContinue = forMonkeyJCTools(solverState, gtmQueues);
-
-        return new JCToolsQueueStrategy<>(wrapAll(gtmQueues), wrapAll(mtgQueues), config,
-                generatorPollSelector, generatorOfferSelector, monkeyPollSelector,
-                monkeyOfferSelector, generatorBackoff, monkeyBackoff, generatorShouldContinue,
-                monkeyShouldContinue);
-    }
-
-    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> JCToolsQueueStrategy<G, M> multiMulti(
-            List<? extends G> gtmQueues, List<? extends M> mtgQueues, SolverConfiguration config,
-            SolverState solverState) {
-        return multiMulti(gtmQueues, mtgQueues, config, preferredJCTools(), preferredJCTools(),
-                preferredJCTools(), preferredJCTools(), DEFAULT_GENERATOR_BACKOFF,
-                DEFAULT_MONKEY_BACKOFF, solverState);
+        return builder(gtmQueues, mtgQueues, config, solverState).asMultiSingle()
+                .preallocateQueues(queueSize * numMonkeys).build();
     }
 
     public static JCToolsQueueStrategy<?, ?> multiMulti(SolverConfiguration config,
@@ -295,13 +119,120 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final int numGenerators = config.numThreads() / 2;
         final int numMonkeys = config.numThreads() / 2;
 
-        final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
-        final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
+        final var gtmQueues = unwrapAll(newBoundedMpmcList(numMonkeys, queueSize));
+        final var mtgQueues = unwrapAll(newBoundedMpmcList(numGenerators, queueSize));
 
-        // Preallocate:
-        QueuePreallocator.preallocate(mtgQueues, config, queueSize);
+        // Use the constructor to avoid unnecessary wrapping and unwrapping.
+        return builder(gtmQueues, mtgQueues, config, solverState).asMultiMulti()
+                .preallocateQueues(queueSize).build();
+    }
 
-        return ofDefaults(gtmQueues, mtgQueues, config, solverState, preferredJCTools(),
-                preferredJCTools(), preferredJCTools(), preferredJCTools());
+    public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> Builder<G, M> builder(
+            List<G> gtmQueues, List<M> mtgQueues, SolverConfiguration config, SolverState state) {
+        return new Builder<>(gtmQueues, mtgQueues, config, state);
+    }
+
+    public static final class Builder<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
+            extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
+        private int batchesPerQueue = 0; // Default value to not preallocate
+
+        private Builder(List<G> gtmQueues, List<M> mtgQueues, SolverConfiguration config,
+                SolverState state) {
+            super(gtmQueues, mtgQueues, config, state);
+
+            generatorBackoff(DEFAULT_GENERATOR_BACKOFF);
+            monkeyBackoff(DEFAULT_MONKEY_BACKOFF);
+            monkeyShouldContinue(forMonkeyJCTools(state, gtmQueues));
+        }
+
+        public Builder<G, M> preallocateQueues(int batchesPerQueue) {
+            this.batchesPerQueue = mustBePositive(batchesPerQueue, "batchesPerQueue");
+            return this;
+        }
+
+        @Override
+        public Builder<G, M> asSingleSingle() {
+            if (this.gtmQueues.size() != 1) {
+                throw new IllegalStateException(
+                        "gtmQueues must contain exactly 1 queue for singleSingle configuration");
+            } else if (this.mtgQueues.size() != 1) {
+                throw new IllegalStateException(
+                        "mtgQueues must contain exactly 1 queue for singleSingle configuration");
+            }
+            setDefaultSelectors(exclusiveJCTools(), exclusiveJCTools(), exclusiveJCTools(),
+                    exclusiveJCTools());
+            return this;
+        }
+
+        @Override
+        public Builder<G, M> asSingleMulti() {
+            if (this.gtmQueues.size() != 1) {
+                throw new IllegalStateException(
+                        "gtmQueues must contain exactly 1 queue for singleMulti configuration");
+            } else if (this.mtgQueues.size() <= 1) {
+                throw new IllegalStateException(
+                        "mtgQueues must contain more than 1 queue for singleMulti configuration");
+            }
+            setDefaultSelectors(biasedSequentialJCTools(), exclusiveJCTools(), exclusiveJCTools(),
+                    biasedSequentialJCTools());
+            return this;
+        }
+
+        @Override
+        public Builder<G, M> asMultiSingle() {
+            if (this.gtmQueues.size() <= 1) {
+                throw new IllegalStateException(
+                        "gtmQueues must contain more than 1 queue for multiSingle configuration");
+            } else if (this.mtgQueues.size() != 1) {
+                throw new IllegalStateException(
+                        "mtgQueues must contain exactly 1 queue for multiSingle configuration");
+            }
+            setDefaultSelectors(exclusiveJCTools(), biasedSequentialJCTools(),
+                    biasedSequentialJCTools(), exclusiveJCTools());
+            return this;
+        }
+
+        @Override
+        public Builder<G, M> asMultiMulti() {
+            if (this.gtmQueues.size() <= 1) {
+                throw new IllegalStateException(
+                        "gtmQueues must contain more than 1 queue for multiMulti configuration");
+            } else if (this.mtgQueues.size() <= 1) {
+                throw new IllegalStateException(
+                        "mtgQueues must contain more than 1 queue for multiMulti configuration");
+            }
+            setDefaultSelectors(preferredJCTools(), preferredJCTools(), preferredJCTools(),
+                    preferredJCTools());
+            return this;
+        }
+
+        @Override
+        protected Builder<G, M> self() { return this; }
+
+        @Override
+        public JCToolsQueueStrategy<G, M> build() {
+            // 1. Wrap the queues:
+            final var wrappedGtmQueues = wrapAll(this.gtmQueues);
+            final var wrappedMtgQueues = wrapAll(this.mtgQueues);
+
+            // 2. Build and validate the context:
+            final var context = QueueValidationContext.builder(wrappedGtmQueues, wrappedMtgQueues)
+                    .generatorPollSelector(
+                            mustBeSet(generatorPollSelector, "generatorPollSelector"))
+                    .generatorOfferSelector(
+                            mustBeSet(generatorOfferSelector, "generatorOfferSelector"))
+                    .monkeyPollSelector(mustBeSet(monkeyPollSelector, "monkeyPollSelector"))
+                    .monkeyOfferSelector(mustBeSet(monkeyOfferSelector, "monkeyOfferSelector"))
+                    .solverConfig(config).build();
+            context.validateAll();
+
+            // 3. Preallocate if requested:
+            if (batchesPerQueue > 0) {
+                QueuePreallocator.preallocate(wrappedMtgQueues, config, batchesPerQueue);
+            }
+
+            // 4. Construct the strategy:
+            return new JCToolsQueueStrategy<>(this);
+        }
     }
 }

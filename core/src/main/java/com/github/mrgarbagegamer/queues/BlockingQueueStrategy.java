@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyBlocking;
@@ -124,7 +123,6 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
 
     public static final class Builder<G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>>
             extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
-        private int batchesPerQueue = 0; // Default value to not preallocate
 
         private Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                 SolverConfiguration config, SolverState state) {
@@ -133,11 +131,6 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
             generatorBackoff(DEFAULT_BACKOFF);
             monkeyBackoff(DEFAULT_BACKOFF);
             monkeyShouldContinue(forMonkeyBlocking(state, gtmQueues));
-        }
-
-        public Builder<G, M> preallocateQueues(int batchesPerQueue) {
-            this.batchesPerQueue = mustBePositive(batchesPerQueue, "batchesPerQueue");
-            return this;
         }
 
         @Override

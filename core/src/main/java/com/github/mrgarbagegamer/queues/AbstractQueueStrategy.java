@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
@@ -65,6 +66,9 @@ abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
         private BooleanSupplier generatorShouldContinue;
         private BooleanSupplier monkeyShouldContinue;
 
+        // 4. Preallocation value (with overridable default of 0, which means no preallocation):
+        protected int batchesPerQueue = 0;
+
         protected Builder(List<? extends G> gtmQueues,
                 List<? extends M> mtgQueues, SolverConfiguration config,
                 SolverState state) {
@@ -122,6 +126,11 @@ abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
 
         public final B monkeyShouldContinue(BooleanSupplier predicate) {
             this.monkeyShouldContinue = mustNotBeNull(predicate, "monkeyShouldContinue");
+            return self();
+        }
+
+        public final B preallocateQueues(int batchesPerQueue) {
+            this.batchesPerQueue = mustBePositive(batchesPerQueue, "batchesPerQueue");
             return self();
         }
 

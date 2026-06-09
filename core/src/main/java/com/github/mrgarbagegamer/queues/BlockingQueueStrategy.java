@@ -117,7 +117,8 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
     }
 
     public static <G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>> Builder<G, M> builder(
-            List<G> gtmQueues, List<M> mtgQueues, SolverConfiguration config, SolverState state) {
+            List<? extends G> gtmQueues, List<? extends M> mtgQueues, SolverConfiguration config,
+            SolverState state) {
         return new Builder<>(gtmQueues, mtgQueues, config, state);
     }
 

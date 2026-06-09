@@ -128,15 +128,16 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
     }
 
     public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> Builder<G, M> builder(
-            List<G> gtmQueues, List<M> mtgQueues, SolverConfiguration config, SolverState state) {
+            List<? extends G> gtmQueues, List<? extends M> mtgQueues, SolverConfiguration config,
+            SolverState state) {
         return new Builder<>(gtmQueues, mtgQueues, config, state);
     }
 
     public static final class Builder<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
             extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 
-        private Builder(List<G> gtmQueues, List<M> mtgQueues, SolverConfiguration config,
-                SolverState state) {
+        private Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
+                SolverConfiguration config, SolverState state) {
             super(gtmQueues, mtgQueues, config, state);
 
             generatorBackoff(DEFAULT_GENERATOR_BACKOFF);

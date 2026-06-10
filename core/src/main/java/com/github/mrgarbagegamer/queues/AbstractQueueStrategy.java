@@ -69,9 +69,8 @@ abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
         // 4. Preallocation value (with overridable default of 0, which means no preallocation):
         protected int batchesPerQueue = 0;
 
-        protected Builder(List<? extends G> gtmQueues,
-                List<? extends M> mtgQueues, SolverConfiguration config,
-                SolverState state) {
+        protected Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
+                SolverConfiguration config, SolverState state) {
             this.gtmQueues = copyOfNonNullList(gtmQueues, "gtmQueues");
             this.mtgQueues = copyOfNonNullList(mtgQueues, "mtgQueues");
 
@@ -83,9 +82,8 @@ abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
 
             this.generatorShouldContinue = ContinuationPredicates
                     .forGenerator(mustNotBeNull(state, "state"));
-
-            // Let the concrete builder set the monkey continuation predicate and the other
-            // defaults.
+            this.monkeyShouldContinue = ContinuationPredicates
+                    .forMonkey(mustNotBeNull(state, "state"), gtmQueues);
         }
 
         public final B generatorPollSelector(QueueSelector<? super M> selector) {

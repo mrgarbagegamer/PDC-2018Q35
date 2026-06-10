@@ -2,7 +2,6 @@ package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.queues.BlockingQueueWrappers.wrapAll;
-import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
 import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
@@ -131,7 +130,6 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
 
             generatorBackoff(DEFAULT_BACKOFF);
             monkeyBackoff(DEFAULT_BACKOFF);
-            monkeyShouldContinue(forMonkeyBlocking(state, gtmQueues));
         }
 
         @Override

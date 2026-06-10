@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
@@ -171,27 +173,21 @@ public final class ContinuationPredicates {
     }
 
     /**
-     * A "predicate" that checks the {@link SolverState} and the state of a {@link List list} of
-     * {@link MessagePassingQueue queues} to determine if a {@link TestClickCombination monkey}
-     * should continue processing {@link WorkBatch WorkBatches}.
+     * A "predicate" that checks the {@link SolverState} and the state of a {@link List} of
+     * {@link MessagePassingQueue}s or {@link BlockingQueue}s to determine if a
+     * {@link TestClickCombination monkey} should continue processing {@link WorkBatch}es.
      * 
      * <p>
-     * This method takes in a {@code SolverState} and a list of JCTools
-     * {@code MessagePassingQueue}s, and returns a {@link BooleanSupplier} which, when invoked,
-     * checks if a {@link SolverState#solutionFound() solution has been found} or if
-     * {@link SolverState#generationComplete() generation is complete} and all queues are empty. If
-     * a solution has been found (or generation is complete and no new batches will be enqueued),
-     * the supplier returns {@code false}, indicating that the monkey should cease processing.
-     * </p>
+     * This method takes in a {@code SolverState} and a non-empty {@code List} of queues, and
+     * returns a {@link BooleanSupplier} which, when invoked, checks if a
+     * {@link SolverState#solutionFound() solution has been found} or if
+     * {@link SolverState#generationComplete() generation is complete}. If a solution has been found
+     * (or generation is complete and no new batches will be enqueued), the supplier returns
+     * {@code false}, indicating that the monkey should cease processing.
      * 
      * <p>
-     * To avoid unnecessary overhead, if the list contains only a single queue, we can delegate to
-     * the {@link #forMonkeyJCTools(SolverState, MessagePassingQueue) single-queue overload} of this
-     * method, avoiding the need for iteration to check if all queues are empty. For multiple
-     * queues, a {@link List#copyOf(java.util.Collection) defensive copy of the list} is made if the
-     * queue is not already immutable to avoid potential concurrent modification issues during the
-     * emptiness check, though this does introduce some overhead.
-     * </p>
+     * The method infers the type of the queues in the list (either {@code MessagePassingQueue} or
+     * {@code BlockingQueue}) and applies the appropriate checks for emptiness.
      * 
      * <p>
      * Similar to the {@link #forGenerator(SolverState) generator "predicate"}, the {@code volatile}
@@ -202,290 +198,90 @@ public final class ContinuationPredicates {
      * {@link java.util.concurrent.Executor Executor framework} model more closely is planned to
      * better leverage thread interruption for termination. Until then, however, we leave the
      * {@code volatile} reads in place for safety.
-     * </p>
      * 
      * @param state     the non-{@code null} {@link SolverState} to capture in the returned
      *                  supplier.
-     * @param gtmQueues the non-{@code null}, non-{@link List#isEmpty() empty} list of JCTools
-     *                  {@code MessagePassingQueue}s to capture in the returned supplier.
-     * @return a {@code BooleanSupplier} that returns {@code true} if no solution has been found and
-     *         either generation is not complete or at least one queue is
-     *         {@link MessagePassingQueue#isEmpty() not empty}, or {@code false} otherwise.
-     * @throws NullPointerException     if {@code state} or {@code gtmQueues} is {@code null}.
-     * @throws IllegalArgumentException if {@code gtmQueues} is empty.
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} delegation to the single-queue overload for a single queue and
-     *              {@code O(gtmQueues.size())} supplier construction for multiple queues; each
-     *              supplier invocation is {@code O(1)} for the single-queue case and up to
-     *              {@code O(gtmQueues.size())} for the multiple-queue case due to the iteration
-     *              overhead.
-     * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the state and queues, and only reads {@code volatile} flags.
-     * @memory Allocates a lambda instance that captures the provided state and queues and a new
-     *         list if the provided list is not immutable; the supplier itself does not allocate.
-     */
-    public static BooleanSupplier forMonkeyJCTools(SolverState state,
-            List<? extends MessagePassingQueue<WorkBatch>> gtmQueues) {
-        return forMonkeyGenericList(state, gtmQueues, MessagePassingQueue::isEmpty);
-    }
-
-    /**
-     * An overload of {@link #forMonkeyJCTools(SolverState, List)} that accepts a single JCTools
-     * {@link MessagePassingQueue} instead of a {@link List list} of queues, avoiding unnecessary
-     * iteration overhead in single-single or single-multi scenarios.
-     * 
-     * @param state    the non-{@code null} {@link SolverState} to capture in the returned supplier.
-     * @param gtmQueue the non-{@code null} {@code MessagePassingQueue} to capture in the returned
-     *                 supplier.
-     * @return a {@code BooleanSupplier} that returns {@code true} if no
-     *         {@link SolverState#solutionFound() solution has been found} and either
-     *         {@link SolverState#generationComplete() generation is not complete} or the queue
-     *         {@link MessagePassingQueue#isEmpty() is not empty}, or {@code false} otherwise.
-     * @throws NullPointerException if {@code state} or {@code gtmQueue} is {@code null}.
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} construction of the supplier; {@code O(1) volatile} reads and queue
-     *              state check for each supplier invocation.
-     * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the state and queue, and only reads {@code volatile} flags.
-     * @memory Allocates a lambda instance that captures the provided state and queue; the supplier
-     *         itself does not allocate.
-     */
-    public static BooleanSupplier forMonkeyJCTools(SolverState state,
-            MessagePassingQueue<WorkBatch> gtmQueue) {
-        return forMonkeyGenericSingle(state, gtmQueue, MessagePassingQueue::isEmpty);
-    }
-
-    /**
-     * An "overload" of {@link #forMonkeyJCTools(SolverState, List)} that accepts
-     * {@link BlockingQueue}s instead of JCTools {@link MessagePassingQueue}s.
-     * 
-     * <p>
-     * Note that, since two methods with the same name cannot have the same erasure, we use a
-     * different method name for the {@code BlockingQueue} overloads.
-     * </p>
-     * 
-     * @param state     the non-{@code null} {@link SolverState} to capture in the returned
-     *                  supplier.
-     * @param gtmQueues the non-{@code null}, non-{@link List#isEmpty() empty} list of
-     *                  {@code BlockingQueue}s to capture in the returned supplier.
-     * @return a {@link BooleanSupplier} that returns {@code true} if no
-     *         {@link SolverState#solutionFound() solution has been found} and either
-     *         {@link SolverState#generationComplete() generation is not complete} or at least one
-     *         queue {@link BlockingQueue#isEmpty() is not empty}, or {@code false} otherwise.
-     * @throws NullPointerException     if {@code state} or {@code gtmQueues} is {@code null}.
-     * @throws IllegalArgumentException if {@code gtmQueues} is empty.
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} delegation to the single-queue overload for a single queue and
-     *              {@code O(gtmQueues.size())} supplier construction for multiple queues; each
-     *              supplier invocation is {@code O(1)} for the single-queue case and up to
-     *              {@code O(gtmQueues.size())} for the multiple-queue case due to the iteration
-     *              overhead.
-     * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the state and queues, and only reads {@code volatile} flags.
-     * @memory Allocates a lambda instance that captures the provided state and queues and a new
-     *         list if the provided list is not immutable; the supplier itself does not allocate.
-     */
-    public static BooleanSupplier forMonkeyBlocking(SolverState state,
-            List<? extends BlockingQueue<WorkBatch>> gtmQueues) {
-        return forMonkeyGenericList(state, gtmQueues, BlockingQueue::isEmpty);
-    }
-
-    /**
-     * An overload of {@link #forMonkeyBlocking(SolverState, List)} that accepts a single
-     * {@link BlockingQueue} instead of a {@link List list} of queues, avoiding unnecessary
-     * iteration overhead
-     * 
-     * @param state    the non-{@code null} {@link SolverState} to capture in the returned supplier.
-     * @param gtmQueue the non-{@code null} {@code BlockingQueue} to capture in the returned
-     *                 supplier.
-     * @return a {@code BooleanSupplier} that returns {@code true} if no
-     *         {@link SolverState#solutionFound() solution has been found} and either
-     *         {@link SolverState#generationComplete() generation is not complete} or the queue
-     *         {@link BlockingQueue#isEmpty() is not empty}, or {@code false} otherwise.
-     * @throws NullPointerException if {@code state} or {@code gtmQueue} is {@code null}.
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} construction of the supplier; {@code O(1) volatile} reads and queue
-     *              state check for each supplier invocation.
-     * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the state and queue, and only reads {@code volatile} flags.
-     * @memory Allocates a lambda instance that captures the provided state and queue; the supplier
-     *         itself does not allocate.
-     */
-    public static BooleanSupplier forMonkeyBlocking(SolverState state,
-            BlockingQueue<WorkBatch> gtmQueue) {
-        return forMonkeyGenericSingle(state, gtmQueue, BlockingQueue::isEmpty);
-    }
-
-    /**
-     * A generic helper method that creates a "predicate" for a list of {@code gtmQueues} using a
-     * provided emptiness check. This method is used to implement both the JCTools
-     * {@link MessagePassingQueue} and {@link BlockingQueue} "predicates" while avoiding code
-     * duplication.
-     * 
-     * @param <Q>              the type of the queues in the list, which must be compatible with the
-     *                         provided emptiness check.
-     * @param state            the non-{@code null} {@link SolverState} to capture in the returned
-     *                         supplier.
-     * @param gtmQueues        the non-{@code null}, non-{@link List#isEmpty() empty} list of queues
-     *                         to capture in the returned supplier.
-     * @param singleQueueEmpty the non-{@code null} {@link Predicate} that checks if a single queue
-     *                         is empty, used for both the single-queue optimization and the
-     *                         emptiness check in the multiple-queue case.
+     * @param gtmQueues the non-{@code null}, non-{@link List#isEmpty() empty} list of either
+     *                  {@link MessagePassingQueue}s or {@link BlockingQueue}s to capture in the
+     *                  returned supplier.
      * @return a {@code BooleanSupplier} that returns {@code true} if no solution has been found and
      *         either generation is not complete or at least one queue is not empty, or
      *         {@code false} otherwise.
-     * @throws NullPointerException     if any of the parameters are {@code null}.
-     * @throws IllegalArgumentException if {@code gtmQueues} is empty.
-     * @see #forMonkeyBlocking(SolverState, List)
-     * @see #forMonkeyGenericSingle(SolverState, Object, Predicate)
-     * @see #forMonkeyJCTools(SolverState, List)
-     * @see #monkeyCheck(SolverState, BooleanSupplier)
-     * @since 2026.03 - Continuation Predicate Refactor
-     * @performance {@code O(1)} delegation to the single-queue overload for a single queue and
-     *              {@code O(gtmQueues.size())} supplier construction for multiple queues; each
-     *              supplier invocation is {@code O(1)} for the single-queue case and up to
-     *              {@code O(gtmQueues.size())} for the multiple-queue case due to the iteration
-     *              overhead.
+     * @throws NullPointerException     if {@code state} or {@code gtmQueues} is {@code null}, or if
+     *                                  {@code gtmQueues} contains any {@code null} elements.
+     * @throws IllegalArgumentException if {@code gtmQueues} is empty or contains elements that are
+     *                                  not all of type {@code MessagePassingQueue} or all of type
+     *                                  {@code BlockingQueue}.
+     * @since 2026.06 - Queue Strategy Refactor
+     * @performance {@code O(1)} construction for the single-queue case, {@code O(gtmQueues.size())}
+     *              construction for the multi-queue case; each supplier invocation is {@code O(1)}
+     *              in the best case and up to {@code O(gtmQueues.size())} in the worst case when
+     *              generation is complete.
      * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the state and queues, and only reads {@code volatile} flags.
+     *            references to the state and queue(s), and only reads {@code volatile} flags.
      * @memory Allocates a lambda instance that captures the provided state and queues; the supplier
      *         itself does not allocate.
      */
+    public static BooleanSupplier forMonkey(SolverState state, List<?> gtmQueues) {
+        mustNotBeNull(state, "state");
+
+        // Copy the list:
+        final List<?> queuesCopy = copyOfNonNullList(gtmQueues, "gtmQueues");
+        mustNotBeEmpty(queuesCopy, "gtmQueues");
+
+        // Determine what the list is a list of:
+        if (areAllElementsOfType(queuesCopy, MessagePassingQueue.class)) {
+            @SuppressWarnings("unchecked")
+            final var jctoolsQueues = (List<MessagePassingQueue<?>>) queuesCopy;
+            return forMonkeyGenericList(state, jctoolsQueues, MessagePassingQueue::isEmpty);
+        } else if (areAllElementsOfType(queuesCopy, BlockingQueue.class)) {
+            @SuppressWarnings("unchecked")
+            final var blockingQueues = (List<BlockingQueue<?>>) queuesCopy;
+            return forMonkeyGenericList(state, blockingQueues, BlockingQueue::isEmpty);
+        } else {
+            throw new IllegalArgumentException(
+                    "gtmQueues must be a list of either MessagePassingQueues or BlockingQueues");
+        }
+    }
+
+    private static boolean areAllElementsOfType(List<?> queues, Class<?> klass) {
+        return mustNotBeNull(queues, "queues").stream()
+                .allMatch(mustNotBeNull(klass, "klass")::isInstance);
+    }
+
     private static <Q> BooleanSupplier forMonkeyGenericList(SolverState state, List<Q> gtmQueues,
             Predicate<? super Q> singleQueueEmpty) {
         mustNotBeNull(state, "state");
-        mustNotBeNull(gtmQueues, "gtmQueues");
         mustNotBeNull(singleQueueEmpty, "singleQueueEmpty");
 
-        return switch (gtmQueues.size()) {
-            case 0 -> throw new IllegalArgumentException("gtmQueues must not be empty");
+        // We've already ensured that the list isn't empty at this point.
+        return switch (mustNotBeNull(gtmQueues, "gtmQueues").size()) {
             case 1 -> forMonkeyGenericSingle(state, gtmQueues.getFirst(), singleQueueEmpty);
             default -> monkeyCheck(state, createEmptyCheckForList(gtmQueues, singleQueueEmpty));
         };
     }
 
-    /**
-     * A generic helper method that creates a "predicate" for a single queue using a provided
-     * emptiness check. This method is used to implement both the JCTools
-     * {@link MessagePassingQueue} and {@link BlockingQueue} single-queue "predicates" while
-     * avoiding code duplication.
-     * 
-     * @param <Q>              the type of the queue, which must be compatible with the provided
-     *                         emptiness check.
-     * @param state            the non-{@code null} {@link SolverState} to capture in the returned
-     *                         supplier.
-     * @param gtmQueue         the non-{@code null} queue to capture in the returned supplier.
-     * @param singleQueueEmpty the non-{@code null} {@link Predicate} that checks if the queue is
-     *                         empty, used for the emptiness check in the supplier.
-     * @return a {@code BooleanSupplier} that returns {@code true} if no solution has been found and
-     *         either generation is not complete or the queue is not empty, or {@code false}
-     *         otherwise.
-     * @throws NullPointerException if any of the parameters are {@code null}.
-     * @see #forMonkeyBlocking(SolverState, BlockingQueue)
-     * @see #forMonkeyGenericList(SolverState, List, Predicate)
-     * @see #forMonkeyJCTools(SolverState, MessagePassingQueue)
-     * @see #monkeyCheck(SolverState, BooleanSupplier)
-     * @since 2026.03 - Continuation Predicate Refactor
-     * @performance {@code O(1)} construction of the supplier; {@code O(1) volatile} reads and queue
-     *              state check for each supplier invocation.
-     * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the state and queue, and only reads {@code volatile} flags.
-     * @memory Allocates a lambda instance that captures the provided state and queue; the supplier
-     *         itself does not allocate.
-     */
     private static <Q> BooleanSupplier forMonkeyGenericSingle(SolverState state, Q gtmQueue,
             Predicate<? super Q> singleQueueEmpty) {
-        mustNotBeNull(state, "state");
         mustNotBeNull(gtmQueue, "gtmQueue");
         mustNotBeNull(singleQueueEmpty, "singleQueueEmpty");
 
-        return monkeyCheck(state, () -> singleQueueEmpty.test(gtmQueue));
+        return monkeyCheck(mustNotBeNull(state, "state"), () -> singleQueueEmpty.test(gtmQueue));
     }
 
-    /**
-     * Creates a {@code BooleanSupplier} that checks if all queues in the provided list are empty
-     * using the provided emptiness check.
-     * 
-     * @param <Q>                   the type of the queues in the list, which must be compatible
-     *                              with the provided emptiness check.
-     * @param queues                the non-{@code null} list of queues to check for emptiness; a
-     *                              defensive copy will be made to avoid concurrent modification
-     *                              issues.
-     * @param singleQueueEmptyCheck the non-{@code null} {@link Predicate} that checks if a single
-     *                              queue is empty, used for the emptiness check in the supplier.
-     * @return a {@code BooleanSupplier} that returns {@code true} if all queues are empty according
-     *         to the provided check, or {@code false} otherwise.
-     * @throws NullPointerException if any of the parameters are {@code null}.
-     * @see #allQueuesEmpty(List, Predicate)
-     * @since 2026.03 - Continuation Predicate Refactor
-     * @performance {@code O(1)} for supplier construction; up to {@code O(queues.size())} for each
-     *              supplier invocation due to the iteration overhead.
-     * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the queues, and only reads {@code volatile} flags.
-     * @memory Allocates a lambda instance that captures the provided queues and a new list if the
-     *         provided list was not immutable; the supplier itself does not allocate.
-     */
     private static <Q> BooleanSupplier createEmptyCheckForList(List<Q> queues,
             Predicate<? super Q> singleQueueEmptyCheck) {
         // Defensive copy to avoid concurrent modification issues during stream operations.
-        final List<Q> queueCopy = List.copyOf(queues);
+        final List<Q> queueCopy = copyOfNonNullList(queues, "queues");
 
         return () -> allQueuesEmpty(queueCopy, singleQueueEmptyCheck);
     }
 
-    /**
-     * Creates a "predicate" that checks the {@link SolverState} and the state of a single queue
-     * using the provided emptiness check, returning {@code true} if
-     * {@link SolverState#solutionFound() no solution has been found} and either
-     * {@link SolverState#generationComplete() generation is not complete} or the emptiness check
-     * fails, and {@code false} otherwise.
-     * 
-     * @param state      the non-{@code null} {@link SolverState} to capture in the returned
-     *                   supplier.
-     * @param emptyCheck the non-{@code null} {@link BooleanSupplier} that checks if the queue(s)
-     *                   are empty, used for the emptiness check in the supplier.
-     * @return a {@code BooleanSupplier} that returns {@code true} if no solution has been found and
-     *         either generation is not complete or the emptiness check fails, or {@code false}
-     *         otherwise.
-     * @throws NullPointerException if either parameter is {@code null}.
-     * @see #forMonkeyBlocking(SolverState, BlockingQueue)
-     * @see #forMonkeyBlocking(SolverState, List)
-     * @see #forMonkeyJCTools(SolverState, List)
-     * @see #forMonkeyJCTools(SolverState, MessagePassingQueue)
-     * @since 2026.03 - Continuation Predicate Refactor
-     * @performance {@code O(1)} construction of the supplier; {@code O(1)} for each supplier
-     *              invocation, as it only involves a couple of flag checks and a call to the
-     *              provided emptiness check.
-     * @threading Thread-safe construction and invocation, as it captures effectively final
-     *            references to the state and emptiness check, and only reads {@code volatile}
-     *            flags.
-     * @memory Allocates a lambda instance that captures the provided state and emptiness check; the
-     *         supplier itself does not allocate.
-     */
     private static BooleanSupplier monkeyCheck(SolverState state, BooleanSupplier emptyCheck) {
         return () -> !state.solutionFound()
                 && (!state.generationComplete() || !emptyCheck.getAsBoolean());
     }
 
-    /**
-     * Checks if all queues in the provided list are empty according to the provided emptiness
-     * check.
-     * 
-     * @param <Q>        the type of the queues in the list, which must be compatible with the
-     *                   provided emptiness check.
-     * @param queues     the list of queues to check for emptiness.
-     * @param emptyCheck the {@link Predicate} that checks if a single queue is empty, used for the
-     *                   emptiness check.
-     * @return {@code true} if all queues are empty according to the provided check, or
-     *         {@code false} otherwise.
-     * @throws NullPointerException if either parameter is {@code null}.
-     * @see #createEmptyCheckForList(List, Predicate)
-     * @since 2026.03 - Continuation Predicate Refactor
-     * @performance {@code O(queues.size())} due to the iteration overhead.
-     * @threading Thread-safe, as it only reads from the provided list and does not modify any
-     *            state.
-     * @memory Does not allocate.
-     */
     private static <Q> boolean allQueuesEmpty(List<Q> queues, Predicate<? super Q> emptyCheck) {
         for (Q queue : queues) {
             if (!emptyCheck.test(queue)) {

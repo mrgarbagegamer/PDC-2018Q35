@@ -1,7 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
-import static com.github.mrgarbagegamer.queues.ContinuationPredicates.forMonkeyJCTools;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
@@ -142,7 +141,6 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
 
             generatorBackoff(DEFAULT_GENERATOR_BACKOFF);
             monkeyBackoff(DEFAULT_MONKEY_BACKOFF);
-            monkeyShouldContinue(forMonkeyJCTools(state, gtmQueues));
         }
 
         @Override

@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
@@ -75,46 +76,46 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
 
     public static JCToolsQueueStrategy<?, ?> singleSingle(SolverConfiguration config,
             SolverState solverState) {
-        final int queueSize = config.queueSize();
+        final int queueSize = mustNotBeNull(config, "config").queueSize();
 
         // Create queues (defined as vars to allow easier switching of implementations later)
         final var gtmQueues = newBoundedMpmcList(1, queueSize);
         final var mtgQueues = newBoundedMpmcList(1, queueSize);
 
-        return builder(gtmQueues, mtgQueues, config, solverState).asSingleSingle()
-                .preallocateQueues(queueSize).build();
+        return builder(gtmQueues, mtgQueues, config, mustNotBeNull(solverState, "solverState"))
+                .asSingleSingle().preallocateQueues(queueSize).build();
 
     }
 
     public static JCToolsQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
             SolverState solverState) {
-        final int queueSize = config.queueSize();
+        final int queueSize = mustNotBeNull(config, "config").queueSize();
         final int numGenerators = config.numThreads() / 2;
 
         // Create queues (defined as vars to allow easier switching of implementations later)
         final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
         final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
 
-        return builder(gtmQueues, mtgQueues, config, solverState).asSingleMulti()
-                .preallocateQueues(queueSize).build();
+        return builder(gtmQueues, mtgQueues, config, mustNotBeNull(solverState, "solverState"))
+                .asSingleMulti().preallocateQueues(queueSize).build();
     }
 
     public static JCToolsQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
             SolverState solverState) {
-        final int queueSize = config.queueSize();
+        final int queueSize = mustNotBeNull(config, "config").queueSize();
         final int numMonkeys = config.numThreads() / 2;
 
         // Create queues (defined as vars to allow easier switching of implementations later)
         final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
         final var mtgQueues = newBoundedMpmcList(1, queueSize * numMonkeys);
 
-        return builder(gtmQueues, mtgQueues, config, solverState).asMultiSingle()
-                .preallocateQueues(queueSize * numMonkeys).build();
+        return builder(gtmQueues, mtgQueues, config, mustNotBeNull(solverState, "solverState"))
+                .asMultiSingle().preallocateQueues(queueSize * numMonkeys).build();
     }
 
     public static JCToolsQueueStrategy<?, ?> multiMulti(SolverConfiguration config,
             SolverState solverState) {
-        final int queueSize = config.queueSize();
+        final int queueSize = mustNotBeNull(config, "config").queueSize();
         final int numGenerators = config.numThreads() / 2;
         final int numMonkeys = config.numThreads() / 2;
 
@@ -122,8 +123,8 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
         final var mtgQueues = newBoundedMpmcList(numGenerators, queueSize);
 
-        return builder(gtmQueues, mtgQueues, config, solverState).asMultiMulti()
-                .preallocateQueues(queueSize).build();
+        return builder(gtmQueues, mtgQueues, config, mustNotBeNull(solverState, "solverState"))
+                .asMultiMulti().preallocateQueues(queueSize).build();
     }
 
     public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> Builder<G, M> builder(

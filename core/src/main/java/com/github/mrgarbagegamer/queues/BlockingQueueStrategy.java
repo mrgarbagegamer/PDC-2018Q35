@@ -137,10 +137,10 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         public Builder<G, M> asSingleSingle() {
             if (this.gtmQueues.size() != 1) {
                 throw new IllegalStateException(
-                        "gtmQueues must contain exactly 1 queue for singleSingle configuration");
+                        "gtmQueues must contain exactly 1 queue for single-single configuration");
             } else if (this.mtgQueues.size() != 1) {
                 throw new IllegalStateException(
-                        "mtgQueues must contain exactly 1 queue for singleSingle configuration");
+                        "mtgQueues must contain exactly 1 queue for single-single configuration");
             }
             setDefaultSelectors(exclusiveBlocking(), exclusiveBlocking(), exclusiveBlocking(),
                     exclusiveBlocking());
@@ -151,10 +151,10 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         public Builder<G, M> asSingleMulti() {
             if (this.gtmQueues.size() != 1) {
                 throw new IllegalStateException(
-                        "gtmQueues must contain exactly 1 queue for singleMulti configuration");
+                        "gtmQueues must contain exactly 1 queue for single-multi configuration");
             } else if (this.mtgQueues.size() <= 1) {
                 throw new IllegalStateException(
-                        "mtgQueues must contain more than 1 queue for singleMulti configuration");
+                        "mtgQueues must contain more than 1 queue for single-multi configuration");
             }
             setDefaultSelectors(preferredBlocking(), exclusiveBlocking(), exclusiveBlocking(),
                     preferredBlocking());
@@ -165,10 +165,10 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         public Builder<G, M> asMultiSingle() {
             if (this.gtmQueues.size() <= 1) {
                 throw new IllegalStateException(
-                        "gtmQueues must contain more than 1 queue for multiSingle configuration");
+                        "gtmQueues must contain more than 1 queue for multi-single configuration");
             } else if (this.mtgQueues.size() != 1) {
                 throw new IllegalStateException(
-                        "mtgQueues must contain exactly 1 queue for multiSingle configuration");
+                        "mtgQueues must contain exactly 1 queue for multi-single configuration");
             }
             setDefaultSelectors(exclusiveBlocking(), preferredBlocking(), preferredBlocking(),
                     exclusiveBlocking());
@@ -179,10 +179,10 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         public Builder<G, M> asMultiMulti() {
             if (this.gtmQueues.size() <= 1) {
                 throw new IllegalStateException(
-                        "gtmQueues must contain more than 1 queue for multiMulti configuration");
+                        "gtmQueues must contain more than 1 queue for multi-multi configuration");
             } else if (this.mtgQueues.size() <= 1) {
                 throw new IllegalStateException(
-                        "mtgQueues must contain more than 1 queue for multiMulti configuration");
+                        "mtgQueues must contain more than 1 queue for multi-multi configuration");
             }
             setDefaultSelectors(preferredBlocking(), preferredBlocking(), preferredBlocking(),
                     preferredBlocking());

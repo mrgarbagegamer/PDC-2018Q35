@@ -9,15 +9,29 @@ import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
 final class QueuePreallocator {
+    private static final String REJECTION_REASON_TEMPLATE = "mtgQueue at index %d rejected batch"
+            + "%d during preallocation";
+
     @ExcludeFromGeneratedCoverage
     private QueuePreallocator() { utilityClassError("QueuePreallocator"); }
 
-    // TODO: Split this method into smaller methods that validate the preallocation conditions and
-    // perform the preallocation, respectively, to improve readability and maintainability.
     static void preallocate(List<? extends QueueWrapper<?>> mtgQueues,
             SolverConfiguration solverConfig, int batchesPerQueue) {
 
         // Check that all queues are empty and have sufficient capacity for the preallocation:
+        verifyPreconditions(mtgQueues, batchesPerQueue);
+
+        // Preallocate:
+        for (int i = 0; i < mtgQueues.size(); i++) {
+            final var queue = mtgQueues.get(i);
+            for (int j = 0; j < batchesPerQueue; j++) {
+                tryOffer(solverConfig, i, queue, j);
+            }
+        }
+    }
+
+    private static void verifyPreconditions(List<? extends QueueWrapper<?>> mtgQueues,
+            int batchesPerQueue) {
         for (int i = 0; i < mtgQueues.size(); i++) {
             final var queue = mtgQueues.get(i);
             if (!queue.isEmpty()) {
@@ -27,20 +41,15 @@ final class QueuePreallocator {
                         .formatted(i, queue.capacity(), batchesPerQueue));
             }
         }
+    }
 
-        // Preallocate:
-        for (int i = 0; i < mtgQueues.size(); i++) {
-            final var queue = mtgQueues.get(i);
-            for (int j = 0; j < batchesPerQueue; j++) {
-                if (!queue.offer(new WorkBatch(solverConfig))) {
-                    if (queue.boundedness().isBounded()) {
-                        fail("bounded mtgQueue at index %d rejected batch %d during preallocation, even though it has sufficient capacity"
-                                .formatted(i, j));
-                    } else {
-                        fail("unbounded mtgQueue at index %d rejected batch %d during preallocation"
-                                .formatted(i, j));
-                    }
-                }
+    private static void tryOffer(SolverConfiguration solverConfig, int queueIndex,
+            QueueWrapper<?> queue, int batchNumber) {
+        if (!queue.offer(new WorkBatch(solverConfig))) {
+            if (queue.boundedness().isBounded()) {
+                fail("bounded " + REJECTION_REASON_TEMPLATE.formatted(queueIndex, batchNumber));
+            } else {
+                fail("unbounded " + REJECTION_REASON_TEMPLATE.formatted(queueIndex, batchNumber));
             }
         }
     }

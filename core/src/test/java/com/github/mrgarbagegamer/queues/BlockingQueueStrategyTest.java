@@ -1,8 +1,10 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.Arrays;
@@ -88,14 +90,34 @@ class BlockingQueueStrategyTest {
 
     @Nested
     class BuilderTests {
+        private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues,
+                int queueCapacity) {
+            return newBoundedImmutableQueueList(numQueues, queueCapacity, ArrayBlockingQueue::new);
+        }
+
+        private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues) {
+            return createValidQueueList(numQueues, 16);
+        }
+
         @Nested
         class BuilderMethodTests {
+            private static List<ArrayBlockingQueue<WorkBatch>> createEmptyQueueList() {
+                return List.of();
+            }
+
+            private static List<ArrayBlockingQueue<WorkBatch>> createQueueListWithNull() {
+                return Arrays.asList(new ArrayBlockingQueue<WorkBatch>(16), null);
+            }
+
+            private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList() {
+                return BuilderTests.createValidQueueList(2);
+            }
 
             @Test
             void givenNullGtmQueues_thenThrowNullPointerException() {
+                final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
                 final var state = createValidState();
-                final var mtgQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(null, mtgQueues, config, state));
@@ -103,10 +125,10 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenEmptyGtmQueues_thenThrowIllegalArgumentException() {
+                final var gtmQueues = createEmptyQueueList();
+                final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
                 final var state = createValidState();
-                final var gtmQueues = List.<ArrayBlockingQueue<WorkBatch>>of();
-                final var mtgQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
 
                 assertThatIllegalArgumentException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -114,10 +136,10 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenGtmQueuesContainingNull_thenThrowNullPointerException() {
+                final var gtmQueues = createQueueListWithNull();
+                final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
                 final var state = createValidState();
-                final var gtmQueues = Arrays.asList(new ArrayBlockingQueue<WorkBatch>(16), null);
-                final var mtgQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -125,9 +147,9 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenNullMtgQueues_thenThrowNullPointerException() {
+                final var gtmQueues = createValidQueueList();
                 final var config = createValidConfig();
                 final var state = createValidState();
-                final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, null, config, state));
@@ -135,10 +157,10 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenEmptyMtgQueues_thenThrowIllegalArgumentException() {
+                final var gtmQueues = createValidQueueList();
+                final var mtgQueues = createEmptyQueueList();
                 final var config = createValidConfig();
                 final var state = createValidState();
-                final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
-                final var mtgQueues = List.<ArrayBlockingQueue<WorkBatch>>of();
 
                 assertThatIllegalArgumentException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -146,10 +168,10 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenMtgQueuesContainingNull_thenThrowNullPointerException() {
+                final var gtmQueues = createValidQueueList();
+                final var mtgQueues = createQueueListWithNull();
                 final var config = createValidConfig();
                 final var state = createValidState();
-                final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
-                final var mtgQueues = Arrays.asList(new ArrayBlockingQueue<WorkBatch>(16), null);
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -157,9 +179,9 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenNullConfig_thenThrowNullPointerException() {
+                final var gtmQueues = createValidQueueList();
+                final var mtgQueues = createValidQueueList();
                 final var state = createValidState();
-                final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
-                final var mtgQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, null, state));
@@ -167,9 +189,9 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenNullSolverState_thenThrowNullPointerException() {
+                final var gtmQueues = createValidQueueList();
+                final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
-                final var mtgQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, null));
@@ -177,13 +199,127 @@ class BlockingQueueStrategyTest {
 
             @Test
             void givenValidArguments_thenCreateBuilder() {
+                final var gtmQueues = createValidQueueList();
+                final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
                 final var state = createValidState();
-                final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
-                final var mtgQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16));
 
-                final var builder = BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state);
+                final var builder = BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config,
+                        state);
                 assertThat(builder).isNotNull();
+            }
+        }
+
+        @Nested
+        class TopologyConfigurationTests {
+            private static BlockingQueueStrategy.Builder<ArrayBlockingQueue<WorkBatch>, ArrayBlockingQueue<WorkBatch>> createValidBuilder(
+                    int numGtmQueues, int numMtgQueues) {
+                final var config = createValidConfig();
+                final var state = createValidState();
+                final var gtmQueues = createValidQueueList(numGtmQueues);
+                final var mtgQueues = createValidQueueList(numMtgQueues);
+
+                return BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state);
+            }
+
+            @Test
+            void givenMultipleGtmQueues_whenAsSingleSingle_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 1);
+
+                assertThatIllegalStateException().isThrownBy(builder::asSingleSingle)
+                        .withMessageContaining("gtmQueues must contain exactly 1 queue")
+                        .withMessageContaining("single-single configuration");
+            }
+
+            @Test
+            void givenMultipleMtgQueues_whenAsSingleSingle_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(1, 2);
+
+                assertThatIllegalStateException().isThrownBy(builder::asSingleSingle)
+                        .withMessageContaining("mtgQueues must contain exactly 1 queue")
+                        .withMessageContaining("single-single configuration");
+            }
+
+            @Test
+            void givenSingleGtmQueueAndSingleMtgQueue_whenAsSingleSingle_thenSucceed() {
+                final var builder = createValidBuilder(1, 1);
+
+                assertThatNoException().isThrownBy(builder::asSingleSingle);
+            }
+
+            @Test
+            void givenMultipleGtmQueues_whenAsSingleMulti_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 1);
+
+                assertThatIllegalStateException().isThrownBy(builder::asSingleMulti)
+                        .withMessageContaining("gtmQueues must contain exactly 1 queue")
+                        .withMessageContaining("single-multi configuration");
+            }
+
+            @Test
+            void givenSingleMtgQueue_whenAsSingleMulti_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(1, 1);
+
+                assertThatIllegalStateException().isThrownBy(builder::asSingleMulti)
+                        .withMessageContaining("mtgQueues must contain more than 1 queue")
+                        .withMessageContaining("single-multi configuration");
+            }
+
+            @Test
+            void givenSingleGtmQueueAndMultipleMtgQueues_whenAsSingleMulti_thenSucceed() {
+                final var builder = createValidBuilder(1, 2);
+
+                assertThatNoException().isThrownBy(builder::asSingleMulti);
+            }
+
+            @Test
+            void givenSingleGtmQueue_whenAsMultiSingle_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(1, 2);
+
+                assertThatIllegalStateException().isThrownBy(builder::asMultiSingle)
+                        .withMessageContaining("gtmQueues must contain more than 1 queue")
+                        .withMessageContaining("multi-single configuration");
+            }
+
+            @Test
+            void givenMultipleMtgQueues_whenAsMultiSingle_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 2);
+
+                assertThatIllegalStateException().isThrownBy(builder::asMultiSingle)
+                        .withMessageContaining("mtgQueues must contain exactly 1 queue")
+                        .withMessageContaining("multi-single configuration");
+            }
+
+            @Test
+            void givenMultipleGtmQueuesAndSingleMtgQueue_whenAsMultiSingle_thenSucceed() {
+                final var builder = createValidBuilder(2, 1);
+
+                assertThatNoException().isThrownBy(builder::asMultiSingle);
+            }
+
+            @Test
+            void givenSingleGtmQueue_whenAsMultiMulti_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(1, 2);
+
+                assertThatIllegalStateException().isThrownBy(builder::asMultiMulti)
+                        .withMessageContaining("gtmQueues must contain more than 1 queue")
+                        .withMessageContaining("multi-multi configuration");
+            }
+
+            @Test
+            void givenSingleMtgQueue_whenAsMultiMulti_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 1);
+
+                assertThatIllegalStateException().isThrownBy(builder::asMultiMulti)
+                        .withMessageContaining("mtgQueues must contain more than 1 queue")
+                        .withMessageContaining("multi-multi configuration");
+            }
+
+            @Test
+            void givenMultipleGtmQueuesAndMultipleMtgQueues_whenAsMultiMulti_thenSucceed() {
+                final var builder = createValidBuilder(2, 2);
+
+                assertThatNoException().isThrownBy(builder::asMultiMulti);
             }
         }
     }

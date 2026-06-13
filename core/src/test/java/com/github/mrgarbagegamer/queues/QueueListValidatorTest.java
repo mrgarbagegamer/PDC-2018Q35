@@ -15,24 +15,43 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueBuilder;
+import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueWrapper;
 
 @ExtendWith(MockitoExtension.class)
 public class QueueListValidatorTest {
 
     private static final int DEFAULT_NUM_THREADS = 4;
 
-    private static <Q> QueueGroup<Q> createGroupWithQueues(List<? extends QueueWrapper<Q>> queues) {
+    private static <Q> QueueGroup<Q> createGtmGroupWithQueues(
+            List<? extends QueueWrapper<Q>> queues) {
         return QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
                 SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
     }
 
-    private static <Q> QueueGroup<Q> createGroupWithUniformQueues(MockQueueBuilder<Q> builder,
+    private static <Q> QueueGroup<Q> createMtgGroupWithQueues(
+            List<? extends QueueWrapper<Q>> queues) {
+        return QueueGroup.newMtgGroup(queues, dummySelector(), dummySelector(),
+                SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
+    }
+
+    private static <Q> QueueGroup<Q> createGtmGroupWithUniformQueues(MockQueueBuilder<Q> builder,
             int count) {
-        return createGroupWithQueues(createUniformList(builder, count));
+        return createGtmGroupWithQueues(createUniformList(builder, count));
+    }
+
+    private static <Q> QueueGroup<Q> createMtgGroupWithUniformQueues(MockQueueBuilder<Q> builder,
+            int count) {
+        return createMtgGroupWithQueues(createUniformList(builder, count));
+    }
+
+    private static MockQueueWrapper<Object> createMockQueue() {
+        // Define an underlying queue so unwrapping doesn't fail.
+        return MockQueueBuilder.create().underlying(new Object()).build();
     }
 
     @Nested
     class ValidateNoDuplicatesTests {
+
         @Test
         void givenNullGroup_thenThrowNullPointerException() {
             assertThatNullPointerException()
@@ -41,10 +60,9 @@ public class QueueListValidatorTest {
 
         @Test
         void givenGroupWithDuplicateQueues_thenThrowIllegalArgumentException() {
-            final var queue = MockQueueBuilder.create().build();
-            final var uniqueQueue = MockQueueBuilder.create().build();
-            final var wrappedQueues = List.of(queue, uniqueQueue, queue);
-            final var group = createGroupWithQueues(wrappedQueues);
+            final var queue = createMockQueue();
+            final var wrappedQueues = List.of(queue, createMockQueue(), queue);
+            final var group = createGtmGroupWithQueues(wrappedQueues);
 
             assertThatIllegalArgumentException()
                     .isThrownBy(() -> QueueListValidator.validateNoDuplicates(group))
@@ -54,9 +72,8 @@ public class QueueListValidatorTest {
 
         @Test
         void givenGroupWithUniqueQueues_thenSucceeds() {
-            final var wrappedQueues = List.of(MockQueueBuilder.create().build(),
-                    MockQueueBuilder.create().build());
-            final var group = createGroupWithQueues(wrappedQueues);
+            final var wrappedQueues = List.of(createMockQueue(), createMockQueue());
+            final var group = createGtmGroupWithQueues(wrappedQueues);
 
             assertThatNoException()
                     .isThrownBy(() -> QueueListValidator.validateNoDuplicates(group));
@@ -67,7 +84,8 @@ public class QueueListValidatorTest {
     class ValidateNoOverlapTests {
         @Test
         void givenNullGtmGroup_thenThrowNullPointerException() {
-            final var mtgGroup = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
+            final var mtgGroup = createMtgGroupWithUniformQueues(
+                    MockQueueBuilder.create().underlying(new Object()), 2);
 
             assertThatNullPointerException()
                     .isThrownBy(() -> QueueListValidator.validateNoOverlap(null, mtgGroup))
@@ -76,7 +94,8 @@ public class QueueListValidatorTest {
 
         @Test
         void givenNullMtgGroup_thenThrowNullPointerException() {
-            final var gtmGroup = createGroupWithUniformQueues(MockQueueBuilder.create(), 2);
+            final var gtmGroup = createGtmGroupWithUniformQueues(
+                    MockQueueBuilder.create().underlying(new Object()), 2);
 
             assertThatNullPointerException()
                     .isThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, null))
@@ -85,29 +104,26 @@ public class QueueListValidatorTest {
 
         @Test
         void givenGroupsWithOverlappingQueues_thenThrowIllegalArgumentException() {
-            final var duplicateQueue = MockQueueBuilder.create().build();
-            final var uniqueQueue1 = MockQueueBuilder.create().build();
-            final var uniqueQueue2 = MockQueueBuilder.create().build();
-            final var gtmGroup = createGroupWithQueues(List.of(uniqueQueue1, duplicateQueue));
-            final var mtgGroup = createGroupWithQueues(List.of(uniqueQueue2, duplicateQueue));
+            final var duplicateQueue = createMockQueue();
+            final var gtmGroup = createGtmGroupWithQueues(
+                    List.of(createMockQueue(), duplicateQueue));
+            final var mtgGroup = createMtgGroupWithQueues(
+                    List.of(createMockQueue(), duplicateQueue));
 
-            // The exception message has "gtmQueue" twice since the validation method uses the
-            // group's elementName() to refer to the elements and the createGroupWithQueues() method
-            // invokes QueueGroup.newGtmGroup().
             assertThatIllegalArgumentException()
                     .isThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, mtgGroup))
                     .withMessageContaining(
-                            "gtmQueue at index 1 is the same as gtmQueue at index 1");
+                            "gtmQueue at index 1 is the same as mtgQueue at index 1");
         }
 
         @Test
         void givenGroupsWithNoOverlappingQueues_thenSucceeds() {
             final int queueCount = 2;
 
-            final var gtmGroup = createGroupWithUniformQueues(MockQueueBuilder.create(),
-                    queueCount);
-            final var mtgGroup = createGroupWithUniformQueues(MockQueueBuilder.create(),
-                    queueCount);
+            final var gtmGroup = createGtmGroupWithUniformQueues(
+                    MockQueueBuilder.create().underlying(new Object()), queueCount);
+            final var mtgGroup = createMtgGroupWithUniformQueues(
+                    MockQueueBuilder.create().underlying(new Object()), queueCount);
 
             assertThatNoException()
                     .isThrownBy(() -> QueueListValidator.validateNoOverlap(gtmGroup, mtgGroup));

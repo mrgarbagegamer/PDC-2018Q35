@@ -2,13 +2,12 @@ package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
+import static com.github.mrgarbagegamer.queues.QueueUtils.newImmutableQueueList;
 import static java.util.Objects.checkIndex;
-import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
-import java.util.stream.Stream;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
@@ -119,6 +118,10 @@ public final class QueueTestFixtures {
         }
 
         public MockQueueWrapper<Q> build() { return new MockQueueWrapper<>(this); }
+
+        public List<MockQueueWrapper<Q>> buildList(int listSize) {
+            return newImmutableQueueList(listSize, this::build);
+        }
     }
 
     /**
@@ -134,8 +137,7 @@ public final class QueueTestFixtures {
      */
     public static <Q> List<MockQueueWrapper<Q>> createUniformList(MockQueueBuilder<Q> template,
             int count) {
-        mustNotBeNull(template, "template");
-        return Stream.generate(template::build).limit(count).collect(toUnmodifiableList());
+        return newImmutableQueueList(count, mustNotBeNull(template, "template")::build);
     }
 
     /**

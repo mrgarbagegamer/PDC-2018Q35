@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
 import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -97,6 +98,16 @@ class BlockingQueueStrategyTest {
 
         private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues) {
             return createValidQueueList(numQueues, 16);
+        }
+
+        private static BlockingQueueStrategy.Builder<ArrayBlockingQueue<WorkBatch>, ArrayBlockingQueue<WorkBatch>> createValidBuilder(
+                int numGtmQueues, int numMtgQueues) {
+            final var config = createValidConfig();
+            final var state = createValidState();
+            final var gtmQueues = createValidQueueList(numGtmQueues);
+            final var mtgQueues = createValidQueueList(numMtgQueues);
+
+            return BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state);
         }
 
         @Nested
@@ -212,15 +223,6 @@ class BlockingQueueStrategyTest {
 
         @Nested
         class TopologyConfigurationTests {
-            private static BlockingQueueStrategy.Builder<ArrayBlockingQueue<WorkBatch>, ArrayBlockingQueue<WorkBatch>> createValidBuilder(
-                    int numGtmQueues, int numMtgQueues) {
-                final var config = createValidConfig();
-                final var state = createValidState();
-                final var gtmQueues = createValidQueueList(numGtmQueues);
-                final var mtgQueues = createValidQueueList(numMtgQueues);
-
-                return BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state);
-            }
 
             @Test
             void givenMultipleGtmQueues_whenAsSingleSingle_thenThrowIllegalStateException() {
@@ -320,6 +322,53 @@ class BlockingQueueStrategyTest {
                 final var builder = createValidBuilder(2, 2);
 
                 assertThatNoException().isThrownBy(builder::asMultiMulti);
+            }
+        }
+
+        @Nested
+        class BuildMethodTests {
+            @Test
+            void givenUnsetGeneratorPollSelector_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 2)
+                        .generatorOfferSelector(preferredBlocking())
+                        .monkeyPollSelector(preferredBlocking())
+                        .monkeyOfferSelector(preferredBlocking());
+
+                assertThatIllegalStateException().isThrownBy(builder::build)
+                        .withMessageContaining("generatorPollSelector must be set");
+            }
+
+            @Test
+            void givenUnsetGeneratorOfferSelector_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 2)
+                        .generatorPollSelector(preferredBlocking())
+                        .monkeyPollSelector(preferredBlocking())
+                        .monkeyOfferSelector(preferredBlocking());
+
+                assertThatIllegalStateException().isThrownBy(builder::build)
+                        .withMessageContaining("generatorOfferSelector must be set");
+            }
+
+            @Test
+            void givenUnsetMonkeyPollSelector_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 2)
+                        .generatorPollSelector(preferredBlocking())
+                        .generatorOfferSelector(preferredBlocking())
+                        .monkeyOfferSelector(preferredBlocking());
+
+                assertThatIllegalStateException().isThrownBy(builder::build)
+                        .withMessageContaining("monkeyPollSelector must be set");
+            }
+
+            @Test
+            void givenUnsetMonkeyOfferSelector_thenThrowIllegalStateException() {
+                final var builder = createValidBuilder(2, 2)
+                        .generatorPollSelector(preferredBlocking())
+                        .generatorOfferSelector(preferredBlocking())
+                        .monkeyPollSelector(preferredBlocking());
+
+                assertThatIllegalStateException().isThrownBy(builder::build)
+                        .withMessageContaining("monkeyOfferSelector must be set");
             }
         }
     }

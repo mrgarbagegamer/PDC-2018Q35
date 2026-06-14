@@ -54,27 +54,8 @@ class QueueValidationContext<G, M> {
     void validateNoOverlap() { QueueListValidator.validateNoOverlap(this.gtmGroup, this.mtgGroup); }
 
     void validateMetadata() {
-        // Get the expected capacity from the solver configuration:
-        final int expectedCapacity = this.solverConfig.queueSize();
-
-        // For capacity N = expectedCapacity, G = # of GTM queues, and M = # of MTG queues, the
-        // potential capacity configurations for each group, excluding potential rounding of
-        // capacities, are:
-
-        // 1. 1 gtmQueue with capacity N, 1 mtgQueue with capacity N (single-single)
-        // 2. 1 gtmQueue with capacity N * M, M mtgQueues with capacity N (single-multi)
-        // 3. G gtmQueues with capacity N, 1 mtgQueue with capacity N * G (multi-single)
-        // 4. G gtmQueues with capacity N, M mtgQueues with capacity N (multi-multi)
-
-        final int gtmCount = this.gtmGroup.wrappedQueues().size();
-        final int mtgCount = this.mtgGroup.wrappedQueues().size();
-
-        final int gtmExpected = gtmCount == 1 ? expectedCapacity * mtgCount : expectedCapacity;
-        final int mtgExpected = mtgCount == 1 ? expectedCapacity * gtmCount : expectedCapacity;
-
-        // Validate the metadata for each group using the calculated expected capacities:
-        this.gtmGroup.validateMetadata(gtmExpected);
-        this.mtgGroup.validateMetadata(mtgExpected);
+        this.gtmGroup.validateMetadata();
+        this.mtgGroup.validateMetadata();
     }
 
     void validateSelectors() {

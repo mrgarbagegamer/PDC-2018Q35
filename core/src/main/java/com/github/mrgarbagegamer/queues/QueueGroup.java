@@ -51,13 +51,13 @@ class QueueGroup<Q> {
 
     void validateIntegrity() { QueueListValidator.validateNoDuplicates(this); }
 
-    void validateMetadata(int expectedCapacity) {
+    void validateMetadata() {
         // Validate consistency of the two metadata enums across all queues in the group:
         this.validateConsistentBoundedness();
         this.validateConsistentAccessMode();
 
-        // Validate that the capacity of each queue is acceptable for the solver configuration:
-        this.validateCapacity(expectedCapacity);
+        // Validate that the capacity of each queue is acceptable relative to the others
+        this.validateConsistentCapacity();
     }
 
     private void validateConsistentBoundedness() {
@@ -68,8 +68,8 @@ class QueueGroup<Q> {
         MetadataValidator.validateConsistentAccessMode(this);
     }
 
-    private void validateCapacity(int expectedCapacity) {
-        MetadataValidator.validateCapacity(this, expectedCapacity);
+    private void validateConsistentCapacity() {
+        MetadataValidator.validateConsistentCapacity(this);
     }
 
     void validateSelectors() {

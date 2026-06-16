@@ -11,6 +11,8 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -22,6 +24,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
@@ -380,6 +383,26 @@ class BlockingQueueStrategyTest {
                 assertThatIllegalStateException().isThrownBy(builder::build)
                         .withMessageContaining("monkeyOfferSelector must be set");
             }
+
+            @Test
+            void givenAllRequiredSelectorsSet_thenBuildStrategy() {
+                final var builder = createValidBuilder(2, 2)
+                        .generatorPollSelector(preferredBlocking())
+                        .generatorOfferSelector(preferredBlocking())
+                        .monkeyPollSelector(preferredBlocking())
+                        .monkeyOfferSelector(preferredBlocking());
+
+                final var strategy = builder.build();
+                assertThat(strategy).isNotNull();
+            }
+
+            @Test
+            void givenTopologySelected_thenBuildStrategy() {
+                final var builder = createValidBuilder(2, 2).asMultiMulti();
+
+                final var strategy = builder.build();
+                assertThat(strategy).isNotNull();
+            }
         }
 
         @Nested
@@ -407,5 +430,84 @@ class BlockingQueueStrategyTest {
                 assertThatNoException().isThrownBy(() -> builder.preallocateQueues(5));
             }
         }
+
+        @Nested
+        class ValidationWiringTests {
+            // Only one test per validator class, since the individual validator tests can cover the
+            // edge cases without combinatorial expansions.
+
+            // QueueListValidator wiring:
+            @Test
+            void givenDuplicateGtmQueues_thenBubbleUpIllegalArgumentException() {
+                final var queue = new ArrayBlockingQueue<WorkBatch>(16);
+                final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16), queue, queue);
+                final var mtgQueues = createValidQueueList(2);
+                final var config = createValidConfig();
+                final var state = createValidState();
+
+                final var builder = BlockingQueueStrategy
+                        .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
+
+                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                        .withMessageContaining(
+                                "gtmQueue at index 1 is the same as gtmQueue at index 2");
+            }
+
+            // MetadataValidator wiring:
+            @Test
+            void givenGtmQueuesWithInconsistentBoundedness_thenBubbleUpIllegalArgumentException() {
+                final ArrayBlockingQueue<WorkBatch> boundedQueue = new ArrayBlockingQueue<>(16);
+                final LinkedBlockingQueue<WorkBatch> unboundedQueue = new LinkedBlockingQueue<>();
+                final List<BlockingQueue<WorkBatch>> gtmQueues = List.of(boundedQueue,
+                        unboundedQueue);
+                final var mtgQueues = createValidQueueList(2);
+                final var config = createValidConfig();
+                final var state = createValidState();
+
+                final var builder = BlockingQueueStrategy
+                        .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
+
+                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                        .withMessageContaining("gtmQueue at index 1 has different boundedness");
+            }
+
+            // Selector validation wiring:
+            @Test
+            void givenExclusiveSelectorWithMultipleThreadsAndSpscQueue_thenBubbleUpIllegalArgumentException() {
+                final List<ArrayBlockingQueue<WorkBatch>> gtmQueues = createValidQueueList(2);
+                final List<PushPullBlockingQueue<WorkBatch>> mtgQueues = List
+                        .of(new PushPullBlockingQueue<>(16));
+                final var config = createValidConfig(4);
+                final var state = createValidState();
+
+                final var builder = BlockingQueueStrategy
+                        .builder(gtmQueues, mtgQueues, config, state).asMultiSingle();
+
+                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                        .withMessageContaining("mtgQueue is single-producer");
+            }
+
+            // QueuePreallocator wiring:
+            @Test
+            void givenNonEmptyMtgQueueAndPreallocation_thenBubbleUpIllegalStateException() {
+                final List<ArrayBlockingQueue<WorkBatch>> gtmQueues = createValidQueueList(2);
+                final List<ArrayBlockingQueue<WorkBatch>> mtgQueues = createValidQueueList(2);
+                final var config = createValidConfig();
+                final var state = createValidState();
+
+                // Add a batch to one of the mtgQueues to make it non-empty:
+                mtgQueues.getLast().add(new WorkBatch(config));
+
+                final var builder = BlockingQueueStrategy
+                        .builder(gtmQueues, mtgQueues, config, state).asMultiMulti()
+                        .preallocateQueues(5);
+
+                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                        .withMessageContaining("mtgQueue at index 1 is not empty");
+            }
+        }
     }
+
+    // TODO: Add tests for the actual methods of the BlockingQueueStrategy, such as delegation to
+    // selectors and queue operations.
 }

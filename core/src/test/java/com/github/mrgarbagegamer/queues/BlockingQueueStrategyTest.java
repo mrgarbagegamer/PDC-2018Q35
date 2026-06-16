@@ -28,15 +28,20 @@ import com.github.mrgarbagegamer.WorkBatch;
 
 @ExtendWith(MockitoExtension.class)
 class BlockingQueueStrategyTest {
+    private static final int DEFAULT_QUEUE_CAPACITY = 16;
+    private static final int DEFAULT_NUM_THREADS = 4;
+
     private static SolverConfiguration createValidConfig(int numThreads, int queueSize) {
         return SolverConfiguration.builder().numThreads(numThreads).queueSize(queueSize).build();
     }
 
     private static SolverConfiguration createValidConfig(int numThreads) {
-        return createValidConfig(numThreads, 16);
+        return createValidConfig(numThreads, DEFAULT_QUEUE_CAPACITY);
     }
 
-    private static SolverConfiguration createValidConfig() { return createValidConfig(4); }
+    private static SolverConfiguration createValidConfig() {
+        return createValidConfig(DEFAULT_NUM_THREADS);
+    }
 
     private static SolverState createValidState() { return new SolverState(); }
 
@@ -101,13 +106,18 @@ class BlockingQueueStrategyTest {
         }
 
         private static BlockingQueueStrategy.Builder<ArrayBlockingQueue<WorkBatch>, ArrayBlockingQueue<WorkBatch>> createValidBuilder(
-                int numGtmQueues, int numMtgQueues) {
-            final var config = createValidConfig();
+                int numGtmQueues, int numMtgQueues, int numThreads) {
+            final var config = createValidConfig(numThreads);
             final var state = createValidState();
             final var gtmQueues = createValidQueueList(numGtmQueues);
             final var mtgQueues = createValidQueueList(numMtgQueues);
 
             return BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state);
+        }
+
+        private static BlockingQueueStrategy.Builder<ArrayBlockingQueue<WorkBatch>, ArrayBlockingQueue<WorkBatch>> createValidBuilder(
+                int numGtmQueues, int numMtgQueues) {
+            return createValidBuilder(numGtmQueues, numMtgQueues, DEFAULT_NUM_THREADS);
         }
 
         @Nested

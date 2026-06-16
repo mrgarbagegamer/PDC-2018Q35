@@ -381,5 +381,31 @@ class BlockingQueueStrategyTest {
                         .withMessageContaining("monkeyOfferSelector must be set");
             }
         }
+
+        @Nested
+        class PreallocateQueuesTests {
+            @Test
+            void givenNegativeBatchesPerQueue_thenThrowIllegalArgumentException() {
+                final var builder = createValidBuilder(2, 2);
+
+                assertThatIllegalArgumentException().isThrownBy(() -> builder.preallocateQueues(-1))
+                        .withMessageContaining("batchesPerQueue must be positive");
+            }
+
+            @Test
+            void givenZeroBatchesPerQueue_thenThrowIllegalArgumentException() {
+                final var builder = createValidBuilder(2, 2);
+
+                assertThatIllegalArgumentException().isThrownBy(() -> builder.preallocateQueues(0))
+                        .withMessageContaining("batchesPerQueue must be positive");
+            }
+
+            @Test
+            void givenPositiveBatchesPerQueue_thenSetBatchesPerQueue() {
+                final var builder = createValidBuilder(2, 2);
+
+                assertThatNoException().isThrownBy(() -> builder.preallocateQueues(5));
+            }
+        }
     }
 }

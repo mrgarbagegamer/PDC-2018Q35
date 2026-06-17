@@ -28,7 +28,8 @@ public final class QueueTestFixtures {
         private final AccessMode accessMode;
         private final int capacity;
         private final boolean acceptableCapacityOverride;
-        private boolean empty;
+        private final boolean rejectsOffer;
+        private int size;
 
         MockQueueWrapper(MockQueueBuilder<Q> builder) {
             this.underlyingQueue = builder.underlyingQueue;
@@ -36,7 +37,8 @@ public final class QueueTestFixtures {
             this.accessMode = builder.accessMode;
             this.capacity = builder.capacity;
             this.acceptableCapacityOverride = builder.acceptableCapacityOverride;
-            this.empty = builder.empty;
+            this.size = builder.size;
+            this.rejectsOffer = builder.rejectsOffer;
         }
 
         @Override
@@ -57,18 +59,18 @@ public final class QueueTestFixtures {
         }
 
         @Override
-        public int size() { return empty ? 0 : 1; }
+        public int size() { return size; }
+
+        public void setSize(int size) { this.size = size; }
 
         @Override
-        public boolean isEmpty() { return empty; }
-
-        public void setEmpty(boolean empty) { this.empty = empty; }
+        public boolean isEmpty() { return size == 0; }
 
         @Override
         public boolean offer(WorkBatch batch) {
-            if (capacity > 0 && !empty)
+            if (rejectsOffer || (boundedness.isBounded() && capacity > 0 && size >= capacity))
                 return false;
-            this.empty = false;
+            size++;
             return true;
         }
     }
@@ -82,7 +84,8 @@ public final class QueueTestFixtures {
         private AccessMode accessMode = AccessMode.MPMC;
         private int capacity = 1024;
         private boolean acceptableCapacityOverride = true;
-        private boolean empty = true;
+        private int size = 0;
+        private boolean rejectsOffer = false;
 
         public static <T> MockQueueBuilder<T> create() { return new MockQueueBuilder<>(); }
 
@@ -112,8 +115,13 @@ public final class QueueTestFixtures {
             return this;
         }
 
-        public MockQueueBuilder<Q> notEmpty() {
-            this.empty = false;
+        public MockQueueBuilder<Q> initialSize(int size) {
+            this.size = size;
+            return this;
+        }
+
+        public MockQueueBuilder<Q> rejectsOffer() {
+            this.rejectsOffer = true;
             return this;
         }
 

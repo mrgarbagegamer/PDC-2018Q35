@@ -13,9 +13,6 @@ import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
 final class QueuePreallocator {
-    private static final String REJECTION_REASON_TEMPLATE = "mtgQueue at index %d rejected batch"
-            + " %d during preallocation";
-
     @ExcludeFromGeneratedCoverage
     private QueuePreallocator() { utilityClassError("QueuePreallocator"); }
 
@@ -30,15 +27,11 @@ final class QueuePreallocator {
         verifyPreconditions(nonNullQueues, batchesPerQueue);
 
         // Preallocate:
-        for (int i = 0; i < nonNullQueues.size(); i++) {
-            final var queue = nonNullQueues.get(i);
-            for (int j = 0; j < batchesPerQueue; j++) {
+        for (int queueIndex = 0; queueIndex < nonNullQueues.size(); queueIndex++) {
+            final var queue = nonNullQueues.get(queueIndex);
+            for (int batchIndex = 0; batchIndex < batchesPerQueue; batchIndex++) {
                 if (!tryOffer(queue, solverConfig)) {
-                    if (queue.boundedness().isBounded()) {
-                        fail("bounded " + REJECTION_REASON_TEMPLATE.formatted(i, j));
-                    } else {
-                        fail("unbounded " + REJECTION_REASON_TEMPLATE.formatted(i, j));
-                    }
+                    fail(queue, queueIndex, "rejected batch %d during preallocation", batchIndex);
                 }
             }
         }
@@ -46,13 +39,14 @@ final class QueuePreallocator {
 
     private static void verifyPreconditions(List<? extends QueueWrapper<?>> mtgQueues,
             int batchesPerQueue) {
-        for (int i = 0; i < mtgQueues.size(); i++) {
-            final var queue = mtgQueues.get(i);
+        for (int queueIndex = 0; queueIndex < mtgQueues.size(); queueIndex++) {
+            final var queue = mtgQueues.get(queueIndex);
             if (!queue.isEmpty()) {
-                fail("mtgQueue at index %d is not empty before preallocation".formatted(i));
-            } else if (queue.capacity() < batchesPerQueue) {
-                fail("mtgQueue at index %d has insufficient capacity (%d) for preallocating %d batches"
-                        .formatted(i, queue.capacity(), batchesPerQueue));
+                fail(queue, queueIndex, "is not empty before preallocation");
+            } else if (queue.boundedness().isBounded() && queue.capacity() < batchesPerQueue) {
+                fail(queue, queueIndex,
+                        "has insufficient capacity (%d) for preallocating %d batches",
+                        queue.capacity(), batchesPerQueue);
             }
         }
     }
@@ -61,7 +55,12 @@ final class QueuePreallocator {
         return queue.offer(new WorkBatch(solverConfig));
     }
 
-    private static void fail(String reason) {
-        throw new IllegalArgumentException("Preallocation failed for mtgQueues: " + reason);
+    private static void fail(QueueWrapper<?> queue, int queueIndex, String reasonTemplate,
+            Object... reasonArgs) {
+        final String boundednessStr = queue.boundedness().toString().toLowerCase();
+        final String reason = reasonTemplate.formatted(reasonArgs);
+        throw new IllegalArgumentException(
+                "Preallocation failed for mtgQueues: %s mtgQueue at index %d %s"
+                        .formatted(boundednessStr, queueIndex, reason));
     }
 }

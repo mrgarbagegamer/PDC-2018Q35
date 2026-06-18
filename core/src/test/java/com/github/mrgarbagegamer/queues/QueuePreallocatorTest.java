@@ -72,17 +72,18 @@ class QueuePreallocatorTest {
 
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> QueuePreallocator.preallocate(queues, config, 1))
-                .withMessageContaining("mtgQueue at index 0 is not empty before preallocation");
+                .withMessageContaining("bounded mtgQueue at index 0 is not empty before")
+                .withMessageContaining("preallocation");
     }
 
     @Test
-    void givenQueueWithInsufficientCapacity_whenPreallocate_thenThrowIllegalArgumentException() {
+    void givenBoundedQueueWithInsufficientCapacity_whenPreallocate_thenThrowIllegalArgumentException() {
         final var queues = MockQueueBuilder.create().capacity(1).buildList(2);
         final var config = createValidConfig();
 
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> QueuePreallocator.preallocate(queues, config, 2))
-                .withMessageContaining("mtgQueue at index 0 has insufficient capacity (1)")
+                .withMessageContaining("bounded mtgQueue at index 0 has insufficient capacity (1)")
                 .withMessageContaining("for preallocating 2 batches");
     }
 

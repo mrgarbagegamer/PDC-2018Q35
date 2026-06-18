@@ -20,8 +20,8 @@ final class MetadataValidator {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final Boundedness currentBoundedness = currentQueue.boundedness();
             if (currentBoundedness != firstBoundedness) {
-                fail(group, i, "different boundedness (%s) than the first queue (%s)"
-                        .formatted(currentBoundedness, firstBoundedness));
+                fail(group, i, "different boundedness (%s) than the first queue (%s)",
+                        currentBoundedness, firstBoundedness);
             }
         }
     }
@@ -35,8 +35,8 @@ final class MetadataValidator {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final AccessMode currentAccessMode = currentQueue.accessMode();
             if (currentAccessMode != firstAccessMode) {
-                fail(group, i, "different access mode (%s) than the first queue (%s)"
-                        .formatted(currentAccessMode, firstAccessMode));
+                fail(group, i, "different access mode (%s) than the first queue (%s)",
+                        currentAccessMode, firstAccessMode);
             }
         }
     }
@@ -49,13 +49,15 @@ final class MetadataValidator {
         for (int i = 1; i < wrappedQueues.size(); i++) {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             if (!currentQueue.isCapacityAcceptable(firstCapacity)) {
-                fail(group, i, "unacceptable capacity (%d) relative to the first queue (%d)"
-                        .formatted(currentQueue.capacity(), firstCapacity));
+                fail(group, i, "unacceptable capacity (%d) relative to the first queue (%d)",
+                        currentQueue.capacity(), firstCapacity);
             }
         }
     }
 
-    private static void fail(QueueGroup<?> group, int queueIndex, String reason) {
+    private static void fail(QueueGroup<?> group, int queueIndex, String reasonTemplate,
+            Object... reasonArgs) {
+        final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException(
                 "Metadata validation failed for %s: %s at index %d has %s"
                         .formatted(group.listName(), group.elementName(), queueIndex, reason));

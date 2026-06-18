@@ -25,10 +25,9 @@ final class SelectorRules {
             for (int i = 0; i < wrappedQueues.size(); i++) {
                 final var queue = wrappedQueues.get(i);
                 if (target.isSingleAccess(queue)) {
-                    fail(target, selector,
-                            "%s at index %d is single-%s, but %d %ss will access it".formatted(
-                                    target.elementName(), i, target.roleName(), threadCount,
-                                    target.actorName()));
+                    fail(target, selector, "%s at index %d is single-%s, but %d %ss will access it",
+                            target.elementName(), i, target.roleName(), threadCount,
+                            target.actorName());
                 }
             }
         }
@@ -41,8 +40,8 @@ final class SelectorRules {
         mustNotBeNull(selector, "selector");
 
         if (threadCount < listSize) {
-            fail(target, selector, "%s count (%d) is less than %s size (%d)"
-                    .formatted(target.actorName(), threadCount, target.listName(), listSize));
+            fail(target, selector, "%s count (%d) is less than %s size (%d)", target.actorName(),
+                    threadCount, target.listName(), listSize);
         }
     };
 
@@ -53,8 +52,8 @@ final class SelectorRules {
         mustNotBeNull(selector, "selector");
 
         if (size != 1) {
-            fail(target, selector, "%s must contain exactly one queue, but contains %d"
-                    .formatted(target.listName(), size));
+            fail(target, selector, "%s must contain exactly one queue, but contains %d",
+                    target.listName(), size);
         }
 
         // The queue must be able to handle multiple threads of the given role, unless there is only
@@ -62,13 +61,14 @@ final class SelectorRules {
         final var queue = wrappedQueues.getFirst();
         final int threadCount = target.threadCount();
         if (threadCount > 1 && target.isSingleAccess(queue)) {
-            fail(target, selector, "%s is single-%s, but %d %ss will access it".formatted(
-                    target.elementName(), target.roleName(), threadCount, target.actorName()));
+            fail(target, selector, "%s is single-%s, but %d %ss will access it",
+                    target.elementName(), target.roleName(), threadCount, target.actorName());
         }
     };
 
     private static void fail(SelectorValidationTarget<?> target, QueueSelector<?> selector,
-            String reason) {
+            String reasonTemplate, Object... reasonArgs) {
+        final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException("Validation failed for %s as %s: %s"
                 .formatted(selector.toString(), target.selectorPlacement(), reason));
     }

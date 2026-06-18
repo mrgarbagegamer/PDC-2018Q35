@@ -3,6 +3,8 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
+import java.util.List;
+
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
@@ -19,23 +21,21 @@ final class QueueListValidator {
         final Reference2IntMap<Object> seenQueues = new Reference2IntOpenHashMap<>();
 
         // Ensure that there are no duplicate queues in the list:
-        for (int i = 0; i < unwrappedQueues.size(); i++) {
-            Object queue = unwrappedQueues.get(i);
+        for (int queueIndex = 0; queueIndex < unwrappedQueues.size(); queueIndex++) {
+            Object queue = unwrappedQueues.get(queueIndex);
             if (seenQueues.containsKey(queue)) {
                 int firstIndex = seenQueues.getInt(queue);
-                final String elementName = group.elementName();
-
-                fail(group.listName(), "%s at index %d is the same as %s at index %d"
-                        .formatted(elementName, firstIndex, elementName, i));
+                fail(group.listName(), "%s at index %d is the same as %s at index %d",
+                        group.elementName(), firstIndex, group.elementName(), queueIndex);
             } else {
-                seenQueues.put(queue, i);
+                seenQueues.put(queue, queueIndex);
             }
         }
     }
 
     static void validateNoOverlap(QueueGroup<?> gtmGroup, QueueGroup<?> mtgGroup) {
-        final var gtmQueues = mustNotBeNull(gtmGroup, "gtmGroup").queues();
-        final var mtgQueues = mustNotBeNull(mtgGroup, "mtgGroup").queues();
+        final List<?> gtmQueues = mustNotBeNull(gtmGroup, "gtmGroup").queues();
+        final List<?> mtgQueues = mustNotBeNull(mtgGroup, "mtgGroup").queues();
 
         // To minimize the number of comparisons, check the smaller queue against the larger.
         if (gtmQueues.size() < mtgQueues.size()) {
@@ -46,37 +46,35 @@ final class QueueListValidator {
     }
 
     private static void overlapHelper(QueueGroup<?> smaller, QueueGroup<?> larger) {
-        final var smallerQueues = smaller.queues();
-        final var largerQueues = larger.queues();
+        final List<?> smallerQueues = smaller.queues();
+        final List<?> largerQueues = larger.queues();
 
         // Use a Map with identity-based equality to track seen queues and their indices:
         final Reference2IntMap<Object> seenQueues = new Reference2IntOpenHashMap<>(
                 smallerQueues.size());
 
-        for (int i = 0; i < smallerQueues.size(); i++) {
-            seenQueues.put(smallerQueues.get(i), i);
+        for (int smallerIndex = 0; smallerIndex < smallerQueues.size(); smallerIndex++) {
+            seenQueues.put(smallerQueues.get(smallerIndex), smallerIndex);
         }
 
         // Check for overlaps with the larger group:
-        for (int j = 0; j < largerQueues.size(); j++) {
-            Object queue = largerQueues.get(j);
+        for (int largerIndex = 0; largerIndex < largerQueues.size(); largerIndex++) {
+            Object queue = largerQueues.get(largerIndex);
             if (seenQueues.containsKey(queue)) {
-                int i = seenQueues.getInt(queue);
+                int seenIndex = seenQueues.getInt(queue);
+                final String reasonTemplate = "gtmQueue at index %d is the same as mtgQueue at index %d";
 
                 if (smaller.listName().startsWith("gtm")) {
-                    fail("gtmGroup and mtgGroup",
-                            "gtmQueue at index %d is the same as mtgQueue at index %d".formatted(i,
-                                    j));
+                    fail("gtmGroup and mtgGroup", reasonTemplate, seenIndex, largerIndex);
                 } else {
-                    fail("gtmGroup and mtgGroup",
-                            "gtmQueue at index %d is the same as mtgQueue at index %d".formatted(j,
-                                    i));
+                    fail("gtmGroup and mtgGroup", reasonTemplate, largerIndex, seenIndex);
                 }
             }
         }
     }
 
-    private static void fail(String groupName, String reason) {
+    private static void fail(String groupName, String reasonTemplate, Object... reasonArgs) {
+        final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException(
                 "Validation failed for %s: %s".formatted(groupName, reason));
     }

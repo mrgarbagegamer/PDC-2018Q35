@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
 import java.util.List;
@@ -79,6 +81,14 @@ public final class QueueSelectors {
             Thread.currentThread().interrupt();
             return true;
         }
+    }
+
+    private static <T> List<T> integrityCheckParams(List<? extends T> queues,
+            BackoffStrategy backoff, BooleanSupplier shouldContinue) {
+        List<T> checkedQueues = copyOfNonNullList(queues, "queues");
+        mustNotBeNull(backoff, "backoff");
+        mustNotBeNull(shouldContinue, "shouldContinue");
+        return checkedQueues;
     }
 
     interface SelectorValidator {
@@ -348,16 +358,17 @@ public final class QueueSelectors {
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
                 final ThreadLocalRandom random = ThreadLocalRandom.current();
-                final int size = queues.size();
+                final int size = checkedQueues.size();
 
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return null;
                     final int start = random.nextInt(size);
                     for (int i = 0; i < size; i++) {
-                        final WorkBatch batch = queues.get((start + i) % size).relaxedPoll();
+                        final WorkBatch batch = checkedQueues.get((start + i) % size).relaxedPoll();
                         if (batch != null)
                             return batch;
                     }
@@ -371,16 +382,17 @@ public final class QueueSelectors {
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
                 final ThreadLocalRandom random = ThreadLocalRandom.current();
-                final int size = queues.size();
+                final int size = checkedQueues.size();
 
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return false;
                     final int start = random.nextInt(size);
                     for (int i = 0; i < size; i++) {
-                        if (queues.get((start + i) % size).relaxedOffer(batch))
+                        if (checkedQueues.get((start + i) % size).relaxedOffer(batch))
                             return true;
                     }
                     if (tryBackoff(backoff))
@@ -395,13 +407,15 @@ public final class QueueSelectors {
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-                final int size = queues.size();
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
+                final int size = checkedQueues.size();
 
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return null;
                     for (int i = 0; i < size; i++) {
-                        final WorkBatch batch = queues.get(i).relaxedPoll();
+                        final WorkBatch batch = checkedQueues.get(i).relaxedPoll();
                         if (batch != null)
                             return batch;
                     }
@@ -415,13 +429,15 @@ public final class QueueSelectors {
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-                final int size = queues.size();
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
+                final int size = checkedQueues.size();
 
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return false;
                     for (int i = 0; i < size; i++) {
-                        if (queues.get(i).relaxedOffer(batch))
+                        if (checkedQueues.get(i).relaxedOffer(batch))
                             return true;
                     }
                     if (tryBackoff(backoff))
@@ -436,20 +452,22 @@ public final class QueueSelectors {
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-                final int size = queues.size();
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
+                final int size = checkedQueues.size();
 
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return null;
                     // Preferred queue first
-                    final WorkBatch preferred = queues.get(threadId).relaxedPoll();
+                    final WorkBatch preferred = checkedQueues.get(threadId).relaxedPoll();
                     if (preferred != null)
                         return preferred;
 
                     // Round-robin the rest
                     for (int i = 0; i < size; i++) {
                         final int idx = (threadId + i) % size;
-                        final WorkBatch batch = queues.get(idx).relaxedPoll();
+                        final WorkBatch batch = checkedQueues.get(idx).relaxedPoll();
                         if (batch != null)
                             return batch;
                     }
@@ -463,19 +481,21 @@ public final class QueueSelectors {
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-                final int size = queues.size();
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
+                final int size = checkedQueues.size();
 
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return false;
                     // Preferred queue first
-                    if (queues.get(threadId).relaxedOffer(batch))
+                    if (checkedQueues.get(threadId).relaxedOffer(batch))
                         return true;
 
                     // Round-robin the rest
                     for (int i = 0; i < size; i++) {
                         final int idx = (threadId + i) % size;
-                        if (queues.get(idx).relaxedOffer(batch))
+                        if (checkedQueues.get(idx).relaxedOffer(batch))
                             return true;
                     }
                     if (tryBackoff(backoff))
@@ -490,7 +510,9 @@ public final class QueueSelectors {
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-                final MessagePassingQueue<WorkBatch> queue = queues.get(threadId);
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
+                final MessagePassingQueue<WorkBatch> queue = checkedQueues.get(threadId);
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return null;
@@ -507,7 +529,9 @@ public final class QueueSelectors {
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-                final MessagePassingQueue<WorkBatch> queue = queues.get(threadId);
+                final List<MessagePassingQueue<WorkBatch>> checkedQueues = integrityCheckParams(
+                        queues, backoff, shouldContinue);
+                final MessagePassingQueue<WorkBatch> queue = checkedQueues.get(threadId);
                 while (shouldContinue.getAsBoolean()) {
                     if (handleInterrupted())
                         return false;
@@ -560,7 +584,8 @@ public final class QueueSelectors {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
                     BackoffStrategy backoff, BooleanSupplier shouldContinue) {
-                final BlockingQueue<WorkBatch> queue = queues.get(threadId);
+                final BlockingQueue<WorkBatch> queue = integrityCheckParams(queues, backoff,
+                        shouldContinue).get(threadId);
                 while (shouldContinue.getAsBoolean()) {
                     try {
                         // Use a short timeout so we can re-check shouldContinue periodically
@@ -579,7 +604,8 @@ public final class QueueSelectors {
             public boolean offer(WorkBatch batch, int threadId,
                     List<? extends BlockingQueue<WorkBatch>> queues, BackoffStrategy backoff,
                     BooleanSupplier shouldContinue) {
-                final BlockingQueue<WorkBatch> queue = queues.get(threadId);
+                final BlockingQueue<WorkBatch> queue = integrityCheckParams(queues, backoff,
+                        shouldContinue).get(threadId);
                 while (shouldContinue.getAsBoolean()) {
                     try {
                         if (queue.offer(batch, 100, TimeUnit.MILLISECONDS))

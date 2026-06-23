@@ -1,566 +1,1051 @@
 package com.github.mrgarbagegamer.queues;
 
-// import static org.junit.jupiter.api.Assertions.assertFalse;
-// import static org.junit.jupiter.api.Assertions.assertNull;
-// import static org.junit.jupiter.api.Assertions.assertSame;
-// import static org.junit.jupiter.api.Assertions.assertTrue;
-// import static org.mockito.Mockito.atLeastOnce;
-// import static org.mockito.Mockito.never;
-// import static org.mockito.Mockito.times;
-// import static org.mockito.Mockito.verify;
-// import static org.mockito.Mockito.verifyNoInteractions;
-// import static org.mockito.Mockito.when;
-
-// import java.util.List;
-// import java.util.concurrent.BlockingQueue;
-// import java.util.concurrent.TimeUnit;
-// import java.util.function.BooleanSupplier;
-
-// import org.jctools.queues.MessagePassingQueue;
-// import org.junit.jupiter.api.AfterEach;
-// import org.junit.jupiter.api.Nested;
-// import org.junit.jupiter.api.Test;
-// import org.junit.jupiter.api.extension.ExtendWith;
-// import org.junit.jupiter.params.ParameterizedTest;
-// import org.junit.jupiter.params.provider.EnumSource;
-// import org.mockito.Mock;
-// import org.mockito.junit.jupiter.MockitoExtension;
-
-// import com.github.mrgarbagegamer.WorkBatch;
-
-// @ExtendWith(MockitoExtension.class)
-public class QueueSelectorsTest {
-
-    // @Mock
-    // private WorkBatch mockBatch;
-
-    // @Mock
-    // private BackoffStrategy mockBackoff;
-
-    // private static BackoffStrategy interruptingBackoff = () -> {
-    //     throw new InterruptedException("interrupt");
-    // };
-
-    // private static BackoffStrategy noOp = () -> {};
-
-    // private static BooleanSupplier alwaysTrue = () -> true;
-
-    // private static BooleanSupplier alwaysFalse = () -> false;
-
-    // private static final long BLOCKING_TIMEOUT_MS = 100L;
-
-    // private static BooleanSupplier oneShotContinue() {
-    //     return new BooleanSupplier() {
-    //         private boolean first = true;
-
-    //         @Override
-    //         public boolean getAsBoolean() {
-    //             if (first) {
-    //                 first = false;
-    //                 return true;
-    //             }
-    //             return false;
-    //         }
-    //     };
-    // }
-
-    // private static BooleanSupplier twoShotContinue() {
-    //     return new BooleanSupplier() {
-    //         private int count = 0;
-
-    //         @Override
-    //         public boolean getAsBoolean() {
-    //             if (count < 2) {
-    //                 count++;
-    //                 return true;
-    //             }
-    //             return false;
-    //         }
-    //     };
-    // }
-
-    // private static void assertThreadIsInterrupted() {
-    //     assertTrue(Thread.currentThread().isInterrupted(), "Expected thread to be interrupted");
-    // }
-
-    // private static <Q> Object[] arrayOfAllExcept(Q target, List<Q> all) {
-    //     return all.stream().filter(q -> q != target).toArray();
-    // }
-
-    // @AfterEach
-    // void clearInterruptStatus() { Thread.interrupted(); }
-
-    // @Nested
-    // class MessagePassingQueueSelectorTest {
-    //     @Mock
-    //     private MessagePassingQueue<WorkBatch> q0;
-
-    //     @Mock
-    //     private MessagePassingQueue<WorkBatch> q1;
-
-    //     @Mock
-    //     private MessagePassingQueue<WorkBatch> q2;
-
-    //     private List<MessagePassingQueue<WorkBatch>> twoQueues() { return List.of(q0, q1); }
-
-    //     private List<MessagePassingQueue<WorkBatch>> threeQueues() { return List.of(q0, q1, q2); }
-
-    //     private void verifyOnlyQueueInteractedPoll(MessagePassingQueue<WorkBatch> target,
-    //             List<MessagePassingQueue<WorkBatch>> allQueues) {
-    //         verify(target, atLeastOnce()).relaxedPoll();
-    //         verifyNoInteractions(arrayOfAllExcept(target, allQueues));
-    //     }
-
-    //     private void verifyOnlyQueueInteractedOffer(MessagePassingQueue<WorkBatch> target,
-    //             List<MessagePassingQueue<WorkBatch>> allQueues) {
-    //         verify(target, atLeastOnce()).relaxedOffer(mockBatch);
-    //         verifyNoInteractions(arrayOfAllExcept(target, allQueues));
-    //     }
-
-    //     // Parameterized tests for scenarios common to all JCToolsQueueSelectors
-
-    //     @ParameterizedTest(name = "givenFalseSupplier_whenPoll{0}_thenReturnNull")
-    //     @EnumSource(JCToolsQueueSelectors.class)
-    //     void givenFalseSupplier_whenPollAnySelector_thenReturnNull(JCToolsQueueSelectors selector) {
-    //         WorkBatch result = selector.poll(0, twoQueues(), noOp, alwaysFalse);
-    //         assertNull(result, "Expected poll to return null when supplier returns false");
-    //         verifyNoInteractions(q0, q1);
-    //     }
-
-    //     @ParameterizedTest(name = "givenFalseSupplier_whenOffer{0}_thenReturnFalse")
-    //     @EnumSource(JCToolsQueueSelectors.class)
-    //     void givenFalseSupplier_whenOfferAnySelector_thenReturnFalse(
-    //             JCToolsQueueSelectors selector) {
-    //         boolean offered = selector.offer(mockBatch, 0, twoQueues(), noOp, alwaysFalse);
-    //         assertFalse(offered, "Expected offer to return false when supplier returns false");
-    //         verifyNoInteractions(q0, q1);
-    //     }
-
-    //     @ParameterizedTest(name = "givenAlreadyInterruptedThread_whenPoll{0}_thenReturnNull")
-    //     @EnumSource(JCToolsQueueSelectors.class)
-    //     void givenAlreadyInterruptedThread_whenPollAnySelector_thenReturnNull(
-    //             JCToolsQueueSelectors selector) {
-    //         Thread.currentThread().interrupt();
-    //         WorkBatch result = selector.poll(0, twoQueues(), noOp, alwaysTrue);
-    //         assertNull(result,
-    //                 "Expected poll to return null immediately when thread is already interrupted");
-    //         assertThreadIsInterrupted();
-    //         verifyNoInteractions(q0, q1);
-    //     }
-
-    //     @ParameterizedTest(name = "givenAlreadyInterruptedThread_whenOffer{0}_thenReturnFalse")
-    //     @EnumSource(JCToolsQueueSelectors.class)
-    //     void givenAlreadyInterruptedThread_whenOfferAnySelector_thenReturnFalse(
-    //             JCToolsQueueSelectors selector) {
-    //         Thread.currentThread().interrupt();
-    //         boolean offered = selector.offer(mockBatch, 0, twoQueues(), noOp, alwaysTrue);
-    //         assertFalse(offered,
-    //                 "Expected offer to return false immediately when thread is already interrupted");
-    //         assertThreadIsInterrupted();
-    //         verifyNoInteractions(q0, q1);
-    //     }
-
-    //     @ParameterizedTest(name = "givenInterruptedBackoff_whenPoll{0}_thenReturnNullAndInterrupt")
-    //     @EnumSource(JCToolsQueueSelectors.class)
-    //     void givenInterruptedBackoff_whenPollAnySelector_thenReturnNullAndInterrupt(
-    //             JCToolsQueueSelectors selector) {
-    //         WorkBatch result = selector.poll(0, twoQueues(), interruptingBackoff,
-    //                 oneShotContinue());
-    //         assertNull(result, "Expected poll to return null when backoff is interrupted");
-    //         assertThreadIsInterrupted();
-    //     }
-
-    //     @ParameterizedTest(name = "givenInterruptedBackoff_whenOffer{0}_thenReturnFalseAndInterrupt")
-    //     @EnumSource(JCToolsQueueSelectors.class)
-    //     void givenInterruptedBackoff_whenOfferAnySelector_thenReturnFalseAndInterrupt(
-    //             JCToolsQueueSelectors selector) {
-    //         boolean offered = selector.offer(mockBatch, 0, twoQueues(), interruptingBackoff,
-    //                 oneShotContinue());
-    //         assertFalse(offered, "Expected offer to return false when backoff is interrupted");
-    //         assertThreadIsInterrupted();
-    //     }
-
-    //     // Parameterized tests for sequential selectors
-
-    //     @ParameterizedTest(name = "givenAllQueuesEmpty_whenPoll{0}_thenBackoff")
-    //     @EnumSource(value = JCToolsQueueSelectors.class, names = {"RANDOM_SEQUENTIAL",
-    //             "LINEAR_SEQUENTIAL", "BIASED_SEQUENTIAL"})
-    //     void givenAllQueuesEmpty_whenPollSequentialSelector_thenBackoff(
-    //             JCToolsQueueSelectors selector) throws InterruptedException {
-    //         WorkBatch result = selector.poll(0, twoQueues(), mockBackoff, oneShotContinue());
-    //         assertNull(result,
-    //                 "Expected poll to return null when all queues miss and supplier stops");
-    //         verify(mockBackoff).backoff();
-    //         verify(q0, atLeastOnce()).relaxedPoll();
-    //         verify(q1, atLeastOnce()).relaxedPoll();
-    //     }
-
-    //     @ParameterizedTest(name = "givenAllQueuesFull_whenOffer{0}_thenBackoff")
-    //     @EnumSource(value = JCToolsQueueSelectors.class, names = {"RANDOM_SEQUENTIAL",
-    //             "LINEAR_SEQUENTIAL", "BIASED_SEQUENTIAL"})
-    //     void givenAllQueuesFull_whenOfferSequentialSelector_thenBackoff(
-    //             JCToolsQueueSelectors selector) throws InterruptedException {
-    //         boolean offered = selector.offer(mockBatch, 0, twoQueues(), mockBackoff,
-    //                 oneShotContinue());
-    //         assertFalse(offered,
-    //                 "Expected offer to return false when all queues miss and supplier stops");
-    //         verify(mockBackoff).backoff();
-    //         verify(q0, atLeastOnce()).relaxedOffer(mockBatch);
-    //         verify(q1, atLeastOnce()).relaxedOffer(mockBatch);
-    //     }
-
-    //     // RANDOM_SEQUENTIAL
-
-    //     @Test
-    //     void givenNonEmptyQueue_whenPollRandomSequential_thenReturnBatch() {
-    //         when(q0.relaxedPoll()).thenReturn(mockBatch);
-    //         WorkBatch result = JCToolsQueueSelectors.RANDOM_SEQUENTIAL.poll(0, threeQueues(), noOp,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result, "Expected poll to return the batch found in the queue");
-    //         verify(q0, atLeastOnce()).relaxedPoll();
-    //     }
-
-    //     @Test
-    //     void givenNonFullQueue_whenOfferRandomSequential_thenReturnTrue() {
-    //         when(q1.relaxedOffer(mockBatch)).thenReturn(true);
-    //         boolean offered = JCToolsQueueSelectors.RANDOM_SEQUENTIAL.offer(mockBatch, 0,
-    //                 threeQueues(), noOp, alwaysTrue);
-    //         assertTrue(offered, "Expected offer to return true when a queue accepts the batch");
-    //         verify(q1, atLeastOnce()).relaxedOffer(mockBatch);
-    //     }
-
-    //     // LINEAR_SEQUENTIAL
-
-    //     @Test
-    //     void givenNonEmptyQueue_whenPollLinearSequential_thenReturnBatch() {
-    //         when(q1.relaxedPoll()).thenReturn(mockBatch);
-    //         WorkBatch result = JCToolsQueueSelectors.LINEAR_SEQUENTIAL.poll(0, threeQueues(), noOp,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the second queue");
-    //         verify(q0).relaxedPoll();
-    //         verify(q1).relaxedPoll();
-    //         verify(q2, never()).relaxedPoll();
-    //     }
-
-    //     @Test
-    //     void givenNonFullQueue_whenOfferLinearSequential_thenReturnTrue() {
-    //         when(q0.relaxedOffer(mockBatch)).thenReturn(false);
-    //         when(q1.relaxedOffer(mockBatch)).thenReturn(true);
-    //         boolean offered = JCToolsQueueSelectors.LINEAR_SEQUENTIAL.offer(mockBatch, 0,
-    //                 threeQueues(), noOp, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the second queue accepts the batch");
-    //         verify(q0).relaxedOffer(mockBatch);
-    //         verify(q1).relaxedOffer(mockBatch);
-    //         verify(q2, never()).relaxedOffer(mockBatch);
-    //     }
-
-    //     // BIASED_SEQUENTIAL
-
-    //     @Test
-    //     void givenNonEmptyPreferredQueue_whenPollBiasedSequential_thenPollFromPreferred() {
-    //         when(q1.relaxedPoll()).thenReturn(mockBatch);
-    //         WorkBatch result = JCToolsQueueSelectors.BIASED_SEQUENTIAL.poll(1, threeQueues(), noOp,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the preferred queue");
-    //         verifyOnlyQueueInteractedPoll(q1, threeQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonFullPreferredQueue_whenOfferBiasedSequential_thenOfferToPreferred() {
-    //         when(q1.relaxedOffer(mockBatch)).thenReturn(true);
-    //         boolean offered = JCToolsQueueSelectors.BIASED_SEQUENTIAL.offer(mockBatch, 1,
-    //                 threeQueues(), noOp, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the preferred queue accepts the batch");
-    //         verifyOnlyQueueInteractedOffer(q1, threeQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonEmptyNonPreferredQueue_whenPollBiasedSequential_thenPollFromNonPreferred() {
-    //         when(q1.relaxedPoll()).thenReturn(null);
-    //         when(q2.relaxedPoll()).thenReturn(mockBatch);
-    //         WorkBatch result = JCToolsQueueSelectors.BIASED_SEQUENTIAL.poll(1, threeQueues(), noOp,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the fallback queue when preferred queue misses");
-    //         verify(q1, atLeastOnce()).relaxedPoll();
-    //         verify(q2).relaxedPoll();
-    //     }
-
-    //     @Test
-    //     void givenNonFullNonPreferredQueue_whenOfferBiasedSequential_thenOfferToNonPreferred() {
-    //         when(q1.relaxedOffer(mockBatch)).thenReturn(false);
-    //         when(q2.relaxedOffer(mockBatch)).thenReturn(true);
-    //         boolean offered = JCToolsQueueSelectors.BIASED_SEQUENTIAL.offer(mockBatch, 1,
-    //                 threeQueues(), noOp, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the fallback queue accepts the batch after the preferred queue misses");
-    //         verify(q1, atLeastOnce()).relaxedOffer(mockBatch);
-    //         verify(q2).relaxedOffer(mockBatch);
-    //     }
-
-    //     @Test
-    //     void givenNonEmptyWraparoundNonPreferredQueue_whenPollBiasedSequential_thenPollFromWraparoundNonPreferred() {
-    //         when(q0.relaxedPoll()).thenReturn(mockBatch);
-    //         when(q1.relaxedPoll()).thenReturn(null);
-    //         when(q2.relaxedPoll()).thenReturn(null);
-    //         WorkBatch result = JCToolsQueueSelectors.BIASED_SEQUENTIAL.poll(1, threeQueues(), noOp,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the wraparound fallback queue when preferred queue misses");
-    //         verify(q1, atLeastOnce()).relaxedPoll();
-    //         verify(q0).relaxedPoll();
-    //         verify(q2).relaxedPoll();
-    //     }
-
-    //     @Test
-    //     void givenNonFullWraparoundNonPreferredQueue_whenOfferBiasedSequential_thenOfferToWraparoundNonPreferred() {
-    //         when(q1.relaxedOffer(mockBatch)).thenReturn(false);
-    //         when(q2.relaxedOffer(mockBatch)).thenReturn(false);
-    //         when(q0.relaxedOffer(mockBatch)).thenReturn(true);
-    //         boolean offered = JCToolsQueueSelectors.BIASED_SEQUENTIAL.offer(mockBatch, 1,
-    //                 threeQueues(), noOp, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the wraparound fallback queue accepts the batch after the preferred queue and first fallback queue miss");
-    //         verify(q1, atLeastOnce()).relaxedOffer(mockBatch);
-    //         verify(q2).relaxedOffer(mockBatch);
-    //         verify(q0).relaxedOffer(mockBatch);
-    //     }
-
-    //     // PREFERRED
-
-    //     @Test
-    //     void givenEmptyPreferredQueue_whenPollPreferred_thenBackoff() throws InterruptedException {
-    //         WorkBatch result = JCToolsQueueSelectors.PREFERRED.poll(1, threeQueues(), mockBackoff,
-    //                 oneShotContinue());
-    //         assertNull(result,
-    //                 "Expected poll to return null when preferred queue misses and supplier stops");
-    //         verify(mockBackoff).backoff();
-    //         verifyOnlyQueueInteractedPoll(q1, threeQueues());
-    //     }
-
-    //     @Test
-    //     void givenFullPreferredQueue_whenOfferPreferred_thenBackoff() throws InterruptedException {
-    //         when(q1.relaxedOffer(mockBatch)).thenReturn(false);
-    //         boolean offered = JCToolsQueueSelectors.PREFERRED.offer(mockBatch, 1, threeQueues(),
-    //                 mockBackoff, oneShotContinue());
-    //         assertFalse(offered,
-    //                 "Expected offer to return false when preferred queue misses and supplier stops");
-    //         verify(mockBackoff).backoff();
-    //         verifyOnlyQueueInteractedOffer(q1, threeQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonEmptyPreferredQueue_whenPollPreferred_thenPollFromPreferredOnly() {
-    //         when(q1.relaxedPoll()).thenReturn(mockBatch);
-    //         WorkBatch result = JCToolsQueueSelectors.PREFERRED.poll(1, threeQueues(), noOp,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the preferred queue");
-    //         verifyOnlyQueueInteractedPoll(q1, threeQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonFullPreferredQueue_whenOfferPreferred_thenOfferToPreferredOnly() {
-    //         when(q1.relaxedOffer(mockBatch)).thenReturn(true);
-    //         boolean offered = JCToolsQueueSelectors.PREFERRED.offer(mockBatch, 1, threeQueues(),
-    //                 noOp, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the preferred queue accepts the batch");
-    //         verifyOnlyQueueInteractedOffer(q1, threeQueues());
-    //     }
-
-    //     // EXCLUSIVE
-
-    //     @Test
-    //     void givenEmptyQueueZero_whenPollExclusive_thenBackoff() throws InterruptedException {
-    //         WorkBatch result = JCToolsQueueSelectors.EXCLUSIVE.poll(2, twoQueues(), mockBackoff,
-    //                 oneShotContinue());
-    //         assertNull(result,
-    //                 "Expected poll to return null when the first queue is empty and supplier stops");
-    //         verify(mockBackoff).backoff();
-    //         verifyOnlyQueueInteractedPoll(q0, twoQueues());
-    //     }
-
-    //     @Test
-    //     void givenFullQueueZero_whenOfferExclusive_thenBackoff() throws InterruptedException {
-    //         when(q0.relaxedOffer(mockBatch)).thenReturn(false);
-    //         boolean offered = JCToolsQueueSelectors.EXCLUSIVE.offer(mockBatch, 2, twoQueues(),
-    //                 mockBackoff, oneShotContinue());
-    //         assertFalse(offered,
-    //                 "Expected offer to return false when the first queue is full and supplier stops");
-    //         verify(mockBackoff).backoff();
-    //         verifyOnlyQueueInteractedOffer(q0, twoQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonEmptyQueueZero_whenPollExclusive_thenPollFromQueueZero() {
-    //         when(q0.relaxedPoll()).thenReturn(mockBatch);
-    //         WorkBatch result = JCToolsQueueSelectors.EXCLUSIVE.poll(2, threeQueues(), noOp,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the first queue regardless of thread ID");
-    //         verifyOnlyQueueInteractedPoll(q0, threeQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonFullQueueZero_whenOfferExclusive_thenOfferToQueueZero() {
-    //         when(q0.relaxedOffer(mockBatch)).thenReturn(true);
-    //         boolean offered = JCToolsQueueSelectors.EXCLUSIVE.offer(mockBatch, 2, threeQueues(),
-    //                 noOp, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the first queue accepts the batch regardless of thread ID");
-    //         verifyOnlyQueueInteractedOffer(q0, threeQueues());
-    //     }
-    // }
-
-    // @Nested
-    // class BlockingQueueSelectorTest {
-
-    //     @Mock
-    //     private BlockingQueue<WorkBatch> bq0;
-
-    //     @Mock
-    //     private BlockingQueue<WorkBatch> bq1;
-
-    //     private List<BlockingQueue<WorkBatch>> twoQueues() { return List.of(bq0, bq1); }
-
-    //     private void verifyOnlyQueueInteractedPoll(BlockingQueue<WorkBatch> target,
-    //             List<BlockingQueue<WorkBatch>> allQueues) throws InterruptedException {
-    //         verify(target).poll(BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-    //         verifyNoInteractions(arrayOfAllExcept(target, allQueues));
-    //         verifyNoInteractions(mockBackoff);
-    //     }
-
-    //     private void verifyOnlyQueueInteractedOffer(BlockingQueue<WorkBatch> target,
-    //             List<BlockingQueue<WorkBatch>> allQueues) throws InterruptedException {
-    //         verify(target).offer(mockBatch, BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-    //         verifyNoInteractions(arrayOfAllExcept(target, allQueues));
-    //         verifyNoInteractions(mockBackoff);
-    //     }
-
-    //     // Parameterized tests for scenarios common to all BlockingQueueSelectors
-
-    //     @ParameterizedTest(name = "givenFalseSupplier_whenPoll{0}_thenReturnNull")
-    //     @EnumSource(BlockingQueueSelectors.class)
-    //     void givenFalseSupplier_whenPollAnyBlockingSelector_thenReturnNull(
-    //             BlockingQueueSelectors selector) {
-    //         WorkBatch result = selector.poll(1, twoQueues(), mockBackoff, alwaysFalse);
-    //         assertNull(result, "Expected poll to return null when supplier returns false");
-    //         verifyNoInteractions(bq0, bq1, mockBackoff);
-    //     }
-
-    //     @ParameterizedTest(name = "givenFalseSupplier_whenOffer{0}_thenReturnFalse")
-    //     @EnumSource(BlockingQueueSelectors.class)
-    //     void givenFalseSupplier_whenOfferAnyBlockingSelector_thenReturnFalse(
-    //             BlockingQueueSelectors selector) {
-    //         boolean offered = selector.offer(mockBatch, 1, twoQueues(), mockBackoff, alwaysFalse);
-    //         assertFalse(offered, "Expected offer to return false when supplier returns false");
-    //         verifyNoInteractions(bq0, bq1, mockBackoff);
-    //     }
-
-    //     @ParameterizedTest(name = "givenInterruptedPoll_whenPoll{0}_thenReturnNullAndInterrupt")
-    //     @EnumSource(BlockingQueueSelectors.class)
-    //     void givenInterruptedPoll_whenPollAnyBlockingSelector_thenReturnNullAndInterrupt(
-    //             BlockingQueueSelectors selector) throws InterruptedException {
-    //         // Mock the 0th queue and call poll with an index of the 0th queue to ensure the
-    //         // selector always encounters the InterruptedException when it tries to poll
-    //         when(bq0.poll(BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS))
-    //                 .thenThrow(new InterruptedException("interrupt"));
-    //         WorkBatch result = selector.poll(0, twoQueues(), mockBackoff, alwaysTrue);
-    //         assertNull(result, "Expected poll to return null when poll is interrupted");
-    //         assertThreadIsInterrupted();
-    //         verifyNoInteractions(mockBackoff);
-    //     }
-
-    //     @ParameterizedTest(name = "givenInterruptedOffer_whenOffer{0}_thenReturnFalseAndInterrupt")
-    //     @EnumSource(BlockingQueueSelectors.class)
-    //     void givenInterruptedOffer_whenOfferAnyBlockingSelector_thenReturnFalseAndInterrupt(
-    //             BlockingQueueSelectors selector) throws InterruptedException {
-    //         // Mock the 0th queue and call offer with an index of the 0th queue to ensure the
-    //         // selector always encounters the InterruptedException when it tries to offer
-    //         when(bq0.offer(mockBatch, BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS))
-    //                 .thenThrow(new InterruptedException("interrupt"));
-    //         boolean offered = selector.offer(mockBatch, 0, twoQueues(), mockBackoff, alwaysTrue);
-    //         assertFalse(offered, "Expected offer to return false when offer is interrupted");
-    //         assertThreadIsInterrupted();
-    //         verifyNoInteractions(mockBackoff);
-    //     }
-
-    //     // PREFERRED
-
-    //     @Test
-    //     void givenEmptyPreferredQueue_whenPollPreferredBlocking_thenRetryPollFromPreferred()
-    //             throws InterruptedException {
-    //         when(bq1.poll(BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS)).thenReturn(null);
-    //         WorkBatch result = BlockingQueueSelectors.PREFERRED.poll(1, twoQueues(), mockBackoff,
-    //                 twoShotContinue());
-    //         assertNull(result,
-    //                 "Expected poll to return null when preferred queue is empty and supplier stops");
-    //         verify(bq1, times(2)).poll(BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-    //         verifyNoInteractions(mockBackoff);
-    //     }
-
-    //     @Test
-    //     void givenFullPreferredQueue_whenOfferPreferredBlocking_thenRetryOfferToPreferred()
-    //             throws InterruptedException {
-    //         when(bq1.offer(mockBatch, BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS))
-    //                 .thenReturn(false);
-    //         boolean offered = BlockingQueueSelectors.PREFERRED.offer(mockBatch, 1, twoQueues(),
-    //                 mockBackoff, twoShotContinue());
-    //         assertFalse(offered,
-    //                 "Expected offer to return false when preferred queue is full and supplier stops");
-    //         verify(bq1, times(2)).offer(mockBatch, BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-    //         verifyNoInteractions(mockBackoff);
-    //     }
-
-    //     @Test
-    //     void givenNonEmptyPreferredQueue_whenPollPreferredBlocking_thenPollFromPreferredOnly()
-    //             throws InterruptedException {
-    //         when(bq1.poll(BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS)).thenReturn(mockBatch);
-    //         WorkBatch result = BlockingQueueSelectors.PREFERRED.poll(1, twoQueues(), mockBackoff,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the preferred queue");
-    //         verifyOnlyQueueInteractedPoll(bq1, twoQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonFullPreferredQueue_whenOfferPreferredBlocking_thenReturnTrueAndIgnoreBackoff()
-    //             throws InterruptedException {
-    //         when(bq1.offer(mockBatch, BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS)).thenReturn(true);
-    //         boolean offered = BlockingQueueSelectors.PREFERRED.offer(mockBatch, 1, twoQueues(),
-    //                 mockBackoff, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the preferred queue accepts the batch");
-    //         verifyOnlyQueueInteractedOffer(bq1, twoQueues());
-    //     }
-
-    //     // EXCLUSIVE
-
-    //     @Test
-    //     void givenNonEmptyQueueZero_whenPollExclusiveBlocking_thenPollFromQueueZero()
-    //             throws InterruptedException {
-    //         when(bq0.poll(BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS)).thenReturn(mockBatch);
-    //         WorkBatch result = BlockingQueueSelectors.EXCLUSIVE.poll(9, twoQueues(), mockBackoff,
-    //                 alwaysTrue);
-    //         assertSame(mockBatch, result,
-    //                 "Expected poll to return the batch found in the first queue regardless of thread ID");
-    //         verifyOnlyQueueInteractedPoll(bq0, twoQueues());
-    //     }
-
-    //     @Test
-    //     void givenNonFullQueueZero_whenOfferExclusiveBlocking_thenOfferToQueueZero()
-    //             throws InterruptedException {
-    //         when(bq0.offer(mockBatch, BLOCKING_TIMEOUT_MS, TimeUnit.MILLISECONDS)).thenReturn(true);
-    //         boolean offered = BlockingQueueSelectors.EXCLUSIVE.offer(mockBatch, 9, twoQueues(),
-    //                 mockBackoff, alwaysTrue);
-    //         assertTrue(offered,
-    //                 "Expected offer to return true when the first queue accepts the batch regardless of thread ID");
-    //         verifyOnlyQueueInteractedOffer(bq0, twoQueues());
-    //     }
-    // }
+import static com.github.mrgarbagegamer.queues.BackoffStrategy.noOp;
+import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
+import static org.assertj.core.api.Assertions.as;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.assertj.core.api.InstanceOfAssertFactories.COLLECTION;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
+import static org.junit.jupiter.api.Named.named;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Stream;
+
+import org.jctools.queues.MessagePassingQueue;
+import org.jctools.queues.MpmcArrayQueue;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import com.github.mrgarbagegamer.SolverConfiguration;
+import com.github.mrgarbagegamer.WorkBatch;
+
+class QueueSelectorsTest {
+
+    private static final int DEFAULT_QUEUE_CAPACITY = 2;
+    private static final int DEFAULT_NUM_THREADS = 4;
+
+    private final TrackingBackoff trackingBackoff = new TrackingBackoff();
+
+    private static WorkBatch createBatch() {
+        return new WorkBatch(SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
+    }
+
+    private static BooleanSupplier oneShotSupplier() {
+        return new BooleanSupplier() {
+            private boolean first = true;
+
+            @Override
+            public boolean getAsBoolean() {
+                if (first) {
+                    first = false;
+                    return true;
+                }
+                return false;
+            }
+        };
+    }
+
+    private static BooleanSupplier alwaysTrue() { return () -> true; }
+
+    private static BooleanSupplier alwaysFalse() { return () -> false; }
+
+    private static class TrackingBackoff implements BackoffStrategy {
+        int calls = 0;
+
+        @Override
+        public void backoff() { calls++; }
+
+        public void reset() { calls = 0; }
+    }
+
+    private static BackoffStrategy interruptingBackoff() {
+        return () -> {
+            throw new InterruptedException("interrupted");
+        };
+    }
+
+    private static void addTo(Queue<WorkBatch> queue) { queue.add(createBatch()); }
+
+    @AfterEach
+    void clearInterruptStatus() {
+        Thread.interrupted(); // Clears thread interrupted status
+    }
+
+    @AfterEach
+    void resetTrackingBackoff() { trackingBackoff.reset(); }
+
+    @Nested
+    class JCToolsSelectorTests {
+
+        private static List<MpmcArrayQueue<WorkBatch>> jctoolsQueues(int count) {
+            return newBoundedImmutableQueueList(count, DEFAULT_QUEUE_CAPACITY, MpmcArrayQueue::new);
+        }
+
+        private static void fill(MessagePassingQueue<WorkBatch> queue) {
+            while (queue.size() < queue.capacity()) {
+                queue.offer(createBatch());
+            }
+        }
+
+        private static void fillAll(List<? extends MessagePassingQueue<WorkBatch>> queues) {
+            for (MessagePassingQueue<WorkBatch> queue : queues) {
+                fill(queue);
+            }
+        }
+
+        @Nested
+        class CommonTests {
+            private static Stream<Arguments> jctoolsSelectors() {
+                return Stream.of(
+                        Arguments.of(named("JCTools random sequential",
+                                QueueSelectors.randomSequentialJCTools())),
+                        Arguments.of(named("JCTools linear sequential",
+                                QueueSelectors.linearSequentialJCTools())),
+                        Arguments.of(named("JCTools biased sequential",
+                                QueueSelectors.biasedSequentialJCTools())),
+                        Arguments.of(named("JCTools preferred", QueueSelectors.preferredJCTools())),
+                        Arguments
+                                .of(named("JCTools exclusive", QueueSelectors.exclusiveJCTools())));
+            }
+
+            private static List<MpmcArrayQueue<WorkBatch>> createQueuesWithNull() {
+                return Arrays.asList(new MpmcArrayQueue<>(DEFAULT_QUEUE_CAPACITY), null);
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenNullQueues_whenPoll_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = null;
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenNullQueues_whenOffer_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = null;
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenQueuesWithNull_whenPoll_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = createQueuesWithNull();
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not contain null elements")
+                        .withMessageContaining("null element at index 1");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenQueuesWithNull_whenOffer_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = createQueuesWithNull();
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not contain null elements")
+                        .withMessageContaining("null element at index 1");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenNullBackoff_whenPoll_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, null, alwaysTrue()))
+                        .withMessageContaining("backoff must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenNullBackoff_whenOffer_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, null, alwaysTrue()))
+                        .withMessageContaining("backoff must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenNullSupplier_whenPoll_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), null))
+                        .withMessageContaining("shouldContinue must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenNullSupplier_whenOffer_thenThrowNPE(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), null))
+                        .withMessageContaining("shouldContinue must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenFalseSupplier_whenPoll_thenReturnNull(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                addTo(queues.getFirst());
+
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysFalse());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(queues).first(as(COLLECTION)).hasSize(1);
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenFalseSupplier_whenOffer_thenReturnFalse(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                WorkBatch batch = createBatch();
+                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysFalse());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isFalse();
+                    softly.assertThat(queues)
+                            .allSatisfy(queue -> softly.assertThat(queue).isEmpty());
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenAlreadyInterruptedThread_whenPoll_thenReturnNullAndKeepInterrupted(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                addTo(queues.getFirst());
+
+                Thread.currentThread().interrupt();
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(Thread.currentThread().isInterrupted())
+                            .as("Check if thread is interrupted").isTrue();
+                    softly.assertThat(queues).first(as(COLLECTION)).hasSize(1);
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenAlreadyInterruptedThread_whenOffer_thenReturnFalseAndKeepInterrupted(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                Thread.currentThread().interrupt();
+                WorkBatch batch = createBatch();
+                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isFalse();
+                    softly.assertThat(Thread.currentThread().isInterrupted())
+                            .as("Check if thread is interrupted").isTrue();
+                    softly.assertThat(queues)
+                            .allSatisfy(queue -> softly.assertThat(queue).isEmpty());
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenInterruptedBackoff_whenPoll_thenReturnNullAndInterrupt(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                WorkBatch result = selector.poll(0, queues, interruptingBackoff(),
+                        oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(Thread.currentThread().isInterrupted())
+                            .as("Check if thread is interrupted").isTrue();
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("jctoolsSelectors")
+            void givenInterruptedBackoff_whenOffer_thenReturnFalseAndInterrupt(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                fillAll(queues);
+
+                boolean result = selector.offer(createBatch(), 0, queues, interruptingBackoff(),
+                        oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isFalse();
+                    softly.assertThat(Thread.currentThread().isInterrupted())
+                            .as("Check if thread is interrupted").isTrue();
+                });
+            }
+        }
+
+        @Nested
+        class SequentialBackoffTests {
+            private static Stream<Arguments> sequentialJCToolsSelectors() {
+                return Stream.of(
+                        Arguments.of(named("JCTools random sequential",
+                                QueueSelectors.randomSequentialJCTools())),
+                        Arguments.of(named("JCTools linear sequential",
+                                QueueSelectors.linearSequentialJCTools())),
+                        Arguments.of(named("JCTools biased sequential",
+                                QueueSelectors.biasedSequentialJCTools())));
+            }
+
+            @ParameterizedTest
+            @MethodSource("sequentialJCToolsSelectors")
+            void givenAllQueuesEmpty_whenPoll_thenBackoff(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                WorkBatch result = selector.poll(0, queues, trackingBackoff, oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(trackingBackoff.calls).isOne();
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("sequentialJCToolsSelectors")
+            void givenAllQueuesFull_whenOffer_thenBackoff(
+                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                fillAll(queues);
+
+                boolean result = selector.offer(createBatch(), 0, queues, trackingBackoff,
+                        oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isFalse();
+                    softly.assertThat(trackingBackoff.calls).isOne();
+                });
+            }
+        }
+
+        @Nested
+        class RandomSequentialTests {
+            private final QueueSelector<MessagePassingQueue<WorkBatch>> selector = QueueSelectors
+                    .randomSequentialJCTools();
+
+            @Test
+            void givenOneNonEmptyQueue_whenPoll_thenReturnBatchAndEmptyQueue() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                WorkBatch batch = createBatch();
+                queues.getLast().add(batch);
+
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).allSatisfy(queue -> assertThat(queue).isEmpty());
+                });
+            }
+
+            @Test
+            void givenOneQueueWithSpace_whenOffer_thenOfferToThatQueue() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                fill(queues.getFirst());
+                addTo(queues.getLast()); // Just one.
+
+                WorkBatch batch = createBatch();
+                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).allSatisfy(queue -> assertThat(queue).hasSize(2));
+                    softly.assertThat(queues).last(as(COLLECTION)).contains(batch);
+                });
+            }
+        }
+
+        @Nested
+        class LinearSequentialTests {
+            private final QueueSelector<MessagePassingQueue<WorkBatch>> selector = QueueSelectors
+                    .linearSequentialJCTools();
+
+            @Test
+            void givenMultipleNonEmptyQueues_whenPoll_thenAlwaysPollFromLowestIndexFirst() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                WorkBatch batch = createBatch();
+                queues.getFirst().add(batch);
+                addTo(queues.getLast());
+
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).first(as(COLLECTION)).isEmpty();
+                    softly.assertThat(queues).last(as(COLLECTION)).hasSize(1);
+                });
+            }
+
+            @Test
+            void givenMultipleQueuesWithSpace_whenOffer_thenAlwaysOfferToLowestIndexFirst() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+
+                WorkBatch batch = createBatch();
+                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).first(as(COLLECTION)).containsExactly(batch);
+                    softly.assertThat(queues).last(as(COLLECTION)).isEmpty();
+                });
+            }
+        }
+
+        @Nested
+        class BiasedSequentialTests {
+            private final QueueSelector<MessagePassingQueue<WorkBatch>> selector = QueueSelectors
+                    .biasedSequentialJCTools();
+
+            @Test
+            void givenPreferredQueueNonEmpty_whenPoll_thenPollFromPreferred() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(3);
+                WorkBatch batch = createBatch();
+                queues.get(1).add(batch);
+                addTo(queues.getLast());
+
+                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).element(1, as(COLLECTION)).isEmpty();
+                    softly.assertThat(queues).last(as(COLLECTION)).hasSize(1);
+                });
+            }
+
+            @Test
+            void givenPreferredQueueEmptyButNextNonEmpty_whenPoll_thenPollFromNext() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(3);
+                WorkBatch batch = createBatch();
+                queues.getLast().add(batch);
+
+                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).allSatisfy(queue -> assertThat(queue).isEmpty());
+                });
+            }
+
+            @Test
+            void givenPreferredQueueEmptyAndNextEmptyButWraparoundNonEmpty_whenPoll_thenPollFromWraparound() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(3);
+                WorkBatch batch = createBatch();
+                queues.getFirst().add(batch);
+
+                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).allSatisfy(queue -> assertThat(queue).isEmpty());
+                });
+            }
+
+            @Test
+            void givenPreferredQueueNotFull_whenOffer_thenOfferToPreferred() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(3);
+                fill(queues.getLast());
+
+                WorkBatch batch = createBatch();
+                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).element(1, as(COLLECTION)).containsExactly(batch);
+                    softly.assertThat(queues).last(as(COLLECTION)).hasSize(2);
+                });
+            }
+
+            @Test
+            void givenPreferredQueueFullButNextNotFull_whenOffer_thenOfferToNext() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(3);
+                fill(queues.get(1));
+
+                WorkBatch batch = createBatch();
+                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).element(1, as(COLLECTION)).hasSize(2);
+                    softly.assertThat(queues).last(as(COLLECTION)).containsExactly(batch);
+                });
+            }
+
+            @Test
+            void givenPreferredQueueFullAndNextFullButWraparoundNotFull_whenOffer_thenOfferToWraparound() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(3);
+                fillAll(queues.subList(1, 3));
+
+                WorkBatch batch = createBatch();
+                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).first(as(COLLECTION)).containsExactly(batch);
+                    softly.assertThat(queues).element(1, as(COLLECTION)).hasSize(2);
+                    softly.assertThat(queues).last(as(COLLECTION)).hasSize(2);
+                });
+            }
+        }
+
+        @Nested
+        class PreferredTests {
+            private final QueueSelector<MessagePassingQueue<WorkBatch>> selector = QueueSelectors
+                    .preferredJCTools();
+
+            @Test
+            void givenPreferredQueueEmptyButOtherNonEmpty_whenPoll_thenBackoff() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                addTo(queues.getFirst());
+
+                WorkBatch result = selector.poll(1, queues, trackingBackoff, oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(trackingBackoff.calls).isOne();
+                    softly.assertThat(queues).first(as(COLLECTION)).isNotEmpty();
+                    softly.assertThat(queues).last(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @Test
+            void givenPreferredQueueNonEmpty_whenPoll_thenReturnBatch() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                WorkBatch batch = createBatch();
+                queues.getLast().add(batch);
+
+                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).last(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @Test
+            void givenPreferredQueueFullButOtherNotFull_whenOffer_thenBackoff() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                fill(queues.getLast());
+
+                boolean offered = selector.offer(createBatch(), 1, queues, trackingBackoff,
+                        oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isFalse();
+                    softly.assertThat(trackingBackoff.calls).isOne();
+                    softly.assertThat(queues).first(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @Test
+            void givenPreferredQueueNotFull_whenOffer_thenOfferToPreferred() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
+                WorkBatch batch = createBatch();
+
+                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).last(as(COLLECTION)).containsExactly(batch);
+                });
+            }
+        }
+
+        @Nested
+        class ExclusiveTests {
+            private final QueueSelector<MessagePassingQueue<WorkBatch>> selector = QueueSelectors
+                    .exclusiveJCTools();
+
+            @Test
+            void givenQueueZeroEmpty_whenPoll_thenBackoff() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(1);
+
+                WorkBatch result = selector.poll(0, queues, trackingBackoff, oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(trackingBackoff.calls).isOne();
+                });
+            }
+
+            @Test
+            void givenQueueZeroNonEmpty_whenPoll_thenReturnBatch() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(1);
+                WorkBatch batch = createBatch();
+                queues.getFirst().add(batch);
+
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).singleElement(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @Test
+            void givenQueueZeroFull_whenOffer_thenBackoff() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(1);
+                fillAll(queues);
+
+                boolean offered = selector.offer(createBatch(), 0, queues, trackingBackoff,
+                        oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isFalse();
+                    softly.assertThat(trackingBackoff.calls).isOne();
+                });
+            }
+
+            @Test
+            void givenQueueZeroNotFull_whenOffer_thenOfferToQueueZero() {
+                List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(1);
+                WorkBatch batch = createBatch();
+
+                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).first(as(COLLECTION)).containsExactly(batch);
+                });
+            }
+        }
+    }
+
+    @Nested
+    class BlockingQueueSelectorTests {
+
+        private static List<ArrayBlockingQueue<WorkBatch>> blockingQueues(int count) {
+            return newBoundedImmutableQueueList(count, DEFAULT_QUEUE_CAPACITY,
+                    ArrayBlockingQueue::new);
+        }
+
+        private static void fill(BlockingQueue<WorkBatch> queue) {
+            while (queue.remainingCapacity() > 0) {
+                queue.offer(createBatch());
+            }
+        }
+
+        private static void fillAll(List<? extends BlockingQueue<WorkBatch>> queues) {
+            for (BlockingQueue<WorkBatch> queue : queues) {
+                fill(queue);
+            }
+        }
+
+        @Nested
+        class CommonTests {
+            private static Stream<Arguments> blockingSelectors() {
+                return Stream.of(
+                        Arguments.of(
+                                named("Blocking preferred", QueueSelectors.preferredBlocking())),
+                        Arguments.of(
+                                named("Blocking exclusive", QueueSelectors.exclusiveBlocking())));
+            }
+
+            private static List<ArrayBlockingQueue<WorkBatch>> createQueuesWithNull() {
+                return Arrays.asList(new ArrayBlockingQueue<>(DEFAULT_QUEUE_CAPACITY), null);
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenNullQueues_whenPoll_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = null;
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenNullQueues_whenOffer_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = null;
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenQueuesWithNull_whenPoll_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = createQueuesWithNull();
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not contain null elements")
+                        .withMessageContaining("null element at index 1");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenQueuesWithNull_whenOffer_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = createQueuesWithNull();
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
+                        .withMessageContaining("queues must not contain null elements")
+                        .withMessageContaining("null element at index 1");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenNullBackoff_whenPoll_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, null, alwaysTrue()))
+                        .withMessageContaining("backoff must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenNullBackoff_whenOffer_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, null, alwaysTrue()))
+                        .withMessageContaining("backoff must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenNullSupplier_whenPoll_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), null))
+                        .withMessageContaining("shouldContinue must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenNullSupplier_whenOffer_thenThrowNPE(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+
+                WorkBatch batch = createBatch();
+                assertThatNullPointerException()
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), null))
+                        .withMessageContaining("shouldContinue must not be null");
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenFalseSupplier_whenPoll_thenReturnNull(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                addTo(queues.getFirst());
+
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysFalse());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(queues).first(as(COLLECTION)).hasSize(1);
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenFalseSupplier_whenOffer_thenReturnFalse(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+
+                WorkBatch batch = createBatch();
+                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysFalse());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isFalse();
+                    softly.assertThat(queues)
+                            .allSatisfy(queue -> softly.assertThat(queue).isEmpty());
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenAlreadyInterruptedThread_whenPoll_thenReturnNullAndKeepInterrupted(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                addTo(queues.getFirst());
+
+                Thread.currentThread().interrupt();
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(Thread.currentThread().isInterrupted())
+                            .as("Check if thread is interrupted").isTrue();
+                    softly.assertThat(queues).first(as(COLLECTION)).hasSize(1);
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenAlreadyInterruptedThread_whenOffer_thenReturnFalseAndKeepInterrupted(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+
+                Thread.currentThread().interrupt();
+                WorkBatch batch = createBatch();
+                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isFalse();
+                    softly.assertThat(Thread.currentThread().isInterrupted())
+                            .as("Check if thread is interrupted").isTrue();
+                    softly.assertThat(queues).first(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenBlockingPoll_whenThreadInterrupted_thenReturnNullAndSetInterruptStatus(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) throws InterruptedException {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                AtomicReference<WorkBatch> resultRef = new AtomicReference<>();
+                AtomicReference<Exception> exceptionRef = new AtomicReference<>();
+                AtomicBoolean interruptedRef = new AtomicBoolean(false);
+
+                Thread t = new Thread(() -> {
+                    try {
+                        WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                        resultRef.set(result);
+                        interruptedRef.set(Thread.currentThread().isInterrupted());
+                    } catch (Exception e) {
+                        exceptionRef.set(e);
+                    }
+                });
+                t.start();
+                Thread.sleep(50);
+                t.interrupt();
+                t.join(2000);
+
+                // Use a hard assertion for whether the thread is alive, since results are
+                // nonsensical if true.
+                assertThat(t.isAlive()).as("Check if the selector is responsive to interruption")
+                        .isFalse();
+                assertSoftly(softly -> {
+                    softly.assertThat(exceptionRef).as("Check if anything was thrown")
+                            .hasNullValue();
+                    softly.assertThat(resultRef).as("Check if the result is null").hasNullValue();
+                    softly.assertThat(interruptedRef)
+                            .as("Check if the selector preserves interruption status").isTrue();
+                });
+            }
+
+            @ParameterizedTest
+            @MethodSource("blockingSelectors")
+            void givenBlockingOffer_whenThreadInterrupted_thenReturnFalseAndSetInterruptStatus(
+                    QueueSelector<BlockingQueue<WorkBatch>> selector) throws InterruptedException {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                fillAll(queues);
+                AtomicBoolean resultRef = new AtomicBoolean(true);
+                AtomicBoolean interruptedRef = new AtomicBoolean(false);
+                AtomicReference<Exception> exceptionRef = new AtomicReference<>();
+
+                Thread t = new Thread(() -> {
+                    try {
+                        boolean result = selector.offer(createBatch(), 0, queues, noOp(),
+                                alwaysTrue());
+                        resultRef.set(result);
+                        interruptedRef.set(Thread.currentThread().isInterrupted());
+                    } catch (Exception e) {
+                        exceptionRef.set(e);
+                    }
+                });
+                t.start();
+                Thread.sleep(50);
+                t.interrupt();
+                t.join(2000);
+
+                // Use a hard assertion for whether the thread is alive, since results are
+                // nonsensical if true.
+                assertThat(t.isAlive()).as("Check if the selector is responsive to interruption")
+                        .isFalse();
+
+                assertSoftly(softly -> {
+                    softly.assertThat(exceptionRef).as("Check if anything was thrown")
+                            .hasNullValue();
+                    softly.assertThat(resultRef).as("Check if the result is false").isFalse();
+                    softly.assertThat(interruptedRef)
+                            .as("Check if the selector preserves interrupt status").isTrue();
+                });
+            }
+        }
+
+        @Nested
+        class PreferredTests {
+            private final QueueSelector<BlockingQueue<WorkBatch>> selector = QueueSelectors
+                    .preferredBlocking();
+
+            @Test
+            void givenPreferredQueueEmptyButOtherNonEmpty_whenPoll_thenSkipBackoff() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                addTo(queues.getFirst());
+
+                WorkBatch result = selector.poll(1, queues, trackingBackoff, oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(trackingBackoff.calls).isZero();
+                    softly.assertThat(queues).first(as(COLLECTION)).isNotEmpty();
+                    softly.assertThat(queues).last(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @Test
+            void givenPreferredQueueNonEmpty_whenPoll_thenReturnBatch() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                WorkBatch batch = createBatch();
+                queues.getLast().add(batch);
+
+                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).last(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @Test
+            void givenPreferredQueueFullButOtherNotFull_whenOffer_thenSkipBackoff() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                fill(queues.getLast());
+
+                boolean offered = selector.offer(createBatch(), 1, queues, trackingBackoff,
+                        oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isFalse();
+                    softly.assertThat(trackingBackoff.calls).isZero();
+                    softly.assertThat(queues).first(as(COLLECTION)).isEmpty();
+                    softly.assertThat(queues).last(as(COLLECTION)).hasSize(2);
+                });
+            }
+
+            @Test
+            void givenPreferredQueueNotFull_whenOffer_thenOfferToPreferred() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
+                WorkBatch batch = createBatch();
+
+                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).last(as(COLLECTION)).containsExactly(batch);
+                });
+            }
+        }
+
+        @Nested
+        class ExclusiveTests {
+            private final QueueSelector<BlockingQueue<WorkBatch>> selector = QueueSelectors
+                    .exclusiveBlocking();
+
+            @Test
+            void givenQueueZeroEmpty_whenPoll_thenSkipBackoff() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(1);
+
+                WorkBatch result = selector.poll(0, queues, trackingBackoff, oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isNull();
+                    softly.assertThat(trackingBackoff.calls).isZero();
+                });
+            }
+
+            @Test
+            void givenQueueZeroNonEmpty_whenPoll_thenReturnBatch() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(1);
+                WorkBatch batch = createBatch();
+                queues.getFirst().add(batch);
+
+                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(result).isSameAs(batch);
+                    softly.assertThat(queues).singleElement(as(COLLECTION)).isEmpty();
+                });
+            }
+
+            @Test
+            void givenQueueZeroFull_whenOffer_thenSkipBackoff() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(1);
+                fillAll(queues);
+
+                boolean offered = selector.offer(createBatch(), 0, queues, trackingBackoff,
+                        oneShotSupplier());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isFalse();
+                    softly.assertThat(trackingBackoff.calls).isZero();
+                });
+            }
+
+            @Test
+            void givenQueueZeroNotFull_whenOffer_thenOfferToQueueZero() {
+                List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(1);
+                WorkBatch batch = createBatch();
+
+                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+
+                assertSoftly(softly -> {
+                    softly.assertThat(offered).isTrue();
+                    softly.assertThat(queues).first(as(COLLECTION)).containsExactly(batch);
+                });
+            }
+        }
+    }
 }

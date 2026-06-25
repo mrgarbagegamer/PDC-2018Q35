@@ -20,17 +20,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 
-@ExtendWith(MockitoExtension.class)
 class BlockingQueueStrategyTest {
     private static final int DEFAULT_QUEUE_CAPACITY = 16;
     private static final int DEFAULT_NUM_THREADS = 4;

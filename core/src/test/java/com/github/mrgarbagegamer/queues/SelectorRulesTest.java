@@ -15,11 +15,9 @@ import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
@@ -27,7 +25,6 @@ import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueBuilder;
 import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueWrapper;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 
-@ExtendWith(MockitoExtension.class)
 class SelectorRulesTest {
 
     private static <Q> SelectorValidationTarget<Q> createProducerGtmTargetWithQueues(

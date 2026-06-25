@@ -21,7 +21,6 @@ import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 
 // TODO: Update Javadocs to reflect the new design.
-// TODO: Write unit tests for the class.
 /**
  * A {@link QueueStrategy} implementation that uses {@link MessagePassingQueue}s for communication
  * between {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}.

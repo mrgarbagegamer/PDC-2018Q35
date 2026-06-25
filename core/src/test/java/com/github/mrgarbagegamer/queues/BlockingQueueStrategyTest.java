@@ -16,6 +16,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,15 @@ class BlockingQueueStrategyTest {
     }
 
     private static SolverState createValidState() { return new SolverState(); }
+
+    private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues,
+            int queueCapacity) {
+        return newBoundedImmutableQueueList(numQueues, queueCapacity, ArrayBlockingQueue::new);
+    }
+
+    private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues) {
+        return createValidQueueList(numQueues, 16);
+    }
 
     @Nested
     class StaticFactoryTests {
@@ -99,14 +109,6 @@ class BlockingQueueStrategyTest {
 
     @Nested
     class BuilderTests {
-        private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues,
-                int queueCapacity) {
-            return newBoundedImmutableQueueList(numQueues, queueCapacity, ArrayBlockingQueue::new);
-        }
-
-        private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues) {
-            return createValidQueueList(numQueues, 16);
-        }
 
         private static BlockingQueueStrategy.Builder<ArrayBlockingQueue<WorkBatch>, ArrayBlockingQueue<WorkBatch>> createValidBuilder(
                 int numGtmQueues, int numMtgQueues, int numThreads) {
@@ -134,7 +136,7 @@ class BlockingQueueStrategyTest {
             }
 
             private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList() {
-                return BuilderTests.createValidQueueList(2);
+                return BlockingQueueStrategyTest.createValidQueueList(2);
             }
 
             @Test
@@ -508,6 +510,41 @@ class BlockingQueueStrategyTest {
         }
     }
 
-    // TODO: Add tests for the actual methods of the BlockingQueueStrategy, such as delegation to
-    // selectors and queue operations.
+    @Nested
+    class EndToEndWiringTests {
+
+        BlockingQueueStrategy<?, ?> strategy;
+        WorkBatch batch;
+
+        @BeforeEach
+        void setup() {
+            final SolverConfiguration config = createValidConfig();
+            final SolverState state = createValidState();
+
+            // Create a strategy with the builder and without preallocation so the generatorPoll
+            // test doesn't hang on strategy.monkeyOffer()
+            strategy = BlockingQueueStrategy
+                    .builder(createValidQueueList(1), createValidQueueList(1), config, state)
+                    .asSingleSingle().build();
+            batch = new WorkBatch(config);
+        }
+
+        @Test
+        void givenBatchOfferedToSingleSingleStrategyByGenerator_whenMonkeyPoll_thenReturnBatch() {
+            strategy.generatorOffer(batch, 0);
+
+            WorkBatch result = strategy.monkeyPoll(0);
+
+            assertThat(result).isSameAs(batch);
+        }
+
+        @Test
+        void givenBatchOfferedToSingleSingleStrategyByMonkey_whenGeneratorPoll_thenReturnBatch() {
+            strategy.monkeyOffer(batch, 0);
+
+            WorkBatch result = strategy.generatorPoll(0);
+
+            assertThat(result).isSameAs(batch);
+        }
+    }
 }

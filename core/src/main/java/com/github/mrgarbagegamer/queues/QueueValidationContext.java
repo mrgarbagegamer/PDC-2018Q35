@@ -13,16 +13,12 @@ class QueueValidationContext<G, M> {
     private final QueueGroup<G> gtmGroup;
     private final QueueGroup<M> mtgGroup;
 
-    private final SolverConfiguration solverConfig;
-
     private QueueValidationContext(Builder<G, M> builder) {
         // Let's construct the QueueGroups:
         this.gtmGroup = QueueGroup.newGtmGroup(builder.gtmQueues, builder.generatorOfferSelector,
                 builder.monkeyPollSelector, builder.solverConfig);
         this.mtgGroup = QueueGroup.newMtgGroup(builder.mtgQueues, builder.monkeyOfferSelector,
                 builder.generatorPollSelector, builder.solverConfig);
-
-        this.solverConfig = builder.solverConfig;
     }
 
     // Builder method:
@@ -67,10 +63,6 @@ class QueueValidationContext<G, M> {
     QueueGroup<G> gtmGroup() { return this.gtmGroup; }
 
     QueueGroup<M> mtgGroup() { return this.mtgGroup; }
-
-    // TODO: Remove getter if unnecessary
-
-    private SolverConfiguration solverConfig() { return this.solverConfig; }
 
     public static class Builder<G, M> {
         private final List<? extends QueueWrapper<G>> gtmQueues;

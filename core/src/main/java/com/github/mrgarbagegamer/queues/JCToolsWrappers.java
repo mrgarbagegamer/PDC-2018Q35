@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
@@ -11,13 +10,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
-import java.util.stream.Stream;
 
 import org.jctools.queues.MessagePassingQueue;
-import org.jctools.queues.MpmcArrayQueue;
-import org.jctools.queues.MpscArrayQueue;
-import org.jctools.queues.SpmcArrayQueue;
-import org.jctools.queues.SpscArrayQueue;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
@@ -158,58 +152,5 @@ final class JCToolsWrappers {
         final var nonNullDelegates = (List<Q>) requireNonNull(delegates,
                 "delegates must not be null");
         return nonNullDelegates.stream().map(JCToolsWrappers::wrap).collect(toUnmodifiableList());
-    }
-
-    // Package-private factories (encapsulated to make the chosen queue types an implementation
-    // detail).
-
-    static JCToolsWrapper<MpmcArrayQueue<WorkBatch>> newBoundedMpmc(int capacity) {
-        return BoundedJCWrapper.of(new MpmcArrayQueue<>(checkCapacity(capacity)), MPMC);
-    }
-
-    static List<JCToolsWrapper<MpmcArrayQueue<WorkBatch>>> newBoundedMpmcList(int listSize,
-            int queueCapacity) {
-        return Stream.generate(() -> newBoundedMpmc(queueCapacity)).limit(listSize)
-                .collect(toUnmodifiableList());
-    }
-
-    static JCToolsWrapper<MpscArrayQueue<WorkBatch>> newBoundedMpsc(int capacity) {
-        return BoundedJCWrapper.of(new MpscArrayQueue<>(checkCapacity(capacity)), MPSC);
-    }
-
-    static List<JCToolsWrapper<MpscArrayQueue<WorkBatch>>> newBoundedMpscList(int listSize,
-            int queueCapacity) {
-        return Stream.generate(() -> newBoundedMpsc(queueCapacity)).limit(listSize)
-                .collect(toUnmodifiableList());
-    }
-
-    static JCToolsWrapper<SpmcArrayQueue<WorkBatch>> newBoundedSpmc(int capacity) {
-        return BoundedJCWrapper.of(new SpmcArrayQueue<>(checkCapacity(capacity)), SPMC);
-    }
-
-    static List<JCToolsWrapper<SpmcArrayQueue<WorkBatch>>> newBoundedSpmcList(int listSize,
-            int queueCapacity) {
-        return Stream.generate(() -> newBoundedSpmc(queueCapacity)).limit(listSize)
-                .collect(toUnmodifiableList());
-    }
-
-    static JCToolsWrapper<SpscArrayQueue<WorkBatch>> newBoundedSpsc(int capacity) {
-        return BoundedJCWrapper.of(new SpscArrayQueue<>(checkCapacity(capacity)), SPSC);
-    }
-
-    static List<JCToolsWrapper<SpscArrayQueue<WorkBatch>>> newBoundedSpscList(int listSize,
-            int queueCapacity) {
-        return Stream.generate(() -> newBoundedSpsc(queueCapacity)).limit(listSize)
-                .collect(toUnmodifiableList());
-    }
-
-    private static int checkCapacity(int capacity) {
-        final int maxCapacity = 1 << 30; // Maximum power of two that an int can represent
-
-        if (mustBePositive(capacity, "capacity") > maxCapacity) {
-            throw new IllegalArgumentException(
-                    "capacity must not exceed " + maxCapacity + ", was: " + capacity);
-        }
-        return capacity;
     }
 }

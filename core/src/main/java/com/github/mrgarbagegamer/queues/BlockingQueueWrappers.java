@@ -10,11 +10,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.stream.Stream;
 
 import com.conversantmedia.util.concurrent.ConcurrentQueue;
-import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
@@ -194,44 +191,6 @@ final class BlockingQueueWrappers {
         final var nonNullDelegates = (List<Q>) requireNonNull(delegates,
                 "delegates must not be null");
         return nonNullDelegates.stream().map(BlockingQueueWrappers::wrap)
-                .collect(toUnmodifiableList());
-    }
-
-    // Package-private factories (encapsulated to make the chosen queue types an implementation
-    // detail).
-
-    static BlockingWrapper<DisruptorBlockingQueue<WorkBatch>> newBoundedMpmc(int capacity) {
-        // Assume the caller wants a DisruptorBlockingQueue.
-        return BoundedBlockingWrapper.ofExplicit(new DisruptorBlockingQueue<>(capacity), MPMC,
-                capacity);
-    }
-
-    static List<BlockingWrapper<DisruptorBlockingQueue<WorkBatch>>> newBoundedMpmcList(int listSize,
-            int queueCapacity) {
-        return Stream.generate(() -> newBoundedMpmc(queueCapacity)).limit(listSize)
-                .collect(toUnmodifiableList());
-    }
-
-    static BlockingWrapper<LinkedBlockingQueue<WorkBatch>> newUnboundedMpmc() {
-        // Assume the caller wants a LinkedBlockingQueue.
-        return UnboundedBlockingWrapper.ofExplicit(new LinkedBlockingQueue<>(), MPMC);
-    }
-
-    static List<BlockingWrapper<LinkedBlockingQueue<WorkBatch>>> newUnboundedMpmcList(
-            int listSize) {
-        return Stream.generate(BlockingQueueWrappers::newUnboundedMpmc).limit(listSize)
-                .collect(toUnmodifiableList());
-    }
-
-    static BlockingWrapper<PushPullBlockingQueue<WorkBatch>> newBoundedSpsc(int capacity) {
-        // Assume the caller wants a PushPullBlockingQueue.
-        return BoundedBlockingWrapper.ofExplicit(new PushPullBlockingQueue<>(capacity), SPSC,
-                capacity);
-    }
-
-    static List<BlockingWrapper<PushPullBlockingQueue<WorkBatch>>> newBoundedSpscList(int listSize,
-            int queueCapacity) {
-        return Stream.generate(() -> newBoundedSpsc(queueCapacity)).limit(listSize)
                 .collect(toUnmodifiableList());
     }
 

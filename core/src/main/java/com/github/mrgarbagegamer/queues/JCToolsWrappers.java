@@ -22,11 +22,8 @@ final class JCToolsWrappers {
     @ExcludeFromGeneratedCoverage
     private JCToolsWrappers() { utilityClassError("JCToolsWrappers"); }
 
-    static interface JCToolsWrapper<Q extends MessagePassingQueue<WorkBatch>>
-            extends QueueWrapper<Q> {}
-
     private static abstract class AbstractWrapper<Q extends MessagePassingQueue<WorkBatch>>
-            implements JCToolsWrapper<Q> {
+            implements QueueWrapper<Q> {
         protected final Q delegate;
 
         protected AbstractWrapper(Q delegate) {
@@ -114,37 +111,33 @@ final class JCToolsWrappers {
     }
 
     @SuppressWarnings("unchecked")
-    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrap(Q delegate) {
+    static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
         // The unchecked casts are safe because the upper bound of Q ensures that it is a
         // MessagePassingQueue<WorkBatch> and the instanceof check ensures that it also implements
         // QueueMetadataProvider, so a wrapper of the appropriate type will be returned.
-        return (JCToolsWrapper<Q>) (delegate instanceof QueueMetadataProvider
+        return (QueueWrapper<Q>) (delegate instanceof QueueMetadataProvider
                 ? MetadataWrapper
                         .wrap((MessagePassingQueue<WorkBatch> & QueueMetadataProvider) delegate)
                 : BoundedJCWrapper.create(delegate));
     }
 
-    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedMpmc(
-            Q delegate) {
+    static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedMpmc(Q delegate) {
         return BoundedJCWrapper.of(delegate, MPMC);
     }
 
-    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedMpsc(
-            Q delegate) {
+    static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedMpsc(Q delegate) {
         return BoundedJCWrapper.of(delegate, MPSC);
     }
 
-    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedSpmc(
-            Q delegate) {
+    static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedSpmc(Q delegate) {
         return BoundedJCWrapper.of(delegate, SPMC);
     }
 
-    static <Q extends MessagePassingQueue<WorkBatch>> JCToolsWrapper<Q> wrapBoundedSpsc(
-            Q delegate) {
+    static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedSpsc(Q delegate) {
         return BoundedJCWrapper.of(delegate, SPSC);
     }
 
-    static <Q extends MessagePassingQueue<WorkBatch>> List<JCToolsWrapper<Q>> wrapAll(
+    static <Q extends MessagePassingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapAll(
             List<? extends Q> delegates) {
         // This is safe because of the upper bound of Q and the fact that we only read from the
         // list, never writing to it (making it a producer of Qs, per the PECS principle).

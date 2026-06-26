@@ -23,10 +23,8 @@ final class BlockingQueueWrappers {
     @ExcludeFromGeneratedCoverage
     private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
 
-    static interface BlockingWrapper<Q extends BlockingQueue<WorkBatch>> extends QueueWrapper<Q> {}
-
     private static abstract class AbstractWrapper<Q extends BlockingQueue<WorkBatch>>
-            implements BlockingWrapper<Q> {
+            implements QueueWrapper<Q> {
         protected final Q delegate;
 
         protected AbstractWrapper(Q delegate) {
@@ -142,7 +140,7 @@ final class BlockingQueueWrappers {
 
     // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
 
-    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrap(Q delegate) {
+    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
 
         // Check if the delegate already provides metadata:
         if (mustNotBeNull(delegate, "delegate") instanceof QueueMetadataProvider) {
@@ -150,11 +148,11 @@ final class BlockingQueueWrappers {
             // delegate implements both interfaces:
             final var metadataDelegate = (BlockingQueue<WorkBatch> & QueueMetadataProvider) delegate;
 
-            // To conform with the return type, we need to cast the wrapper to BlockingWrapper<Q>.
+            // To conform with the return type, we need to cast the wrapper to QueueWrapper<Q>.
             // This is safe since the wrapper will implement the same BlockingQueue interface as the
             // delegate, and the delegate is of type Q:
             @SuppressWarnings("unchecked")
-            final BlockingWrapper<Q> wrapper = (BlockingWrapper<Q>) MetadataWrapper
+            final QueueWrapper<Q> wrapper = (QueueWrapper<Q>) MetadataWrapper
                     .wrap(metadataDelegate);
             return wrapper;
         } else if (isBounded(delegate)) {
@@ -164,26 +162,26 @@ final class BlockingQueueWrappers {
         }
     }
 
-    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapWithCapacity(Q delegate,
+    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapWithCapacity(Q delegate,
             int capacity) {
         return BoundedBlockingWrapper.ofWithCapacity(delegate, capacity);
     }
 
-    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapBoundedMpmc(Q delegate,
+    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedMpmc(Q delegate,
             int capacity) {
         return BoundedBlockingWrapper.ofExplicit(delegate, MPMC, capacity);
     }
 
-    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapUnboundedMpmc(Q delegate) {
+    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapUnboundedMpmc(Q delegate) {
         return UnboundedBlockingWrapper.ofExplicit(delegate, MPMC);
     }
 
-    static <Q extends BlockingQueue<WorkBatch>> BlockingWrapper<Q> wrapBoundedSpsc(Q delegate,
+    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedSpsc(Q delegate,
             int capacity) {
         return BoundedBlockingWrapper.ofExplicit(delegate, SPSC, capacity);
     }
 
-    static <Q extends BlockingQueue<WorkBatch>> List<BlockingWrapper<Q>> wrapAll(
+    static <Q extends BlockingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapAll(
             List<? extends Q> delegates) {
         // This is safe because of the upper bound of Q and the fact that we only read from the
         // list, never writing to it (making it a producer of Qs, per the PECS principle).

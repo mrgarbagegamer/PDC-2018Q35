@@ -1,12 +1,12 @@
 package com.github.mrgarbagegamer.queues;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
@@ -139,11 +139,7 @@ final class JCToolsWrappers {
 
     static <Q extends MessagePassingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapAll(
             List<? extends Q> delegates) {
-        // This is safe because of the upper bound of Q and the fact that we only read from the
-        // list, never writing to it (making it a producer of Qs, per the PECS principle).
-        @SuppressWarnings("unchecked")
-        final var nonNullDelegates = (List<Q>) requireNonNull(delegates,
-                "delegates must not be null");
+        List<Q> nonNullDelegates = copyOfNonNullList(delegates, "delegates");
         return nonNullDelegates.stream().map(JCToolsWrappers::wrap).collect(toUnmodifiableList());
     }
 }

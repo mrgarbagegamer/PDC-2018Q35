@@ -29,7 +29,7 @@ interface QueueWrapper<Q> extends QueueMetadataProvider {
      *            concurrently during unwrapping.
      * @memory Allocates a new list to hold the unwrapped queues plus stream overhead.
      */
-    static <Q> List<Q> unwrapAll(List<? extends QueueWrapper<Q>> wrappers) {
+    static <Q> List<Q> unwrapList(List<? extends QueueWrapper<Q>> wrappers) {
         return mustNotBeNull(wrappers, "wrappers").stream().map(QueueWrapper::unwrap)
                 .collect(toUnmodifiableList());
     }

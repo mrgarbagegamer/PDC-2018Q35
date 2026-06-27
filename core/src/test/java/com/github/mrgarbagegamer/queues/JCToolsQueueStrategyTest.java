@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 
 class JCToolsQueueStrategyTest {
     private static final int DEFAULT_QUEUE_CAPACITY = 16;

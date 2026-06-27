@@ -18,7 +18,7 @@ import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.github.mrgarbagegamer.queues.JCToolsQueueStrategy;
+import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import it.unimi.dsi.fastutil.ints.IntList;

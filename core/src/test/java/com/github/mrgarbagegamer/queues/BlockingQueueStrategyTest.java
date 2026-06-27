@@ -27,6 +27,7 @@ import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.QueueStrategies.BlockingQueueStrategy;
 
 class BlockingQueueStrategyTest {
     private static final int DEFAULT_QUEUE_CAPACITY = 16;

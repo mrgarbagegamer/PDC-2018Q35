@@ -23,7 +23,6 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.BoundedStrategy;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.UnboundedStrategy;
 
-// TODO: Consider removing the unused wrapBoundedXyz and wrapUnboundedXyz methods.
 final class QueueWrappers {
 
     @ExcludeFromGeneratedCoverage
@@ -83,7 +82,7 @@ final class QueueWrappers {
         return nonNullDelegates.stream().map(wrapperFactory).collect(toUnmodifiableList());
     }
 
-    static final class BlockingQueueWrappers {
+    private static final class BlockingQueueWrappers {
 
         @ExcludeFromGeneratedCoverage
         private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
@@ -122,29 +121,13 @@ final class QueueWrappers {
             @Override
             public int capacity() { return capacity; }
 
-            // Static factories:
-            private static <Q extends BlockingQueue<WorkBatch>> BoundedBlockingWrapper<Q> ofExplicit(
-                    Q delegate, AccessMode accessMode, int capacity) {
-                return new BoundedBlockingWrapper<>(delegate, accessMode, capacity);
-            }
-
-            private static <Q extends BlockingQueue<WorkBatch>> BoundedBlockingWrapper<Q> ofWithCapacity(
-                    Q delegate, int capacity) {
-                return delegate instanceof PushPullBlockingQueue<?>
-                        ? ofExplicit(delegate, SPSC, capacity)
-                        : ofExplicit(delegate, MPMC, capacity);
-            }
-
-            private static <Q extends BlockingQueue<WorkBatch>> BoundedBlockingWrapper<Q> ofWithAccessMode(
-                    Q delegate, AccessMode accessMode) {
-                return ofExplicit(delegate, accessMode, estimateCapacity(delegate));
-            }
-
             private static <Q extends BlockingQueue<WorkBatch>> BoundedBlockingWrapper<Q> create(
                     Q delegate) {
+                int capacity = estimateCapacity(delegate);
+
                 return delegate instanceof PushPullBlockingQueue<?>
-                        ? ofWithAccessMode(delegate, SPSC)
-                        : ofWithAccessMode(delegate, MPMC);
+                        ? new BoundedBlockingWrapper<>(delegate, SPSC, capacity)
+                        : new BoundedBlockingWrapper<>(delegate, MPMC, capacity);
             }
         }
 
@@ -172,7 +155,7 @@ final class QueueWrappers {
 
         // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
 
-        static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
+        private static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
 
             // Check if the delegate already provides metadata:
             if (mustNotBeNull(delegate, "delegate") instanceof QueueMetadataProvider) {
@@ -194,26 +177,7 @@ final class QueueWrappers {
             }
         }
 
-        static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapWithCapacity(Q delegate,
-                int capacity) {
-            return BoundedBlockingWrapper.ofWithCapacity(delegate, capacity);
-        }
-
-        static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedMpmc(Q delegate,
-                int capacity) {
-            return BoundedBlockingWrapper.ofExplicit(delegate, MPMC, capacity);
-        }
-
-        static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapUnboundedMpmc(Q delegate) {
-            return UnboundedBlockingWrapper.ofExplicit(delegate, MPMC);
-        }
-
-        static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedSpsc(Q delegate,
-                int capacity) {
-            return BoundedBlockingWrapper.ofExplicit(delegate, SPSC, capacity);
-        }
-
-        static <Q extends BlockingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapList(
+        private static <Q extends BlockingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapList(
                 List<? extends Q> delegates) {
             return wrapListHelper(delegates, BlockingQueueWrappers::wrap);
         }
@@ -230,7 +194,7 @@ final class QueueWrappers {
         }
     }
 
-    static final class JCToolsWrappers {
+    private static final class JCToolsWrappers {
 
         @ExcludeFromGeneratedCoverage
         private JCToolsWrappers() { utilityClassError("JCToolsWrappers"); }
@@ -269,11 +233,6 @@ final class QueueWrappers {
 
             // Static factories:
 
-            private static <Q extends MessagePassingQueue<WorkBatch>> BoundedJCWrapper<Q> of(
-                    Q delegate, AccessMode accessMode) {
-                return new BoundedJCWrapper<>(delegate, accessMode);
-            }
-
             private static <Q extends MessagePassingQueue<WorkBatch>> BoundedJCWrapper<Q> create(
                     Q delegate) {
                 mustNotBeNull(delegate, "delegate");
@@ -284,20 +243,20 @@ final class QueueWrappers {
 
                 final String name = delegate.getClass().getSimpleName();
                 if (name.startsWith("Spsc")) {
-                    return of(delegate, SPSC);
+                    return new BoundedJCWrapper<>(delegate, SPSC);
                 } else if (name.startsWith("Spmc")) {
-                    return of(delegate, SPMC);
+                    return new BoundedJCWrapper<>(delegate, SPMC);
                 } else if (name.startsWith("Mpsc")) {
-                    return of(delegate, MPSC);
+                    return new BoundedJCWrapper<>(delegate, MPSC);
                 } else {
                     // Default to MPMC for Mpmc* and unknown types
-                    return of(delegate, MPMC);
+                    return new BoundedJCWrapper<>(delegate, MPMC);
                 }
             }
         }
 
         @SuppressWarnings("unchecked")
-        static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
+        private static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
             // The unchecked casts are safe because the upper bound of Q ensures that it is a
             // MessagePassingQueue<WorkBatch> and the instanceof check ensures that it also
             // implements QueueMetadataProvider, so a wrapper of the appropriate type will be
@@ -308,29 +267,27 @@ final class QueueWrappers {
                     : BoundedJCWrapper.create(delegate));
         }
 
-        static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedMpmc(
-                Q delegate) {
-            return BoundedJCWrapper.of(delegate, MPMC);
-        }
-
-        static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedMpsc(
-                Q delegate) {
-            return BoundedJCWrapper.of(delegate, MPSC);
-        }
-
-        static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedSpmc(
-                Q delegate) {
-            return BoundedJCWrapper.of(delegate, SPMC);
-        }
-
-        static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapBoundedSpsc(
-                Q delegate) {
-            return BoundedJCWrapper.of(delegate, SPSC);
-        }
-
-        static <Q extends MessagePassingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapList(
+        private static <Q extends MessagePassingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapList(
                 List<? extends Q> delegates) {
             return wrapListHelper(delegates, JCToolsWrappers::wrap);
         }
+    }
+
+    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBlockingQueue(Q delegate) {
+        return BlockingQueueWrappers.wrap(delegate);
+    }
+
+    static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrapJCToolsQueue(Q delegate) {
+        return JCToolsWrappers.wrap(delegate);
+    }
+
+    static <Q extends BlockingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapBlockingQueueList(
+            List<? extends Q> delegates) {
+        return BlockingQueueWrappers.wrapList(delegates);
+    }
+
+    static <Q extends MessagePassingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapJCToolsQueueList(
+            List<? extends Q> delegates) {
+        return JCToolsWrappers.wrapList(delegates);
     }
 }

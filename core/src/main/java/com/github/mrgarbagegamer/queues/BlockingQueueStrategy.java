@@ -2,10 +2,10 @@ package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
-import static com.github.mrgarbagegamer.queues.QueueWrappers.BlockingQueueWrappers.wrapList;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveBlocking;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredBlocking;
 import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
+import static com.github.mrgarbagegamer.queues.QueueWrappers.wrapBlockingQueueList;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -194,8 +194,8 @@ public class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends
         @Override
         public BlockingQueueStrategy<G, M> build() {
             // 1. Wrap the queues:
-            final var wrappedGtmQueues = wrapList(this.gtmQueues);
-            final var wrappedMtgQueues = wrapList(this.mtgQueues);
+            final var wrappedGtmQueues = wrapBlockingQueueList(this.gtmQueues);
+            final var wrappedMtgQueues = wrapBlockingQueueList(this.mtgQueues);
 
             // 2. Build and validate the context:
             final var context = QueueValidationContext.builder(wrappedGtmQueues, wrappedMtgQueues)

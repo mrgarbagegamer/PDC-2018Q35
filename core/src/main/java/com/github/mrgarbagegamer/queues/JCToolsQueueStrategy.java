@@ -2,7 +2,7 @@ package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
-import static com.github.mrgarbagegamer.queues.JCToolsWrappers.wrapAll;
+import static com.github.mrgarbagegamer.queues.QueueWrappers.JCToolsWrappers.wrapList;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.biasedSequentialJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.exclusiveJCTools;
 import static com.github.mrgarbagegamer.queues.QueueSelectors.preferredJCTools;
@@ -205,8 +205,8 @@ public class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M ex
         @Override
         public JCToolsQueueStrategy<G, M> build() {
             // 1. Wrap the queues:
-            final var wrappedGtmQueues = wrapAll(this.gtmQueues);
-            final var wrappedMtgQueues = wrapAll(this.mtgQueues);
+            final var wrappedGtmQueues = wrapList(this.gtmQueues);
+            final var wrappedMtgQueues = wrapList(this.mtgQueues);
 
             // 2. Build and validate the context:
             final var context = QueueValidationContext.builder(wrappedGtmQueues, wrappedMtgQueues)

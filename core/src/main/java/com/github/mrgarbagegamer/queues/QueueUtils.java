@@ -18,11 +18,7 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
 
-// TODO: Replace Javadocs mentioning the old marker interface system with references to the new
-// QueueMetadataProvider interface and its methods.
-// TODO: Fix Javadocs for the validation methods to reflect new validation logic.
-// TODO: Write unit tests for the class.
-
+// TODO: Update Javadocs
 /**
  * A utility class for validating queue configurations and preallocating {@link WorkBatch}es into
  * queues.

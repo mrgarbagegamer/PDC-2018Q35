@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.BOUNDED;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.UNBOUNDED;
 
+// TODO: Update Javadocs
 /**
  * Represents metadata about a queue, including its {@link AccessMode} and {@link Boundedness}. This
  * interface provides a standardized way to retrieve important properties of a queue, which are used

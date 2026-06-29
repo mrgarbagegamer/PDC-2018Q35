@@ -8,6 +8,8 @@ import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
 import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.BOUNDED;
+import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.UNBOUNDED;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
@@ -20,8 +22,6 @@ import com.conversantmedia.util.concurrent.ConcurrentQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.BoundedStrategy;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.UnboundedStrategy;
 
 final class QueueWrappers {
 
@@ -76,6 +76,16 @@ final class QueueWrappers {
         }
     }
 
+    private interface BoundedStrategy extends QueueMetadataProvider {
+	    @Override
+	    default Boundedness boundedness() { return BOUNDED; }
+	}
+
+    private interface UnboundedStrategy extends QueueMetadataProvider {
+        @Override
+        default Boundedness boundedness() { return UNBOUNDED; }
+    }
+
     private static <Q> List<QueueWrapper<Q>> wrapListHelper(List<? extends Q> delegates,
             Function<? super Q, ? extends QueueWrapper<Q>> wrapperFactory) {
         final List<Q> nonNullDelegates = copyOfNonNullList(delegates, "delegates");
@@ -110,7 +120,7 @@ final class QueueWrappers {
         }
 
         private static class BoundedBlockingWrapper<Q extends BlockingQueue<WorkBatch>> extends
-                AbstractBaseWrapper<Q> implements BlockingImplementations<Q>, BoundedStrategy {
+                AbstractBaseWrapper<Q> implements BlockingImplementations<Q>, QueueWrappers.BoundedStrategy {
             private final int capacity;
 
             private BoundedBlockingWrapper(Q delegate, AccessMode accessMode, int capacity) {
@@ -226,7 +236,7 @@ final class QueueWrappers {
 
         private static final class BoundedJCWrapper<Q extends MessagePassingQueue<WorkBatch>>
                 extends AbstractBaseWrapper<Q>
-                implements JCToolsImplementations<Q>, BoundedStrategy {
+                implements JCToolsImplementations<Q>, QueueWrappers.BoundedStrategy {
             private BoundedJCWrapper(Q delegate, AccessMode accessMode) {
                 super(delegate, accessMode);
             }
@@ -273,7 +283,7 @@ final class QueueWrappers {
         }
     }
 
-    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBlockingQueue(Q delegate) {
+	static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBlockingQueue(Q delegate) {
         return BlockingQueueWrappers.wrap(delegate);
     }
 

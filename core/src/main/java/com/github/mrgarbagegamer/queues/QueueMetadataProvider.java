@@ -1,8 +1,5 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.BOUNDED;
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.UNBOUNDED;
-
 // TODO: Update Javadocs
 /**
  * Represents metadata about a queue, including its {@link AccessMode} and {@link Boundedness}. This
@@ -229,15 +226,5 @@ public interface QueueMetadataProvider {
         public final boolean isBounded() { return this == BOUNDED; }
 
         static Boundedness from(boolean isBounded) { return isBounded ? BOUNDED : UNBOUNDED; }
-    }
-
-    interface BoundedStrategy extends QueueMetadataProvider {
-        @Override
-        default Boundedness boundedness() { return BOUNDED; }
-    }
-
-    interface UnboundedStrategy extends QueueMetadataProvider {
-        @Override
-        default Boundedness boundedness() { return UNBOUNDED; }
     }
 }

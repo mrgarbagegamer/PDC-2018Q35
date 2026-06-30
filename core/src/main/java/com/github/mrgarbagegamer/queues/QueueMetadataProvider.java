@@ -58,24 +58,6 @@ public interface QueueMetadataProvider {
     int capacity();
 
     /**
-     * Determines whether the queue's capacity is acceptable for a given expected capacity.
-     * {@link Boundedness#UNBOUNDED Unbounded} queues can accommodate any expected capacity, while
-     * the behavior of {@link Boundedness#BOUNDED bounded} queues is implementation-dependent.
-     * 
-     * <p>
-     * The default implementation of this method requires an exact match for bounded queues.
-     * </p>
-     * 
-     * @param expectedCapacity the expected capacity to check against the queue's actual capacity.
-     * @return {@code true} if the queue's capacity is acceptable for the given expected capacity,
-     *         {@code false} otherwise.
-     * @since 2026.05 - Public Capacity Validation API
-     */
-    default boolean isCapacityAcceptable(int expectedCapacity) {
-        return !this.boundedness().isBounded() || this.capacity() == expectedCapacity;
-    }
-
-    /**
      * Represents the access mode of a queue, indicating whether it supports multiple producers
      * and/or multiple consumers.
      * 

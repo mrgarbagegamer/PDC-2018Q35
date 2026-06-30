@@ -51,11 +51,6 @@ final class QueueWrappers {
 
         @Override
         public final int capacity() { return delegate.capacity(); }
-
-        @Override
-        public final boolean isCapacityAcceptable(int capacity) {
-            return delegate.isCapacityAcceptable(capacity);
-        }
     }
 
     private static abstract class AbstractBaseWrapper<Q> extends AbstractWrapper<Q> {
@@ -68,12 +63,6 @@ final class QueueWrappers {
 
         @Override
         public final AccessMode accessMode() { return accessMode; }
-
-        @Override
-        public boolean isCapacityAcceptable(int capacity) {
-            return !this.boundedness().isBounded() || this.capacity() == capacity
-                    || this.capacity() == QueueUtils.roundToPow2(capacity);
-        }
     }
 
     private interface BoundedStrategy extends QueueMetadataProvider {

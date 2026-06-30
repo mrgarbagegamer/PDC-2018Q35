@@ -27,7 +27,6 @@ public final class QueueTestFixtures {
         private final Boundedness boundedness;
         private final AccessMode accessMode;
         private final int capacity;
-        private final boolean acceptableCapacityOverride;
         private final boolean rejectsOffer;
         private int size;
 
@@ -36,7 +35,6 @@ public final class QueueTestFixtures {
             this.boundedness = builder.boundedness;
             this.accessMode = builder.accessMode;
             this.capacity = builder.capacity;
-            this.acceptableCapacityOverride = builder.acceptableCapacityOverride;
             this.size = builder.size;
             this.rejectsOffer = builder.rejectsOffer;
         }
@@ -52,11 +50,6 @@ public final class QueueTestFixtures {
 
         @Override
         public int capacity() { return capacity; }
-
-        @Override
-        public boolean isCapacityAcceptable(int expectedCapacity) {
-            return acceptableCapacityOverride;
-        }
 
         @Override
         public int size() { return size; }
@@ -83,7 +76,6 @@ public final class QueueTestFixtures {
         private Boundedness boundedness = Boundedness.BOUNDED;
         private AccessMode accessMode = AccessMode.MPMC;
         private int capacity = 1024;
-        private boolean acceptableCapacityOverride = true;
         private int size = 0;
         private boolean rejectsOffer = false;
 
@@ -107,11 +99,6 @@ public final class QueueTestFixtures {
 
         public MockQueueBuilder<Q> capacity(int capacity) {
             this.capacity = capacity;
-            return this;
-        }
-
-        public MockQueueBuilder<Q> rejectsCapacity() {
-            this.acceptableCapacityOverride = false;
             return this;
         }
 

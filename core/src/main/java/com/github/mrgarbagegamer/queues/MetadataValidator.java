@@ -44,12 +44,17 @@ final class MetadataValidator {
     static void validateConsistentCapacity(QueueGroup<?> group) {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
+        // If the first queue is unbounded, we don't have to check capacities:
+        if (!wrappedQueues.getFirst().boundedness().isBounded()) {
+            return;
+        }
+
         // Ensure that all queues in the group have acceptable capacity relative to each other
-        final int firstCapacity = wrappedQueues.get(0).capacity();
+        final int firstCapacity = wrappedQueues.getFirst().capacity();
         for (int i = 1; i < wrappedQueues.size(); i++) {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
-            if (!currentQueue.isCapacityAcceptable(firstCapacity)) {
-                fail(group, i, "unacceptable capacity (%d) relative to the first queue (%d)",
+            if (currentQueue.capacity() != firstCapacity) {
+                fail(group, i, "a different capacity (%d) than the first queue (%d)",
                         currentQueue.capacity(), firstCapacity);
             }
         }

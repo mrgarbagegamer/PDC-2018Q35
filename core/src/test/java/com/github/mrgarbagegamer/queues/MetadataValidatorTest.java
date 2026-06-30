@@ -108,7 +108,7 @@ public class MetadataValidatorTest {
         }
 
         @Test
-        void givenGroupWithConsistentCapacity_thenSucceeds() {
+        void givenBoundedGroupWithConsistentCapacity_thenSucceeds() {
             final int capacity = 20;
 
             final var group = createGroupWithUniformQueues(
@@ -119,13 +119,10 @@ public class MetadataValidatorTest {
         }
 
         @Test
-        void givenGroupWithInconsistentButAcceptableCapacities_thenSucceeds() {
-            final int expectedCapacity = 20;
-            final int acceptableCapacity = 40;
-
+        void givenUnboundedGroup_thenSucceeds() {
             final var wrappedQueues = createListWithPoisonPill(
-                    MockQueueBuilder.create().capacity(expectedCapacity),
-                    MockQueueBuilder.create().capacity(acceptableCapacity), 2, 1);
+                    MockQueueBuilder.create().unbounded().capacity(20),
+                    MockQueueBuilder.create().unbounded().capacity(40), 2, 1);
             final var group = createGroupWithQueues(wrappedQueues);
 
             assertThatNoException()
@@ -133,7 +130,7 @@ public class MetadataValidatorTest {
         }
 
         @Test
-        void givenGroupWithInconsistentAndUnacceptableCapacities_thenThrowIllegalArgumentException() {
+        void givenBoundedGroupWithInconsistentCapacities_thenThrowIllegalArgumentException() {
             final int queueCount = 2;
             final int expectedCapacity = 20;
             final int unacceptableCapacity = 10;
@@ -141,15 +138,15 @@ public class MetadataValidatorTest {
 
             final var wrappedQueues = createListWithPoisonPill(
                     MockQueueBuilder.create().capacity(expectedCapacity),
-                    MockQueueBuilder.create().capacity(unacceptableCapacity).rejectsCapacity(),
+                    MockQueueBuilder.create().capacity(unacceptableCapacity),
                     queueCount, poisonIndex);
             final var group = createGroupWithQueues(wrappedQueues);
 
             assertThatIllegalArgumentException()
                     .isThrownBy(() -> MetadataValidator.validateConsistentCapacity(group))
                     .withMessageContaining("gtmQueue at index %d", poisonIndex)
-                    .withMessageContaining("has unacceptable capacity (%d)", unacceptableCapacity)
-                    .withMessageContaining("relative to the first queue (%d)", expectedCapacity);
+                    .withMessageContaining("has a different capacity (%d)", unacceptableCapacity)
+                    .withMessageContaining("than the first queue (%d)", expectedCapacity);
         }
     }
 }

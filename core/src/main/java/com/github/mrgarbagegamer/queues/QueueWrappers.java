@@ -55,24 +55,19 @@ final class QueueWrappers {
 
     private static abstract class AbstractBaseWrapper<Q> extends AbstractWrapper<Q> {
         private final AccessMode accessMode;
+        private final Boundedness boundedness;
 
-        protected AbstractBaseWrapper(Q delegate, AccessMode accessMode) {
+        protected AbstractBaseWrapper(Q delegate, AccessMode accessMode, Boundedness boundedness) {
             super(delegate);
             this.accessMode = mustNotBeNull(accessMode, "accessMode");
+            this.boundedness = mustNotBeNull(boundedness, "boundedness");
         }
 
         @Override
         public final AccessMode accessMode() { return accessMode; }
-    }
 
-    private interface BoundedStrategy extends QueueMetadataProvider {
-	    @Override
-	    default Boundedness boundedness() { return BOUNDED; }
-	}
-
-    private interface UnboundedStrategy extends QueueMetadataProvider {
         @Override
-        default Boundedness boundedness() { return UNBOUNDED; }
+        public final Boundedness boundedness() { return boundedness; }
     }
 
     private static <Q> List<QueueWrapper<Q>> wrapListHelper(List<? extends Q> delegates,
@@ -108,12 +103,12 @@ final class QueueWrappers {
             }
         }
 
-        private static class BoundedBlockingWrapper<Q extends BlockingQueue<WorkBatch>> extends
-                AbstractBaseWrapper<Q> implements BlockingImplementations<Q>, QueueWrappers.BoundedStrategy {
+        private static class BoundedBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
+                extends AbstractBaseWrapper<Q> implements BlockingImplementations<Q> {
             private final int capacity;
 
             private BoundedBlockingWrapper(Q delegate, AccessMode accessMode, int capacity) {
-                super(delegate, accessMode);
+                super(delegate, accessMode, BOUNDED);
                 this.capacity = mustBePositive(capacity, "capacity");
             }
 
@@ -130,10 +125,10 @@ final class QueueWrappers {
             }
         }
 
-        private static class UnboundedBlockingWrapper<Q extends BlockingQueue<WorkBatch>> extends
-                AbstractBaseWrapper<Q> implements BlockingImplementations<Q>, UnboundedStrategy {
+        private static class UnboundedBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
+                extends AbstractBaseWrapper<Q> implements BlockingImplementations<Q> {
             private UnboundedBlockingWrapper(Q delegate, AccessMode accessMode) {
-                super(delegate, accessMode);
+                super(delegate, accessMode, UNBOUNDED);
             }
 
             @Override
@@ -224,10 +219,9 @@ final class QueueWrappers {
         }
 
         private static final class BoundedJCWrapper<Q extends MessagePassingQueue<WorkBatch>>
-                extends AbstractBaseWrapper<Q>
-                implements JCToolsImplementations<Q>, QueueWrappers.BoundedStrategy {
+                extends AbstractBaseWrapper<Q> implements JCToolsImplementations<Q> {
             private BoundedJCWrapper(Q delegate, AccessMode accessMode) {
-                super(delegate, accessMode);
+                super(delegate, accessMode, BOUNDED);
             }
 
             // Static factories:
@@ -272,7 +266,7 @@ final class QueueWrappers {
         }
     }
 
-	static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBlockingQueue(Q delegate) {
+    static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrapBlockingQueue(Q delegate) {
         return BlockingQueueWrappers.wrap(delegate);
     }
 

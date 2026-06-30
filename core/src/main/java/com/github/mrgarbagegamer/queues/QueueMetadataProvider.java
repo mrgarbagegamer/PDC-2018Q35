@@ -149,17 +149,6 @@ public interface QueueMetadataProvider {
          * @since 2026.05 - Queue Metadata Interface
          */
         public final boolean isSingleConsumer() { return !multiConsumer; }
-
-        static AccessMode from(boolean multiProducer, boolean multiConsumer) {
-            if (multiProducer && multiConsumer)
-                return MPMC;
-            else if (multiProducer)
-                return MPSC;
-            else if (multiConsumer)
-                return SPMC;
-            else
-                return SPSC;
-        }
     }
 
     /**
@@ -206,7 +195,5 @@ public interface QueueMetadataProvider {
          * @memory Does not allocate.
          */
         public final boolean isBounded() { return this == BOUNDED; }
-
-        static Boundedness from(boolean isBounded) { return isBounded ? BOUNDED : UNBOUNDED; }
     }
 }

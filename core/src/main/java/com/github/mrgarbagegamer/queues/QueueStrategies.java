@@ -30,7 +30,6 @@ import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
-import com.github.mrgarbagegamer.queues.QueueSelector.ContinuationPredicates;
 
 // TODO: Write/Update Javadocs
 public final class QueueStrategies {

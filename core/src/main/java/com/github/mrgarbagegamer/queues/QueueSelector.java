@@ -5,7 +5,7 @@ import java.util.function.BooleanSupplier;
 
 import com.github.mrgarbagegamer.WorkBatch;
 
-// TODO: Consider updating Javadocs
+// TODO: Remove Javadocs, since the interface isn't public and is used internally.
 /**
  * An interface for selecting among a list of queues.
  * 
@@ -27,7 +27,7 @@ import com.github.mrgarbagegamer.WorkBatch;
  * @threading Must be thread-safe; implementations may be shared across threads.
  * @memory Must not allocate in the hot path of polling or offering.
  */
-public interface QueueSelector<Q> {
+interface QueueSelector<Q> {
 
     /**
      * Polls for a {@link WorkBatch} from the given queues.

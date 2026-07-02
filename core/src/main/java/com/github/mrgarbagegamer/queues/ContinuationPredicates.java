@@ -21,7 +21,7 @@ import com.github.mrgarbagegamer.TestClickCombination;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
-// TODO: Update Javadocs
+// TODO: Remove Javadocs, since the interface isn't public and is used internally.
 /**
  * A utility class that provides factory methods for creating various {@link BooleanSupplier
  * BooleanSuppliers} that can be used as "continuation predicates" for {@link QueueSelector
@@ -72,7 +72,7 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
  * @memory Does not allocate for no-ops or normal flag operations, though predicates that check
  *         multiple queues may allocate for stream operations if generation is complete.
  */
-public final class ContinuationPredicates {
+final class ContinuationPredicates {
 
     /**
      * Private constructor to prevent instantiation of this utility class.
@@ -113,7 +113,7 @@ public final class ContinuationPredicates {
      * @memory Creates a reusable lambda instance on each call to this method, with the supplier
      *         itself not allocating.
      */
-    public static BooleanSupplier neverTerminate() {
+    static BooleanSupplier neverTerminate() {
         // TODO: Consider creating a static final instance of this supplier to avoid unnecessary
         // allocations. We could also use a StableValue if we want to get fancy and avoid an eager
         // initialization, but that may be overkill.
@@ -167,7 +167,7 @@ public final class ContinuationPredicates {
      * @memory Allocates a single lambda instance that captures the provided state; the supplier
      *         itself does not allocate.
      */
-    public static BooleanSupplier forGenerator(SolverState state) {
+    static BooleanSupplier forGenerator(SolverState state) {
         mustNotBeNull(state, "state");
 
         return () -> !state.solutionFound();
@@ -223,7 +223,7 @@ public final class ContinuationPredicates {
      * @memory Allocates a lambda instance that captures the provided state and queues; the supplier
      *         itself does not allocate.
      */
-    public static BooleanSupplier forMonkey(SolverState state, List<?> gtmQueues) {
+    static BooleanSupplier forMonkey(SolverState state, List<?> gtmQueues) {
         mustNotBeNull(state, "state");
 
         // Copy the list:

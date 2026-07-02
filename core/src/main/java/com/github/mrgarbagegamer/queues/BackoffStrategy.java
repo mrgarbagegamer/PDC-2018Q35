@@ -4,7 +4,7 @@ import java.util.concurrent.locks.LockSupport;
 
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
-// TODO: Update Javadocs
+// TODO: Remove Javadocs, since the interface isn't public and is used internally.
 /**
  * A strategy for backing off when a thread is contending for a resource.
  * 
@@ -31,7 +31,7 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
  */
 @ExcludeFromGeneratedCoverage
 @FunctionalInterface
-public interface BackoffStrategy {
+interface BackoffStrategy {
 
     /**
      * Performs the backoff action.

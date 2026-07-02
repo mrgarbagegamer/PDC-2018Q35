@@ -78,10 +78,10 @@ public final class QueueStrategies {
             protected final SolverConfiguration config;
 
             // 2. Selectors (with overridable defaults from the asXyz() methods)
-            protected QueueSelector<M> generatorPollSelector;
-            protected QueueSelector<G> generatorOfferSelector;
-            protected QueueSelector<G> monkeyPollSelector;
-            protected QueueSelector<M> monkeyOfferSelector;
+            private QueueSelector<M> generatorPollSelector;
+            private QueueSelector<G> generatorOfferSelector;
+            private QueueSelector<G> monkeyPollSelector;
+            private QueueSelector<M> monkeyOfferSelector;
 
             // 3: Execution state (with overridable defaults)
             private BackoffStrategy generatorBackoff;
@@ -109,44 +109,44 @@ public final class QueueStrategies {
                         .forMonkey(mustNotBeNull(state, "state"), gtmQueues);
             }
 
-            public final B generatorPollSelector(QueueSelector<? super M> selector) {
+            final B generatorPollSelector(QueueSelector<? super M> selector) {
                 this.generatorPollSelector = mustNotBeNull(selector, "generatorPollSelector")
                         .asType();
                 return self();
             }
 
-            public final B generatorOfferSelector(QueueSelector<? super G> selector) {
+            final B generatorOfferSelector(QueueSelector<? super G> selector) {
                 this.generatorOfferSelector = mustNotBeNull(selector, "generatorOfferSelector")
                         .asType();
                 return self();
             }
 
-            public final B monkeyPollSelector(QueueSelector<? super G> selector) {
+            final B monkeyPollSelector(QueueSelector<? super G> selector) {
                 this.monkeyPollSelector = mustNotBeNull(selector, "monkeyPollSelector").asType();
                 return self();
             }
 
-            public final B monkeyOfferSelector(QueueSelector<? super M> selector) {
+            final B monkeyOfferSelector(QueueSelector<? super M> selector) {
                 this.monkeyOfferSelector = mustNotBeNull(selector, "monkeyOfferSelector").asType();
                 return self();
             }
 
-            public final B generatorBackoff(BackoffStrategy backoff) {
+            final B generatorBackoff(BackoffStrategy backoff) {
                 this.generatorBackoff = mustNotBeNull(backoff, "generatorBackoff");
                 return self();
             }
 
-            public final B monkeyBackoff(BackoffStrategy backoff) {
+            final B monkeyBackoff(BackoffStrategy backoff) {
                 this.monkeyBackoff = mustNotBeNull(backoff, "monkeyBackoff");
                 return self();
             }
 
-            public final B generatorShouldContinue(BooleanSupplier predicate) {
+            final B generatorShouldContinue(BooleanSupplier predicate) {
                 this.generatorShouldContinue = mustNotBeNull(predicate, "generatorShouldContinue");
                 return self();
             }
 
-            public final B monkeyShouldContinue(BooleanSupplier predicate) {
+            final B monkeyShouldContinue(BooleanSupplier predicate) {
                 this.monkeyShouldContinue = mustNotBeNull(predicate, "monkeyShouldContinue");
                 return self();
             }

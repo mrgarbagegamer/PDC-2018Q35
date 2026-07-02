@@ -18,7 +18,7 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 
-// TODO: Update Javadocs
+// TODO: Remove Javadocs, since the class isn't public and is used internally.
 /**
  * A utility class providing common {@link QueueSelector} implementations for different queue types.
  * 
@@ -35,7 +35,7 @@ import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
  * @threading Thread-safe.
  * @memory Does not allocate.
  */
-public final class QueueSelectors {
+final class QueueSelectors {
 
     @ExcludeFromGeneratedCoverage
     private QueueSelectors() { utilityClassError("QueueSelectors"); }
@@ -136,7 +136,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being stateless and thread-local random usage.
      * @memory Does not allocate.
      */
-    public static QueueSelector<MessagePassingQueue<WorkBatch>> randomSequentialJCTools() {
+    static QueueSelector<MessagePassingQueue<WorkBatch>> randomSequentialJCTools() {
         return JCToolsSelector.RANDOM_SEQUENTIAL;
     }
 
@@ -167,7 +167,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being stateless.
      * @memory Does not allocate.
      */
-    public static QueueSelector<MessagePassingQueue<WorkBatch>> linearSequentialJCTools() {
+    static QueueSelector<MessagePassingQueue<WorkBatch>> linearSequentialJCTools() {
         return JCToolsSelector.LINEAR_SEQUENTIAL;
     }
 
@@ -209,7 +209,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being stateless.
      * @memory Does not allocate.
      */
-    public static QueueSelector<MessagePassingQueue<WorkBatch>> biasedSequentialJCTools() {
+    static QueueSelector<MessagePassingQueue<WorkBatch>> biasedSequentialJCTools() {
         return JCToolsSelector.BIASED_SEQUENTIAL;
     }
 
@@ -244,7 +244,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being stateless.
      * @memory Does not allocate.
      */
-    public static QueueSelector<MessagePassingQueue<WorkBatch>> preferredJCTools() {
+    static QueueSelector<MessagePassingQueue<WorkBatch>> preferredJCTools() {
         return JCToolsSelector.PREFERRED;
     }
 
@@ -273,7 +273,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being stateless.
      * @memory Does not allocate.
      */
-    public static QueueSelector<MessagePassingQueue<WorkBatch>> exclusiveJCTools() {
+    static QueueSelector<MessagePassingQueue<WorkBatch>> exclusiveJCTools() {
         return JCToolsSelector.EXCLUSIVE;
     }
 
@@ -311,7 +311,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being stateless.
      * @memory Does not allocate.
      */
-    public static QueueSelector<BlockingQueue<WorkBatch>> preferredBlocking() {
+    static QueueSelector<BlockingQueue<WorkBatch>> preferredBlocking() {
         return BlockingQueueSelector.PREFERRED;
     }
 
@@ -340,7 +340,7 @@ public final class QueueSelectors {
      * @threading Thread-safe by nature of being stateless.
      * @memory Does not allocate.
      */
-    public static QueueSelector<BlockingQueue<WorkBatch>> exclusiveBlocking() {
+    static QueueSelector<BlockingQueue<WorkBatch>> exclusiveBlocking() {
         return BlockingQueueSelector.EXCLUSIVE;
     }
 

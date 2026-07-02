@@ -5,6 +5,7 @@ import java.util.function.BooleanSupplier;
 
 import com.github.mrgarbagegamer.WorkBatch;
 
+// TODO: Consider updating Javadocs
 /**
  * An interface for selecting among a list of queues.
  * 

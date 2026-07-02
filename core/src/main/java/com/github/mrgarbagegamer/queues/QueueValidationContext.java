@@ -65,12 +65,12 @@ class QueueValidationContext<G, M> {
     QueueGroup<M> mtgGroup() { return this.mtgGroup; }
 
     static class Builder<G, M> {
-        private final List<? extends QueueWrapper<G>> gtmQueues;
-        private final List<? extends QueueWrapper<M>> mtgQueues;
-        private QueueSelector<? super M> generatorPollSelector;
-        private QueueSelector<? super G> generatorOfferSelector;
-        private QueueSelector<? super G> monkeyPollSelector;
-        private QueueSelector<? super M> monkeyOfferSelector;
+        private final List<QueueWrapper<G>> gtmQueues;
+        private final List<QueueWrapper<M>> mtgQueues;
+        private QueueSelector<M> generatorPollSelector;
+        private QueueSelector<G> generatorOfferSelector;
+        private QueueSelector<G> monkeyPollSelector;
+        private QueueSelector<M> monkeyOfferSelector;
         private SolverConfiguration solverConfig;
 
         private Builder(List<? extends QueueWrapper<G>> gtmQueues,
@@ -84,35 +84,27 @@ class QueueValidationContext<G, M> {
         }
 
         Builder<G, M> generatorPollSelector(QueueSelector<? super M> selector) {
-            this.generatorPollSelector = mustNotBeNull(selector, "generatorPollSelector");
+            this.generatorPollSelector = mustNotBeNull(selector, "generatorPollSelector").asType();
             return this;
         }
 
         Builder<G, M> generatorOfferSelector(QueueSelector<? super G> selector) {
-            this.generatorOfferSelector = mustNotBeNull(selector, "generatorOfferSelector");
+            this.generatorOfferSelector = mustNotBeNull(selector, "generatorOfferSelector").asType();
             return this;
         }
 
         Builder<G, M> monkeyPollSelector(QueueSelector<? super G> selector) {
-            this.monkeyPollSelector = mustNotBeNull(selector, "monkeyPollSelector");
+            this.monkeyPollSelector = mustNotBeNull(selector, "monkeyPollSelector").asType();
             return this;
         }
 
         Builder<G, M> monkeyOfferSelector(QueueSelector<? super M> selector) {
-            this.monkeyOfferSelector = mustNotBeNull(selector, "monkeyOfferSelector");
+            this.monkeyOfferSelector = mustNotBeNull(selector, "monkeyOfferSelector").asType();
             return this;
         }
 
         Builder<G, M> solverConfig(SolverConfiguration config) {
-            // Ensure that the queueSize is greater than 0 and that numThreads is greater than 1
-            // (since we need at least one producer and one consumer):
-            if (mustNotBeNull(config, "solverConfig").queueSize() <= 0) {
-                throw new IllegalArgumentException("solverConfig.queueSize must be greater than 0");
-            } else if (config.numThreads() <= 1) {
-                throw new IllegalArgumentException(
-                        "solverConfig.numThreads must be greater than 1");
-            }
-            this.solverConfig = config;
+            this.solverConfig = mustNotBeNull(config, "solverConfig");
             return this;
         }
 

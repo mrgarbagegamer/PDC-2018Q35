@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.BackoffStrategy.noOp;
+import static com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy.noOp;
 import static com.github.mrgarbagegamer.queues.QueueUtils.newBoundedImmutableQueueList;
 import static org.assertj.core.api.Assertions.as;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,6 +30,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
 
 class QueueSelectorsTest {
 

@@ -27,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
+import com.github.mrgarbagegamer.queues.QueueSelector.ContinuationPredicates;
 
 @ExtendWith(MockitoExtension.class)
 public class ContinuationPredicatesTest {

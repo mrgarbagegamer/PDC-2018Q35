@@ -14,6 +14,7 @@ import org.jctools.queues.MessagePassingQueue;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 
 final class QueueSelectors {

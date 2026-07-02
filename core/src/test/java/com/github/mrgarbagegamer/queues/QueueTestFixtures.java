@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 
 import com.github.mrgarbagegamer.WorkBatch;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
+import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness;
 
 public final class QueueTestFixtures {
 

@@ -4,8 +4,8 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness;
+import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness;
 
 final class MetadataValidator {
     @ExcludeFromGeneratedCoverage

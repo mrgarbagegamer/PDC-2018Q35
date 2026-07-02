@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode.SPSC;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.createListWithPoisonPill;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.createUniformList;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.dummySelector;

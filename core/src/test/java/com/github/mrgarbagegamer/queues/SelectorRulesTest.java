@@ -20,7 +20,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueBuilder;
 import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueWrapper;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;

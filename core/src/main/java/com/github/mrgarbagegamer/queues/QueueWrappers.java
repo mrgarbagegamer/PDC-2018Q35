@@ -4,12 +4,12 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullLi
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPMC;
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.MPSC;
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPMC;
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode.SPSC;
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.BOUNDED;
-import static com.github.mrgarbagegamer.queues.QueueMetadataProvider.Boundedness.UNBOUNDED;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode.MPMC;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode.MPSC;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode.SPMC;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode.SPSC;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness.BOUNDED;
+import static com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness.UNBOUNDED;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;

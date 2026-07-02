@@ -43,23 +43,23 @@ final class SelectorValidationTarget<Q> {
 
     int threadCount() { return threadCount; }
 
-    boolean isSingleAccess(QueueMetadataProvider qmp) { return role.isSingleAccess(qmp); }
+    boolean isSingleAccess(QueueWrapper<?> wrapper) { return role.isSingleAccess(wrapper); }
 
     private enum ValidationRole {
-        PRODUCER("producer", (qmp) -> qmp.accessMode().isSingleProducer()),
-        CONSUMER("consumer", (qmp) -> qmp.accessMode().isSingleConsumer());
+        PRODUCER("producer", (wrapper) -> wrapper.accessMode().isSingleProducer()),
+        CONSUMER("consumer", (wrapper) -> wrapper.accessMode().isSingleConsumer());
 
         private final String name;
-        private final Predicate<QueueMetadataProvider> singleAccess;
+        private final Predicate<QueueWrapper<?>> singleAccess;
 
-        private ValidationRole(String name, Predicate<QueueMetadataProvider> singleAccess) {
+        private ValidationRole(String name, Predicate<QueueWrapper<?>> singleAccess) {
             this.name = name;
             this.singleAccess = singleAccess;
         }
 
         final String getName() { return name; }
 
-        final boolean isSingleAccess(QueueMetadataProvider qmp) { return singleAccess.test(qmp); }
+        final boolean isSingleAccess(QueueWrapper<?> wrapper) { return singleAccess.test(wrapper); }
 
         final boolean isProducer() { return this == PRODUCER; }
     }

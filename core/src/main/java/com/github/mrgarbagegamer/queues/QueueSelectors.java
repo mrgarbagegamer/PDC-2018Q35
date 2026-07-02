@@ -15,7 +15,7 @@ import org.jctools.queues.MessagePassingQueue;
 import com.github.mrgarbagegamer.QueueStrategy;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
-import com.github.mrgarbagegamer.queues.QueueMetadataProvider.AccessMode;
+import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 
 // TODO: Update Javadocs

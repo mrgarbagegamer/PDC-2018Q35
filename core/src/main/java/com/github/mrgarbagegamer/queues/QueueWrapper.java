@@ -8,7 +8,7 @@ import java.util.List;
 import com.github.mrgarbagegamer.WorkBatch;
 
 // TODO: Remove Javadocs, since the interface isn't public and is used internally.
-interface QueueWrapper<Q> extends QueueMetadataProvider {
+interface QueueWrapper<Q> {
     /**
      * Unwraps the underlying queue from this wrapper.
      * 

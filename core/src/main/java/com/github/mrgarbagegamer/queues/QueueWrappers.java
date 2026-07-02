@@ -30,38 +30,17 @@ final class QueueWrappers {
 
     private static abstract class AbstractWrapper<Q> implements QueueWrapper<Q> {
         protected final Q delegate;
+        private final AccessMode accessMode;
+        private final Boundedness boundedness;
 
-        protected AbstractWrapper(Q delegate) {
+        protected AbstractWrapper(Q delegate, AccessMode accessMode, Boundedness boundedness) {
             this.delegate = mustNotBeNull(delegate, "delegate");
+            this.accessMode = mustNotBeNull(accessMode, "accessMode");
+            this.boundedness = mustNotBeNull(boundedness, "boundedness");
         }
 
         @Override
         public final Q unwrap() { return delegate; }
-    }
-
-    private static abstract class AbstractMetadataWrapper<Q extends QueueMetadataProvider>
-            extends AbstractWrapper<Q> {
-        protected AbstractMetadataWrapper(Q delegate) { super(delegate); }
-
-        @Override
-        public final AccessMode accessMode() { return delegate.accessMode(); }
-
-        @Override
-        public final Boundedness boundedness() { return delegate.boundedness(); }
-
-        @Override
-        public final int capacity() { return delegate.capacity(); }
-    }
-
-    private static abstract class AbstractBaseWrapper<Q> extends AbstractWrapper<Q> {
-        private final AccessMode accessMode;
-        private final Boundedness boundedness;
-
-        protected AbstractBaseWrapper(Q delegate, AccessMode accessMode, Boundedness boundedness) {
-            super(delegate);
-            this.accessMode = mustNotBeNull(accessMode, "accessMode");
-            this.boundedness = mustNotBeNull(boundedness, "boundedness");
-        }
 
         @Override
         public final AccessMode accessMode() { return accessMode; }
@@ -81,30 +60,25 @@ final class QueueWrappers {
         @ExcludeFromGeneratedCoverage
         private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
 
-        private interface BlockingImplementations<Q extends BlockingQueue<WorkBatch>>
-                extends QueueWrapper<Q> {
-            @Override
-            default boolean offer(WorkBatch e) { return unwrap().offer(e); }
-
-            @Override
-            default int size() { return unwrap().size(); }
-
-            @Override
-            default boolean isEmpty() { return unwrap().isEmpty(); }
-        }
-
-        private static final class MetadataWrapper<Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider>
-                extends AbstractMetadataWrapper<Q> implements BlockingImplementations<Q> {
-            private MetadataWrapper(Q delegate) { super(delegate); }
-
-            private static <Q extends BlockingQueue<WorkBatch> & QueueMetadataProvider> MetadataWrapper<Q> wrap(
-                    Q delegate) {
-                return new MetadataWrapper<>(delegate);
+        private static abstract class AbstractBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
+                extends AbstractWrapper<Q> {
+            protected AbstractBlockingWrapper(Q delegate, AccessMode accessMode,
+                    Boundedness boundedness) {
+                super(delegate, accessMode, boundedness);
             }
+
+            @Override
+            public boolean offer(WorkBatch e) { return delegate.offer(e); }
+
+            @Override
+            public int size() { return delegate.size(); }
+
+            @Override
+            public boolean isEmpty() { return delegate.isEmpty(); }
         }
 
         private static class BoundedBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
-                extends AbstractBaseWrapper<Q> implements BlockingImplementations<Q> {
+                extends AbstractBlockingWrapper<Q> {
             private final int capacity;
 
             private BoundedBlockingWrapper(Q delegate, AccessMode accessMode, int capacity) {
@@ -126,7 +100,7 @@ final class QueueWrappers {
         }
 
         private static class UnboundedBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
-                extends AbstractBaseWrapper<Q> implements BlockingImplementations<Q> {
+                extends AbstractBlockingWrapper<Q> {
             private UnboundedBlockingWrapper(Q delegate, AccessMode accessMode) {
                 super(delegate, accessMode, UNBOUNDED);
             }
@@ -150,30 +124,8 @@ final class QueueWrappers {
         // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
 
         private static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
-
-            // Check if the delegate already provides metadata:
-            if (mustNotBeNull(delegate, "delegate") instanceof QueueMetadataProvider) {
-                // This is a safe cast since the check above (and Q's upper bound) guarantees that
-                // the delegate implements both interfaces:
-                final var metadataDelegate = (BlockingQueue<WorkBatch> & QueueMetadataProvider) delegate;
-
-                // To conform with the return type, we need to cast the wrapper to QueueWrapper<Q>.
-                // This is safe since the wrapper will implement the same BlockingQueue interface as
-                // the delegate, and the delegate is of type Q:
-                @SuppressWarnings("unchecked")
-                final QueueWrapper<Q> wrapper = (QueueWrapper<Q>) MetadataWrapper
-                        .wrap(metadataDelegate);
-                return wrapper;
-            } else if (isBounded(delegate)) {
-                return BoundedBlockingWrapper.create(delegate);
-            } else {
-                return UnboundedBlockingWrapper.create(delegate);
-            }
-        }
-
-        private static <Q extends BlockingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapList(
-                List<? extends Q> delegates) {
-            return wrapListHelper(delegates, BlockingQueueWrappers::wrap);
+            return isBounded(delegate) ? BoundedBlockingWrapper.create(delegate)
+                    : UnboundedBlockingWrapper.create(delegate);
         }
 
         private static int estimateCapacity(BlockingQueue<WorkBatch> queue) {
@@ -193,36 +145,23 @@ final class QueueWrappers {
         @ExcludeFromGeneratedCoverage
         private JCToolsWrappers() { utilityClassError("JCToolsWrappers"); }
 
-        private interface JCToolsImplementations<Q extends MessagePassingQueue<WorkBatch>>
-                extends QueueWrapper<Q> {
-            @Override
-            default int capacity() { return unwrap().capacity(); }
-
-            @Override
-            default boolean offer(WorkBatch e) { return unwrap().offer(e); }
-
-            @Override
-            default int size() { return unwrap().size(); }
-
-            @Override
-            default boolean isEmpty() { return unwrap().isEmpty(); }
-        }
-
-        private static class MetadataWrapper<Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider>
-                extends AbstractMetadataWrapper<Q> implements JCToolsImplementations<Q> {
-            private MetadataWrapper(Q delegate) { super(delegate); }
-
-            private static <Q extends MessagePassingQueue<WorkBatch> & QueueMetadataProvider> MetadataWrapper<Q> wrap(
-                    Q delegate) {
-                return new MetadataWrapper<>(delegate);
-            }
-        }
-
         private static final class BoundedJCWrapper<Q extends MessagePassingQueue<WorkBatch>>
-                extends AbstractBaseWrapper<Q> implements JCToolsImplementations<Q> {
+                extends AbstractWrapper<Q> {
             private BoundedJCWrapper(Q delegate, AccessMode accessMode) {
                 super(delegate, accessMode, BOUNDED);
             }
+
+            @Override
+            public int capacity() { return delegate.capacity(); }
+
+            @Override
+            public boolean offer(WorkBatch e) { return delegate.offer(e); }
+
+            @Override
+            public int size() { return delegate.size(); }
+
+            @Override
+            public boolean isEmpty() { return delegate.isEmpty(); }
 
             // Static factories:
 
@@ -248,21 +187,8 @@ final class QueueWrappers {
             }
         }
 
-        @SuppressWarnings("unchecked")
         private static <Q extends MessagePassingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
-            // The unchecked casts are safe because the upper bound of Q ensures that it is a
-            // MessagePassingQueue<WorkBatch> and the instanceof check ensures that it also
-            // implements QueueMetadataProvider, so a wrapper of the appropriate type will be
-            // returned.
-            return (QueueWrapper<Q>) (delegate instanceof QueueMetadataProvider
-                    ? MetadataWrapper
-                            .wrap((MessagePassingQueue<WorkBatch> & QueueMetadataProvider) delegate)
-                    : BoundedJCWrapper.create(delegate));
-        }
-
-        private static <Q extends MessagePassingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapList(
-                List<? extends Q> delegates) {
-            return wrapListHelper(delegates, JCToolsWrappers::wrap);
+            return BoundedJCWrapper.create(delegate);
         }
     }
 
@@ -276,11 +202,11 @@ final class QueueWrappers {
 
     static <Q extends BlockingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapBlockingQueueList(
             List<? extends Q> delegates) {
-        return BlockingQueueWrappers.wrapList(delegates);
+        return wrapListHelper(delegates, QueueWrappers::wrapBlockingQueue);
     }
 
     static <Q extends MessagePassingQueue<WorkBatch>> List<QueueWrapper<Q>> wrapJCToolsQueueList(
             List<? extends Q> delegates) {
-        return JCToolsWrappers.wrapList(delegates);
+        return wrapListHelper(delegates, QueueWrappers::wrapJCToolsQueue);
     }
 }

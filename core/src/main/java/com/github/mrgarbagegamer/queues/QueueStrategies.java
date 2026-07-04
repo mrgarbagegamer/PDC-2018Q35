@@ -573,7 +573,18 @@ public final class QueueStrategies {
         }
     }
 
-    // TODO: Add class-level Javadocs
+    /**
+     * A {@link QueueStrategy} implementation that uses {@linkplain MessagePassingQueue}s for both
+     * the generator-to-monkey and monkey-to-generator queues.
+     * 
+     * <p>
+     * Static factory methods are provided for the four common configurations, with a
+     * {@link Builder} class for custom configurations.
+     * 
+     * @param <G> the type of the generator-to-monkey queues
+     * @param <M> the type of the monkey-to-generator queues
+     * @since 2026.02 - Queue Injection Refactor
+     */
     public static class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
             extends AbstractQueueStrategy<G, M> {
 
@@ -585,7 +596,15 @@ public final class QueueStrategies {
 
         // Static factory methods for common configurations:
 
-        // TODO: Add Javadocs
+        /**
+         * Creates a {@code JCToolsQueueStrategy} with a single generator-to-monkey queue and
+         * multiple monkey-to-generator queues.
+         * 
+         * @param config      a {@link SolverConfiguration} with the desired configuration
+         * @param solverState a {@link SolverState} to handle termination conditions
+         * @return a new {@code JCToolsQueueStrategy} instance
+         * @throws NullPointerException if {@code config} or {@code solverState} is null.
+         */
         public static JCToolsQueueStrategy<?, ?> singleSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -599,7 +618,15 @@ public final class QueueStrategies {
 
         }
 
-        // TODO: Add Javadocs
+        /**
+         * Creates a {@code JCToolsQueueStrategy} with a single generator-to-monkey queue and
+         * multiple monkey-to-generator queues.
+         * 
+         * @param config      a {@link SolverConfiguration} with the desired configuration
+         * @param solverState a {@link SolverState} to handle termination conditions
+         * @return a new {@code JCToolsQueueStrategy} instance
+         * @throws NullPointerException if {@code config} or {@code solverState} is null.
+         */
         public static JCToolsQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -613,7 +640,15 @@ public final class QueueStrategies {
                     .asSingleMulti().preallocateQueues(queueSize).build();
         }
 
-        // TODO: Add Javadocs
+        /**
+         * Creates a {@code JCToolsQueueStrategy} with multiple generator-to-monkey queues and a
+         * single monkey-to-generator queue.
+         * 
+         * @param config      a {@link SolverConfiguration} with the desired configuration
+         * @param solverState a {@link SolverState} to handle termination conditions
+         * @return a new {@code JCToolsQueueStrategy} instance
+         * @throws NullPointerException if {@code config} or {@code solverState} is null.
+         */
         public static JCToolsQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -627,7 +662,15 @@ public final class QueueStrategies {
                     .asMultiSingle().preallocateQueues(queueSize * numMonkeys).build();
         }
 
-        // TODO: Add Javadocs
+        /**
+         * Creates a {@code JCToolsQueueStrategy} with multiple generator-to-monkey queues and
+         * multiple monkey-to-generator queues.
+         * 
+         * @param config      a {@link SolverConfiguration} with the desired configuration
+         * @param solverState a {@link SolverState} to handle termination conditions
+         * @return a new {@code JCToolsQueueStrategy} instance
+         * @throws NullPointerException if {@code config} or {@code solverState} is null.
+         */
         public static JCToolsQueueStrategy<?, ?> multiMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -642,17 +685,41 @@ public final class QueueStrategies {
                     .asMultiMulti().preallocateQueues(queueSize).build();
         }
 
-        // TODO: Add Javadocs
+        /**
+         * Returns a new {@link Builder} instance with the specified parameters.
+         * 
+         * @param gtmQueues the generator-to-monkey queues
+         * @param mtgQueues the monkey-to-generator queues
+         * @param config    a {@link SolverConfiguration} with the desired configuration
+         * @param state     a {@link SolverState} to handle termination conditions
+         * @return a new {@code Builder} instance
+         * @throws NullPointerException if {@code config} or {@code solverState} is null.
+         */
         public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> Builder<G, M> builder(
                 List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                 SolverConfiguration config, SolverState state) {
             return new Builder<>(gtmQueues, mtgQueues, config, state);
         }
 
-        // TODO: Add class-level Javadocs
+        /**
+         * A builder for creating {@link JCToolsQueueStrategy} instances.
+         * 
+         * @param <G> the type of the generator-to-monkey queues
+         * @param <M> the type of the monkey-to-generator queues
+         * @since 2026.06 - Builder Pattern for Queue Strategies
+         */
         public static final class Builder<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
                 extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 
+            /**
+             * Creates a new builder instance with the specified parameters.
+             * 
+             * @param gtmQueues the generator-to-monkey queues
+             * @param mtgQueues the monkey-to-generator queues
+             * @param config    a {@link SolverConfiguration} with the desired configuration
+             * @param state     a {@link SolverState} to handle termination conditions
+             * @throws NullPointerException if {@code config} or {@code solverState} is null.
+             */
             private Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                     SolverConfiguration config, SolverState state) {
                 super(gtmQueues, mtgQueues, config, state);
@@ -713,11 +780,22 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@return this builder instance for method chaining}
+             */
             @Override
             protected Builder<G, M> self() { return this; }
 
-            // TODO: Add Javadocs
+            /**
+             * Builds the {@link JCToolsQueueStrategy} instance with the current configuration.
+             * 
+             * @return a new {@code JCToolsQueueStrategy} instance
+             * @throws IllegalStateException if the builder's configuration is invalid (e.g., if the
+             *                               required parameters have not been set, the queue list
+             *                               sizes do not match the topology configuration, the
+             *                               queue metadata is inconsistent, or queue preallocation
+             *                               fails).
+             */
             @Override
             public JCToolsQueueStrategy<G, M> build() {
                 // 1. Wrap the queues:

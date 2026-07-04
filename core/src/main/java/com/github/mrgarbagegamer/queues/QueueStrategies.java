@@ -152,7 +152,20 @@ public final class QueueStrategies {
                 return self();
             }
 
-            // TODO: Add Javadocs
+            /**
+             * Sets the number of {@linkplain WorkBatch batches} to preallocate into each
+             * monkey-to-generator queue.
+             * 
+             * @apiNote This method should be called before {@link #build()} if the user wants to
+             *          preallocate a specific number of batches evenly across the
+             *          monkey-to-generator queues. Otherwise, the user may choose to fill the
+             *          monkey-to-generator queues prior to execution and not call this method.
+             * 
+             * @param batchesPerQueue the positive number of batches to preallocate into each
+             *                        monkey-to-generator queue
+             * @return this builder instance for method chaining
+             * @throws IllegalArgumentException if {@code batchesPerQueue} is not positive.
+             */
             public final B preallocateQueues(int batchesPerQueue) {
                 this.batchesPerQueue = mustBePositive(batchesPerQueue, "batchesPerQueue");
                 return self();

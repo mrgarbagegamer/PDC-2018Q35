@@ -74,9 +74,9 @@ public final class QueueStrategies {
 
         private static abstract class Builder<G, M, B extends Builder<G, M, B>> {
             // 1: Required parameters (enforced via constructor)
-            protected final List<G> gtmQueues;
-            protected final List<M> mtgQueues;
-            protected final SolverConfiguration config;
+            private final List<G> gtmQueues;
+            private final List<M> mtgQueues;
+            private final SolverConfiguration config;
 
             // 2. Selectors (with overridable defaults from the asXyz() methods)
             private QueueSelector<M> generatorPollSelector;
@@ -91,7 +91,7 @@ public final class QueueStrategies {
             private BooleanSupplier monkeyShouldContinue;
 
             // 4. Preallocation value (with overridable default of 0, which means no preallocation):
-            protected int batchesPerQueue = 0;
+            private int batchesPerQueue = 0;
 
             protected Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                     SolverConfiguration config, SolverState state) {
@@ -403,8 +403,10 @@ public final class QueueStrategies {
             @Override
             public BlockingQueueStrategy<G, M> build() {
                 // 1. Wrap the queues:
-                final var wrappedGtmQueues = wrapBlockingQueueList(this.gtmQueues);
-                final var wrappedMtgQueues = wrapBlockingQueueList(this.mtgQueues);
+                final List<QueueWrapper<G>> wrappedGtmQueues = wrapBlockingQueueList(
+                        super.gtmQueues);
+                final List<QueueWrapper<M>> wrappedMtgQueues = wrapBlockingQueueList(
+                        super.mtgQueues);
 
                 // 2. Validate and pre-allocate:
                 validateAndPreallocate(wrappedGtmQueues, wrappedMtgQueues);
@@ -562,8 +564,10 @@ public final class QueueStrategies {
             @Override
             public JCToolsQueueStrategy<G, M> build() {
                 // 1. Wrap the queues:
-                final var wrappedGtmQueues = wrapJCToolsQueueList(this.gtmQueues);
-                final var wrappedMtgQueues = wrapJCToolsQueueList(this.mtgQueues);
+                final List<QueueWrapper<G>> wrappedGtmQueues = wrapJCToolsQueueList(
+                        super.gtmQueues);
+                final List<QueueWrapper<M>> wrappedMtgQueues = wrapJCToolsQueueList(
+                        super.mtgQueues);
 
                 // 2. Validate and pre-allocate:
                 validateAndPreallocate(wrappedGtmQueues, wrappedMtgQueues);

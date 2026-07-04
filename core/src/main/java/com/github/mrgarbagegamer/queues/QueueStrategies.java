@@ -171,12 +171,46 @@ public final class QueueStrategies {
                 return self();
             }
 
+            /**
+             * Configures the builder for a single generator-to-monkey queue and a single
+             * monkey-to-generator queue.
+             * 
+             * @return this builder instance for method chaining
+             * @throws IllegalStateException if the generator-to-monkey or monkey-to-generator queue
+             *                               lists do not contain exactly one queue each.
+             */
             public abstract B asSingleSingle();
 
+            /**
+             * Configures the builder for a single generator-to-monkey queue and multiple
+             * monkey-to-generator queues.
+             * 
+             * @return this builder instance for method chaining
+             * @throws IllegalStateException if the generator-to-monkey queue list does not contain
+             *                               exactly one queue or if the monkey-to-generator queue
+             *                               list does not contain more than one queue.
+             */
             public abstract B asSingleMulti();
 
+            /**
+             * Configures the builder for multiple generator-to-monkey queues and a single
+             * monkey-to-generator queue.
+             * 
+             * @return this builder instance for method chaining
+             * @throws IllegalStateException if the generator-to-monkey queue list does not contain
+             *                               more than one queue or if the monkey-to-generator queue
+             *                               list does not contain exactly one queue.
+             */
             public abstract B asMultiSingle();
 
+            /**
+             * Configures the builder for multiple generator-to-monkey queues and multiple
+             * monkey-to-generator queues.
+             * 
+             * @return this builder instance for method chaining
+             * @throws IllegalStateException if the generator-to-monkey or monkey-to-generator queue
+             *                               lists do not contain more than one queue each.
+             */
             public abstract B asMultiMulti();
 
             protected abstract B self();
@@ -360,7 +394,11 @@ public final class QueueStrategies {
                 monkeyBackoff(DEFAULT_BACKOFF);
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             * 
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asSingleSingle() {
                 checkSingleSingle();
@@ -369,7 +407,11 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             * 
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asSingleMulti() {
                 checkSingleMulti();
@@ -378,7 +420,11 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             * 
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asMultiSingle() {
                 checkMultiSingle();
@@ -387,7 +433,11 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             * 
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asMultiMulti() {
                 checkMultiMulti();
@@ -521,7 +571,11 @@ public final class QueueStrategies {
                 monkeyBackoff(DEFAULT_MONKEY_BACKOFF);
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             *
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asSingleSingle() {
                 checkSingleSingle();
@@ -530,7 +584,11 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             *
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asSingleMulti() {
                 checkSingleMulti();
@@ -539,7 +597,11 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             *
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asMultiSingle() {
                 checkMultiSingle();
@@ -548,7 +610,11 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Add Javadocs
+            /**
+             * {@inheritDoc}
+             *
+             * @throws IllegalStateException {@inheritDoc}
+             */
             @Override
             public Builder<G, M> asMultiMulti() {
                 checkMultiMulti();

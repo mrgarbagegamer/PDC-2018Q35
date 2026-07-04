@@ -31,7 +31,39 @@ import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
 
-// TODO: Add class-level Javadocs
+/**
+ * Utility container class providing factory methods and builders to configure and instantiate
+ * {@link QueueStrategy} implementations.
+ * 
+ * <p>
+ * This class cannot be instantiated, and serves as the namespace for:
+ * <ul>
+ * <li>{@link BlockingQueueStrategy}: A strategy using {@link BlockingQueue} implementations from
+ * the JDK or Conversant's Disruptor library (e.g., {@link DisruptorBlockingQueue} and
+ * {@link PushPullBlockingQueue}).</li>
+ * <li>{@link JCToolsQueueStrategy}: A lock-free strategy using JCTools' {@link MessagePassingQueue}
+ * implementations (e.g. {@link MpmcArrayQueue}).</li>
+ * </ul>
+ * 
+ * <p>
+ * Both strategies support four queue topologies:
+ * <ul>
+ * <li><b>Single-Single</b>: One generator-to-monkey queue and one monkey-to-generator queue.</li>
+ * <li><b>Single-Multi</b>: One generator-to-monkey queue and multiple monkey-to-generator
+ * queues.</li>
+ * <li><b>Multi-Single</b>: Multiple generator-to-monkey queues and one monkey-to-generator
+ * queue.</li>
+ * <li><b>Multi-Multi</b>: Multiple generator-to-monkey queues and multiple monkey-to-generator
+ * queues.</li>
+ * </ul>
+ * 
+ * <p>
+ * Common configurations can be instantiated directly via static factory methods on the nested
+ * classes (e.g., {@link BlockingQueueStrategy#singleSingle(SolverConfiguration, SolverState)}),
+ * while more complex topologies with custom queues can be set up via their respective builders.
+ * 
+ * @since 2026.06 - Reduced Queue Strategy Duplication
+ */
 public final class QueueStrategies {
     @ExcludeFromGeneratedCoverage
     private QueueStrategies() { utilityClassError("QueueStrategies"); }

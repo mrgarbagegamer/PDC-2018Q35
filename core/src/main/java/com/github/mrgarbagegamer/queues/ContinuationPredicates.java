@@ -15,7 +15,7 @@ import org.jctools.queues.MessagePassingQueue;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
-public final class ContinuationPredicates {
+final class ContinuationPredicates {
 
     @ExcludeFromGeneratedCoverage
     private ContinuationPredicates() { utilityClassError("ContinuationPredicates"); }

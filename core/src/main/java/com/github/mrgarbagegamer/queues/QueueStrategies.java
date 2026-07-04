@@ -31,7 +31,7 @@ import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
 
-// TODO: Write/Update Javadocs
+// TODO: Add class-level Javadocs
 public final class QueueStrategies {
     @ExcludeFromGeneratedCoverage
     private QueueStrategies() { utilityClassError("QueueStrategies"); }
@@ -152,6 +152,7 @@ public final class QueueStrategies {
                 return self();
             }
 
+            // TODO: Add Javadocs
             public final B preallocateQueues(int batchesPerQueue) {
                 this.batchesPerQueue = mustBePositive(batchesPerQueue, "batchesPerQueue");
                 return self();
@@ -261,6 +262,7 @@ public final class QueueStrategies {
         }
     }
 
+    // TODO: Add class-level Javadocs
     public static class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>>
             extends AbstractQueueStrategy<G, M> {
         private static final BackoffStrategy DEFAULT_BACKOFF = BackoffStrategy.noOp();
@@ -269,6 +271,7 @@ public final class QueueStrategies {
 
         // Static factory methods for common configurations:
 
+        // TODO: Add Javadocs
         public static BlockingQueueStrategy<?, ?> singleSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -281,6 +284,7 @@ public final class QueueStrategies {
                     .asSingleSingle().preallocateQueues(queueSize).build();
         }
 
+        // TODO: Add Javadocs
         public static BlockingQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -294,6 +298,7 @@ public final class QueueStrategies {
                     .asSingleMulti().preallocateQueues(queueSize).build();
         }
 
+        // TODO: Add Javadocs
         public static BlockingQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -307,6 +312,7 @@ public final class QueueStrategies {
                     .asMultiSingle().preallocateQueues(queueSize * numMonkeys).build();
         }
 
+        // TODO: Add Javadocs
         public static BlockingQueueStrategy<?, ?> multiMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -321,12 +327,14 @@ public final class QueueStrategies {
                     .asMultiMulti().preallocateQueues(queueSize).build();
         }
 
+        // TODO: Add Javadocs
         public static <G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>> Builder<G, M> builder(
                 List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                 SolverConfiguration config, SolverState state) {
             return new Builder<>(gtmQueues, mtgQueues, config, state);
         }
 
+        // TODO: Add class-level Javadocs
         public static final class Builder<G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>>
                 extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 
@@ -338,6 +346,7 @@ public final class QueueStrategies {
                 monkeyBackoff(DEFAULT_BACKOFF);
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asSingleSingle() {
                 checkSingleSingle();
@@ -346,6 +355,7 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asSingleMulti() {
                 checkSingleMulti();
@@ -354,6 +364,7 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asMultiSingle() {
                 checkMultiSingle();
@@ -362,6 +373,7 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asMultiMulti() {
                 checkMultiMulti();
@@ -370,9 +382,11 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             protected Builder<G, M> self() { return this; }
 
+            // TODO: Add Javadocs
             @Override
             public BlockingQueueStrategy<G, M> build() {
                 // 1. Wrap the queues:
@@ -403,6 +417,7 @@ public final class QueueStrategies {
         }
     }
 
+    // TODO: Add class-level Javadocs
     public static class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
             extends AbstractQueueStrategy<G, M> {
 
@@ -414,6 +429,7 @@ public final class QueueStrategies {
 
         // Static factory methods for common configurations:
 
+        // TODO: Add Javadocs
         public static JCToolsQueueStrategy<?, ?> singleSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -427,6 +443,7 @@ public final class QueueStrategies {
 
         }
 
+        // TODO: Add Javadocs
         public static JCToolsQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -440,6 +457,7 @@ public final class QueueStrategies {
                     .asSingleMulti().preallocateQueues(queueSize).build();
         }
 
+        // TODO: Add Javadocs
         public static JCToolsQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -453,6 +471,7 @@ public final class QueueStrategies {
                     .asMultiSingle().preallocateQueues(queueSize * numMonkeys).build();
         }
 
+        // TODO: Add Javadocs
         public static JCToolsQueueStrategy<?, ?> multiMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
@@ -467,12 +486,14 @@ public final class QueueStrategies {
                     .asMultiMulti().preallocateQueues(queueSize).build();
         }
 
+        // TODO: Add Javadocs
         public static <G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>> Builder<G, M> builder(
                 List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                 SolverConfiguration config, SolverState state) {
             return new Builder<>(gtmQueues, mtgQueues, config, state);
         }
 
+        // TODO: Add class-level Javadocs
         public static final class Builder<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
                 extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 
@@ -484,6 +505,7 @@ public final class QueueStrategies {
                 monkeyBackoff(DEFAULT_MONKEY_BACKOFF);
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asSingleSingle() {
                 checkSingleSingle();
@@ -492,6 +514,7 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asSingleMulti() {
                 checkSingleMulti();
@@ -500,6 +523,7 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asMultiSingle() {
                 checkMultiSingle();
@@ -508,6 +532,7 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             public Builder<G, M> asMultiMulti() {
                 checkMultiMulti();
@@ -516,9 +541,11 @@ public final class QueueStrategies {
                 return this;
             }
 
+            // TODO: Add Javadocs
             @Override
             protected Builder<G, M> self() { return this; }
 
+            // TODO: Add Javadocs
             @Override
             public JCToolsQueueStrategy<G, M> build() {
                 // 1. Wrap the queues:

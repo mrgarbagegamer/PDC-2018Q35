@@ -194,6 +194,7 @@
                     <links>
                         <link>https://www.javadoc.io/doc/it.unimi.dsi/fastutil/8.5.16/</link>
                         <link>https://www.javadoc.io/doc/org.jctools/jctools-core/4.0.5/</link>
+                        <link>https://www.javadoc.io/doc/com.conversantmedia/disruptor/1.2.21/</link>
                         <link>https://logging.apache.org/log4j/2.x/javadoc/log4j-api/</link>
                         <link>https://logging.apache.org/log4j/2.x/javadoc/log4j-core/</link>
                     </links>

@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer.queues;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.List;
@@ -66,11 +67,11 @@ class QueuePreallocatorTest {
     }
 
     @Test
-    void givenNonEmptyQueue_whenPreallocate_thenThrowIllegalArgumentException() {
+    void givenNonEmptyQueue_whenPreallocate_thenThrowIllegalStateException() {
         final var queues = MockQueueBuilder.create().initialSize(1).buildList(2);
         final var config = createValidConfig();
 
-        assertThatIllegalArgumentException()
+        assertThatIllegalStateException()
                 .isThrownBy(() -> QueuePreallocator.preallocate(queues, config, 1))
                 .withMessageContaining("bounded mtgQueue at index 0 is not empty before")
                 .withMessageContaining("preallocation");
@@ -88,22 +89,22 @@ class QueuePreallocatorTest {
     }
 
     @Test
-    void givenBoundedQueueThatRejectsOffer_whenPreallocate_thenThrowIllegalArgumentException() {
+    void givenBoundedQueueThatRejectsOffer_whenPreallocate_thenThrowIllegalStateException() {
         final var queues = MockQueueBuilder.create().capacity(2).rejectsOffer().buildList(2);
         final var config = createValidConfig();
 
-        assertThatIllegalArgumentException()
+        assertThatIllegalStateException()
                 .isThrownBy(() -> QueuePreallocator.preallocate(queues, config, 1))
                 .withMessageContaining("bounded mtgQueue at index 0 rejected batch 0")
                 .withMessageContaining("during preallocation");
     }
 
     @Test
-    void givenUnboundedQueueThatRejectsOffer_whenPreallocate_thenThrowIllegalArgumentException() {
+    void givenUnboundedQueueThatRejectsOffer_whenPreallocate_thenThrowIllegalStateException() {
         final var queues = MockQueueBuilder.create().unbounded().rejectsOffer().buildList(2);
         final var config = createValidConfig();
 
-        assertThatIllegalArgumentException()
+        assertThatIllegalStateException()
                 .isThrownBy(() -> QueuePreallocator.preallocate(queues, config, 1))
                 .withMessageContaining("unbounded mtgQueue at index 0 rejected batch 0")
                 .withMessageContaining("during preallocation");

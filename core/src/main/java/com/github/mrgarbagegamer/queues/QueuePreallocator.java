@@ -31,7 +31,8 @@ final class QueuePreallocator {
             final var queue = nonNullQueues.get(queueIndex);
             for (int batchIndex = 0; batchIndex < batchesPerQueue; batchIndex++) {
                 if (!tryOffer(queue, solverConfig)) {
-                    fail(queue, queueIndex, "rejected batch %d during preallocation", batchIndex);
+                    throwISE(queue, queueIndex, "rejected batch %d during preallocation",
+                            batchIndex);
                 }
             }
         }
@@ -42,9 +43,9 @@ final class QueuePreallocator {
         for (int queueIndex = 0; queueIndex < mtgQueues.size(); queueIndex++) {
             final var queue = mtgQueues.get(queueIndex);
             if (!queue.isEmpty()) {
-                fail(queue, queueIndex, "is not empty before preallocation");
+                throwISE(queue, queueIndex, "is not empty before preallocation");
             } else if (queue.boundedness().isBounded() && queue.capacity() < batchesPerQueue) {
-                fail(queue, queueIndex,
+                throwIAE(queue, queueIndex,
                         "has insufficient capacity (%d) for preallocating %d batches",
                         queue.capacity(), batchesPerQueue);
             }
@@ -55,11 +56,20 @@ final class QueuePreallocator {
         return queue.offer(new WorkBatch(solverConfig));
     }
 
-    private static void fail(QueueWrapper<?> queue, int queueIndex, String reasonTemplate,
+    private static void throwIAE(QueueWrapper<?> queue, int queueIndex, String reasonTemplate,
             Object... reasonArgs) {
         final String boundednessStr = queue.boundedness().toString().toLowerCase();
         final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException(
+                "Preallocation failed for mtgQueues: %s mtgQueue at index %d %s"
+                        .formatted(boundednessStr, queueIndex, reason));
+    }
+
+    private static void throwISE(QueueWrapper<?> queue, int queueIndex, String reasonTemplate,
+            Object... reasonArgs) {
+        final String boundednessStr = queue.boundedness().toString().toLowerCase();
+        final String reason = reasonTemplate.formatted(reasonArgs);
+        throw new IllegalStateException(
                 "Preallocation failed for mtgQueues: %s mtgQueue at index %d %s"
                         .formatted(boundednessStr, queueIndex, reason));
     }

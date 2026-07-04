@@ -28,18 +28,24 @@ class QueueValidationContext<G, M> {
     }
 
     void validateAll() {
-        // 1. Validate the integrity of the queue lists (e.g. no nulls, no duplicates, not empty):
-        this.validateIntegrity();
+        try {
+            // 1. Validate the integrity of the queue lists (e.g. no nulls, no duplicates, not
+            // empty):
+            this.validateIntegrity();
 
-        // 2. Validate that there are no overlapping queues between the GTM and MTG groups:
-        this.validateNoOverlap();
+            // 2. Validate that there are no overlapping queues between the GTM and MTG groups:
+            this.validateNoOverlap();
 
-        // 3. Validate the metadata of the queues (e.g. consistent boundedness and access mode,
-        // sufficient capacity):
-        this.validateMetadata();
+            // 3. Validate the metadata of the queues (e.g. consistent boundedness and access mode,
+            // sufficient capacity):
+            this.validateMetadata();
 
-        // 4. Validate that the selectors are compatible with the queues in their respective groups:
-        this.validateSelectors();
+            // 4. Validate that the selectors are compatible with the queues in their respective
+            // groups:
+            this.validateSelectors();
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Invalid queue configuration: " + e.getMessage(), e);
+        }
     }
 
     void validateIntegrity() {
@@ -89,7 +95,8 @@ class QueueValidationContext<G, M> {
         }
 
         Builder<G, M> generatorOfferSelector(QueueSelector<? super G> selector) {
-            this.generatorOfferSelector = mustNotBeNull(selector, "generatorOfferSelector").asType();
+            this.generatorOfferSelector = mustNotBeNull(selector, "generatorOfferSelector")
+                    .asType();
             return this;
         }
 

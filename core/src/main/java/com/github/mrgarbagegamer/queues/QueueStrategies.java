@@ -280,7 +280,12 @@ public final class QueueStrategies {
                 // Store the batchesPerQueue value locally to avoid concurrent modification
                 int batches = this.batchesPerQueue;
                 if (batches > 0) {
-                    QueuePreallocator.preallocate(wrappedMtg, this.config, batches);
+                    try {
+                        QueuePreallocator.preallocate(wrappedMtg, this.config, batches);
+                    } catch (IllegalArgumentException e) {
+                        // The format message from e is sufficient.
+                        throw new IllegalStateException(e);
+                    }
                 }
             }
         }

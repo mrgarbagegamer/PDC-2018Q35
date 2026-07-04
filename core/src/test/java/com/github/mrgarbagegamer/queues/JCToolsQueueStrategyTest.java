@@ -411,7 +411,7 @@ class JCToolsQueueStrategyTest {
 
             // QueueListValidator wiring:
             @Test
-            void givenDuplicateGtmQueues_thenBubbleUpIllegalArgumentException() {
+            void givenDuplicateGtmQueues_thenBubbleUpIllegalStateException() {
                 final var queue = new MpmcArrayQueue<WorkBatch>(DEFAULT_QUEUE_CAPACITY);
                 final var gtmQueues = List.of(new MpmcArrayQueue<WorkBatch>(DEFAULT_QUEUE_CAPACITY),
                         queue, queue);
@@ -422,14 +422,14 @@ class JCToolsQueueStrategyTest {
                 final var builder = JCToolsQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
 
-                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                assertThatIllegalStateException().isThrownBy(builder::build)
                         .withMessageContaining(
                                 "gtmQueue at index 1 is the same as gtmQueue at index 2");
             }
 
             // MetadataValidator wiring:
             @Test
-            void givenGtmQueuesWithInconsistentAccessMode_thenBubbleUpIllegalArgumentException() {
+            void givenGtmQueuesWithInconsistentAccessMode_thenBubbleUpIllegalStateException() {
                 final MpmcArrayQueue<WorkBatch> boundedQueue = new MpmcArrayQueue<>(
                         DEFAULT_QUEUE_CAPACITY);
                 final SpscArrayQueue<WorkBatch> unboundedQueue = new SpscArrayQueue<>(
@@ -443,13 +443,13 @@ class JCToolsQueueStrategyTest {
                 final var builder = JCToolsQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
 
-                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                assertThatIllegalStateException().isThrownBy(builder::build)
                         .withMessageContaining("gtmQueue at index 1 has different access mode");
             }
 
             // Selector validation wiring:
             @Test
-            void givenExclusiveSelectorWithMultipleThreadsAndSpscQueue_thenBubbleUpIllegalArgumentException() {
+            void givenExclusiveSelectorWithMultipleThreadsAndSpscQueue_thenBubbleUpIllegalStateException() {
                 final List<MpmcArrayQueue<WorkBatch>> gtmQueues = createValidQueueList(2);
                 final List<SpscArrayQueue<WorkBatch>> mtgQueues = List
                         .of(new SpscArrayQueue<>(DEFAULT_QUEUE_CAPACITY));
@@ -459,7 +459,7 @@ class JCToolsQueueStrategyTest {
                 final var builder = JCToolsQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiSingle();
 
-                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                assertThatIllegalStateException().isThrownBy(builder::build)
                         .withMessageContaining("mtgQueue is single-producer");
             }
 
@@ -478,7 +478,7 @@ class JCToolsQueueStrategyTest {
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti()
                         .preallocateQueues(5);
 
-                assertThatIllegalArgumentException().isThrownBy(builder::build)
+                assertThatIllegalStateException().isThrownBy(builder::build)
                         .withMessageContaining("mtgQueue at index 1 is not empty");
             }
         }

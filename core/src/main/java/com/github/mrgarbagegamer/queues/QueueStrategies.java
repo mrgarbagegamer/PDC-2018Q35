@@ -99,15 +99,15 @@ public final class QueueStrategies {
                 this.mtgQueues = copyOfNonNullList(mtgQueues, "mtgQueues");
 
                 // Ensure that the queues are not empty:
-                mustNotBeEmpty(gtmQueues, "gtmQueues");
-                mustNotBeEmpty(mtgQueues, "mtgQueues");
+                mustNotBeEmpty(this.gtmQueues, "gtmQueues");
+                mustNotBeEmpty(this.mtgQueues, "mtgQueues");
 
+                // Null check the config and state parameters
                 this.config = mustNotBeNull(config, "config");
+                mustNotBeNull(state, "state");
 
-                this.generatorShouldContinue = ContinuationPredicates
-                        .forGenerator(mustNotBeNull(state, "state"));
-                this.monkeyShouldContinue = ContinuationPredicates
-                        .forMonkey(mustNotBeNull(state, "state"), gtmQueues);
+                this.generatorShouldContinue = ContinuationPredicates.forGenerator(state);
+                this.monkeyShouldContinue = ContinuationPredicates.forMonkey(state, this.gtmQueues);
             }
 
             final B generatorPollSelector(QueueSelector<? super M> selector) {
@@ -232,7 +232,7 @@ public final class QueueStrategies {
 
             final void validateAndPreallocate(List<? extends QueueWrapper<G>> wrappedGtm,
                     List<? extends QueueWrapper<M>> wrappedMtg) {
-                final var context = QueueValidationContext.builder(wrappedGtm, wrappedMtg)
+                QueueValidationContext.builder(wrappedGtm, wrappedMtg)
                         .generatorPollSelector(
                                 mustBeSet(this.generatorPollSelector, "generatorPollSelector"))
                         .generatorOfferSelector(
@@ -241,37 +241,38 @@ public final class QueueStrategies {
                                 mustBeSet(this.monkeyPollSelector, "monkeyPollSelector"))
                         .monkeyOfferSelector(
                                 mustBeSet(this.monkeyOfferSelector, "monkeyOfferSelector"))
-                        .solverConfig(this.config).build();
-                context.validateAll();
+                        .solverConfig(this.config).build().validateAll();
 
-                if (this.batchesPerQueue > 0) {
-                    QueuePreallocator.preallocate(wrappedMtg, this.config, this.batchesPerQueue);
+                // Store the batchesPerQueue value locally to avoid concurrent modification
+                int batches = this.batchesPerQueue;
+                if (batches > 0) {
+                    QueuePreallocator.preallocate(wrappedMtg, this.config, batches);
                 }
             }
         }
 
         @Override
         public final WorkBatch generatorPoll(int generatorId) {
-            return generatorPollSelector.poll(generatorId, mtgQueues, generatorBackoff,
-                    generatorShouldContinue);
+            return this.generatorPollSelector.poll(generatorId, this.mtgQueues,
+                    this.generatorBackoff, this.generatorShouldContinue);
         }
 
         @Override
         public final boolean generatorOffer(WorkBatch batch, int generatorId) {
-            return generatorOfferSelector.offer(batch, generatorId, gtmQueues, generatorBackoff,
-                    generatorShouldContinue);
+            return this.generatorOfferSelector.offer(batch, generatorId, this.gtmQueues,
+                    this.generatorBackoff, this.generatorShouldContinue);
         }
 
         @Override
         public final boolean monkeyOffer(WorkBatch batch, int monkeyId) {
-            return monkeyOfferSelector.offer(batch, monkeyId, mtgQueues, monkeyBackoff,
-                    monkeyShouldContinue);
+            return this.monkeyOfferSelector.offer(batch, monkeyId, this.mtgQueues,
+                    this.monkeyBackoff, this.monkeyShouldContinue);
         }
 
         @Override
         public final WorkBatch monkeyPoll(int monkeyId) {
-            return monkeyPollSelector.poll(monkeyId, gtmQueues, monkeyBackoff,
-                    monkeyShouldContinue);
+            return this.monkeyPollSelector.poll(monkeyId, this.gtmQueues, this.monkeyBackoff,
+                    this.monkeyShouldContinue);
         }
     }
 

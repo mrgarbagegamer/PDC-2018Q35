@@ -1,70 +1,32 @@
 package com.github.mrgarbagegamer;
 
-// TODO: Update Javadocs
 /**
  * A strategy interface for managing the interaction between {@link CombinationGeneratorTask
  * generators} and {@link TestClickCombination monkeys}.
  * 
  * <p>
- * This interface defines the contract for how generators and monkeys will exchange {@link WorkBatch
- * work batches}, allowing for different queueing strategies to be implemented and tested without
- * the need to modify the core logic of the generators and monkeys. Implementations of this
- * interface can define various strategies for load balancing, work distribution, and termination
- * signaling.
- * </p>
+ * This interface defines the contract for how generators and monkeys exchange {@link WorkBatch
+ * work batches}. It decouples the core solver logic from specific queueing topologies and libraries,
+ * enabling different work distribution, load balancing, and termination schemes to be plugged in.
  * 
- * <h2>Architectural Role</h2>
- * <p>
- * This codebase's previous design tightly coupled the generators and monkeys to a specific queue
- * implementation, making it very difficult to experiment with different queueing strategies or to
- * optimize the work distribution. Testing or benchmarking the system with different strategies
- * required heavy mocking of components or core logic modifications, neither of which was ideal. By
- * introducing the {@code QueueStrategy} interface, we have an abstraction layer that allows for
- * flexible and modular management of solver communication, aiding the dependency injection refactor
- * of the codebase and enabling easier testing and optimization.
- * </p>
+ * @apiNote
+ * Strategy methods accept a thread ID ({@code generatorId} or {@code monkeyId}) to support
+ * routing schemes with thread-local or dedicated queues (such as those leveraging single-writer or
+ * single-reader optimizations). Strategies using a single shared queue or otherwise ignoring thread
+ * identity may safely discard this parameter.
  * 
+ * @implSpec
+ * Implementations of this interface must be thread-safe, supporting concurrent invocation by
+ * multiple generators and monkeys without external synchronization.
  * <p>
- * We place the strategy in this class to keep it close to the core logic of the generators and
- * monkeys, leaving the default implementations of the strategy in the
- * {@link com.github.mrgarbagegamer.queues} subpackage. This allows for a clear separation of
- * concerns while keeping the strategy interface easily accessible to the components that need it.
- * </p>
- * 
- * <h2>Performance Considerations</h2>
- * <p>
- * The design of the {@code QueueStrategy} interface allows for various performance optimizations to
- * be implemented in the strategy implementations. Single-queue or multi-queue strategies can be
- * implemented, and the strategy can be designed to minimize contention between threads while
- * maximizing throughput. The strategy can also implement intelligent load balancing and termination
- * signaling to ensure that the system operates efficiently under different workloads and
- * conditions.
- * </p>
- * 
- * <p>
- * To allow for the use of queue selection strategies that involve a queue per generator or monkey
- * (e.g., to allow for single-writer optimizations), the strategy methods take the generator or
- * monkey ID as a parameter, allowing the strategy to determine which queue to interact with based
- * on the thread's role and ID. This design introduces an unnecessary parameter for single-queue
- * strategies (or those that ignore the ID), but it provides the flexibility needed for more complex
- * strategies without requiring changes to the interface.
- * </p>
- * 
- * <h2>Thread Safety</h2>
- * <p>
- * All implementations of this interface must be thread-safe, as they will be accessed concurrently
- * by generators and monkeys. We leave single-sided thread-safety to the implementer (since the
- * minimum thread count is two, allowing single-writer optimizations to be implemented if desired),
- * but the strategy must be designed to allow for concurrent access to at least two threads without
- * external synchronization.
- * </p>
+ * To ensure consistent termination behavior across all worker threads, once a poll method returns
+ * {@code null} or an offer method returns {@code false} (indicating that work processing has stopped,
+ * e.g., due to a solution being found or generation completing), subsequent invocations of that same
+ * method must continue to return {@code null} or {@code false} respectively.
  * 
  * @see SolverConfiguration.QueueStrategyFactory
- * @see com.github.mrgarbagegamer.queues.BlockingQueueStrategy
- * @see com.github.mrgarbagegamer.queues.JCToolsQueueStrategy
- * @see com.github.mrgarbagegamer.queues.QueueSelector
+ * @see com.github.mrgarbagegamer.queues
  * @since 2026.02 - Queue Injection Refactor
- * @threading Thread-safe.
  */
 public interface QueueStrategy {
 
@@ -72,41 +34,43 @@ public interface QueueStrategy {
      * Polls for an empty {@link WorkBatch} for the given {@link CombinationGeneratorTask
      * generator}.
      * 
-     * @param generatorId the ID of the generator thread ({@code 0} to {@code numGenerators - 1})
+     * @param generatorId the zero-indexed ID of the generator thread
      * @return a {@code WorkBatch}, or {@code null} if the strategy has determined that no more work
-     *         will arrive (e.g., {@link SolverState#solutionFound() solution found})
+     *         will arrive
      * @see GeneratorContext#getCurrentBatch()
      * @since 2026.02 - Queue Injection Refactor
-     * @threading Thread-safe.
      */
     WorkBatch generatorPoll(int generatorId);
 
     /**
      * Offers a (probably) full {@link WorkBatch} from the given {@link CombinationGeneratorTask
-     * generator}. Note that this method can be called with a non-full batch during the
-     * {@link ContextRegistry#flushAllPendingBatches() final flush} phase.
+     * generator}.
+     *
+     * @apiNote
+     * Although this method generally operates on full batches, it may be called with a non-full
+     * batch during the generator shutdown's final flush phase.
      *
      * @param batch       the batch to offer
-     * @param generatorId the ID of the generator thread ({@code 0} to {@code numGenerators - 1})
+     * @param generatorId the zero-indexed ID of the generator thread
      * @return {@code true} if the batch was accepted, {@code false} if the strategy signaled that
-     *         offering should stop (e.g., {@link SolverState#solutionFound() solution found})
+     *         offering should stop
      * @see GeneratorContext#flushCurrentBatch()
      * @since 2026.02 - Queue Injection Refactor
-     * @threading Thread-safe.
      */
     boolean generatorOffer(WorkBatch batch, int generatorId);
 
     /**
      * Polls for a (probably) full {@link WorkBatch} for the given {@link TestClickCombination
-     * monkey}. Note that the batch returned by this method may be non-full during the
-     * {@link ContextRegistry#flushAllPendingBatches() final flush} phase.
+     * monkey}.
      * 
-     * @param monkeyId the ID of the monkey thread ({@code 0} to {@code numMonkeys - 1})
+     * @apiNote
+     * The batch returned by this method may be non-full during the generator shutdown's final flush
+     * phase.
+     * 
+     * @param monkeyId the zero-indexed ID of the monkey thread
      * @return a {@code WorkBatch}, or {@code null} if the strategy has determined that no more work
-     *         will arrive (e.g., {@link SolverState#generationComplete() generation complete} or
-     *         {@link SolverState#solutionFound() solution found})
+     *         will arrive
      * @since 2026.02 - Queue Injection Refactor
-     * @threading Thread-safe.
      */
     WorkBatch monkeyPoll(int monkeyId);
 
@@ -114,12 +78,10 @@ public interface QueueStrategy {
      * Offers an empty {@link WorkBatch} from the given {@link TestClickCombination monkey}.
      * 
      * @param batch    the batch to offer
-     * @param monkeyId the ID of the monkey thread ({@code 0} to {@code numMonkeys - 1})
+     * @param monkeyId the zero-indexed ID of the monkey thread
      * @return {@code true} if the batch was accepted, {@code false} if the strategy signaled that
-     *         offering should stop (e.g., {@link SolverState#generationComplete() generation
-     *         complete} or {@link SolverState#solutionFound() solution found})
+     *         offering should stop
      * @since 2026.02 - Queue Injection Refactor
-     * @threading Thread-safe.
      */
     boolean monkeyOffer(WorkBatch batch, int monkeyId);
 }

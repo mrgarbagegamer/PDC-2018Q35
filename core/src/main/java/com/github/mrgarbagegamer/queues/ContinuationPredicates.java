@@ -20,9 +20,7 @@ final class ContinuationPredicates {
     @ExcludeFromGeneratedCoverage
     private ContinuationPredicates() { utilityClassError("ContinuationPredicates"); }
 
-    static BooleanSupplier neverTerminate() {
-        return () -> true;
-    }
+    static BooleanSupplier neverTerminate() { return () -> true; }
 
     static BooleanSupplier forGenerator(SolverState state) {
         mustNotBeNull(state, "state");
@@ -57,8 +55,8 @@ final class ContinuationPredicates {
                 .allMatch(mustNotBeNull(klass, "klass")::isInstance);
     }
 
-    private static <Q> BooleanSupplier forMonkeyGenericList(SolverState state,
-            List<Q> gtmQueues, Predicate<? super Q> singleQueueEmpty) {
+    private static <Q> BooleanSupplier forMonkeyGenericList(SolverState state, List<Q> gtmQueues,
+            Predicate<? super Q> singleQueueEmpty) {
         mustNotBeNull(state, "state");
         mustNotBeNull(singleQueueEmpty, "singleQueueEmpty");
 
@@ -74,8 +72,7 @@ final class ContinuationPredicates {
         mustNotBeNull(gtmQueue, "gtmQueue");
         mustNotBeNull(singleQueueEmpty, "singleQueueEmpty");
 
-        return monkeyCheck(mustNotBeNull(state, "state"),
-                () -> singleQueueEmpty.test(gtmQueue));
+        return monkeyCheck(mustNotBeNull(state, "state"), () -> singleQueueEmpty.test(gtmQueue));
     }
 
     private static <Q> BooleanSupplier createEmptyCheckForList(List<Q> queues,

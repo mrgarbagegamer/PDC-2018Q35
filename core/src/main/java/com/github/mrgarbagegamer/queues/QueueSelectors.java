@@ -46,9 +46,6 @@ final class QueueSelectors {
         void validate(SelectorValidationTarget<?> target);
     }
 
-    // TODO: Consider returning QueueSelector<Q> with <Q extends QueueType> to allow better type
-    // inference and avoid the need for unchecked casts in user code.
-
     static QueueSelector<MessagePassingQueue<WorkBatch>> randomSequentialJCTools() {
         return JCToolsSelector.RANDOM_SEQUENTIAL;
     }
@@ -79,9 +76,6 @@ final class QueueSelectors {
 
     private enum JCToolsSelector
             implements QueueSelector<MessagePassingQueue<WorkBatch>>, SelectorValidator {
-
-        // TODO: Consider replacing the while loops in this enum with do-while loops,
-        // since the selector should try once before giving up.
 
         RANDOM_SEQUENTIAL(SelectorRules.SEQUENTIAL) {
             @Override
@@ -305,8 +299,6 @@ final class QueueSelectors {
     private enum BlockingQueueSelector
             implements QueueSelector<BlockingQueue<WorkBatch>>, SelectorValidator {
 
-        // TODO: Consider other selection strategies for BlockingQueues.
-
         PREFERRED(SelectorRules.COUNT_AT_LEAST_SIZE) {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
@@ -372,6 +364,4 @@ final class QueueSelectors {
             }
         }
     }
-
-    // TODO: Revisit CLQs to see if they're worth supporting in this package.
 }

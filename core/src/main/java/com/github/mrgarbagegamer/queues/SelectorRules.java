@@ -33,9 +33,7 @@ final class SelectorRules {
         }
     };
 
-    // TODO: Update the SelectorRule to enforce that the thread count equals the size to prevent an
-    // IndexOutOfBoundsException
-    static final SelectorRule COUNT_AT_LEAST_SIZE = (target, selector) -> {
+    static final SelectorRule COUNT_EQUALS_SIZE = (target, selector) -> {
         final int threadCount = mustNotBeNull(target, "target").threadCount();
         final int listSize = target.wrappedQueues().size();
 
@@ -43,6 +41,9 @@ final class SelectorRules {
 
         if (threadCount < listSize) {
             fail(target, selector, "%s count (%d) is less than %s size (%d)", target.actorName(),
+                    threadCount, target.listName(), listSize);
+        } else if (threadCount > listSize) {
+            fail(target, selector, "%s count (%d) is greater than %s size (%d)", target.actorName(),
                     threadCount, target.listName(), listSize);
         }
     };

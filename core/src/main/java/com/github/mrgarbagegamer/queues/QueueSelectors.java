@@ -175,7 +175,7 @@ final class QueueSelectors {
 
         // TODO: Consider updating the list bounds for round-robin polls/offers so i = 1 to avoid
         // redundancy
-        BIASED_SEQUENTIAL(SelectorRules.SEQUENTIAL, SelectorRules.COUNT_AT_LEAST_SIZE) {
+        BIASED_SEQUENTIAL(SelectorRules.SEQUENTIAL, SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
@@ -233,7 +233,7 @@ final class QueueSelectors {
             }
         },
 
-        PREFERRED(SelectorRules.COUNT_AT_LEAST_SIZE) {
+        PREFERRED(SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
             public WorkBatch poll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues, BackoffStrategy backoff,
@@ -303,7 +303,7 @@ final class QueueSelectors {
     private enum BlockingQueueSelector
             implements QueueSelector<BlockingQueue<WorkBatch>>, SelectorValidator {
 
-        PREFERRED(SelectorRules.COUNT_AT_LEAST_SIZE) {
+        PREFERRED(SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
             public WorkBatch poll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues,
                     BackoffStrategy backoff, BooleanSupplier shouldContinue) {

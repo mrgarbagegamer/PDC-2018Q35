@@ -3,7 +3,7 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.createListWithPoisonPill;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.createUniformList;
 import static com.github.mrgarbagegamer.queues.QueueTestFixtures.dummySelector;
-import static com.github.mrgarbagegamer.queues.SelectorRules.COUNT_AT_LEAST_SIZE;
+import static com.github.mrgarbagegamer.queues.SelectorRules.COUNT_EQUALS_SIZE;
 import static com.github.mrgarbagegamer.queues.SelectorRules.EXCLUSIVE;
 import static com.github.mrgarbagegamer.queues.SelectorRules.SEQUENTIAL;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -44,7 +44,7 @@ class SelectorRulesTest {
 
     private static Stream<Arguments> provideAllRules() {
         return Stream.of(Arguments.of("SEQUENTIAL", SEQUENTIAL),
-                Arguments.of("COUNT_AT_LEAST_SIZE", COUNT_AT_LEAST_SIZE),
+                Arguments.of("COUNT_EQUALS_SIZE", COUNT_EQUALS_SIZE),
                 Arguments.of("EXCLUSIVE", EXCLUSIVE));
     }
 
@@ -102,7 +102,7 @@ class SelectorRulesTest {
     }
 
     @Nested
-    class CountAtLeastSizeTests {
+    class CountEqualsSizeTests {
         // Helper method for generating the producer targets:
         private static <Q> SelectorValidationTarget<Q> getTarget(int generatorCount, int listSize) {
             return createProducerGtmTargetFromBuilder(generatorCount, MockQueueBuilder.create(),
@@ -110,13 +110,16 @@ class SelectorRulesTest {
         }
 
         @Test
-        void givenProducerTargetWithGeneratorCountGreaterThanListSize_whenValidate_thenPass() {
+        void givenProducerTargetWithGeneratorCountGreaterThanListSize_whenValidate_thenThrowIllegalArgumentException() {
             final int generatorCount = 3;
             final int listSize = 2;
             final var target = getTarget(generatorCount, listSize);
 
-            assertThatNoException()
-                    .isThrownBy(() -> COUNT_AT_LEAST_SIZE.validate(target, dummySelector()));
+            assertThatIllegalArgumentException()
+                    .isThrownBy(() -> COUNT_EQUALS_SIZE.validate(target, dummySelector()))
+                    .withMessageContaining("generator count (%d)", generatorCount)
+                    .withMessageContaining("is greater than %s size (%d)", target.listName(),
+                            listSize);
         }
 
         @Test
@@ -126,7 +129,7 @@ class SelectorRulesTest {
             final var target = getTarget(generatorCount, listSize);
 
             assertThatNoException()
-                    .isThrownBy(() -> COUNT_AT_LEAST_SIZE.validate(target, dummySelector()));
+                    .isThrownBy(() -> COUNT_EQUALS_SIZE.validate(target, dummySelector()));
         }
 
         @Test
@@ -136,7 +139,7 @@ class SelectorRulesTest {
             final var target = getTarget(generatorCount, listSize);
 
             assertThatIllegalArgumentException()
-                    .isThrownBy(() -> COUNT_AT_LEAST_SIZE.validate(target, dummySelector()))
+                    .isThrownBy(() -> COUNT_EQUALS_SIZE.validate(target, dummySelector()))
                     .withMessageContaining("generator count (%d)", generatorCount)
                     .withMessageContaining("is less than %s size (%d)", target.listName(),
                             listSize);

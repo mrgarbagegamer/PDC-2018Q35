@@ -173,8 +173,6 @@ final class QueueSelectors {
             }
         },
 
-        // TODO: Consider updating the list bounds for round-robin polls/offers so i = 1 to avoid
-        // redundancy
         BIASED_SEQUENTIAL(SelectorRules.SEQUENTIAL, SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
             public WorkBatch poll(int threadId,
@@ -193,8 +191,7 @@ final class QueueSelectors {
                         return preferred;
 
                     // Round-robin the rest
-                    for (int i = 0; i < size; i++) {
-                        final int idx = (threadId + i) % size;
+                    for (int idx = (threadId + 1) % size; idx != threadId; idx = (idx + 1) % size) {
                         final WorkBatch batch = checkedQueues.get(idx).relaxedPoll();
                         if (batch != null)
                             return batch;
@@ -221,8 +218,7 @@ final class QueueSelectors {
                         return true;
 
                     // Round-robin the rest
-                    for (int i = 0; i < size; i++) {
-                        final int idx = (threadId + i) % size;
+                    for (int idx = (threadId + 1) % size; idx != threadId; idx = (idx + 1) % size) {
                         if (checkedQueues.get(idx).relaxedOffer(batch))
                             return true;
                     }

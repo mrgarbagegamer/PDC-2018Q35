@@ -34,6 +34,8 @@ final class QueueSelectors {
         }
     }
 
+    // TODO: Consider updating this method's implementation to avoid String allocations on
+    // mustNotBeNull() calls
     private static <T> List<T> integrityCheckParams(List<? extends T> queues,
             BackoffStrategy backoff, BooleanSupplier shouldContinue) {
         List<T> checkedQueues = copyOfNonNullList(queues, "queues");
@@ -171,6 +173,8 @@ final class QueueSelectors {
             }
         },
 
+        // TODO: Consider updating the list bounds for round-robin polls/offers so i = 1 to avoid
+        // redundancy
         BIASED_SEQUENTIAL(SelectorRules.SEQUENTIAL, SelectorRules.COUNT_AT_LEAST_SIZE) {
             @Override
             public WorkBatch poll(int threadId,

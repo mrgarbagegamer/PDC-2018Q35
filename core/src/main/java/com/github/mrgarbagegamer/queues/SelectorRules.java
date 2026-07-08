@@ -33,6 +33,8 @@ final class SelectorRules {
         }
     };
 
+    // TODO: Update the SelectorRule to enforce that the thread count equals the size to prevent an
+    // IndexOutOfBoundsException
     static final SelectorRule COUNT_AT_LEAST_SIZE = (target, selector) -> {
         final int threadCount = mustNotBeNull(target, "target").threadCount();
         final int listSize = target.wrappedQueues().size();

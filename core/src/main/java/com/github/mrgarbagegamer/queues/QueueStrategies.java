@@ -64,9 +64,6 @@ import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
  * 
  * @since 2026.06 - Reduced Queue Strategy Duplication
  */
-// TODO: Consider whether the sequential preallocation of an SPSC queue before usage is thread safe
-// or not. It may be necessary for a monkey to perform preallocation when it starts up rather than
-// at build-time.
 public final class QueueStrategies {
     @ExcludeFromGeneratedCoverage
     private QueueStrategies() { utilityClassError("QueueStrategies"); }
@@ -675,9 +672,6 @@ public final class QueueStrategies {
                     .asSingleMulti().preallocateQueues(queueSize).build();
         }
 
-        // TODO: Consider using SPSC queues for the multi-queue side(s) across multiSingle(),
-        // singleMulti(), and multiMulti() for single-writer optimizations.
-
         /**
          * Creates a {@code JCToolsQueueStrategy} with multiple generator-to-monkey queues and a
          * single monkey-to-generator queue.
@@ -779,8 +773,9 @@ public final class QueueStrategies {
                 return this;
             }
 
-            // TODO: Consider using the preferred selector instead of the biased sequential selector
-            // if it results in less contention.
+            // Internal Note: We use the biased sequential selector for multi-queue strategies
+            // instead of the preferred selector since the former seems to yield better performance
+            // (probably because of better load balancing to pick up the slack for generators).
 
             /**
              * {@inheritDoc}

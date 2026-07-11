@@ -10,6 +10,7 @@ import static com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode.SPMC;
 import static com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode.SPSC;
 import static com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness.BOUNDED;
 import static com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness.UNBOUNDED;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
@@ -168,10 +169,8 @@ final class QueueWrappers {
             private static <Q extends MessagePassingQueue<WorkBatch>> BoundedJCWrapper<Q> create(
                     Q delegate) {
                 mustNotBeNull(delegate, "delegate");
-                if (delegate.capacity() == MessagePassingQueue.UNBOUNDED_CAPACITY) {
-                    throw new IllegalArgumentException(
-                            "Cannot create a bounded wrapper for an unbounded queue");
-                }
+                checkArgument(delegate.capacity() != MessagePassingQueue.UNBOUNDED_CAPACITY,
+                        "Cannot create a bounded wrapper for an unbounded queue");
 
                 final String name = delegate.getClass().getSimpleName();
                 if (name.startsWith("Spsc")) {

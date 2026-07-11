@@ -1,6 +1,8 @@
 package com.github.mrgarbagegamer.internal;
 
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import java.util.List;
 
@@ -10,25 +12,21 @@ public final class ValidationUtils {
     private ValidationUtils() { utilityClassError("ValidationUtils"); }
 
     public static <T> T mustNotBeNull(T obj, String fieldName) {
-        return requireNonNull(obj, fieldName + " must not be null");
+        return checkNotNull(obj, "%s must not be null", fieldName);
     }
 
     // Method to ensure a list isn't empty:
     public static <T> List<T> mustNotBeEmpty(List<T> list, String fieldName) {
-        if (mustNotBeNull(list, fieldName).isEmpty()) {
-            throw new IllegalArgumentException(fieldName + " must not be empty");
-        }
+        mustNotBeNull(list, fieldName);
+        checkArgument(!list.isEmpty(), "%s must not be empty", fieldName);
         return list; // We won't return List.copyOf here, since this method is meant to validate.
     }
 
     public static <T> List<T> copyOfNonNullList(List<? extends T> list, String fieldName) {
         mustNotBeNull(list, fieldName);
         for (int i = 0; i < list.size(); i++) {
-            if (list.get(i) == null) {
-                throw new NullPointerException(
-                        "%s must not contain null elements (null element at index %d)"
-                                .formatted(fieldName, i));
-            }
+            checkNotNull(list.get(i),
+                    "%s must not contain null elements (null element at index %d)", fieldName, i);
         }
         return List.copyOf(list);
     }
@@ -39,16 +37,12 @@ public final class ValidationUtils {
     }
 
     public static <T> T mustBeSet(T parameter, String parameterName) {
-        if (parameter == null) {
-            throw new IllegalStateException(parameterName + " must be set before building.");
-        }
+        checkState(parameter != null, "%s must be set before building.", parameterName);
         return parameter;
     }
 
     public static int mustBePositive(int value, String fieldName) {
-        if (value <= 0) {
-            throw new IllegalArgumentException(fieldName + " must be positive, was: " + value);
-        }
+        checkArgument(value > 0, "%s must be positive, was: %s", fieldName, value);
         return value;
     }
 }

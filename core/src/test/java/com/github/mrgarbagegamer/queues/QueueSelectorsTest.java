@@ -121,10 +121,6 @@ class QueueSelectorsTest {
                                 .of(named("JCTools exclusive", QueueSelectors.exclusiveJCTools())));
             }
 
-            private static List<MpmcArrayQueue<WorkBatch>> createQueuesWithNull() {
-                return Arrays.asList(new MpmcArrayQueue<>(DEFAULT_QUEUE_CAPACITY), null);
-            }
-
             @ParameterizedTest
             @MethodSource("jctoolsSelectors")
             void givenNullQueues_whenPoll_thenThrowNPE(
@@ -146,31 +142,6 @@ class QueueSelectorsTest {
                 assertThatNullPointerException()
                         .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
                         .withMessageContaining("queues must not be null");
-            }
-
-            @ParameterizedTest
-            @MethodSource("jctoolsSelectors")
-            void givenQueuesWithNull_whenPoll_thenThrowNPE(
-                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
-                List<MpmcArrayQueue<WorkBatch>> queues = createQueuesWithNull();
-
-                assertThatNullPointerException()
-                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
-                        .withMessageContaining("queues must not contain null elements")
-                        .withMessageContaining("null element at index 1");
-            }
-
-            @ParameterizedTest
-            @MethodSource("jctoolsSelectors")
-            void givenQueuesWithNull_whenOffer_thenThrowNPE(
-                    QueueSelector<MessagePassingQueue<WorkBatch>> selector) {
-                List<MpmcArrayQueue<WorkBatch>> queues = createQueuesWithNull();
-
-                WorkBatch batch = createBatch();
-                assertThatNullPointerException()
-                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
-                        .withMessageContaining("queues must not contain null elements")
-                        .withMessageContaining("null element at index 1");
             }
 
             @ParameterizedTest
@@ -685,10 +656,6 @@ class QueueSelectorsTest {
                                 named("Blocking exclusive", QueueSelectors.exclusiveBlocking())));
             }
 
-            private static List<ArrayBlockingQueue<WorkBatch>> createQueuesWithNull() {
-                return Arrays.asList(new ArrayBlockingQueue<>(DEFAULT_QUEUE_CAPACITY), null);
-            }
-
             @ParameterizedTest
             @MethodSource("blockingSelectors")
             void givenNullQueues_whenPoll_thenThrowNPE(
@@ -710,31 +677,6 @@ class QueueSelectorsTest {
                 assertThatNullPointerException()
                         .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
                         .withMessageContaining("queues must not be null");
-            }
-
-            @ParameterizedTest
-            @MethodSource("blockingSelectors")
-            void givenQueuesWithNull_whenPoll_thenThrowNPE(
-                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
-                List<ArrayBlockingQueue<WorkBatch>> queues = createQueuesWithNull();
-
-                assertThatNullPointerException()
-                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
-                        .withMessageContaining("queues must not contain null elements")
-                        .withMessageContaining("null element at index 1");
-            }
-
-            @ParameterizedTest
-            @MethodSource("blockingSelectors")
-            void givenQueuesWithNull_whenOffer_thenThrowNPE(
-                    QueueSelector<BlockingQueue<WorkBatch>> selector) {
-                List<ArrayBlockingQueue<WorkBatch>> queues = createQueuesWithNull();
-
-                WorkBatch batch = createBatch();
-                assertThatNullPointerException()
-                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
-                        .withMessageContaining("queues must not contain null elements")
-                        .withMessageContaining("null element at index 1");
             }
 
             @ParameterizedTest

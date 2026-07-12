@@ -65,6 +65,10 @@ final class QueueSelectors {
         return BlockingQueueSelector.EXCLUSIVE;
     }
 
+    // TODO: Look at reducing duplication between the selector implementations by creating an
+    // interface with default implementations of poll and offer to cover the null checks and backoff
+    // handling and abstract methods for the actual queue operations.
+
     private enum JCToolsSelector
             implements QueueSelector<MessagePassingQueue<WorkBatch>>, SelectorValidator {
 
@@ -302,18 +306,23 @@ final class QueueSelectors {
                 mustNotBeNull(queues, "queues");
                 mustNotBeNull(backoff, "backoff");
                 mustNotBeNull(shouldContinue, "shouldContinue");
+
                 final BlockingQueue<WorkBatch> queue = queues.get(threadId);
 
                 while (shouldContinue.getAsBoolean()) {
+                    // Interruption checks are handled by the offer/poll methods
                     try {
                         // Use a short timeout so we can re-check shouldContinue periodically
                         final WorkBatch batch = queue.poll(100, TimeUnit.MILLISECONDS);
                         if (batch != null)
                             return batch;
                     } catch (InterruptedException e) {
+                        // Restore interrupt status.
                         Thread.currentThread().interrupt();
                         return null;
                     }
+                    if (tryBackoff(backoff))
+                        return null;
                 }
                 return null;
             }
@@ -325,15 +334,21 @@ final class QueueSelectors {
                 mustNotBeNull(queues, "queues");
                 mustNotBeNull(backoff, "backoff");
                 mustNotBeNull(shouldContinue, "shouldContinue");
+
                 final BlockingQueue<WorkBatch> queue = queues.get(threadId);
+
                 while (shouldContinue.getAsBoolean()) {
+                    // Interruption checks are handled by the offer/poll methods
                     try {
                         if (queue.offer(batch, 100, TimeUnit.MILLISECONDS))
                             return true;
                     } catch (InterruptedException e) {
+                        // Restore interrupt status.
                         Thread.currentThread().interrupt();
                         return false;
                     }
+                    if (tryBackoff(backoff))
+                        return false;
                 }
                 return false;
             }

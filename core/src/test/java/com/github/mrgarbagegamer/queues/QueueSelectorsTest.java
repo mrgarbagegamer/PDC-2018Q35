@@ -9,7 +9,6 @@ import static org.assertj.core.api.InstanceOfAssertFactories.COLLECTION;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
 import static org.junit.jupiter.api.Named.named;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -874,7 +873,7 @@ class QueueSelectorsTest {
                     .preferredBlocking();
 
             @Test
-            void givenPreferredQueueEmptyButOtherNonEmpty_whenPoll_thenSkipBackoff() {
+            void givenPreferredQueueEmptyButOtherNonEmpty_whenPoll_thenBackoff() {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
                 addTo(queues.getFirst());
 
@@ -882,7 +881,7 @@ class QueueSelectorsTest {
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
-                    softly.assertThat(trackingBackoff.calls).isZero();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
                     softly.assertThat(queues).first(as(COLLECTION)).isNotEmpty();
                     softly.assertThat(queues).last(as(COLLECTION)).isEmpty();
                 });
@@ -903,7 +902,7 @@ class QueueSelectorsTest {
             }
 
             @Test
-            void givenPreferredQueueFullButOtherNotFull_whenOffer_thenSkipBackoff() {
+            void givenPreferredQueueFullButOtherNotFull_whenOffer_thenBackoff() {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
                 fill(queues.getLast());
 
@@ -912,7 +911,7 @@ class QueueSelectorsTest {
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isFalse();
-                    softly.assertThat(trackingBackoff.calls).isZero();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
                     softly.assertThat(queues).first(as(COLLECTION)).isEmpty();
                     softly.assertThat(queues).last(as(COLLECTION)).hasSize(2);
                 });
@@ -938,14 +937,14 @@ class QueueSelectorsTest {
                     .exclusiveBlocking();
 
             @Test
-            void givenQueueZeroEmpty_whenPoll_thenSkipBackoff() {
+            void givenQueueZeroEmpty_whenPoll_thenBackoff() {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(1);
 
                 WorkBatch result = selector.poll(0, queues, trackingBackoff, oneShotSupplier());
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
-                    softly.assertThat(trackingBackoff.calls).isZero();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
                 });
             }
 
@@ -964,7 +963,7 @@ class QueueSelectorsTest {
             }
 
             @Test
-            void givenQueueZeroFull_whenOffer_thenSkipBackoff() {
+            void givenQueueZeroFull_whenOffer_thenBackoff() {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(1);
                 fillAll(queues);
 
@@ -973,7 +972,7 @@ class QueueSelectorsTest {
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isFalse();
-                    softly.assertThat(trackingBackoff.calls).isZero();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
                 });
             }
 

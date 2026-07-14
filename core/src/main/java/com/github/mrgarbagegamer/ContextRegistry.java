@@ -8,6 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
+// TODO: Add Javadocs
 public final class ContextRegistry {
     private final Logger logger;
     private final Queue<GeneratorContext> contexts;
@@ -18,9 +19,7 @@ public final class ContextRegistry {
         this.contexts = Objects.requireNonNull(contexts, "contexts cannot be null");
     }
 
-    public ContextRegistry(Logger logger) {
-        this(logger, new ConcurrentLinkedQueue<>());
-    }
+    public ContextRegistry(Logger logger) { this(logger, new ConcurrentLinkedQueue<>()); }
 
     public ContextRegistry(Queue<GeneratorContext> contexts) {
         this(LogManager.getLogger(ContextRegistry.class), contexts);
@@ -49,7 +48,8 @@ public final class ContextRegistry {
             logger.warn("No contexts registered to flush batches.");
             return;
         } else {
-            logger.info("Starting final flush of all pending batches from {} contexts...", Unbox.box(contexts.size()));
+            logger.info("Starting final flush of all pending batches from {} contexts...",
+                    Unbox.box(contexts.size()));
 
             for (GeneratorContext ctx : contexts) {
                 if (ctx.hasBatch()) {
@@ -61,11 +61,7 @@ public final class ContextRegistry {
         }
     }
 
-    public int size() {
-        return contexts.size();
-    }
+    public int size() { return contexts.size(); }
 
-    public synchronized void clear() {
-        contexts.clear();
-    }
+    public synchronized void clear() { contexts.clear(); }
 }

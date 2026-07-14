@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -17,6 +18,8 @@ import java.util.function.Supplier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
+
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
@@ -29,6 +32,8 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortLists;
 import it.unimi.dsi.fastutil.shorts.ShortPredicate;
 
+// TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
+// potentially performing eager initialization of some fields.
 // TODO: Add class-level Javadoc
 public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
         int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
@@ -40,7 +45,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         Supplier<IntList> evenStartIndices, SolutionHandler solutionHandler,
         Function<Class<?>, Logger> loggerFunction,
         GeneratorFactoryProvider generatorFactoryProvider, // Changed type
-        Queue<GeneratorContext> registryQueue) {
+        Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
 
     // Internal static predicates and consumers for validation
     private static final ShortPredicate VALID_INDEX_PREDICATE = cell -> cell >= 0
@@ -189,21 +194,13 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             Supplier<IntList> evenStartIndices, SolutionHandler solutionHandler,
             Function<Class<?>, Logger> loggerFunction,
             GeneratorFactoryProvider generatorFactoryProvider, // Changed type
-            Queue<GeneratorContext> registryQueue) {
+            Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
         // TODO: Consider importing Guava's Preconditions for validation
         if (numClicks <= 0 || numClicks > Grid.NUM_CELLS) {
             throw new IllegalArgumentException(
                     "numClicks must be in the range 1 to " + Grid.NUM_CELLS);
         } else if (numThreads <= 1) {
             throw new IllegalArgumentException("numThreads must be greater than 1");
-        } else if (batchSize <= 0) {
-            throw new IllegalArgumentException("batchSize must be positive");
-        } else if (arrayPoolSize <= 0) {
-            throw new IllegalArgumentException("arrayPoolSize must be positive");
-        } else if (taskPoolSize <= 0) {
-            throw new IllegalArgumentException("taskPoolSize must be positive");
-        } else if (queueSize <= 0) {
-            throw new IllegalArgumentException("queueSize must be positive");
         }
 
         // We can't validate the values of the Supplier parameters here, else we'd be forcing
@@ -211,32 +208,33 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         // validation at build-time.
 
         // Note that null checks are not performed on Supplier parameters, since
-        // StableValue.supplier() will handle that for us.
+        // LazyConstant.of() will handle that for us.
 
         this.numClicks = numClicks;
         this.numThreads = numThreads;
-        this.batchSize = batchSize;
-        this.arrayPoolSize = arrayPoolSize;
-        this.taskPoolSize = taskPoolSize;
-        this.queueSize = queueSize;
+        this.batchSize = mustBePositive(batchSize, "batchSize");
+        this.arrayPoolSize = mustBePositive(arrayPoolSize, "arrayPoolSize");
+        this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
+        this.queueSize = mustBePositive(queueSize, "queueSize");
         this.baseGrid = requireNonNull(baseGrid); // Avoid a copy, in hopes that the caller
                                                   // maintains immutability
-        this.trueCells = StableValue.supplier(trueCells);
-        this.useDualMasks = StableValue.supplier(useDualMasks);
-        this.trueCellMasksLower = StableValue.supplier(trueCellMasksLower);
-        this.trueCellMasksUpper = StableValue.supplier(trueCellMasksUpper);
-        this.expectedMaskLower = StableValue.supplier(expectedMaskLower);
-        this.expectedMaskUpper = StableValue.supplier(expectedMaskUpper);
-        this.oddClickIndices = StableValue.supplier(oddClickIndices);
-        this.evenClickIndices = StableValue.supplier(evenClickIndices);
-        this.suffixMasksLower = StableValue.supplier(suffixMasksLower);
-        this.suffixMasksUpper = StableValue.supplier(suffixMasksUpper);
-        this.oddStartIndices = StableValue.supplier(oddStartIndices);
-        this.evenStartIndices = StableValue.supplier(evenStartIndices);
+        this.trueCells = LazyConstant.of(trueCells);
+        this.useDualMasks = LazyConstant.of(useDualMasks);
+        this.trueCellMasksLower = LazyConstant.of(trueCellMasksLower);
+        this.trueCellMasksUpper = LazyConstant.of(trueCellMasksUpper);
+        this.expectedMaskLower = LazyConstant.of(expectedMaskLower);
+        this.expectedMaskUpper = LazyConstant.of(expectedMaskUpper);
+        this.oddClickIndices = LazyConstant.of(oddClickIndices);
+        this.evenClickIndices = LazyConstant.of(evenClickIndices);
+        this.suffixMasksLower = LazyConstant.of(suffixMasksLower);
+        this.suffixMasksUpper = LazyConstant.of(suffixMasksUpper);
+        this.oddStartIndices = LazyConstant.of(oddStartIndices);
+        this.evenStartIndices = LazyConstant.of(evenStartIndices);
         this.solutionHandler = requireNonNull(solutionHandler);
         this.loggerFunction = requireNonNull(loggerFunction);
         this.generatorFactoryProvider = requireNonNull(generatorFactoryProvider);
         this.registryQueue = requireNonNull(registryQueue);
+        this.queueStrategyFactory = requireNonNull(queueStrategyFactory);
     }
 
     private SolverConfiguration(Builder builder) {
@@ -279,21 +277,20 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final Function<Class<?>, Logger> loggerFunction = requireNonNullElse(builder.loggerFunction,
                 LogManager::getLogger);
         final GeneratorFactoryProvider generatorFactoryProvider = requireNonNullElse(
-                builder.generatorFactoryProvider, (config, queueArray, registry) -> GeneratorFactory
-                        .ofDefault(config, queueArray, registry));
+                builder.generatorFactoryProvider, GeneratorFactory::ofDefault);
         final Queue<GeneratorContext> registryQueue = requireNonNullElse(builder.registryQueue,
                 new ConcurrentLinkedQueue<>());
+        final QueueStrategyFactory queueStrategyFactory = requireNonNullElse(
+                builder.queueStrategyFactory, JCToolsQueueStrategy::multiSingle);
 
         this(numClicks, numThreads, batchSize, arrayPoolSize, taskPoolSize, queueSize, baseGrid,
                 trueCells, useDualMasks, trueCellMasksLower, trueCellMasksUpper, expectedMaskLower,
                 expectedMaskUpper, oddClickIndices, evenClickIndices, suffixMasksLower,
                 suffixMasksUpper, oddStartIndices, evenStartIndices, solutionHandler,
-                loggerFunction, generatorFactoryProvider, registryQueue);
+                loggerFunction, generatorFactoryProvider, registryQueue, queueStrategyFactory);
     }
 
-    public static Builder builder() {
-        return new Builder();
-    }
+    public static Builder builder() { return new Builder(); }
 
     public static SolverConfiguration forPuzzle(int numClicks, int numThreads, int puzzleNumber) {
         return builder().numClicks(numClicks).numThreads(numThreads)
@@ -323,74 +320,82 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return baseGrid.copy(); // Defensive copy to maintain immutability
     }
 
-    public ShortList getTrueCells() {
-        return trueCells.get();
+    public ShortList getTrueCells() { return trueCells.get(); }
+
+    public boolean getUseDualMasks() { return useDualMasks.get(); }
+
+    public LongList getTrueCellMasksLower() { return trueCellMasksLower.get(); }
+
+    public LongList getTrueCellMasksUpper() { return trueCellMasksUpper.get(); }
+
+    public long getExpectedMaskLower() { return expectedMaskLower.get(); }
+
+    public long getExpectedMaskUpper() { return expectedMaskUpper.get(); }
+
+    public ShortList getOddClickIndices() { return oddClickIndices.get(); }
+
+    public ShortList getEvenClickIndices() { return evenClickIndices.get(); }
+
+    public LongList getSuffixMasksLower() { return suffixMasksLower.get(); }
+
+    public LongList getSuffixMasksUpper() { return suffixMasksUpper.get(); }
+
+    public IntList getOddStartIndices() { return oddStartIndices.get(); }
+
+    public IntList getEvenStartIndices() { return evenStartIndices.get(); }
+
+    public Logger getLogger(Class<?> clazz) { return loggerFunction.apply(clazz); }
+
+    public GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy,
+            SolverState solverState, ContextRegistry registry) {
+        return generatorFactoryProvider.create(this, queueStrategy, registry); // Pass 'this' here
     }
 
-    public boolean getUseDualMasks() {
-        return useDualMasks.get();
-    }
-
-    public LongList getTrueCellMasksLower() {
-        return trueCellMasksLower.get();
-    }
-
-    public LongList getTrueCellMasksUpper() {
-        return trueCellMasksUpper.get();
-    }
-
-    public long getExpectedMaskLower() {
-        return expectedMaskLower.get();
-    }
-
-    public long getExpectedMaskUpper() {
-        return expectedMaskUpper.get();
-    }
-
-    public ShortList getOddClickIndices() {
-        return oddClickIndices.get();
-    }
-
-    public ShortList getEvenClickIndices() {
-        return evenClickIndices.get();
-    }
-
-    public LongList getSuffixMasksLower() {
-        return suffixMasksLower.get();
-    }
-
-    public LongList getSuffixMasksUpper() {
-        return suffixMasksUpper.get();
-    }
-
-    public IntList getOddStartIndices() {
-        return oddStartIndices.get();
-    }
-
-    public IntList getEvenStartIndices() {
-        return evenStartIndices.get();
-    }
-
-    public Logger getLogger(Class<?> clazz) {
-        return loggerFunction.apply(clazz);
-    }
-
-    public GeneratorFactory getGeneratorFactory(CombinationQueueArray queueArray,
-            ContextRegistry registry) {
-        return generatorFactoryProvider.create(this, queueArray, registry); // Pass 'this' here
+    public QueueStrategy getQueueStrategy(SolverState solverState) {
+        return queueStrategyFactory.create(this, solverState); // Pass 'this' here
     }
 
     @FunctionalInterface
     public interface SolutionHandler {
-        void handleSolution(short[] prefix, short finalClick, CombinationQueueArray queueArray,
+        void handleSolution(short[] prefix, short finalClick, SolverState solverState,
                 ForkJoinPool generatorPool, Logger logger);
     }
 
     // Replace BiFunction with a TriFunction-style interface
     @FunctionalInterface
     public interface GeneratorFactoryProvider {
-        GeneratorFactory create(SolverConfiguration config, CombinationQueueArray queueArray,
+        GeneratorFactory create(SolverConfiguration config, QueueStrategy queueStrategy,
                 ContextRegistry registry);
+    }
+
+    /**
+     * A factory interface for {@link #create(SolverConfiguration, SolverState) creating}
+     * {@link QueueStrategy} instances based on the provided {@link SolverConfiguration} and
+     * {@link SolverState}. This allows for flexible instantiation of different queue strategies
+     * that may require access to the configuration and state at creation time.
+     * 
+     * @see SolverConfiguration#getQueueStrategy(SolverState)
+     * @see SolverConfiguration.Builder#queueStrategyFactory(QueueStrategyFactory)
+     * @since 2026.02 - Queue Injection Refactor
+     * @threading Thread-safe (since it should be stateless and only used for instantiation).
+     */
+    @FunctionalInterface
+    public interface QueueStrategyFactory {
+        /**
+         * Creates a new {@link QueueStrategy} instance based on the provided
+         * {@link SolverConfiguration} and {@link SolverState}.
+         * 
+         * @param config      the solver configuration to use for creating the queue strategy
+         * @param solverState the solver state to use for creating the queue strategy
+         * @return a new instance of {@link QueueStrategy} configured according to the provided
+         *         configuration and state
+         * @see SolverConfiguration#getQueueStrategy(SolverState)
+         * @see SolverConfiguration.Builder#queueStrategyFactory(QueueStrategyFactory)
+         * @since 2026.02 - Queue Injection Refactor
+         * @threading Thread-safe (since it should be stateless and only used for instantiation).
+         * @memory Allocates a new {@link QueueStrategy} instance.
+         */
+        QueueStrategy create(SolverConfiguration config, SolverState solverState);
     }
 
     public static class Builder {
@@ -419,6 +424,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private Function<Class<?>, Logger> loggerFunction;
         private GeneratorFactoryProvider generatorFactoryProvider;
         private Queue<GeneratorContext> registryQueue;
+        private QueueStrategyFactory queueStrategyFactory;
 
         private static ShortList shortListToFastList(List<Short> list) {
             return switch (list.size()) {
@@ -456,40 +462,31 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder numThreads(int numThreads) {
             if (numThreads <= 1) {
                 throw new IllegalArgumentException("numThreads must be greater than 1");
+            } else if (numThreads % 2 != 0) {
+                throw new IllegalArgumentException(
+                        "numThreads must be even to ensure generators and monkeys are balanced");
             }
             this.numThreads = numThreads;
             return this;
         }
 
         public Builder batchSize(int batchSize) {
-            if (batchSize <= 0) {
-                throw new IllegalArgumentException("batchSize must be positive");
-            }
-            this.batchSize = batchSize;
+            this.batchSize = mustBePositive(batchSize, "batchSize");
             return this;
         }
 
         public Builder arrayPoolSize(int arrayPoolSize) {
-            if (arrayPoolSize <= 0) {
-                throw new IllegalArgumentException("arrayPoolSize must be positive");
-            }
-            this.arrayPoolSize = arrayPoolSize;
+            this.arrayPoolSize = mustBePositive(arrayPoolSize, "arrayPoolSize");
             return this;
         }
 
         public Builder taskPoolSize(int taskPoolSize) {
-            if (taskPoolSize <= 0) {
-                throw new IllegalArgumentException("taskPoolSize must be positive");
-            }
-            this.taskPoolSize = taskPoolSize;
+            this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
             return this;
         }
 
         public Builder queueSize(int queueSize) {
-            if (queueSize <= 0) {
-                throw new IllegalArgumentException("queueSize must be positive");
-            }
-            this.queueSize = queueSize;
+            this.queueSize = mustBePositive(queueSize, "queueSize");
             return this;
         }
 
@@ -887,12 +884,24 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
         public Builder generatorFactoryProvider(GeneratorFactory generatorFactory) {
             return generatorFactoryProvider(
-                    (config, queueArray, registry) -> requireNonNull(generatorFactory));
+                    (config, queueStrategy, registry) -> requireNonNull(generatorFactory));
         }
 
         public Builder registryQueue(Queue<GeneratorContext> registryQueue) {
             this.registryQueue = requireNonNull(registryQueue);
             return this;
+        }
+
+        public Builder queueStrategyFactory(QueueStrategyFactory queueStrategyFactory) {
+            this.queueStrategyFactory = requireNonNull(queueStrategyFactory);
+            return this;
+        }
+
+        public Builder queueStrategyFactory(QueueStrategy queueStrategy) {
+            // TODO: Update this (and all) requireNonNull checks to include the name for better
+            // debugging
+            requireNonNull(queueStrategy);
+            return queueStrategyFactory((config, solverState) -> queueStrategy);
         }
 
         public Builder reset() {
@@ -920,12 +929,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             this.loggerFunction = null;
             this.generatorFactoryProvider = null;
             this.registryQueue = null;
+            this.queueStrategyFactory = null;
             return this;
         }
 
-        public SolverConfiguration build() {
-            return new SolverConfiguration(this);
-        }
+        public SolverConfiguration build() { return new SolverConfiguration(this); }
     }
 
     private static LongList computeTrueCellMasksLower(ShortList trueCells) {
@@ -1003,12 +1011,12 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     }
 
     private static void defaultSolutionHandling(short[] prefix, short finalClick,
-            CombinationQueueArray queueArray, ForkJoinPool generatorPool, Logger logger) {
+            SolverState solverState, ForkJoinPool generatorPool, Logger logger) {
         // Default implementation: log the solution
         final short[] winningCombination = new short[prefix.length + 1];
         System.arraycopy(prefix, 0, winningCombination, 0, prefix.length);
         winningCombination[prefix.length] = finalClick;
-        queueArray.getSolverState().markSolutionFound(winningCombination);
+        solverState.markSolutionFound(winningCombination);
         logger.info("Found the solution as the following click combination: {}",
                 new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
 

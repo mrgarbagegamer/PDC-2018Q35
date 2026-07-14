@@ -3,10 +3,11 @@ package com.github.mrgarbagegamer;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RecursiveAction;
-import java.util.concurrent.ThreadLocalRandom;
 
 import it.unimi.dsi.fastutil.longs.LongList;
 
+// TODO: Replace the DefaultGeneratorContext parameters with GeneratorContext to decouple from the
+// default implementation.
 // TODO: Update Javadoc
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
@@ -16,7 +17,7 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * recursively explore the solution space. After a recent refactor, it no longer generates
  * individual combinations. Instead, it creates compact {@link WorkBatch.WorkItem} objects that
  * describe a *range* of combinations (a shared prefix and a set of final clicks). These work items
- * are added to a {@link WorkBatch} and passed to a {@link CombinationQueue} for consumption by
+ * are added to a {@link WorkBatch}, then enqueued into a {@link QueueStrategy} for consumption by
  * {@link TestClickCombination "monkeys"}.
  * </p>
  *
@@ -62,30 +63,12 @@ import it.unimi.dsi.fastutil.longs.LongList;
  *            {@link #computeIntermediateSubtasks(DefaultGeneratorContext) forked} until a
  *            {@link #numClicks target length} is reached. Leaf tasks
  *            {@link #computeLeafCombinations(DefaultGeneratorContext) generate} work items, which
- *            are {@link #flushBatchFast(WorkBatch) queued} for validation.
+ *            are {@link GeneratorContext#flushCurrentBatch() flushed} to the queues for processing.
  * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
  *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
  */
 public class CombinationGeneratorTask extends RecursiveAction {
     // Static fields
-    /**
-     * The target length of the combinations to be generated.
-     * 
-     * <p>
-     * This is a {@code static} field shared by all tasks. It is initialized by the root task and
-     * defines the recursion depth for the generation process.
-     * </p>
-     * 
-     * @see #prefix
-     * @see #prefixLength
-     * @see #createRootTask()
-     * @see #compute()
-     * @since 2025.06 - Fork Join Refactor
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe due to immutability after initialization.
-     * @memory Minimal memory footprint of 4 bytes as an {@code int}.
-     */
-    private final CombinationQueueArray queueArray;
     /**
      * The target length of the combinations to be generated, pulled from
      * {@link StartYourMonkeys.GlobalConfig}. Through the use of {@link StableValue StableValues}
@@ -270,9 +253,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private final long expectedMaskUpper;
     private final boolean useDualMasks;
 
-    public static CombinationGeneratorTask createRootTask(SolverConfiguration config,
-            CombinationQueueArray queueArray) {
-        final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(config, queueArray);
+    public static CombinationGeneratorTask createRootTask(SolverConfiguration config) {
+        final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(config);
 
         // Initialize instance fields
         rootTask.prefix = new short[rootTask.numClicks - 1];
@@ -283,9 +265,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         return rootTask;
     }
 
-    protected CombinationGeneratorTask(SolverConfiguration config,
-            CombinationQueueArray queueArray) {
-        this.queueArray = queueArray;
+    protected CombinationGeneratorTask(SolverConfiguration config) {
         this.numClicks = config.numClicks();
         this.maxFirstClickIndex = config.getEvenClickIndices()
                 .getShort(config.getEvenClickIndices().size() - 1);
@@ -326,8 +306,16 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     @Override
     protected void compute() {
-        // Fetch the context from the custom ForkJoinWorkerThread subclass
-        final GeneratorContext ctx = ((GeneratorThread) Thread.currentThread()).getContext();
+        // Get the current GeneratorThread.
+        final GeneratorThread currentThread = (GeneratorThread) Thread.currentThread();
+
+        // Check for interruption of the current thread before doing any work.
+        if (currentThread.isInterrupted()) {
+            return; // Exit early if interrupted
+        }
+
+        // Fetch the context from the current thread once to avoid multiple accesses.
+        final GeneratorContext ctx = currentThread.getContext();
 
         try {
             // Path for the root task
@@ -385,7 +373,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private void computeRootSubtasks(GeneratorContext ctx) {
         final short start = 0;
-        final short max = (short) (Math.min(Grid.NUM_CELLS - numClicks, maxFirstClickIndex) + 1);
+        final short max = (short) (Math.min(Grid.NUM_CELLS - this.numClicks,
+                this.maxFirstClickIndex) + 1);
 
         for (short i = start; i < max; i++) {
             final long lowerMask = this.trueCellMasksLower.getLong(i);
@@ -484,13 +473,14 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * {@code prefix} and the entire valid range of final clicks by calling
      * {@link WorkBatch#addWork(short[], short, boolean)}.</li>
      * </ol>
-     * If the current batch is full, it is {@link #flushBatchFast(WorkBatch) flushed} before the new
-     * work item is added. This bulk-processing approach dramatically reduces method call overhead
-     * and loop-related costs, making it significantly more efficient than an iterative approach.
+     * If the current batch is full, it is {@link GeneratorContext#flushCurrentBatch() flushed}
+     * before the new work item is added. This bulk-processing approach dramatically reduces method
+     * call overhead and loop-related costs, making it significantly more efficient than an
+     * iterative approach.
      * </p>
      *
      * @param ctx The thread-local {@link DefaultGeneratorContext}.
-     * @see DefaultGeneratorContext#getOrCreateBatch()
+     * @see DefaultGeneratorContext#getCurrentBatch()
      * @since 2025.07 - Splitting the Compute Method Into Paths
      * @performance {@code O(1)} for the start index lookup.
      * @threading Thread-safe due to {@link java.util.concurrent.ForkJoinTask ForkJoinTask}
@@ -511,15 +501,17 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         // If the batch is full, flush it and get a new one.
         if (batch.isFull()) {
-            if (!flushBatchFast(batch))
-                return; // Interrupted
-            batch = ctx.resetBatch();
+            if (!ctx.flushCurrentBatch()) {
+                // Exit if interrupted or if termination signal received during flush
+                return;
+            }
+            batch = ctx.getCurrentBatch();
             if (batch == null)
-                return; // Interrupted
+                return; // Exit if interrupted
         }
 
         // Add the entire valid range as a single work item.
-        batch.addWork(prefix, lastPrefixClick, this.isOdd);
+        batch.addWork(this.prefix, lastPrefixClick, this.isOdd);
     }
 
     /**
@@ -563,7 +555,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final short start = (short) (this.prefix[this.prefixLength - 1] + 1);
         final short max = (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);
 
-        if (skipConstraintsCheck) {
+        if (this.skipConstraintsCheck) {
             computeIntermediateSubtasksSkipPath(ctx, start, max);
         } else {
             computeIntermediateSubtasksConstraintPath(ctx, start, max);
@@ -804,71 +796,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
      */
     private final LongList suffixMasksLower;
     private final LongList suffixMasksUpper;
-
-    /**
-     * Flushes a {@link WorkBatch batch} of combinations to an available {@link CombinationQueue
-     * queue}, employing a backoff strategy if all queues are temporarily full.
-     * 
-     * <p>
-     * This method is a critical component of the producer-consumer architecture, ensuring that
-     * generated combinations are efficiently transferred to {@link TestClickCombination monkeys}
-     * for validation. It implements a robust mechanism to handle queue contention and backpressure
-     * without dropping any combinations.
-     * </p>
-     * 
-     * <h3>Algorithm</h3>
-     * <p>
-     * The method attempts to add the {@code WorkBatch} to a {@link ThreadLocalRandom#nextInt(int)
-     * randomly selected queue} from the {@link #queueArray}. To minimize contention, it tries each
-     * queue once in a round-robin fashion. If all queues are full, the thread
-     * {@link Thread#sleep(long, int) sleeps} briefly (0.5ms) to avoid busy-waiting, then retries.
-     * This loop continues indefinitely until the batch is successfully enqueued or the thread is
-     * interrupted. This "never drop a combination" rule is fundamental to the solver's correctness.
-     * </p>
-     * 
-     * <h3>Future Optimizations</h3>
-     * <p>
-     * The current backpressure mechanism (sleeping) is simple but can be improved. Potential
-     * enhancements include:
-     * <ul>
-     * <li>Using {@link ForkJoinPool.ManagedBlocker} to allow the pool to compensate for blocked
-     * generator threads by spinning up other workers.</li>
-     * <li>Implementing a more sophisticated blocking strategy (e.g., using a dedicated signal from
-     * consumers) to wake generator threads only when queue space is available, avoiding unnecessary
-     * sleeps. This could, however, increase complexity, potentially requiring a shift to a
-     * different queue structure.</li>
-     * </ul>
-     * </p>
-     * 
-     * @param batch The {@link WorkBatch} containing generated combinations to be flushed.
-     * @return {@code true} if the batch was successfully flushed, {@code false} if the thread was
-     *         interrupted before flushing could complete.
-     * @see CombinationQueue#add(WorkBatch)
-     * @since 2025.06.08 - Fork Join Refactor
-     * @performance {@code O(numQueues)} per attempt, with a brief sleep if all queues are full.
-     * @threading Thread-safe due to local queue access and atomic operations within
-     *            {@link CombinationQueue#add(WorkBatch)}.
-     */
-    private final boolean flushBatchFast(WorkBatch batch) {
-        CombinationQueue[] queues = queueArray.getAllQueues();
-        int startIdx = ThreadLocalRandom.current().nextInt(queues.length);
-
-        // Try each queue once and sleep if all are full
-        while (true) {
-            for (int i = 0; i < queues.length; i++) {
-                if (queues[(startIdx + i) % queues.length].relaxedOffer(batch))
-                    return true;
-            }
-
-            // If we reach here, all queues were full
-            try {
-                Thread.sleep(0, 500_000); // Sleep briefly (0.5ms) to avoid busy-waiting
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); // Restore interrupt status
-                return false; // Exit if interrupted
-            }
-        }
-    }
 
     /**
      * Recycles the {@link #prefix} and the {@code CombinationGeneratorTask} instance back to their

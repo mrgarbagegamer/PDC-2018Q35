@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
+
 // TODO: Update Javadoc
 /**
  * A high-performance, non-thread-safe object pool for recycling fixed-size {@code short[]} arrays.
@@ -141,11 +143,7 @@ public final class ArrayPool {
      * @memory Allocates a {@code short[capacity][numClicks - 1]} buffer.
      */
     public ArrayPool(int capacity, int numClicks) {
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("Capacity must be greater than 0.");
-        }
-
-        this.capacity = capacity;
+        this.capacity = mustBePositive(capacity, "capacity");
         this.arrays = new short[capacity][numClicks - 1];
         // Pre-allocated arrays are immediately available
         this.size = capacity;
@@ -225,9 +223,7 @@ public final class ArrayPool {
      * @performance {@code O(1)} retrieval and comparison.
      * @memory Does not allocate.
      */
-    public boolean isEmpty() {
-        return size == 0;
-    }
+    public boolean isEmpty() { return size == 0; }
 
     /**
      * Returns the number of arrays currently available in the pool.
@@ -240,7 +236,5 @@ public final class ArrayPool {
      * @performance {@code O(1)} retrieval.
      * @memory Does not allocate.
      */
-    public int size() {
-        return size;
-    }
+    public int size() { return size; }
 }

@@ -42,10 +42,8 @@ public class Grid22 extends Grid {
      * @threading Thread-safe; each instance is independent.
      * @memory Allocates a new {@code Grid22} instance.
      */
-    public Grid22() {
-        super(3293960916490350006L, 15078939901952L, 50, (short) 1);
-    }
-    
+    public Grid22() { super(3293960916490350006L, 15078939901952L, 50, (short) 1); }
+
     /**
      * Copy constructor for {@code Grid22}. Since this constructor does not limit the type of the
      * {@code other} parameter to {@code Grid22}, it can be used to copy any subclass of
@@ -67,12 +65,8 @@ public class Grid22 extends Grid {
      *            the copying process itself is not.
      * @memory Allocates a new {@code Grid22} instance.
      */
-    public Grid22(Grid other) {
-        super(other);
-    }
+    public Grid22(Grid other) { super(other); }
 
     @Override
-    public Grid22 copy() {
-        return new Grid22(this);
-    }
+    public Grid22 copy() { return new Grid22(this); }
 }

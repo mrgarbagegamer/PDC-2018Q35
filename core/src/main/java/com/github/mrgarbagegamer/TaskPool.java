@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer;
 
 import static java.util.Objects.requireNonNull;
 
+// TODO: Update Javadocs.
 /**
  * A non-thread-safe, high-performance object pool for recycling {@link CombinationGeneratorTask}
  * instances.
@@ -177,18 +178,16 @@ public class TaskPool {
 
     // Used for the allocation fallback in get()
     private final SolverConfiguration config;
-    private final CombinationQueueArray queueArray;
 
-    public TaskPool(SolverConfiguration config, CombinationQueueArray queueArray) {
+    public TaskPool(SolverConfiguration config) {
         this.config = requireNonNull(config, "config cannot be null");
-        this.queueArray = requireNonNull(queueArray, "queueArray cannot be null");
 
         this.capacity = config.taskPoolSize();
         this.arrays = new CombinationGeneratorTask[capacity];
 
         // Pre-allocate all tasks
         for (int i = 0; i < capacity; i++) {
-            this.arrays[i] = new CombinationGeneratorTask(config, queueArray);
+            this.arrays[i] = new CombinationGeneratorTask(config);
         }
     }
 
@@ -222,7 +221,7 @@ public class TaskPool {
     public CombinationGeneratorTask get() {
         // The allocation fallback:
         if (size == 0) {
-            return new CombinationGeneratorTask(config, queueArray);
+            return new CombinationGeneratorTask(config);
         }
 
         CombinationGeneratorTask task = arrays[head];
@@ -278,9 +277,7 @@ public class TaskPool {
      * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
      * @memory Does not allocate.
      */
-    public boolean isEmpty() {
-        return size == 0;
-    }
+    public boolean isEmpty() { return size == 0; }
 
     /**
      * Returns the current number of available tasks in the pool.
@@ -295,7 +292,5 @@ public class TaskPool {
      * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
      * @memory Does not allocate.
      */
-    public int size() {
-        return size;
-    }
+    public int size() { return size; }
 }

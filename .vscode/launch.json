@@ -1,0 +1,52 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "StartYourMonkeys",
+            "request": "launch",
+            "mainClass": "com.github.mrgarbagegamer.StartYourMonkeys",
+            "projectName": "pdc-2018q35-core",
+            "vmArgs": "@args.txt"
+        },
+        {
+            "type": "java",
+            "name": "StartYourMonkeys (with args)",
+            "request": "launch",
+            "mainClass": "com.github.mrgarbagegamer.StartYourMonkeys",
+            "projectName": "pdc-2018q35-core",
+            "cwd": "${workspaceFolder}",
+            "vmArgs": "--enable-preview -XX:+UseG1GC -XX:GCTimeRatio=19 -XX:MaxInlineSize=70 -XX:FreqInlineSize=650 -XX:InlineSmallCode=5000 -XX:MaxInlineLevel=20 -XX:CompileThreshold=5000 -XX:Tier3CompileThreshold=1000 -XX:Tier4CompileThreshold=7500 -XX:+UnlockExperimentalVMOptions -XX:+EnableVectorSupport -XX:+EnableVectorReboxing -XX:+EnableVectorAggressiveReboxing -XX:MaxVectorSize=32 -XX:+AlignVector -XX:+UseTLAB -XX:TLABSize=512k -XX:+ResizeTLAB -XX:TLABWasteTargetPercent=5 -XX:+AlwaysPreTouch -XX:+EliminateAllocations -XX:+EliminateAutoBox -XX:EliminateAllocationArraySizeLimit=128 -XX:MaxGCPauseMillis=100 -XX:G1NewSizePercent=40 -XX:G1MaxNewSizePercent=80 -XX:G1HeapRegionSize=16m -XX:G1MixedGCCountTarget=4 -XX:+G1UseAdaptiveIHOP -XX:+UseThreadPriorities -XX:+UseCriticalCompilerThreadPriority -XX:+UseDynamicNumberOfCompilerThreads -XX:CICompilerCount=16 -XX:PerMethodTrapLimit=200 -XX:PerBytecodeTrapLimit=8 -XX:PerMethodRecompilationCutoff=800 -XX:+UseCountLeadingZerosInstruction -XX:+UseCountTrailingZerosInstruction",
+            "args": "${input:numClicks} ${input:numThreads} ${input:puzzleNumber}"
+        },
+    ],
+    "inputs": [
+        {
+            "id": "numClicks",
+            "type": "promptString",
+            "description": "Enter number of clicks (optional)",
+            "default": ""
+        },
+        {
+            "id": "numThreads",
+            "type": "promptString",
+            "description": "Enter number of threads (optional)",
+            "default": ""
+        },
+        {
+            "id": "puzzleNumber",
+            "type": "promptString",
+            "description": "Enter puzzle number (13, 22, or 35) (optional)",
+            "default": ""
+        }
+    ]
+}

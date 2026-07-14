@@ -12,13 +12,15 @@ import com.github.mrgarbagegamer.SolverConfiguration.SolutionHandler;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
+// TODO: Update Javadoc
+// TODO: Consider renaming this class to MonkeyThread to better reflect its role.
 /**
  * An optimized worker thread that tests potential puzzle solutions from a shared work queue.
  *
  * <p>
  * This class implements the "consumer" role in the solver's producer-consumer architecture. Each
  * instance, referred to as a "monkey," runs on a dedicated thread. Its primary responsibility is to
- * fetch {@link WorkBatch} objects from the {@link CombinationQueueArray}, iterate through the
+ * fetch {@link WorkBatch} objects from the {@link QueueStrategy}, iterate through the
  * {@link WorkBatch.WorkItem}s within, and test the described combination ranges against a local
  * {@link Grid} clone.
  * </p>
@@ -56,9 +58,9 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * </p>
  *
  * <p>
- * The only shared, mutable resource monkeys interact with directly is the central
- * {@link CombinationQueueArray}, from which they fetch work and to which they
- * {@link CombinationQueueArray#getWorkBatchPool() recycle} {@link WorkBatch} objects after use.
+ * The only shared, mutable resource monkeys interact with directly is the {@code QueueStrategy},
+ * from which they {@link QueueStrategy#monkeyPoll(int) fetch work} and to which they
+ * {@link QueueStrategy#monkeyOffer(WorkBatch, int) recycle} {@link WorkBatch} objects after use.
  * This design ensures that no objects are allocated in the hot path, with the minor exception of
  * logging.
  * </p>
@@ -76,7 +78,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *              {@code O(CombinationGeneratorTask.BATCH_SIZE)} per batch, dominated by the
  *              {@code O(combination.length)} odd adjacency check performed for each combination.
  * @threading Each monkey is a {@link Thread} that operates on its own {@link Grid} instance. Work
- *            is obtained in a thread-safe manner from the shared {@link CombinationQueueArray}.
+ *            is obtained in a thread-safe manner from the {@link QueueStrategy}.
  * @algorithm {@link #getWork() Pulls} a {@link WorkBatch} (from its own queue or by stealing), then
  *            iterates through its combinations. Each is validated with an
  *            {@link #satisfiesOddAdjacency(long, short) odd adjacency check}. Valid combinations
@@ -124,40 +126,10 @@ public class TestClickCombination extends Thread {
      */
     private static final int LOG_EVERY_N_FAILURES = 100_000;
 
-    /**
-     * The monkey's preferred {@link CombinationQueue}.
-     *
-     * <p>
-     * Each monkey has an assigned queue to pull work from. This affinity helps reduce contention.
-     * If this queue is empty, the monkey will attempt to steal work from other queues in the shared
-     * {@link #queueArray}.
-     * </p>
-     *
-     * @see #TestClickCombination(String, CombinationQueue)
-     * @see #allQueuesEmpty()
-     * @see #getWork()
-     * @since 2025.05 - Dedicated Queue per Monkey
-     * @performance {@code O(1)} dequeue operations.
-     * @threading Thread-safe through JCTools wizardry.
-     * @memory Fixed memory footprint of 4 bytes for the reference.
-     */
-    private final CombinationQueue combinationQueue;
-    /**
-     * A reference to the shared {@link CombinationQueueArray}.
-     *
-     * <p>
-     * This provides access to all work queues for stealing, the shared {@link WorkBatch} pool for
-     * recycling, and global state flags like {@link CombinationQueueArray#solutionFound} and
-     * {@link CombinationQueueArray#generationComplete}.
-     * </p>
-     *
-     * @see #TestClickCombination(String, CombinationQueue)
-     * @since 2025.05 - Dedicated Queue per Monkey
-     * @performance {@code O(1)} access to queues and flags.
-     * @threading Thread-safe through use of {@code volatile} flags and concurrent queues.
-     * @memory Fixed memory footprint of 4 bytes for the reference.
-     */
-    private final CombinationQueueArray queueArray;
+    private final QueueStrategy queueStrategy;
+    private final int monkeyId;
+    private final SolverState solverState;
+
     /**
      * The monkey's dedicated {@link Grid} instance for testing combinations.
      *
@@ -211,13 +183,14 @@ public class TestClickCombination extends Thread {
     private final ForkJoinPool generatorPool;
     private final SolutionHandler solutionHandler;
 
-    public TestClickCombination(String name, SolverConfiguration config, CombinationQueue queue,
-            CombinationQueueArray queueArray, ForkJoinPool generatorPool) {
+    public TestClickCombination(String name, int monkeyId, SolverConfiguration config,
+            QueueStrategy queueStrategy, SolverState solverState, ForkJoinPool generatorPool) {
         super(name); // The constructor for Thread handles null checks for the name
-        this.combinationQueue = requireNonNull(queue);
-        this.puzzleGrid = config.baseGrid(); // Copy of the base grid
-        this.queueArray = requireNonNull(queueArray);
         this.logger = requireNonNull(config.getLogger(TestClickCombination.class));
+        this.queueStrategy = requireNonNull(queueStrategy);
+        this.monkeyId = monkeyId;
+        this.solverState = requireNonNull(solverState);
+        this.puzzleGrid = config.baseGrid(); // Copy of the base grid
         this.masksLower = requireNonNull(config.getTrueCellMasksLower());
         this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
         this.expectedLower = requireNonNull(config.getExpectedMaskLower());
@@ -279,20 +252,17 @@ public class TestClickCombination extends Thread {
     @Override
     public void run() {
         int failedCount = 0; // Count of failed attempts for logging
-        final SolverState solverState = this.queueArray.getSolverState();
         while (!solverState.solutionFound()) {
-            WorkBatch workBatch = getWork();
+            final WorkBatch workBatch = getWork();
 
             if (workBatch == null) {
-                if (idleAfterNoWork())
-                    break; // Exit if solution found or all queues empty
-                continue; // Retry getting work
+                return; // Termination condition met, exit the thread
             }
 
             // NEW: Iterate over WorkItems and use pre-computed prefix masks.
             for (WorkBatch.WorkItem item : workBatch) {
                 // TODO: Look at removing this redundant check
-                if (this.queueArray.getSolverState().solutionFound())
+                if (this.solverState.solutionFound())
                     break;
 
                 final ShortList finalClicks = item.getFinalClicks();
@@ -308,7 +278,7 @@ public class TestClickCombination extends Thread {
                         this.puzzleGrid.click(prefix, finalClick);
 
                         if (this.puzzleGrid.isSolved()) {
-                            solutionHandler.handleSolution(prefix, finalClick, this.queueArray,
+                            solutionHandler.handleSolution(prefix, finalClick, this.solverState,
                                     this.generatorPool, this.logger);
                             return;
                         }
@@ -328,23 +298,22 @@ public class TestClickCombination extends Thread {
             }
 
             // After processing, recycle the batch
-            this.queueArray.getWorkBatchPool().offer(workBatch);
+            if (!recycleBatch(workBatch)) {
+                return;
+            }
         }
     }
 
-    private boolean idleAfterNoWork() {
-        if (this.queueArray.getSolverState().solutionFound() || allQueuesEmpty()) {
-            return true;
-        } else {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                this.logger.debug("Thread interrupted while waiting for work");
-                return true;
-            }
+    private WorkBatch getWork() {
+        final WorkBatch batch = this.queueStrategy.monkeyPoll(this.monkeyId);
+        if (batch == null) {
+            // TODO: Consider using separate logging for "generation complete" vs "solution found"
+            // termination conditions
+            // Log the termination condition if we failed to get work due to solution found or all
+            // queues empty
+            this.logger.debug("Termination condition was met during poll, shutting down");
         }
-        return false;
+        return batch;
     }
 
     private static short[] buildCombination(short[] prefix, short finalClick) {
@@ -352,81 +321,6 @@ public class TestClickCombination extends Thread {
         System.arraycopy(prefix, 0, combination, 0, prefix.length);
         combination[prefix.length] = finalClick;
         return combination;
-    }
-
-    /**
-     * Obtains a {@link WorkBatch} to process, using a work-stealing strategy.
-     *
-     * <p>
-     * This method first attempts to {@link CombinationQueue#getWorkBatch() poll} from
-     * {@link #combinationQueue the monkey's preferred} {@link CombinationQueue queue}. If that is
-     * empty, it iterates through all other queues in the shared {@link CombinationQueueArray} to
-     * "steal" a batch. This non-blocking approach allows idle monkeys to pick up work from busy
-     * threads, helping to balance the load.
-     * </p>
-     *
-     * <p>
-     * A more advanced implementation might use some load-balanced algorithm for stealing to reduce
-     * contention, but the current linear scan is simple and effective enough.
-     * </p>
-     *
-     * @return A {@link WorkBatch} to process, or {@code null} if no work is available anywhere.
-     * @since 2025.07 - Enqueueing Work Batches
-     * @performance {@code O(1)} to steal from the preferred queue, and {@code O(queues.length)} in
-     *              the worst case for stealing.
-     * @threading Thread-safe; uses non-blocking queue operations.
-     * @memory Does not allocate.
-     */
-    private WorkBatch getWork() {
-        // Try my own queue first
-        WorkBatch batch = this.combinationQueue.relaxedPoll();
-        if (batch != null) {
-            return batch;
-        }
-
-        // My queue is empty, try to steal
-        CombinationQueue[] queues = this.queueArray.getAllQueues();
-        for (int i = 0; i < queues.length; i++) {
-            batch = queues[i].relaxedPoll();
-            if (batch != null) {
-                return batch;
-            }
-        }
-
-        return null; // No work found anywhere
-    }
-
-    /**
-     * Checks if all work {@link CombinationQueue queues} in the {@link CombinationQueueArray
-     * system} {@link CombinationQueue#isEmpty() are empty}.
-     *
-     * <p>
-     * This is a key part of the shutdown logic. A monkey can only safely terminate when
-     * {@link CombinationQueueArray#generationComplete generation is complete} <em>and</em> all
-     * queues are empty (or if the solution is found), ensuring no work is left unprocessed. This
-     * check is only performed when a monkey is idle, so its {@code O(queues.length)} complexity is
-     * acceptable.
-     * </p>
-     *
-     * @return {@code true} if all queues are empty, {@code false} otherwise.
-     * @since 2025.08 - Preallocate WorkBatches for Queues
-     * @performance {@code O(queues.length)} in the worst case due to iteration.
-     * @threading Thread-safe; calls {@link CombinationQueue#isEmpty() a thread-safe method} on each
-     *            queue.
-     * @memory Does not allocate.
-     */
-    private boolean allQueuesEmpty() {
-        // Short-circuit if generation is not complete (which should be the case most of the time)
-        if (!this.queueArray.getSolverState().generationComplete()) {
-            return false; // Generation not complete, so queues may still get work
-        }
-
-        for (CombinationQueue q : this.queueArray.getAllQueues()) {
-            if (!q.isEmpty()) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private final long buildParityMaskLower(short[] combination) {
@@ -499,5 +393,17 @@ public class TestClickCombination extends Thread {
                     && (prefixMaskUpper
                             ^ this.masksUpper.getLong(finalClick)) == this.expectedUpper;
         }
+    }
+
+    private boolean recycleBatch(WorkBatch batch) {
+        final boolean success = this.queueStrategy.monkeyOffer(batch, this.monkeyId);
+        if (!success) {
+            // TODO: Consider using separate logging for "generation complete" vs "solution found"
+            // termination conditions
+            // Log the termination condition if we failed to recycle due to solution found or
+            // shutdown
+            this.logger.debug("Termination condition was met during offer, shutting down");
+        }
+        return success;
     }
 }

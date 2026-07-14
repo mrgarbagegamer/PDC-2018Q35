@@ -22,6 +22,17 @@ interface QueueSelector<Q> {
 
         void backoff() throws InterruptedException;
 
+        default boolean tryBackoff() {
+            try {
+                this.backoff();
+                return false;
+            } catch (InterruptedException e) {
+                // Restore interrupt status
+                Thread.currentThread().interrupt();
+                return true;
+            }
+        }
+
         static BackoffStrategy sleep(long millis, int nanos) {
             return () -> Thread.sleep(millis, nanos);
         }

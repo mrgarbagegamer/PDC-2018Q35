@@ -30,16 +30,6 @@ final class QueueSelectors {
         boolean tryOffer(WorkBatch batch, int threadId, List<? extends Q> queues)
                 throws InterruptedException;
 
-        private boolean tryBackoff(BackoffStrategy backoff) {
-            try {
-                backoff.backoff();
-                return false;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return true;
-            }
-        }
-
         @Override
         default WorkBatch poll(int threadId, List<? extends Q> queues, BackoffStrategy backoff,
                 BooleanSupplier shouldContinue) {
@@ -58,7 +48,7 @@ final class QueueSelectors {
                     Thread.currentThread().interrupt();
                     return null;
                 }
-                if (tryBackoff(backoff))
+                if (backoff.tryBackoff())
                     return null;
             }
             return null;
@@ -81,7 +71,7 @@ final class QueueSelectors {
                     Thread.currentThread().interrupt();
                     return false;
                 }
-                if (tryBackoff(backoff))
+                if (backoff.tryBackoff())
                     return false;
             }
             return false;

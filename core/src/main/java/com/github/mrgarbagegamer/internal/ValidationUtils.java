@@ -26,7 +26,7 @@ public final class ValidationUtils {
         mustNotBeNull(list, fieldName);
         for (int i = 0; i < list.size(); i++) {
             checkNotNull(list.get(i),
-                    "%s must not contain null elements (null element at index %d)", fieldName, i);
+                    "%s must not contain null elements (null element at index %s)", fieldName, i);
         }
         return List.copyOf(list);
     }

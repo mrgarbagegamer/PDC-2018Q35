@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -34,6 +35,8 @@ import it.unimi.dsi.fastutil.shorts.ShortPredicate;
 
 // TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
 // potentially performing eager initialization of some fields.
+// TODO: Remove the weird predicates and consumers in favor of a more straightforward validation
+// approach.
 // TODO: Add class-level Javadoc
 public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
         int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
@@ -541,7 +544,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
         public Builder trueCellMasksLower(LongList trueCellMasksLower) {
             // The list must have exactly Grid.NUM_CELLS elements
-            LIST_SIZE_MATCHES_GRID_PREDICATE.test(trueCellMasksLower);
+            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(trueCellMasksLower),
+                    "trueCellMasksLower must have exactly %s elements", Grid.NUM_CELLS);
 
             // Delegate to the supplier overload with a defensive supplier
             return trueCellMasksLower(defensiveSupplier(trueCellMasksLower));
@@ -565,7 +569,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder trueCellMasksUpper(LongList trueCellMasksUpper) {
             // Two conditions must be met:
             // - The list must have exactly Grid.NUM_CELLS elements
-            LIST_SIZE_MATCHES_GRID_PREDICATE.test(trueCellMasksUpper);
+            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(trueCellMasksUpper),
+                    "trueCellMasksUpper must have exactly %s elements", Grid.NUM_CELLS);
 
             // - The list's bitcount must be no greater than 45 (since there are at most 109 true
             // cells, and the upper mask can only have bits for true cells 65 to 109)
@@ -602,7 +607,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
         public Builder expectedMaskUpper(long expectedMaskUpper) {
             // The upper mask must have a bitcount no greater than 45:
-            VALID_UPPER_MASK_PREDICATE.test(expectedMaskUpper);
+            checkArgument(VALID_UPPER_MASK_PREDICATE.test(expectedMaskUpper),
+                    "expectedMaskUpper must have a bitcount no greater than 45");
             return expectedMaskUpper(() -> expectedMaskUpper);
         }
 
@@ -679,7 +685,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder suffixMasksLower(LongList suffixMasksLower) {
             // The list must satisfy two conditions;
             // - It must have exactly Grid.NUM_CELLS elements
-            LIST_SIZE_MATCHES_GRID_PREDICATE.test(suffixMasksLower);
+            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(suffixMasksLower),
+                    "suffixMasksLower must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element of the list must have a bitcount that is less than or equal to that
             // of the preceding mask (to ensure proper suffix mask behavior)
@@ -722,7 +729,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder suffixMasksUpper(LongList suffixMasksUpper) {
             // The list must satisfy three conditions:
             // - The list must have exactly Grid.NUM_CELLS elements
-            LIST_SIZE_MATCHES_GRID_PREDICATE.test(suffixMasksUpper);
+            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(suffixMasksUpper),
+                    "suffixMasksUpper must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element of the list must have a bitcount that is less than or equal to that
             // of the preceding mask (to ensure proper suffix mask behavior)
@@ -768,7 +776,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder oddStartIndices(IntList oddStartIndices) {
             // The list must satisfy 3 conditions:
             // - It must have exactly Grid.NUM_CELLS elements
-            LIST_SIZE_MATCHES_GRID_PREDICATE.test(oddStartIndices);
+            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(oddStartIndices),
+                    "oddStartIndices must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element must be in the range from 0 to oddClickIndices.size() (which is at
             // most 6).
@@ -817,7 +826,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder evenStartIndices(IntList evenStartIndices) {
             // The list must satisfy 3 conditions:
             // - It must have exactly Grid.NUM_CELLS elements
-            LIST_SIZE_MATCHES_GRID_PREDICATE.test(evenStartIndices);
+            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(evenStartIndices),
+                    "evenStartIndices must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element must be in the range from 0 to evenClickIndices.size() (which is at
             // most 103).

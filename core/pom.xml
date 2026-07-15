@@ -254,8 +254,8 @@
                     <compilerArgs combine.children="append">
                         <arg>-XDcompilePolicy=simple</arg>
                         <arg>--should-stop=ifError=FLOW</arg>
-                        <!-- Temporarily disable all checks-->
-                        <arg>-Xplugin:ErrorProne -XepDisableAllChecks</arg>
+                        <!-- Temporarily disable all warnings -->
+                        <arg>-Xplugin:ErrorProne -XepDisableAllWarnings</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

@@ -193,8 +193,8 @@ public class TestClickCombination extends Thread {
         this.puzzleGrid = config.baseGrid(); // Copy of the base grid
         this.masksLower = requireNonNull(config.getTrueCellMasksLower());
         this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
-        this.expectedLower = requireNonNull(config.getExpectedMaskLower());
-        this.expectedUpper = requireNonNull(config.getExpectedMaskUpper());
+        this.expectedLower = config.getExpectedMaskLower();
+        this.expectedUpper = config.getExpectedMaskUpper();
         this.useDualMasks = config.getUseDualMasks();
         this.generatorPool = requireNonNull(generatorPool);
         this.solutionHandler = config.solutionHandler();

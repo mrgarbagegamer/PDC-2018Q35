@@ -83,7 +83,7 @@ public final class QueueStrategies {
         private final BooleanSupplier generatorShouldContinue;
         private final BooleanSupplier monkeyShouldContinue;
 
-        protected AbstractQueueStrategy(Builder<G, M, ?> builder) {
+        AbstractQueueStrategy(Builder<G, M, ?> builder) {
             // We ensure that the lists are immutable in the builder, so we can directly assign them
             // here without copying.
             this.gtmQueues = mustBeSet(builder.gtmQueues, "gtmQueues");
@@ -125,7 +125,7 @@ public final class QueueStrategies {
             // 4. Preallocation value (with overridable default of 0, which means no preallocation):
             private int batchesPerQueue = 0;
 
-            protected Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
+            Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                     SolverConfiguration config, SolverState state) {
                 this.gtmQueues = copyOfNonNullList(gtmQueues, "gtmQueues");
                 this.mtgQueues = copyOfNonNullList(mtgQueues, "mtgQueues");
@@ -198,6 +198,7 @@ public final class QueueStrategies {
              * @return this builder instance for method chaining
              * @throws IllegalArgumentException if {@code batchesPerQueue} is not positive.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public final B preallocateQueues(int batchesPerQueue) {
                 this.batchesPerQueue = mustBePositive(batchesPerQueue, "batchesPerQueue");
                 return self();
@@ -211,6 +212,7 @@ public final class QueueStrategies {
              * @throws IllegalStateException if the generator-to-monkey or monkey-to-generator queue
              *                               lists do not contain exactly one queue each.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asSingleSingle();
 
             /**
@@ -222,6 +224,7 @@ public final class QueueStrategies {
              *                               exactly one queue or if the monkey-to-generator queue
              *                               list does not contain more than one queue.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asSingleMulti();
 
             /**
@@ -233,6 +236,7 @@ public final class QueueStrategies {
              *                               more than one queue or if the monkey-to-generator queue
              *                               list does not contain exactly one queue.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asMultiSingle();
 
             /**
@@ -243,11 +247,12 @@ public final class QueueStrategies {
              * @throws IllegalStateException if the generator-to-monkey or monkey-to-generator queue
              *                               lists do not contain more than one queue each.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asMultiMulti();
 
-            protected abstract B self();
+            abstract B self();
 
-            public abstract QueueStrategy build();
+            abstract QueueStrategy build();
 
             private static void failTopology(String listName, String expected, String configName) {
                 throw new IllegalStateException("%s must contain %s for %s configuration"

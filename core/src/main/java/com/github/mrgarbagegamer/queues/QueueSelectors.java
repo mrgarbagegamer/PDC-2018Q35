@@ -14,6 +14,7 @@ import org.jctools.queues.MessagePassingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
+import com.google.common.collect.ImmutableList;
 
 final class QueueSelectors {
 
@@ -223,9 +224,9 @@ final class QueueSelectors {
             }
         };
 
-        private final List<SelectorRule> rules;
+        private final ImmutableList<SelectorRule> rules;
 
-        JCToolsSelector(SelectorRule... rules) { this.rules = List.of(rules); }
+        JCToolsSelector(SelectorRule... rules) { this.rules = ImmutableList.copyOf(rules); }
 
         @Override
         public void validate(SelectorValidationTarget<?> target) {
@@ -266,9 +267,9 @@ final class QueueSelectors {
             }
         };
 
-        private final List<SelectorRule> rules;
+        private final ImmutableList<SelectorRule> rules;
 
-        BlockingQueueSelector(SelectorRule... rules) { this.rules = List.of(rules); }
+        BlockingQueueSelector(SelectorRule... rules) { this.rules = ImmutableList.copyOf(rules); }
 
         @Override
         public void validate(SelectorValidationTarget<?> target) {

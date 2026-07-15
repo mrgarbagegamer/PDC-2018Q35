@@ -6,6 +6,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassErr
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
+import com.google.errorprone.annotations.Immutable;
 
 final class SelectorRules {
 
@@ -13,6 +14,7 @@ final class SelectorRules {
     private SelectorRules() { utilityClassError("SelectorRules"); }
 
     @FunctionalInterface
+    @Immutable
     interface SelectorRule {
         void validate(SelectorValidationTarget<?> target, QueueSelector<?> selector);
     }

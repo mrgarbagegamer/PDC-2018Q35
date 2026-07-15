@@ -104,6 +104,12 @@
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>${jspecify.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -233,7 +239,45 @@
                     </execution>
                 </executions>
             </plugin>
-
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <showWarnings>true</showWarnings>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>com.google.errorprone</groupId>
+                            <artifactId>error_prone_core</artifactId>
+                            <version>${errorprone.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                    <compilerArgs combine.children="append">
+                        <arg>-XDcompilePolicy=simple</arg>
+                        <arg>--should-stop=ifError=FLOW</arg>
+                        <!-- Temporarily disable all checks-->
+                        <arg>-Xplugin:ErrorProne -XepDisableAllChecks</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>am.ik.maven</groupId>
+                <artifactId>nullability-maven-plugin</artifactId>
+                <version>${nullability-maven-plugin.version}</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <errorProneVersion>${errorprone.version}</errorProneVersion>
+                    <nullAwayVersion>${nullAway.version}</nullAwayVersion>
+                    <nullAwaySeverity>off</nullAwaySeverity>
+                    <requireExplicitNullMarkingSeverity>off</requireExplicitNullMarkingSeverity>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>configure</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 </project>

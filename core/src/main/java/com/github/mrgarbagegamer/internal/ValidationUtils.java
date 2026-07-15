@@ -6,6 +6,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.List;
 
+import com.google.errorprone.annotations.RestrictedApi;
+
 // TODO: Write Javadocs
 @ExcludeFromGeneratedCoverage
 public final class ValidationUtils {
@@ -32,6 +34,8 @@ public final class ValidationUtils {
     }
 
     // TODO: Broadly implement this method in the codebase.
+    @RestrictedApi(explanation = "This method is intended for internal use only, and should not be called by external code.", allowedOnPath = ".*/src/(main|test)/java/com/github/mrgarbagegamer/(internal|queues)/.*\\.java")
+    @SuppressWarnings("DoNotCallSuggester")
     public static void utilityClassError(String className) {
         throw new AssertionError(className + " is a utility class and cannot be instantiated");
     }

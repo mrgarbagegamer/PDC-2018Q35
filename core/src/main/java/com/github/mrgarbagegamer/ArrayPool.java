@@ -64,7 +64,7 @@ public final class ArrayPool {
      * The maximum number of arrays the pool can hold.
      *
      * <p>
-     * The {@code capacity} is set at {@link #ArrayPool(int) construction} and determines the
+     * The {@code capacity} is set at {@link #ArrayPool(int, int) construction} and determines the
      * {@link #arrays buffer}'s memory footprint. A larger {@code capacity} reduces the chance of
      * the pool running out of arrays (which would return {@code null}), but increases initial
      * memory usage. The optimal size depends on the workload and the expected depth of the
@@ -194,7 +194,7 @@ public final class ArrayPool {
      *
      * @param array The {@code short[]} array to return to the pool. It is assumed to be
      *              non-{@code null} and of the correct size.
-     * @see #ArrayPool(int)
+     * @see #ArrayPool(int, int)
      * @see #get()
      * @see #size()
      * @since 2025.07 - Custom Generator Pools

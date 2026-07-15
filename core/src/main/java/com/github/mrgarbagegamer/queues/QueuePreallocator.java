@@ -11,6 +11,8 @@ import java.util.List;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 
 final class QueuePreallocator {
     @ExcludeFromGeneratedCoverage
@@ -56,7 +58,8 @@ final class QueuePreallocator {
         return queue.offer(new WorkBatch(solverConfig));
     }
 
-    private static void throwIAE(QueueWrapper<?> queue, int queueIndex, String reasonTemplate,
+    @FormatMethod
+    private static void throwIAE(QueueWrapper<?> queue, int queueIndex, @FormatString String reasonTemplate,
             Object... reasonArgs) {
         final String boundednessStr = queue.boundedness().toString().toLowerCase();
         final String reason = reasonTemplate.formatted(reasonArgs);
@@ -65,7 +68,8 @@ final class QueuePreallocator {
                         .formatted(boundednessStr, queueIndex, reason));
     }
 
-    private static void throwISE(QueueWrapper<?> queue, int queueIndex, String reasonTemplate,
+    @FormatMethod
+    private static void throwISE(QueueWrapper<?> queue, int queueIndex, @FormatString String reasonTemplate,
             Object... reasonArgs) {
         final String boundednessStr = queue.boundedness().toString().toLowerCase();
         final String reason = reasonTemplate.formatted(reasonArgs);

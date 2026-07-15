@@ -4,6 +4,8 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 
 final class SelectorRules {
 
@@ -69,8 +71,9 @@ final class SelectorRules {
         }
     };
 
+    @FormatMethod
     private static void fail(SelectorValidationTarget<?> target, QueueSelector<?> selector,
-            String reasonTemplate, Object... reasonArgs) {
+            @FormatString String reasonTemplate, Object... reasonArgs) {
         final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException("Validation failed for %s as %s: %s"
                 .formatted(selector.toString(), target.selectorPlacement(), reason));

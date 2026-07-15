@@ -6,6 +6,8 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassErr
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 
 final class MetadataValidator {
     @ExcludeFromGeneratedCoverage
@@ -60,8 +62,9 @@ final class MetadataValidator {
         }
     }
 
-    private static void fail(QueueGroup<?> group, int queueIndex, String reasonTemplate,
-            Object... reasonArgs) {
+    @FormatMethod
+    private static void fail(QueueGroup<?> group, int queueIndex,
+            @FormatString String reasonTemplate, Object... reasonArgs) {
         final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException(
                 "Metadata validation failed for %s: %s at index %d has %s"

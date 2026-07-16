@@ -39,7 +39,7 @@ interface QueueSelector<Q> {
 
         static BackoffStrategy noOp() { return () -> {}; }
 
-        static BackoffStrategy yield() { return Thread::yield; }
+        static BackoffStrategy yieldThread() { return Thread::yield; }
 
         static BackoffStrategy parkNanos(long nanos) { return () -> LockSupport.parkNanos(nanos); }
 

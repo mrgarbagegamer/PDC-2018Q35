@@ -364,6 +364,8 @@ public final class QueueStrategies {
      * @param <M> the type of the monkey-to-generator queues
      * @since 2026.02 - Queue Injection Refactor
      */
+    @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy class exists to minimize
+                                            // duplication.
     public static class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>>
             extends AbstractQueueStrategy<G, M> {
         private static final BackoffStrategy DEFAULT_BACKOFF = BackoffStrategy.noOp();
@@ -499,6 +501,9 @@ public final class QueueStrategies {
          * @param <M> the type of the monkey-to-generator queues
          * @since 2026.06 - Builder Pattern for Queue Strategies
          */
+        @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy.Builder class exists to
+                                                // minimize duplication and cannot be fully exposed
+                                                // without exposing internal components.
         public static final class Builder<G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>>
                 extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 
@@ -622,6 +627,8 @@ public final class QueueStrategies {
      * @param <M> the type of the monkey-to-generator queues
      * @since 2026.02 - Queue Injection Refactor
      */
+    @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy class exists to minimize
+                                            // duplication.
     public static class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
             extends AbstractQueueStrategy<G, M> {
 
@@ -745,6 +752,9 @@ public final class QueueStrategies {
          * @param <M> the type of the monkey-to-generator queues
          * @since 2026.06 - Builder Pattern for Queue Strategies
          */
+        @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy.Builder class exists to
+                                                // minimize duplication and cannot be fully exposed
+                                                // without exposing internal components.
         public static final class Builder<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
                 extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 

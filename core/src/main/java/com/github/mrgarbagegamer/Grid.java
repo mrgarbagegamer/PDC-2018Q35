@@ -892,11 +892,11 @@ public abstract class Grid {
      * </p>
      * 
      * <p>
-     * Just calling {@link #Grid(long, long) new Grid(long, long)} to create a new instance would not work either, as
-     * {@code Grid} is {@code abstract} and cannot be instantiated directly. The only other
-     * alternatives involve using reflection (which is inefficient and still not type-safe) or
-     * requiring each subclass to implement its own {@code clone()} method (violating the DRY
-     * principle and risking inconsistent behavior).
+     * Just calling {@link #Grid(long, long) new Grid(long, long)} to create a new instance would
+     * not work either, as {@code Grid} is {@code abstract} and cannot be instantiated directly. The
+     * only other alternatives involve using reflection (which is inefficient and still not
+     * type-safe) or requiring each subclass to implement its own {@code clone()} method (violating
+     * the DRY principle and risking inconsistent behavior).
      * </p>
      * 
      * <p>
@@ -1296,7 +1296,7 @@ public abstract class Grid {
         if (recalculationNeeded) {
             // Find first true cell using bit operations
             if (gridState[0] != 0L) {
-                firstTrueCell = (short) (Long.numberOfTrailingZeros(gridState[0]));
+                firstTrueCell = (short) Long.numberOfTrailingZeros(gridState[0]);
             } else if (gridState[1] != 0L) {
                 firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(gridState[1]));
             } else {
@@ -1501,7 +1501,7 @@ public abstract class Grid {
      * </p>
      *
      * @param cells An array of cells (in {@link ValueFormat#Index} format) to click.
-     * @throws ArrayIndexOutOfBoundsException if any {@code cell} in the array is out of bounds.
+     * @throws ArrayIndexOutOfBoundsException if any cell in the array is out of bounds.
      * @throws NullPointerException           if the {@code cells} array is {@code null}.
      * @see #click(short)
      * @since 2025.07 - Bulk Clicks
@@ -1999,16 +1999,8 @@ public abstract class Grid {
     public boolean equals(Object obj) {
         // Following the Effective Java recipe for equals
 
-        if (obj == this)
-            return true;
-        if (!(obj instanceof Grid))
-            return false;
-        Grid other = (Grid) obj;
-
-        // Since firstTrueCell and trueCellsCount are lazily evaluated and derived from gridState,
-        // we only
-        // need to compare gridState arrays.
-        return Arrays.equals(other.gridState, this.gridState);
+        return obj == this
+                || (obj instanceof Grid other && Arrays.equals(this.gridState, other.gridState));
     }
 
     /**
@@ -2046,31 +2038,29 @@ public abstract class Grid {
         private long initialState0 = 0L;
         private long initialState1 = 0L;
 
-        protected Builder self() { return this; }
-
         public Builder setInitialState(long state0, long state1) {
             this.initialState0 = state0;
             this.initialState1 = state1;
-            return self();
+            return this;
         }
 
         public Builder click(short cell) {
             initialState0 ^= ADJACENCY_MASKS[cell][0];
             initialState1 ^= ADJACENCY_MASKS[cell][1];
-            return self();
+            return this;
         }
 
         public Builder click(short cell1, short cell2) {
             click(cell1);
             click(cell2);
-            return self();
+            return this;
         }
 
         public Builder click(short cell1, short cell2, short cell3) {
             click(cell1);
             click(cell2);
             click(cell3);
-            return self();
+            return this;
         }
 
         public Builder click(short cell1, short cell2, short cell3, short cell4) {
@@ -2078,7 +2068,7 @@ public abstract class Grid {
             click(cell2);
             click(cell3);
             click(cell4);
-            return self();
+            return this;
         }
 
         public Builder click(short cell1, short cell2, short cell3, short cell4, short cell5) {
@@ -2087,14 +2077,14 @@ public abstract class Grid {
             click(cell3);
             click(cell4);
             click(cell5);
-            return self();
+            return this;
         }
 
         public Builder click(short... cells) {
             for (short cell : cells) {
                 click(cell);
             }
-            return self();
+            return this;
         }
 
         public Builder click(int cell) { return click((short) cell); }
@@ -2117,13 +2107,13 @@ public abstract class Grid {
             for (int cell : cells) {
                 click((short) cell);
             }
-            return self();
+            return this;
         }
 
         public Builder from(Grid other) {
             this.initialState0 = other.gridState[0];
             this.initialState1 = other.gridState[1];
-            return self();
+            return this;
         }
 
         public Builder from(long[] bitmask) {
@@ -2132,7 +2122,7 @@ public abstract class Grid {
             }
             this.initialState0 = bitmask[0];
             this.initialState1 = bitmask[1];
-            return self();
+            return this;
         }
 
         public Builder toggle(short cell) {
@@ -2142,20 +2132,20 @@ public abstract class Grid {
                 initialState1 ^= (1L << (cell - 64));
             }
 
-            return self();
+            return this;
         }
 
         public Builder toggle(short cell1, short cell2) {
             toggle(cell1);
             toggle(cell2);
-            return self();
+            return this;
         }
 
         public Builder toggle(short cell1, short cell2, short cell3) {
             toggle(cell1);
             toggle(cell2);
             toggle(cell3);
-            return self();
+            return this;
         }
 
         public Builder toggle(short cell1, short cell2, short cell3, short cell4) {
@@ -2163,7 +2153,7 @@ public abstract class Grid {
             toggle(cell2);
             toggle(cell3);
             toggle(cell4);
-            return self();
+            return this;
         }
 
         public Builder toggle(short cell1, short cell2, short cell3, short cell4, short cell5) {
@@ -2172,14 +2162,14 @@ public abstract class Grid {
             toggle(cell3);
             toggle(cell4);
             toggle(cell5);
-            return self();
+            return this;
         }
 
         public Builder toggle(short... cells) {
             for (short cell : cells) {
                 toggle(cell);
             }
-            return self();
+            return this;
         }
 
         public Builder toggle(int cell) { return toggle((short) cell); }
@@ -2203,14 +2193,14 @@ public abstract class Grid {
             for (int cell : cells) {
                 toggle((short) cell);
             }
-            return self();
+            return this;
         }
 
         public Builder clear() {
             setInitialState(0L, 0L);
-            return self();
+            return this;
         }
 
-        public Grid build() { return new CustomGrid(self()); }
+        public Grid build() { return new CustomGrid(this); }
     }
 }

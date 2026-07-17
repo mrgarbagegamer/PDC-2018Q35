@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer;
 import java.util.Arrays;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
+import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
@@ -235,9 +236,8 @@ public abstract class Grid {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
      */
-    public static final short[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93}; // TODO: Replace with a
-                                                                           // ShortImmutableList to
-                                                                           // ensure immutability
+    public static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
+            (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
     /**
      * The total number of cells in the grid.
      *
@@ -768,7 +768,7 @@ public abstract class Grid {
     private static short computePackedToIndex(short packed) {
         short row = (short) (packed / 100);
         short col = (short) (packed % 100);
-        return (short) (ROW_OFFSETS[row] + col);
+        return (short) (ROW_OFFSETS.getShort(row) + col);
     }
 
     /**
@@ -843,20 +843,20 @@ public abstract class Grid {
             throw new IllegalArgumentException("Invalid index: " + index);
         }
 
-        if (index < 16)
+        if (index < ROW_OFFSETS.getShort(1))
             return (short) (0 * 100 + index);
-        if (index < 31)
-            return (short) (1 * 100 + (index - 16));
-        if (index < 47)
-            return (short) (2 * 100 + (index - 31));
-        if (index < 62)
-            return (short) (3 * 100 + (index - 47));
-        if (index < 78)
-            return (short) (4 * 100 + (index - 62));
-        if (index < 93)
-            return (short) (5 * 100 + (index - 78));
+        if (index < ROW_OFFSETS.getShort(2))
+            return (short) (1 * 100 + (index - ROW_OFFSETS.getShort(1)));
+        if (index < ROW_OFFSETS.getShort(3))
+            return (short) (2 * 100 + (index - ROW_OFFSETS.getShort(2)));
+        if (index < ROW_OFFSETS.getShort(4))
+            return (short) (3 * 100 + (index - ROW_OFFSETS.getShort(3)));
+        if (index < ROW_OFFSETS.getShort(5))
+            return (short) (4 * 100 + (index - ROW_OFFSETS.getShort(4)));
+        if (index < ROW_OFFSETS.getShort(6))
+            return (short) (5 * 100 + (index - ROW_OFFSETS.getShort(5)));
         else
-            return (short) (6 * 100 + (index - 93));
+            return (short) (6 * 100 + (index - ROW_OFFSETS.getShort(6)));
     }
 
     /**

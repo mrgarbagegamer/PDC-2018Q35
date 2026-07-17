@@ -113,7 +113,6 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
         }
         this.list = list;
         this.format = format;
-
     }
 
     public CombinationMessage(short[] list) {
@@ -143,31 +142,25 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
     public void convertTo(Grid.ValueFormat outputFormat) {
         if (format == outputFormat) {
             return; // No conversion needed
-        } else if (outputFormat == Grid.ValueFormat.Bitmask) {
-            throw new IllegalArgumentException("Cannot convert to Bitmask format at the moment.");
         }
 
         switch (outputFormat) {
-            case Index:
+            case Index -> {
                 if (format == Grid.ValueFormat.PackedInt) {
-                    for (int i = 0; i < list.length; i++) {
-                        list[i] = Grid.packedToIndex(list[i]); // Convert packed int to index format
-                    }
+                    for (int i = 0; i < list.length; i++)
+                        list[i] = Grid.packedToIndex(list[i]);
                     format = Grid.ValueFormat.Index; // Update format to index
                 }
-                break;
-            case PackedInt:
+            }
+            case PackedInt -> {
                 if (format == Grid.ValueFormat.Index) {
-                    for (int i = 0; i < list.length; i++) {
-                        list[i] = (short) Grid.indexToPacked(list[i]); // Convert index to packed
-                                                                       // int
-                                                                       // format
-                    }
+                    for (int i = 0; i < list.length; i++)
+                        list[i] = Grid.indexToPacked(list[i]);
                     format = Grid.ValueFormat.PackedInt; // Update format to packed int
                 }
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported output format: " + outputFormat);
+            }
+            default -> throw new IllegalArgumentException(
+                    "Unsupported output format: " + outputFormat);
         }
     }
 

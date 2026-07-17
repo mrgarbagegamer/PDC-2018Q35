@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -10,10 +11,6 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
-import java.util.function.IntConsumer;
-import java.util.function.LongConsumer;
-import java.util.function.LongPredicate;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
@@ -27,16 +24,12 @@ import it.unimi.dsi.fastutil.ints.IntLists;
 import it.unimi.dsi.fastutil.longs.LongImmutableList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.longs.LongLists;
-import it.unimi.dsi.fastutil.shorts.ShortConsumer;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortLists;
-import it.unimi.dsi.fastutil.shorts.ShortPredicate;
 
 // TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
 // potentially performing eager initialization of some fields.
-// TODO: Remove the weird predicates and consumers in favor of a more straightforward validation
-// approach.
 // TODO: Add class-level Javadoc
 public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
         int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
@@ -51,13 +44,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
 
     // Internal static predicates and consumers for validation
-    private static final ShortPredicate VALID_INDEX_PREDICATE = cell -> cell >= 0
-            && cell < Grid.NUM_CELLS;
-    private static final ShortConsumer ENSURE_VALID_INDEX = cell -> {
-        if (!VALID_INDEX_PREDICATE.test(cell)) {
-            throw new IllegalArgumentException("trueCells contains an invalid cell index: " + cell);
-        }
-    };
+    private static void ensureValidIndex(short cell) {
+        // TODO: Debate whether an IndexOutOfBoundsException is more appropriate:
+        checkArgument(cell >= 0 && cell < Grid.NUM_CELLS, "Index %s is out of bounds [0, %s)", cell,
+                Grid.NUM_CELLS);
+    }
 
     private static void ensureUniqueAndAscending(ShortList list) {
         // A list of size 0 or 1 is trivially valid
@@ -80,17 +71,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
     }
 
-    private static final LongPredicate VALID_UPPER_MASK_PREDICATE = mask -> Long
-            .bitCount(mask) <= 45;
-    private static final LongConsumer ENSURE_VALID_UPPER_MASK = mask -> {
-        if (!VALID_UPPER_MASK_PREDICATE.test(mask)) {
-            throw new IllegalArgumentException(
-                    "Upper mask contains an invalid mask: " + Long.toBinaryString(mask));
-        }
-    };
-
-    private static final Predicate<List<?>> LIST_SIZE_MATCHES_GRID_PREDICATE = list -> list
-            .size() == Grid.NUM_CELLS;
+    private static void ensureUpperMaskValid(long mask) {
+        checkArgument(Long.bitCount(mask) <= 45, "Upper mask %s has bitcount %s greater than 45",
+                Long.toBinaryString(mask), Long.bitCount(mask));
+    }
 
     private static Supplier<ShortList> defensiveSupplier(ShortList list) {
         return switch (list) {
@@ -499,15 +483,13 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder trueCells(ShortList trueCells) {
-            // TODO: Consider importing Guava's Preconditions for validation
-            // Ensure that the input is valid
-            if (trueCells.size() == 0) {
-                throw new IllegalArgumentException("trueCells cannot be empty");
-            } else if (trueCells.size() > Grid.NUM_CELLS) {
-                throw new IllegalArgumentException(
-                        "trueCells cannot contain more than " + Grid.NUM_CELLS + " elements");
-            } else {
-                trueCells.forEach(ENSURE_VALID_INDEX);
+            mustNotBeEmpty(trueCells, "trueCells");
+            checkArgument(trueCells.size() <= Grid.NUM_CELLS,
+                    "trueCells cannot contain more than %s elements", Grid.NUM_CELLS);
+
+            // Indexed for-loop to avoid implicit boxing/unboxing overhead
+            for (int i = 0; i < trueCells.size(); i++) {
+                ensureValidIndex(trueCells.getShort(i));
             }
 
             // Validate that elements are unique and in ascending order
@@ -544,7 +526,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
         public Builder trueCellMasksLower(LongList trueCellMasksLower) {
             // The list must have exactly Grid.NUM_CELLS elements
-            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(trueCellMasksLower),
+            checkArgument(trueCellMasksLower.size() == Grid.NUM_CELLS,
                     "trueCellMasksLower must have exactly %s elements", Grid.NUM_CELLS);
 
             // Delegate to the supplier overload with a defensive supplier
@@ -569,12 +551,14 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder trueCellMasksUpper(LongList trueCellMasksUpper) {
             // Two conditions must be met:
             // - The list must have exactly Grid.NUM_CELLS elements
-            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(trueCellMasksUpper),
+            checkArgument(trueCellMasksUpper.size() == Grid.NUM_CELLS,
                     "trueCellMasksUpper must have exactly %s elements", Grid.NUM_CELLS);
 
             // - The list's bitcount must be no greater than 45 (since there are at most 109 true
             // cells, and the upper mask can only have bits for true cells 65 to 109)
-            trueCellMasksUpper.forEach(ENSURE_VALID_UPPER_MASK);
+            for (int i = 0; i < trueCellMasksUpper.size(); i++) {
+                ensureUpperMaskValid(trueCellMasksUpper.getLong(i));
+            }
 
             // Delegate to the supplier overload with a defensive supplier
             return trueCellMasksUpper(defensiveSupplier(trueCellMasksUpper));
@@ -606,9 +590,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder expectedMaskUpper(long expectedMaskUpper) {
-            // The upper mask must have a bitcount no greater than 45:
-            checkArgument(VALID_UPPER_MASK_PREDICATE.test(expectedMaskUpper),
-                    "expectedMaskUpper must have a bitcount no greater than 45");
+            ensureUpperMaskValid(expectedMaskUpper);
             return expectedMaskUpper(() -> expectedMaskUpper);
         }
 
@@ -624,8 +606,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                         "oddClickIndices must contain between 2 and 6 elements");
             }
 
-            // Ensure that all indices are valid
-            oddClickIndices.forEach(ENSURE_VALID_INDEX);
+            // Indexed for-loop to avoid implicit boxing/unboxing overhead
+            for (int i = 0; i < oddClickIndices.size(); i++) {
+                ensureValidIndex(oddClickIndices.getShort(i));
+            }
 
             // Validate that elements are unique and in ascending order
             ensureUniqueAndAscending(oddClickIndices);
@@ -658,7 +642,9 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             }
 
             // Ensure that all indices are valid
-            evenClickIndices.forEach(ENSURE_VALID_INDEX);
+            for (int i = 0; i < evenClickIndices.size(); i++) {
+                ensureValidIndex(evenClickIndices.getShort(i));
+            }
 
             // Validate that elements are unique and in ascending order
             ensureUniqueAndAscending(evenClickIndices);
@@ -685,27 +671,18 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder suffixMasksLower(LongList suffixMasksLower) {
             // The list must satisfy two conditions;
             // - It must have exactly Grid.NUM_CELLS elements
-            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(suffixMasksLower),
+            checkArgument(suffixMasksLower.size() == Grid.NUM_CELLS,
                     "suffixMasksLower must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element of the list must have a bitcount that is less than or equal to that
             // of the preceding mask (to ensure proper suffix mask behavior)
-            final LongConsumer ensureValidSuffixMask = new LongConsumer() {
-                private long previousMask = Long.MAX_VALUE;
-
-                @Override
-                public void accept(long mask) {
-                    if (Long.bitCount(mask) > Long.bitCount(previousMask)) {
-                        throw new IllegalArgumentException(
-                                "suffixMasksLower contains an invalid suffix mask: "
-                                        + Long.toBinaryString(mask)
-                                        + " (bitcount greater than that of the previous mask: "
-                                        + Long.toBinaryString(previousMask) + ")");
-                    }
-                    previousMask = mask;
-                }
-            };
-            suffixMasksLower.forEach(ensureValidSuffixMask);
+            for (int i = 1; i < suffixMasksLower.size(); i++) {
+                long previousMask = suffixMasksLower.getLong(i - 1);
+                long currentMask = suffixMasksLower.getLong(i);
+                checkArgument(Long.bitCount(currentMask) <= Long.bitCount(previousMask),
+                        "Lower suffix mask at index %s has a bitcount (%s) greater than that of the previous mask (%s)",
+                        i, Long.bitCount(currentMask), Long.bitCount(previousMask));
+            }
 
             // Delegate to the supplier overload with a defensive supplier
             return suffixMasksLower(defensiveSupplier(suffixMasksLower));
@@ -729,30 +706,23 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder suffixMasksUpper(LongList suffixMasksUpper) {
             // The list must satisfy three conditions:
             // - The list must have exactly Grid.NUM_CELLS elements
-            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(suffixMasksUpper),
+            checkArgument(suffixMasksUpper.size() == Grid.NUM_CELLS,
                     "suffixMasksUpper must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element of the list must have a bitcount that is less than or equal to that
             // of the preceding mask (to ensure proper suffix mask behavior)
-            final LongConsumer ensureValidSuffixMask = new LongConsumer() {
-                private long previousMask = Long.MAX_VALUE;
-
-                @Override
-                public void accept(long mask) {
-                    if (Long.bitCount(mask) > Long.bitCount(previousMask)) {
-                        throw new IllegalArgumentException(
-                                "suffixMasksUpper contains an invalid suffix mask: "
-                                        + Long.toBinaryString(mask)
-                                        + " (bitcount greater than that of the previous mask: "
-                                        + Long.toBinaryString(previousMask) + ")");
-                    }
-                    previousMask = mask;
-                }
-            };
-            suffixMasksUpper.forEach(ensureValidSuffixMask);
+            for (int i = 1; i < suffixMasksUpper.size(); i++) {
+                long previousMask = suffixMasksUpper.getLong(i - 1);
+                long currentMask = suffixMasksUpper.getLong(i);
+                checkArgument(Long.bitCount(currentMask) <= Long.bitCount(previousMask),
+                        "Upper suffix mask at index %s has a bitcount (%s) greater than that of the previous mask (%s)",
+                        i, Long.bitCount(currentMask), Long.bitCount(previousMask));
+            }
 
             // - Each element of the list must have a bitcount no greater than 45
-            suffixMasksUpper.forEach(ENSURE_VALID_UPPER_MASK);
+            for (int i = 0; i < suffixMasksUpper.size(); i++) {
+                ensureUpperMaskValid(suffixMasksUpper.getLong(i));
+            }
 
             // Delegate to the supplier overload with a defensive supplier
             return suffixMasksUpper(defensiveSupplier(suffixMasksUpper));
@@ -776,33 +746,24 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder oddStartIndices(IntList oddStartIndices) {
             // The list must satisfy 3 conditions:
             // - It must have exactly Grid.NUM_CELLS elements
-            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(oddStartIndices),
+            checkArgument(oddStartIndices.size() == Grid.NUM_CELLS,
                     "oddStartIndices must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element must be in the range from 0 to oddClickIndices.size() (which is at
             // most 6).
-            final IntConsumer ensureValidStartIndex = index -> {
-                if (index < 0 || index > 6) {
-                    throw new IllegalArgumentException(
-                            "oddStartIndices contains an invalid start index: " + index);
-                }
-            };
-            oddStartIndices.forEach(ensureValidStartIndex);
+            for (int i = 0; i < oddStartIndices.size(); i++) {
+                int index = oddStartIndices.getInt(i);
+                checkArgument(index >= 0 && index <= 6,
+                        "oddStartIndex at index %s is out of range: %s (must be between 0 and 6)",
+                        i, index);
+            }
 
             // - Each element must be non-decreasing:
-            final IntConsumer ensureNonDecreasing = new IntConsumer() {
-                private int previousIndex = -1;
-
-                @Override
-                public void accept(int index) {
-                    if (index < previousIndex) {
-                        throw new IllegalArgumentException(
-                                "oddStartIndices contains a decreasing start index: " + index);
-                    }
-                    previousIndex = index;
-                }
-            };
-            oddStartIndices.forEach(ensureNonDecreasing);
+            for (int i = 1; i < oddStartIndices.size(); i++) {
+                checkArgument(oddStartIndices.getInt(i) >= oddStartIndices.getInt(i - 1),
+                        "oddStartIndex at index %s (%s) is less than the previous index (%s)", i,
+                        oddStartIndices.getInt(i), oddStartIndices.getInt(i - 1));
+            }
 
             // Delegate to the supplier overload with a defensive supplier
             return oddStartIndices(defensiveSupplier(oddStartIndices));
@@ -826,33 +787,24 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         public Builder evenStartIndices(IntList evenStartIndices) {
             // The list must satisfy 3 conditions:
             // - It must have exactly Grid.NUM_CELLS elements
-            checkArgument(LIST_SIZE_MATCHES_GRID_PREDICATE.test(evenStartIndices),
+            checkArgument(evenStartIndices.size() == Grid.NUM_CELLS,
                     "evenStartIndices must have exactly %s elements", Grid.NUM_CELLS);
 
             // - Each element must be in the range from 0 to evenClickIndices.size() (which is at
             // most 103).
-            final IntConsumer ensureValidStartIndex = index -> {
-                if (index < 0 || index > 103) {
-                    throw new IllegalArgumentException(
-                            "evenStartIndices contains an invalid start index: " + index);
-                }
-            };
-            evenStartIndices.forEach(ensureValidStartIndex);
+            for (int i = 0; i < evenStartIndices.size(); i++) {
+                int index = evenStartIndices.getInt(i);
+                checkArgument(index >= 0 && index <= 103,
+                        "evenStartIndex at index %s is out of range: %s (must be between 0 and 103)",
+                        i, index);
+            }
 
             // - Each element must be non-decreasing:
-            final IntConsumer ensureNonDecreasing = new IntConsumer() {
-                private int previousIndex = -1;
-
-                @Override
-                public void accept(int index) {
-                    if (index < previousIndex) {
-                        throw new IllegalArgumentException(
-                                "evenStartIndices contains a decreasing start index: " + index);
-                    }
-                    previousIndex = index;
-                }
-            };
-            evenStartIndices.forEach(ensureNonDecreasing);
+            for (int i = 1; i < evenStartIndices.size(); i++) {
+                checkArgument(evenStartIndices.getInt(i) >= evenStartIndices.getInt(i - 1),
+                        "evenStartIndex at index %s (%s) is less than the previous index (%s)", i,
+                        evenStartIndices.getInt(i), evenStartIndices.getInt(i - 1));
+            }
 
             // Delegate to the supplier overload with a defensive supplier
             return evenStartIndices(defensiveSupplier(evenStartIndices));

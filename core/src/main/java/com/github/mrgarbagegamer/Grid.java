@@ -525,17 +525,11 @@ public abstract class Grid {
 
         // We need to handle different formats for adjacency
         switch (inputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Convert the cell to packed int format
-                cell = indexToPacked((short) cell);
-            case PackedInt:
-                // If the cell is in packed int format, we can directly compute adjacents
-                break;
-            case null:
-                throw new NullPointerException("Input format cannot be null.");
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> cell = indexToPacked((short) cell);
+            case PackedInt -> {} // Already in PackedInt format, no conversion needed
+            case null -> throw new NullPointerException("Input format cannot be null.");
         }
 
         int row = cell / 100;
@@ -566,18 +560,11 @@ public abstract class Grid {
         });
 
         switch (outputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Convert packed int to index
-                affectedPieces.replaceAll(Grid::packedToIndex);
-                break;
-            case PackedInt:
-                // Already in packed int format, no conversion needed
-                break;
-            case null:
-                throw new NullPointerException("Output format cannot be null.");
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> affectedPieces.replaceAll(Grid::packedToIndex);
+            case PackedInt -> {} // Already in PackedInt format, no conversion needed
+            case null -> throw new NullPointerException("Output format cannot be null.");
         }
 
         return affectedPieces;
@@ -666,40 +653,30 @@ public abstract class Grid {
      */
     public static short[] findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
-        short[] result;
-        switch (inputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                // Convert packed int to index
-                cell = packedToIndex(cell);
-            case Index:
-                // Already in index format, no conversion needed.
-                result = adjacencyArray[cell];
-                break;
-            case null:
-                throw new NullPointerException("Input format cannot be null.");
-        }
-        switch (outputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
+        final short index = switch (inputFormat) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case PackedInt -> packedToIndex(cell);
+            case Index -> cell;
+            case null -> throw new NullPointerException("Input format cannot be null.");
+        };
+
+        final short[] result = adjacencyArray[index];
+
+        return switch (outputFormat) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> result;
+            case PackedInt -> {
                 // Convert index to packed int format
-                short[] packedResult = new short[result.length];
+                final short[] packedResult = new short[result.length];
                 for (short i = 0; i < result.length; i++) {
                     packedResult[i] = indexToPacked(result[i]);
                 }
-                return packedResult;
-            case null:
-                throw new NullPointerException("Output format cannot be null.");
-        }
-
-        return result;
+                yield packedResult;
+            }
+            case null -> throw new NullPointerException("Output format cannot be null.");
+        };
     }
 
     /**
@@ -1187,24 +1164,19 @@ public abstract class Grid {
                 trueCellsArray[idx++] = i;
         }
 
-        switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing true cells (since that's just the Grid).");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
+        return switch (format) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing true cells (since that's just the Grid).");
+            case Index -> trueCellsArray;
+            case PackedInt -> {
                 // Convert index to packed int format
                 for (int i = 0; i < trueCellsCount; i++) {
-                    trueCellsArray[i] = (short) indexToPacked(trueCellsArray[i]);
+                    trueCellsArray[i] = indexToPacked(trueCellsArray[i]);
                 }
-                break;
-            case null:
-                throw new NullPointerException("Format cannot be null.");
-        }
-
-        return trueCellsArray;
+                yield trueCellsArray;
+            }
+            case null -> throw new NullPointerException("Format cannot be null.");
+        };
     }
 
     /**
@@ -1299,23 +1271,17 @@ public abstract class Grid {
 
             recalculationNeeded = false;
         }
+
         if (firstTrueCell == -1)
             return -1;
-        // Convert the result to the desired format
-        switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
-                // Convert index to packed int format
-                return indexToPacked(firstTrueCell);
-            case null:
-                throw new NullPointerException("Format cannot be null.");
-        }
-        return firstTrueCell;
+
+        return switch (format) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> firstTrueCell;
+            case PackedInt -> indexToPacked(firstTrueCell);
+            case null -> throw new NullPointerException("Format cannot be null.");
+        };
     }
 
     /**
@@ -1403,23 +1369,11 @@ public abstract class Grid {
     @Deprecated
     public void click(short cell, ValueFormat format) {
         switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Unsupported format: Bitmask must be a long[] of length 1 or 2.");
-            case PackedInt:
-                // Convert packed int to index format
-                cell = packedToIndex(cell);
-            case Index:
-                // If the cell is in index format, we can directly use it
-                // XOR the grid state with the pre-computed adjacency mask
-                gridState[0] ^= ADJACENCY_MASKS[cell][0];
-                gridState[1] ^= ADJACENCY_MASKS[cell][1];
-
-                // Mark for recalculation of first true cell
-                recalculationNeeded = true;
-                break;
-            case null:
-                throw new NullPointerException("Format cannot be null.");
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Unsupported format: Bitmask must be a long[] of length 1 or 2.");
+            case PackedInt -> click(packedToIndex(cell));
+            case Index -> click(cell);
+            case null -> throw new NullPointerException("Format cannot be null.");
         }
     }
 
@@ -1926,20 +1880,13 @@ public abstract class Grid {
      */
     public static boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         // Convert both cells to index format if necessary
-        switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                cellA = packedToIndex(cellA);
-                cellB = packedToIndex(cellB);
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case null:
-                throw new NullPointerException("Format cannot be null.");
-        }
-        return ADJACENCY_CACHE[cellA][cellB];
+        return switch (format) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case PackedInt -> ADJACENCY_CACHE[packedToIndex(cellA)][packedToIndex(cellB)];
+            case Index -> ADJACENCY_CACHE[cellA][cellB];
+            case null -> throw new NullPointerException("Format cannot be null.");
+        };
     }
 
     /**

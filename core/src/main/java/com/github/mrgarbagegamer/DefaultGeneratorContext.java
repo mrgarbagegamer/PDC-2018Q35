@@ -24,7 +24,7 @@ import org.apache.logging.log4j.Logger;
  * performance penalty of multiple {@code ThreadLocal} lookups in the hot path. The context is then
  * passed as a parameter to downstream methods, providing fast, contention-free access to:
  * <ul>
- * <li>An {@link #prefixArrayPool} for recycling {@code short[]} arrays.</li>
+ * <li>An {@link #arrayPool} for recycling {@code short[]} arrays.</li>
  * <li>A {@link #taskPool} for recycling {@code CombinationGeneratorTask} objects.</li>
  * <li>The {@link #currentBatch} being filled by the thread.</li>
  * </ul>
@@ -58,20 +58,19 @@ class DefaultGeneratorContext implements GeneratorContext {
     private final SolverConfiguration config;
 
     /**
-     * Initializes a new {@link DefaultGeneratorContext} and registers it in the
-     * {@link #ALL_CONTEXTS global context list}.
+     * Initializes a new {@link DefaultGeneratorContext} and registers it in the provided
+     * {@code registry}.
      * 
      * <p>
-     * This constructor is meant to be called only by the {@link GeneratorWorkerThread}'s
-     * {@link GeneratorWorkerThread#GeneratorWorkerThread(ForkJoinPool) initializer}, and
+     * This constructor is meant to be called only by the {@link GeneratorThread}'s
+     * {@link GeneratorThread#GeneratorThread(String, ForkJoinPool) initializer}, and
      * {@link ConcurrentLinkedQueue#add(Object) adds} the context to the global list for the
      * {@link ContextRegistry#flushAllPendingBatches() final flush}.
      * </p>
      * 
      * @since 2025.10 - Final Flush Refactor
      * @performance {@code O(1)} amortized insertion time into the global context list.
-     * @threading Thread-safe by nature of construction and use of a {@link ConcurrentLinkedQueue
-     *            thread-safe queue}.
+     * @threading Thread-safe by nature of construction.
      * @memory Does not allocate, apart from the instance itself.
      */
     public DefaultGeneratorContext(String name, int generatorId, QueueStrategy queueStrategy,
@@ -145,7 +144,10 @@ class DefaultGeneratorContext implements GeneratorContext {
 
     @Override
     public WorkBatch getCurrentBatch() {
-        return this.currentBatch == null ? this.currentBatch = pollBatch() : this.currentBatch;
+        if (this.currentBatch == null) {
+            this.currentBatch = pollBatch();
+        }
+        return this.currentBatch;
     }
 
     /**
@@ -189,7 +191,10 @@ class DefaultGeneratorContext implements GeneratorContext {
     }
 
     @Override
-    public WorkBatch resetBatch() { return this.currentBatch = pollBatch(); }
+    public WorkBatch resetBatch() {
+        this.currentBatch = pollBatch();
+        return this.currentBatch;
+    }
 
     @Override
     public ArrayPool getArrayPool() { return this.arrayPool; }

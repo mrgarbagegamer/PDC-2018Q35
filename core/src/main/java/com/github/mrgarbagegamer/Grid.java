@@ -892,7 +892,7 @@ public abstract class Grid {
      * </p>
      * 
      * <p>
-     * Just calling {@link #Grid() new Grid()} to create a new instance would not work either, as
+     * Just calling {@link #Grid(long, long) new Grid(long, long)} to create a new instance would not work either, as
      * {@code Grid} is {@code abstract} and cannot be instantiated directly. The only other
      * alternatives involve using reflection (which is inefficient and still not type-safe) or
      * requiring each subclass to implement its own {@code clone()} method (violating the DRY
@@ -950,24 +950,8 @@ public abstract class Grid {
      */
     public abstract Grid copy();
 
-    /**
-     * Initializes the {@code Grid} instance to a specific starting state.
-     *
-     * <p>
-     * This {@code abstract} method must be implemented by concrete subclasses to define their
-     * unique initial puzzle configurations. It is called by the {@link #Grid() constructor} during
-     * instance creation, ensuring the {@link #gridState grid state} is properly set up from the
-     * outset.
-     * </p>
-     *
-     * @see Grid13
-     * @see Grid22
-     * @see Grid35
-     * @since 2025.03 - Abstract {@code Grid} Introduction
-     * @performance Implementation-dependent.
-     * @threading Not thread-safe; this method modifies the instance's {@link #gridState}.
-     */
-    public void initialize() {
+    // TODO: Update Javadocs
+    public final void initialize() {
         setGridState(initialState0, initialState1, initialTrueCellsCount, initialFirstTrueCell);
     }
 

@@ -4,7 +4,6 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.concurrent.ForkJoinPool;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.github.mrgarbagegamer.SolverConfiguration.SolutionHandler;
@@ -41,20 +40,19 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *
  * <p>
  * For each {@code WorkItem}, the monkey now performs a hyper-optimized check. It computes the
- * parity mask for the prefix once using {@link #buildParityMask(short[])}, then iterates through
- * the range of final clicks, performing a cheap {@link #satisfiesOddAdjacency(long, short)} check
- * for each one. This avoids redundant calculations and expensive grid state manipulations. If a
- * full combination passes this check, it is applied to the grid. If it solves the puzzle, the
- * monkey logs the solution, signals a global shutdown, and terminates.
+ * parity masks for the prefix once using {@link #buildParityMaskLower(short[])} and
+ * {@link #buildParityMaskUpper(short[])}, then iterates through the range of final clicks,
+ * performing a cheap {@link #satisfiesOddAdjacency(long, long, short)} check for each one. This
+ * avoids redundant calculations and expensive grid state manipulations. If a full combination
+ * passes this check, it is applied to the grid. If it solves the puzzle, the monkey logs the
+ * solution, signals a global shutdown, and terminates.
  * </p>
  *
  * <h2>Resource Management and Configuration</h2>
  * <p>
  * To eliminate contention, each monkey operates on its own private {@link Grid} instance, cloned
- * from the base grid in {@link StartYourMonkeys.GlobalConfig}. All derived configuration data, such
- * as the {@link #MASKS} and {@link #EXPECTED} value, are now cached as {@code static final} fields
- * at class load time by pulling them from {@code GlobalConfig}. This allows the JIT compiler to
- * perform powerful constant-folding optimizations in the critical validation loop.
+ * from the base grid. All derived configuration data, such as the masks and expected values, are
+ * now cached as {@code final} fields.
  * </p>
  *
  * <p>
@@ -68,9 +66,9 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * <h2>Performance and Critical Paths</h2>
  * <p>
  * The performance of the entire solver is heavily influenced by the efficiency of the monkey's main
- * {@link #run() run loop} and, most importantly, the {@link #satisfiesOddAdjacency(long, short)}
- * check. These sections are heavily optimized to be JIT-friendly, minimizing branching and using
- * bitwise operations for fast validation.
+ * {@link #run() run loop} and, most importantly, the
+ * {@link #satisfiesOddAdjacency(long, long, short)} check. These sections are heavily optimized to
+ * be JIT-friendly, minimizing branching and using bitwise operations for fast validation.
  * </p>
  *
  * @since 2025.04 - Multi-threaded Solver Introduction
@@ -81,40 +79,19 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *            is obtained in a thread-safe manner from the {@link QueueStrategy}.
  * @algorithm {@link #getWork() Pulls} a {@link WorkBatch} (from its own queue or by stealing), then
  *            iterates through its combinations. Each is validated with an
- *            {@link #satisfiesOddAdjacency(long, short) odd adjacency check}. Valid combinations
- *            are tested on the grid. On success, the monkey triggers a global shutdown.
+ *            {@link #satisfiesOddAdjacency(long, long, short) odd adjacency check}. Valid
+ *            combinations are tested on the grid. On success, the monkey triggers a global
+ *            shutdown.
  * @memory Fixed memory footprint with minimal allocations, except for logging.
  */
 public class TestClickCombination extends Thread {
-    /**
-     * The {@link Logger logger} for this class.
-     *
-     * <p>
-     * Logging is used to report significant events, such as finding a solution, interruptions, and
-     * periodic progress updates. To minimize performance impact on the worker threads, an
-     * asynchronous Log4j2 logger is used, which offloads I/O operations to a separate background
-     * thread.
-     * </p>
-     *
-     * @see #run()
-     * @see CombinationMessage
-     * @see Logger#debug(String)
-     * @see Logger#info(String, Object)
-     * 
-     * @see LogManager#getLogger()
-     * @since 2025.05 - Async Logging Introduction
-     * @performance {@code O(1)} for logger retrieval.
-     * @threading Thread-safe per Log4j2 design.
-     * @memory Fixed memory footprint of 4 bytes for the {@code static} reference.
-     */
-    private final Logger logger;
     /**
      * A constant defining the frequency of logging for failed attempts.
      *
      * <p>
      * To avoid overwhelming the logs and impacting performance, a debug entry for a failed
      * combination is made only once per this many failures. This check applies only to combinations
-     * that have already passed the {@link #satisfiesOddAdjacency(long, short)} check.
+     * that have already passed the {@link #satisfiesOddAdjacency(long, long, short)} check.
      * </p>
      *
      * @see #run()
@@ -126,57 +103,13 @@ public class TestClickCombination extends Thread {
      */
     private static final int LOG_EVERY_N_FAILURES = 100_000;
 
+    private final Logger logger;
     private final QueueStrategy queueStrategy;
     private final int monkeyId;
     private final SolverState solverState;
-
-    /**
-     * The monkey's dedicated {@link Grid} instance for testing combinations.
-     *
-     * <p>
-     * To prevent any thread contention, each monkey operates on a {@code private} clone of the
-     * puzzle grid. The grid's state is {@link Grid#initialize() reset} after each failed
-     * combination test.
-     * </p>
-     *
-     * @see #TestClickCombination(String, CombinationQueue)
-     * @see #run()
-     * @since 2025.04 - Multi-threaded Solver Introduction
-     * @performance {@code O(1)} state resets and cell toggles.
-     * @threading Thread-safe by design, as each thread has its own instance.
-     * @memory Fixed memory footprint of 4 bytes for the reference.
-     */
     private final Grid puzzleGrid;
-    /**
-     * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#TRUE_CELL_MASKS}.
-     *
-     * <p>
-     * By caching this as a {@code static final} field at class load time, we enable the JIT
-     * compiler to perform constant-folding and other aggressive optimizations in the hot path
-     * method {@link #satisfiesOddAdjacency(long, short)}.
-     * </p>
-     *
-     * @since 2025.12 - GlobalConfig Refactor
-     * @performance {@code O(1)} array access in the hot path.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Fixed memory footprint of 4 bytes for the reference.
-     */
     private final LongList masksLower;
     private final LongList masksUpper;
-    /**
-     * A {@code static final} cache of {@link StartYourMonkeys.GlobalConfig#EXPECTED_MASK}.
-     *
-     * <p>
-     * Caching this as a {@code static final} constant allows the JIT compiler to treat it as a
-     * compile-time constant in the hot path method {@link #satisfiesOddAdjacency(long, short)},
-     * leading to significant performance improvements.
-     * </p>
-     *
-     * @since 2025.12 - GlobalConfig Refactor
-     * @performance {@code O(1)} access in the hot path.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Fixed memory footprint of 8 bytes for the primitive {@code long}.
-     */
     private final long expectedLower;
     private final long expectedUpper;
     private final boolean useDualMasks;
@@ -218,11 +151,12 @@ public class TestClickCombination extends Thread {
      * <li>If no work is found, check for termination conditions and {@link Thread#sleep(long) sleep
      * briefly} before retrying.</li>
      * <li>If a batch is acquired, iterate through each {@link WorkBatch.WorkItem} in it.</li>
-     * <li>For each {@code WorkItem}, compute the parity mask for its prefix <strong>once</strong>
-     * using {@link #buildParityMask(short[])}.</li>
+     * <li>For each {@code WorkItem}, compute the parity maskS for its prefix <strong>once</strong>
+     * using {@link #buildParityMaskLower(short[])} and {@link #buildParityMaskUpper(short[])}.</li>
      * <li>Iterate through the range of final clicks defined by the {@code WorkItem}.</li>
      * <li>For each potential full combination, perform the hyper-efficient
-     * {@link #satisfiesOddAdjacency(long, short)} check using the pre-computed prefix mask.</li>
+     * {@link #satisfiesOddAdjacency(long, long, short)} check using the pre-computed prefix
+     * mask.</li>
      * <li>If the check passes, apply the full combination to the local {@link #puzzleGrid}.</li>
      * <li>If the grid {@link Grid#isSolved() is solved}, log the solution, trigger a global
      * shutdown, and terminate.</li>
@@ -245,8 +179,8 @@ public class TestClickCombination extends Thread {
      *              per batch. The innermost check is a highly-efficient {@code O(1)} operation.
      * @threading Thread-safe; independent state per thread, shared access to concurrent structures.
      * @algorithm Continuously pulls batches, iterates through {@link WorkBatch.WorkItem} ranges,
-     *            performs optimized {@link #satisfiesOddAdjacency(long, short)} checks, tests valid
-     *            combinations on the grid, and handles success or recycling.
+     *            performs optimized {@link #satisfiesOddAdjacency(long, long, short)} checks, tests
+     *            valid combinations on the grid, and handles success or recycling.
      * @memory Does not allocate in the hot path, except for logging.
      */
     @Override
@@ -365,25 +299,6 @@ public class TestClickCombination extends Thread {
         }
     }
 
-    /**
-     * An optimized version of the odd adjacency check that uses a pre-computed prefix mask.
-     *
-     * <p>
-     * This is the most performance-critical method in the monkey's hot loop. It validates a full
-     * combination by taking the pre-computed XOR sum of the prefix ({@code prefixMask}) and XORing
-     * it with the mask for the {@code finalClick}. If the result equals the {@link #EXPECTED}, it
-     * means every {@code true} cell was toggled an odd number of times, and the combination is
-     * valid.
-     * </p>
-     *
-     * @param prefixMask The pre-computed XOR sum of the combination's prefix.
-     * @param finalClick The final click to be tested.
-     * @return {@code true} if the full combination is valid, {@code false} otherwise.
-     * @since 2025.11 - Range-Based WorkItem Refactor
-     * @performance {@code O(1)} array access and bitwise operations.
-     * @threading Thread-safe; uses only static data.
-     * @memory Does not allocate.
-     */
     private boolean satisfiesOddAdjacency(long prefixMaskLower, long prefixMaskUpper,
             short finalClick) {
         if (!this.useDualMasks) {

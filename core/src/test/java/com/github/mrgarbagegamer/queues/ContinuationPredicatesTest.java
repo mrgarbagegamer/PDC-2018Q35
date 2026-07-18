@@ -44,7 +44,7 @@ public class ContinuationPredicatesTest {
     @Nested
     class NeverTerminateTests {
         @Test
-        public void givenNeverTerminate_thenReturnTrue() {
+        void givenNeverTerminate_thenReturnTrue() {
             BooleanSupplier neverTerminate = ContinuationPredicates.neverTerminate();
 
             assertThat(neverTerminate.getAsBoolean()).isTrue();
@@ -54,13 +54,13 @@ public class ContinuationPredicatesTest {
     @Nested
     class ForGeneratorTests {
         @Test
-        public void givenNullState_thenThrowNullPointerException() {
+        void givenNullState_thenThrowNullPointerException() {
             assertThatNullPointerException()
                     .isThrownBy(() -> ContinuationPredicates.forGenerator(null));
         }
 
         @Test
-        public void givenSolutionNotFound_thenReturnTrue() {
+        void givenSolutionNotFound_thenReturnTrue() {
             SolverState state = createState(false, false);
             BooleanSupplier predicate = ContinuationPredicates.forGenerator(state);
 
@@ -68,7 +68,7 @@ public class ContinuationPredicatesTest {
         }
 
         @Test
-        public void givenSolutionFound_thenReturnFalse() {
+        void givenSolutionFound_thenReturnFalse() {
             SolverState state = createState(true, false);
             BooleanSupplier predicate = ContinuationPredicates.forGenerator(state);
 
@@ -78,7 +78,7 @@ public class ContinuationPredicatesTest {
 
     @Nested
     class ForMonkeyTests {
-        private record ReturnValueTestCase(List<?> queues) {
+        record ReturnValueTestCase(List<?> queues) {
             static Named<ReturnValueTestCase> noSolutionGenNotComplete(String scenario,
                     List<?> queues) {
                 return Named.of(scenario, new ReturnValueTestCase(queues));
@@ -159,19 +159,19 @@ public class ContinuationPredicatesTest {
         }
 
         @Test
-        public void givenNullState_thenThrowNullPointerException() {
+        void givenNullState_thenThrowNullPointerException() {
             assertThatNullPointerException().isThrownBy(
                     () -> ContinuationPredicates.forMonkey(null, List.of(jctoolsQueue(false))));
         }
 
         @Test
-        public void givenNullListOfQueues_thenThrowNullPointerException() {
+        void givenNullListOfQueues_thenThrowNullPointerException() {
             assertThatNullPointerException().isThrownBy(
                     () -> ContinuationPredicates.forMonkey(createState(false, false), null));
         }
 
         @Test
-        public void givenListOfQueuesContainingNull_thenThrowNullPointerException() {
+        void givenListOfQueuesContainingNull_thenThrowNullPointerException() {
             final List<MessagePassingQueue<WorkBatch>> queues = Arrays.asList(jctoolsQueue(false),
                     null);
 
@@ -180,13 +180,13 @@ public class ContinuationPredicatesTest {
         }
 
         @Test
-        public void givenEmptyListOfQueues_thenThrowIllegalArgumentException() {
+        void givenEmptyListOfQueues_thenThrowIllegalArgumentException() {
             assertThatIllegalArgumentException().isThrownBy(
                     () -> ContinuationPredicates.forMonkey(createState(false, false), List.of()));
         }
 
         @Test
-        public void givenListOfQueuesWithMixedTypes_thenThrowIllegalArgumentException() {
+        void givenListOfQueuesWithMixedTypes_thenThrowIllegalArgumentException() {
             final List<Object> queues = List.of(jctoolsQueue(false), blockingQueue(false));
 
             assertThatIllegalArgumentException().isThrownBy(
@@ -195,7 +195,7 @@ public class ContinuationPredicatesTest {
 
         @ParameterizedTest
         @MethodSource("provideNoSolutionGenNotCompleteCases")
-        public void givenNoSolutionAndGenerationNotComplete_thenReturnTrue(
+        void givenNoSolutionAndGenerationNotComplete_thenReturnTrue(
                 ReturnValueTestCase testCase) {
             SolverState state = createState(false, false);
 
@@ -206,7 +206,7 @@ public class ContinuationPredicatesTest {
 
         @ParameterizedTest
         @MethodSource("provideSolutionFoundCases")
-        public void givenSolutionFound_thenReturnFalse(ReturnValueTestCase testCase) {
+        void givenSolutionFound_thenReturnFalse(ReturnValueTestCase testCase) {
             SolverState state = createState(true, false);
 
             BooleanSupplier predicate = ContinuationPredicates.forMonkey(state, testCase.queues());
@@ -216,7 +216,7 @@ public class ContinuationPredicatesTest {
 
         @ParameterizedTest
         @MethodSource("provideSolutionFoundCases")
-        public void givenSolutionFound_thenDoNotCheckGenerationComplete(
+        void givenSolutionFound_thenDoNotCheckGenerationComplete(
                 ReturnValueTestCase testCase) {
             // Mocked so we can verify that generationComplete() isn't called
             SolverState mockState = mock();
@@ -225,16 +225,14 @@ public class ContinuationPredicatesTest {
             BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
                     testCase.queues());
 
-            // We are only interested in whether generationComplete() is called.
-            @SuppressWarnings("unused")
-            boolean unused = predicate.getAsBoolean();
+            boolean _ = predicate.getAsBoolean();
 
             verify(mockState, never()).generationComplete();
         }
 
         @ParameterizedTest
         @MethodSource("provideSolutionFoundCases")
-        public void givenSolutionFound_thenDoNotCheckQueues(ReturnValueTestCase testCase) {
+        void givenSolutionFound_thenDoNotCheckQueues(ReturnValueTestCase testCase) {
             // Mocked so we can verify that the queues are not checked
             SolverState mockState = mock();
             when(mockState.solutionFound()).thenReturn(true);
@@ -242,16 +240,14 @@ public class ContinuationPredicatesTest {
             BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
                     testCase.queues());
 
-            // We are only interested in whether the queues are checked.
-            @SuppressWarnings("unused")
-            boolean unused = predicate.getAsBoolean();
+            boolean _ = predicate.getAsBoolean();
 
             verifyNoInteractions(testCase.queues().toArray());
         }
 
         @ParameterizedTest
         @MethodSource("provideGenCompleteOneNonEmptyCases")
-        public void givenGenerationCompleteWithAtLeastOneNonEmptyQueue_thenReturnTrue(
+        void givenGenerationCompleteWithAtLeastOneNonEmptyQueue_thenReturnTrue(
                 ReturnValueTestCase testCase) {
             SolverState state = createState(false, true);
 
@@ -262,7 +258,7 @@ public class ContinuationPredicatesTest {
 
         @ParameterizedTest
         @MethodSource("provideGenCompleteAllEmptyCases")
-        public void givenGenerationCompleteWithAllEmptyQueues_thenReturnFalse(
+        void givenGenerationCompleteWithAllEmptyQueues_thenReturnFalse(
                 ReturnValueTestCase testCase) {
             SolverState state = createState(false, true);
 

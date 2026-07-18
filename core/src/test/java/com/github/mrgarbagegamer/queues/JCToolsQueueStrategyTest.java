@@ -57,7 +57,7 @@ class JCToolsQueueStrategyTest {
 
     @Nested
     class StaticFactoryTests {
-        private record StaticFactoryTestCase(
+        record StaticFactoryTestCase(
                 BiFunction<SolverConfiguration, SolverState, JCToolsQueueStrategy<?, ?>> factory) {
             static Named<StaticFactoryTestCase> of(String name,
                     BiFunction<SolverConfiguration, SolverState, JCToolsQueueStrategy<?, ?>> factory) {
@@ -422,9 +422,8 @@ class JCToolsQueueStrategyTest {
                 final var builder = JCToolsQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
 
-                assertThatIllegalStateException().isThrownBy(builder::build)
-                        .withMessageContaining(
-                                "gtmQueue at index 1 is the same as gtmQueue at index 2");
+                assertThatIllegalStateException().isThrownBy(builder::build).withMessageContaining(
+                        "gtmQueue at index 1 is the same as gtmQueue at index 2");
             }
 
             // MetadataValidator wiring:

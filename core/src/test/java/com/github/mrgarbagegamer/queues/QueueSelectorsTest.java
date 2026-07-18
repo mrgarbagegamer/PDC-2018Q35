@@ -57,17 +57,13 @@ class QueueSelectorsTest {
         };
     }
 
-    private static BooleanSupplier alwaysTrue() { return () -> true; }
-
-    private static BooleanSupplier alwaysFalse() { return () -> false; }
-
     private static class TrackingBackoff implements BackoffStrategy {
         int calls = 0;
 
         @Override
         public void backoff() { calls++; }
 
-        public void reset() { calls = 0; }
+        void reset() { calls = 0; }
     }
 
     private static BackoffStrategy interruptingBackoff() {
@@ -127,7 +123,7 @@ class QueueSelectorsTest {
                 List<MpmcArrayQueue<WorkBatch>> queues = null;
 
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), () -> true))
                         .withMessageContaining("queues must not be null");
             }
 
@@ -139,7 +135,7 @@ class QueueSelectorsTest {
 
                 WorkBatch batch = createBatch();
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), () -> true))
                         .withMessageContaining("queues must not be null");
             }
 
@@ -150,7 +146,7 @@ class QueueSelectorsTest {
                 List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
 
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.poll(0, queues, null, alwaysTrue()))
+                        .isThrownBy(() -> selector.poll(0, queues, null, () -> true))
                         .withMessageContaining("backoff must not be null");
             }
 
@@ -162,7 +158,7 @@ class QueueSelectorsTest {
 
                 WorkBatch batch = createBatch();
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.offer(batch, 0, queues, null, alwaysTrue()))
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, null, () -> true))
                         .withMessageContaining("backoff must not be null");
             }
 
@@ -196,7 +192,7 @@ class QueueSelectorsTest {
                 List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
                 addTo(queues.getFirst());
 
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysFalse());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> false);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
@@ -211,7 +207,7 @@ class QueueSelectorsTest {
                 List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
 
                 WorkBatch batch = createBatch();
-                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysFalse());
+                boolean result = selector.offer(batch, 0, queues, noOp(), () -> false);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isFalse();
@@ -228,7 +224,7 @@ class QueueSelectorsTest {
                 addTo(queues.getFirst());
 
                 Thread.currentThread().interrupt();
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
@@ -246,7 +242,7 @@ class QueueSelectorsTest {
 
                 Thread.currentThread().interrupt();
                 WorkBatch batch = createBatch();
-                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+                boolean result = selector.offer(batch, 0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isFalse();
@@ -345,7 +341,7 @@ class QueueSelectorsTest {
                 WorkBatch batch = createBatch();
                 queues.getLast().add(batch);
 
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -360,7 +356,7 @@ class QueueSelectorsTest {
                 addTo(queues.getLast()); // Just one.
 
                 WorkBatch batch = createBatch();
-                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -382,7 +378,7 @@ class QueueSelectorsTest {
                 queues.getFirst().add(batch);
                 addTo(queues.getLast());
 
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -396,7 +392,7 @@ class QueueSelectorsTest {
                 List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
 
                 WorkBatch batch = createBatch();
-                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -418,7 +414,7 @@ class QueueSelectorsTest {
                 queues.get(1).add(batch);
                 addTo(queues.getLast());
 
-                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -433,7 +429,7 @@ class QueueSelectorsTest {
                 WorkBatch batch = createBatch();
                 queues.getLast().add(batch);
 
-                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -447,7 +443,7 @@ class QueueSelectorsTest {
                 WorkBatch batch = createBatch();
                 queues.getFirst().add(batch);
 
-                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -461,7 +457,7 @@ class QueueSelectorsTest {
                 fill(queues.getLast());
 
                 WorkBatch batch = createBatch();
-                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -476,7 +472,7 @@ class QueueSelectorsTest {
                 fill(queues.get(1));
 
                 WorkBatch batch = createBatch();
-                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -491,7 +487,7 @@ class QueueSelectorsTest {
                 fillAll(queues.subList(1, 3));
 
                 WorkBatch batch = createBatch();
-                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -528,7 +524,7 @@ class QueueSelectorsTest {
                 WorkBatch batch = createBatch();
                 queues.getLast().add(batch);
 
-                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -556,7 +552,7 @@ class QueueSelectorsTest {
                 List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(2);
                 WorkBatch batch = createBatch();
 
-                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -588,7 +584,7 @@ class QueueSelectorsTest {
                 WorkBatch batch = createBatch();
                 queues.getFirst().add(batch);
 
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -615,7 +611,7 @@ class QueueSelectorsTest {
                 List<MpmcArrayQueue<WorkBatch>> queues = jctoolsQueues(1);
                 WorkBatch batch = createBatch();
 
-                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -662,7 +658,7 @@ class QueueSelectorsTest {
                 List<ArrayBlockingQueue<WorkBatch>> queues = null;
 
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.poll(0, queues, noOp(), alwaysTrue()))
+                        .isThrownBy(() -> selector.poll(0, queues, noOp(), () -> true))
                         .withMessageContaining("queues must not be null");
             }
 
@@ -674,7 +670,7 @@ class QueueSelectorsTest {
 
                 WorkBatch batch = createBatch();
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), alwaysTrue()))
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, noOp(), () -> true))
                         .withMessageContaining("queues must not be null");
             }
 
@@ -685,7 +681,7 @@ class QueueSelectorsTest {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
 
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.poll(0, queues, null, alwaysTrue()))
+                        .isThrownBy(() -> selector.poll(0, queues, null, () -> true))
                         .withMessageContaining("backoff must not be null");
             }
 
@@ -697,7 +693,7 @@ class QueueSelectorsTest {
 
                 WorkBatch batch = createBatch();
                 assertThatNullPointerException()
-                        .isThrownBy(() -> selector.offer(batch, 0, queues, null, alwaysTrue()))
+                        .isThrownBy(() -> selector.offer(batch, 0, queues, null, () -> true))
                         .withMessageContaining("backoff must not be null");
             }
 
@@ -731,7 +727,7 @@ class QueueSelectorsTest {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
                 addTo(queues.getFirst());
 
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysFalse());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> false);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
@@ -746,7 +742,7 @@ class QueueSelectorsTest {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
 
                 WorkBatch batch = createBatch();
-                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysFalse());
+                boolean result = selector.offer(batch, 0, queues, noOp(), () -> false);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isFalse();
@@ -763,7 +759,7 @@ class QueueSelectorsTest {
                 addTo(queues.getFirst());
 
                 Thread.currentThread().interrupt();
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
@@ -781,7 +777,7 @@ class QueueSelectorsTest {
 
                 Thread.currentThread().interrupt();
                 WorkBatch batch = createBatch();
-                boolean result = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+                boolean result = selector.offer(batch, 0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isFalse();
@@ -802,7 +798,7 @@ class QueueSelectorsTest {
 
                 Thread t = new Thread(() -> {
                     try {
-                        WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                        WorkBatch result = selector.poll(0, queues, noOp(), () -> true);
                         resultRef.set(result);
                         interruptedRef.set(Thread.currentThread().isInterrupted());
                     } catch (Exception e) {
@@ -840,7 +836,7 @@ class QueueSelectorsTest {
                 Thread t = new Thread(() -> {
                     try {
                         boolean result = selector.offer(createBatch(), 0, queues, noOp(),
-                                alwaysTrue());
+                                () -> true);
                         resultRef.set(result);
                         interruptedRef.set(Thread.currentThread().isInterrupted());
                     } catch (Exception e) {
@@ -881,7 +877,8 @@ class QueueSelectorsTest {
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
-                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called")
+                            .isOne();
                     softly.assertThat(queues).first(as(COLLECTION)).isNotEmpty();
                     softly.assertThat(queues).last(as(COLLECTION)).isEmpty();
                 });
@@ -893,7 +890,7 @@ class QueueSelectorsTest {
                 WorkBatch batch = createBatch();
                 queues.getLast().add(batch);
 
-                WorkBatch result = selector.poll(1, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -911,7 +908,8 @@ class QueueSelectorsTest {
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isFalse();
-                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called")
+                            .isOne();
                     softly.assertThat(queues).first(as(COLLECTION)).isEmpty();
                     softly.assertThat(queues).last(as(COLLECTION)).hasSize(2);
                 });
@@ -922,7 +920,7 @@ class QueueSelectorsTest {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(2);
                 WorkBatch batch = createBatch();
 
-                boolean offered = selector.offer(batch, 1, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 1, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();
@@ -944,7 +942,8 @@ class QueueSelectorsTest {
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isNull();
-                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called")
+                            .isOne();
                 });
             }
 
@@ -954,7 +953,7 @@ class QueueSelectorsTest {
                 WorkBatch batch = createBatch();
                 queues.getFirst().add(batch);
 
-                WorkBatch result = selector.poll(0, queues, noOp(), alwaysTrue());
+                WorkBatch result = selector.poll(0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(result).isSameAs(batch);
@@ -972,7 +971,8 @@ class QueueSelectorsTest {
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isFalse();
-                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called").isOne();
+                    softly.assertThat(trackingBackoff.calls).as("Check if backoff was called")
+                            .isOne();
                 });
             }
 
@@ -981,7 +981,7 @@ class QueueSelectorsTest {
                 List<ArrayBlockingQueue<WorkBatch>> queues = blockingQueues(1);
                 WorkBatch batch = createBatch();
 
-                boolean offered = selector.offer(batch, 0, queues, noOp(), alwaysTrue());
+                boolean offered = selector.offer(batch, 0, queues, noOp(), () -> true);
 
                 assertSoftly(softly -> {
                     softly.assertThat(offered).isTrue();

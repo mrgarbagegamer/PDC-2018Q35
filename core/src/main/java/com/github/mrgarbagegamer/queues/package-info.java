@@ -61,4 +61,5 @@
  * 
  * @since 2026.02 - Queue Injection Refactor
  */
+@org.jspecify.annotations.NullUnmarked
 package com.github.mrgarbagegamer.queues;

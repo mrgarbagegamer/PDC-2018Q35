@@ -275,8 +275,6 @@
                 <configuration>
                     <errorProneVersion>${errorprone.version}</errorProneVersion>
                     <nullAwayVersion>${nullAway.version}</nullAwayVersion>
-                    <nullAwaySeverity>off</nullAwaySeverity>
-                    <requireExplicitNullMarkingSeverity>off</requireExplicitNullMarkingSeverity>
                 </configuration>
                 <executions>
                     <execution>

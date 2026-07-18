@@ -11,6 +11,7 @@ import java.util.List;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+import com.google.common.base.Ascii;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 
@@ -59,9 +60,9 @@ final class QueuePreallocator {
     }
 
     @FormatMethod
-    private static void throwIAE(QueueWrapper<?> queue, int queueIndex, @FormatString String reasonTemplate,
-            Object... reasonArgs) {
-        final String boundednessStr = queue.boundedness().toString().toLowerCase();
+    private static void throwIAE(QueueWrapper<?> queue, int queueIndex,
+            @FormatString String reasonTemplate, Object... reasonArgs) {
+        final String boundednessStr = Ascii.toLowerCase(queue.boundedness().toString());
         final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException(
                 "Preallocation failed for mtgQueues: %s mtgQueue at index %d %s"
@@ -69,9 +70,9 @@ final class QueuePreallocator {
     }
 
     @FormatMethod
-    private static void throwISE(QueueWrapper<?> queue, int queueIndex, @FormatString String reasonTemplate,
-            Object... reasonArgs) {
-        final String boundednessStr = queue.boundedness().toString().toLowerCase();
+    private static void throwISE(QueueWrapper<?> queue, int queueIndex,
+            @FormatString String reasonTemplate, Object... reasonArgs) {
+        final String boundednessStr = Ascii.toLowerCase(queue.boundedness().toString());
         final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalStateException(
                 "Preallocation failed for mtgQueues: %s mtgQueue at index %d %s"

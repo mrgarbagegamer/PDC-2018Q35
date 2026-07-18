@@ -8,6 +8,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
+import com.google.common.util.concurrent.Uninterruptibles;
+
 // TODO: Update Javadoc
 /**
  * The main application entry point and orchestrator for the Lights Out puzzle solver.
@@ -80,9 +82,8 @@ public class StartYourMonkeys {
      * that no more work is coming, and waits for them to terminate using
      * {@link Thread#join()}.</li>
      * <li><b>Result Reporting:</b> Reports the outcome ({@link SolverState#solutionFound() solution
-     * found or not found}), verifies the solution if one exists, and
-     * {@link #formatElapsedTime(long) logs the total elapsed time} before
-     * {@link LogManager#shutdown() shutting down} the {@link #logger}.</li>
+     * found or not found}), verifies the solution if one exists, and logs the total elapsed time
+     * before {@link LogManager#shutdown() shutting down} the logger.</li>
      * </ol>
      *
      * <h3>ForkJoinPool Behavior</h3>
@@ -125,10 +126,13 @@ public class StartYourMonkeys {
                 case 3:
                     configBuilder.baseGrid(SolverConfiguration
                             .createGridForPuzzle(Integer.parseInt(userInput[2])));
+                    // Fall through to set numThreads and numClicks
                 case 2:
                     configBuilder.numThreads(Integer.parseInt(userInput[1]));
+                    // Fall through to set numClicks
                 case 1:
                     configBuilder.numClicks(Integer.parseInt(userInput[0]));
+                    break;
                 case 0:
                     break;
                 default:
@@ -199,11 +203,8 @@ public class StartYourMonkeys {
                 this.solverState.markGenerationComplete();
 
                 // Wait for worker threads to finish
-                for (TestClickCombination worker : monkeys) {
-                    try {
-                        worker.join();
-                    } catch (InterruptedException ignored) {}
-                }
+                for (TestClickCombination worker : monkeys)
+                    Uninterruptibles.joinUninterruptibly(worker);
 
                 // Shutdown generator pool immediately, if not already
                 generatorPool.shutdownNow();
@@ -211,7 +212,6 @@ public class StartYourMonkeys {
         }
 
         public void reportResults() {
-
             final long runtimeMillis = this.solverState.getEndTime()
                     - this.solverState.getStartTime();
             if (runtimeMillis <= 0) {

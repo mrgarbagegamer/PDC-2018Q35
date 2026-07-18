@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer.queues;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -22,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.github.mrgarbagegamer.SolverState;
@@ -30,8 +30,16 @@ import com.github.mrgarbagegamer.WorkBatch;
 
 @ExtendWith(MockitoExtension.class)
 public class ContinuationPredicatesTest {
-    @Mock
-    private SolverState mockState;
+    private static SolverState createState(boolean solutionFound, boolean generationComplete) {
+        SolverState state = new SolverState();
+        if (solutionFound) {
+            state.markSolutionFound(new short[2]);
+        }
+        if (generationComplete) {
+            state.markGenerationComplete();
+        }
+        return state;
+    }
 
     @Nested
     class NeverTerminateTests {
@@ -53,18 +61,16 @@ public class ContinuationPredicatesTest {
 
         @Test
         public void givenSolutionNotFound_thenReturnTrue() {
-            when(mockState.solutionFound()).thenReturn(false);
-
-            BooleanSupplier predicate = ContinuationPredicates.forGenerator(mockState);
+            SolverState state = createState(false, false);
+            BooleanSupplier predicate = ContinuationPredicates.forGenerator(state);
 
             assertThat(predicate.getAsBoolean()).isTrue();
         }
 
         @Test
         public void givenSolutionFound_thenReturnFalse() {
-            when(mockState.solutionFound()).thenReturn(true);
-
-            BooleanSupplier predicate = ContinuationPredicates.forGenerator(mockState);
+            SolverState state = createState(true, false);
+            BooleanSupplier predicate = ContinuationPredicates.forGenerator(state);
 
             assertThat(predicate.getAsBoolean()).isFalse();
         }
@@ -72,12 +78,6 @@ public class ContinuationPredicatesTest {
 
     @Nested
     class ForMonkeyTests {
-        @Mock
-        private MessagePassingQueue<WorkBatch> mockJCToolsQueue;
-
-        @Mock
-        private BlockingQueue<WorkBatch> mockBlockingQueue;
-
         private record ReturnValueTestCase(List<?> queues) {
             static Named<ReturnValueTestCase> noSolutionGenNotComplete(String scenario,
                     List<?> queues) {
@@ -148,89 +148,86 @@ public class ContinuationPredicatesTest {
 
         private static MessagePassingQueue<WorkBatch> jctoolsQueue(boolean empty) {
             MessagePassingQueue<WorkBatch> queue = mock();
-            when(queue.isEmpty()).thenReturn(empty);
+            lenient().when(queue.isEmpty()).thenReturn(empty);
             return queue;
         }
 
         private static BlockingQueue<WorkBatch> blockingQueue(boolean empty) {
             BlockingQueue<WorkBatch> queue = mock();
-            when(queue.isEmpty()).thenReturn(empty);
+            lenient().when(queue.isEmpty()).thenReturn(empty);
             return queue;
         }
 
         @Test
         public void givenNullState_thenThrowNullPointerException() {
             assertThatNullPointerException().isThrownBy(
-                    () -> ContinuationPredicates.forMonkey(null, List.of(mockJCToolsQueue)));
+                    () -> ContinuationPredicates.forMonkey(null, List.of(jctoolsQueue(false))));
         }
 
         @Test
         public void givenNullListOfQueues_thenThrowNullPointerException() {
-            assertThatNullPointerException()
-                    .isThrownBy(() -> ContinuationPredicates.forMonkey(mockState, null));
+            assertThatNullPointerException().isThrownBy(
+                    () -> ContinuationPredicates.forMonkey(createState(false, false), null));
         }
 
         @Test
         public void givenListOfQueuesContainingNull_thenThrowNullPointerException() {
-            final var queues = Arrays.asList(mockJCToolsQueue, null);
+            final List<MessagePassingQueue<WorkBatch>> queues = Arrays.asList(jctoolsQueue(false),
+                    null);
 
-            assertThatNullPointerException()
-                    .isThrownBy(() -> ContinuationPredicates.forMonkey(mockState, queues));
+            assertThatNullPointerException().isThrownBy(
+                    () -> ContinuationPredicates.forMonkey(createState(false, false), queues));
         }
 
         @Test
         public void givenEmptyListOfQueues_thenThrowIllegalArgumentException() {
-            assertThatIllegalArgumentException()
-                    .isThrownBy(() -> ContinuationPredicates.forMonkey(mockState, List.of()));
+            assertThatIllegalArgumentException().isThrownBy(
+                    () -> ContinuationPredicates.forMonkey(createState(false, false), List.of()));
         }
 
         @Test
         public void givenListOfQueuesWithMixedTypes_thenThrowIllegalArgumentException() {
-            final var queues = List.of(mockJCToolsQueue, mockBlockingQueue);
+            final List<Object> queues = List.of(jctoolsQueue(false), blockingQueue(false));
 
-            assertThatIllegalArgumentException()
-                    .isThrownBy(() -> ContinuationPredicates.forMonkey(mockState, queues));
+            assertThatIllegalArgumentException().isThrownBy(
+                    () -> ContinuationPredicates.forMonkey(createState(false, false), queues));
         }
 
         @ParameterizedTest
         @MethodSource("provideNoSolutionGenNotCompleteCases")
         public void givenNoSolutionAndGenerationNotComplete_thenReturnTrue(
                 ReturnValueTestCase testCase) {
-            when(mockState.solutionFound()).thenReturn(false);
-            when(mockState.generationComplete()).thenReturn(false);
+            SolverState state = createState(false, false);
 
-            BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
-                    testCase.queues());
+            BooleanSupplier predicate = ContinuationPredicates.forMonkey(state, testCase.queues());
 
             assertThat(predicate.getAsBoolean()).isTrue();
-
-            verify(mockState).solutionFound();
-            verify(mockState).generationComplete();
         }
 
         @ParameterizedTest
         @MethodSource("provideSolutionFoundCases")
         public void givenSolutionFound_thenReturnFalse(ReturnValueTestCase testCase) {
-            when(mockState.solutionFound()).thenReturn(true);
+            SolverState state = createState(true, false);
 
-            BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
-                    testCase.queues());
+            BooleanSupplier predicate = ContinuationPredicates.forMonkey(state, testCase.queues());
 
             assertThat(predicate.getAsBoolean()).isFalse();
-
-            verify(mockState).solutionFound();
         }
 
         @ParameterizedTest
         @MethodSource("provideSolutionFoundCases")
         public void givenSolutionFound_thenDoNotCheckGenerationComplete(
                 ReturnValueTestCase testCase) {
+            // Mocked so we can verify that generationComplete() isn't called
+            SolverState mockState = mock();
             when(mockState.solutionFound()).thenReturn(true);
 
             BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
                     testCase.queues());
 
-            predicate.getAsBoolean();
+            // We are only interested in whether generationComplete() is called.
+            @SuppressWarnings("unused")
+            boolean unused = predicate.getAsBoolean();
 
             verify(mockState, never()).generationComplete();
         }
@@ -238,12 +235,16 @@ public class ContinuationPredicatesTest {
         @ParameterizedTest
         @MethodSource("provideSolutionFoundCases")
         public void givenSolutionFound_thenDoNotCheckQueues(ReturnValueTestCase testCase) {
+            // Mocked so we can verify that the queues are not checked
+            SolverState mockState = mock();
             when(mockState.solutionFound()).thenReturn(true);
 
             BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
                     testCase.queues());
 
-            predicate.getAsBoolean();
+            // We are only interested in whether the queues are checked.
+            @SuppressWarnings("unused")
+            boolean unused = predicate.getAsBoolean();
 
             verifyNoInteractions(testCase.queues().toArray());
         }
@@ -252,32 +253,22 @@ public class ContinuationPredicatesTest {
         @MethodSource("provideGenCompleteOneNonEmptyCases")
         public void givenGenerationCompleteWithAtLeastOneNonEmptyQueue_thenReturnTrue(
                 ReturnValueTestCase testCase) {
-            when(mockState.solutionFound()).thenReturn(false);
-            when(mockState.generationComplete()).thenReturn(true);
+            SolverState state = createState(false, true);
 
-            BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
-                    testCase.queues());
+            BooleanSupplier predicate = ContinuationPredicates.forMonkey(state, testCase.queues());
 
             assertThat(predicate.getAsBoolean()).isTrue();
-
-            verify(mockState).solutionFound();
-            verify(mockState).generationComplete();
         }
 
         @ParameterizedTest
         @MethodSource("provideGenCompleteAllEmptyCases")
         public void givenGenerationCompleteWithAllEmptyQueues_thenReturnFalse(
                 ReturnValueTestCase testCase) {
-            when(mockState.solutionFound()).thenReturn(false);
-            when(mockState.generationComplete()).thenReturn(true);
+            SolverState state = createState(false, true);
 
-            BooleanSupplier predicate = ContinuationPredicates.forMonkey(mockState,
-                    testCase.queues());
+            BooleanSupplier predicate = ContinuationPredicates.forMonkey(state, testCase.queues());
 
             assertThat(predicate.getAsBoolean()).isFalse();
-
-            verify(mockState).solutionFound();
-            verify(mockState).generationComplete();
         }
     }
 }

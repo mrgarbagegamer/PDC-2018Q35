@@ -6,6 +6,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import java.util.List;
 
+import org.jspecify.annotations.Nullable;
+
 import com.google.errorprone.annotations.RestrictedApi;
 
 // TODO: Write Javadocs
@@ -13,24 +15,26 @@ import com.google.errorprone.annotations.RestrictedApi;
 public final class ValidationUtils {
     private ValidationUtils() { utilityClassError("ValidationUtils"); }
 
-    public static <T> T mustNotBeNull(T obj, String fieldName) {
+    public static <T> T mustNotBeNull(@Nullable T obj, String fieldName) {
         return checkNotNull(obj, "%s must not be null", fieldName);
     }
 
     // Method to ensure a list isn't empty:
-    public static <T> List<T> mustNotBeEmpty(List<T> list, String fieldName) {
-        mustNotBeNull(list, fieldName);
-        checkArgument(!list.isEmpty(), "%s must not be empty", fieldName);
-        return list; // We won't return List.copyOf here, since this method is meant to validate.
+    public static <T> List<T> mustNotBeEmpty(@Nullable List<T> list, String fieldName) {
+        List<T> checkedList = mustNotBeNull(list, fieldName);
+        checkArgument(!checkedList.isEmpty(), "%s must not be empty", fieldName);
+        return checkedList; // We won't return List.copyOf here, since this method is meant to
+                            // validate.
     }
 
-    public static <T> List<T> copyOfNonNullList(List<? extends T> list, String fieldName) {
-        mustNotBeNull(list, fieldName);
-        for (int i = 0; i < list.size(); i++) {
-            checkNotNull(list.get(i),
+    public static <T> List<T> copyOfNonNullList(@Nullable List<? extends @Nullable T> list,
+            String fieldName) {
+        List<? extends @Nullable T> checkedList = mustNotBeNull(list, fieldName);
+        for (int i = 0; i < checkedList.size(); i++) {
+            checkNotNull(checkedList.get(i),
                     "%s must not contain null elements (null element at index %s)", fieldName, i);
         }
-        return List.copyOf(list);
+        return List.copyOf(checkedList);
     }
 
     // TODO: Broadly implement this method in the codebase.
@@ -40,7 +44,7 @@ public final class ValidationUtils {
         throw new AssertionError(className + " is a utility class and cannot be instantiated");
     }
 
-    public static <T> T mustBeSet(T parameter, String parameterName) {
+    public static <T> T mustBeSet(@Nullable T parameter, String parameterName) {
         checkState(parameter != null, "%s must be set before building.", parameterName);
         return parameter;
     }

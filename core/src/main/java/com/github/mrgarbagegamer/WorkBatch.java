@@ -457,6 +457,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      *            monkey} thread at a time.
      * @memory Minimal and fixed memory footprint for the instance itself.
      */
+    @NullMarked
     private class BatchIterator implements Iterator<WorkItem> {
         private int currentWorkItemIndex;
 

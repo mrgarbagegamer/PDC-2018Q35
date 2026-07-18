@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -7,6 +8,9 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
@@ -72,6 +76,7 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  * @threading Not thread-safe; ownership is transferred via queues.
  */
 public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
+    @NullMarked
     public record Parity(ShortList finalClicks, IntList startIndices) {
         // TODO: Consider replacing this method with a utility inside of Grid for reduced
         // duplication
@@ -104,8 +109,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
 
         public Parity {
             // TODO: Consider importing Guava's Preconditions for null checks
-            requireNonNull(finalClicks, "finalClicks cannot be null");
-            requireNonNull(startIndices, "startIndices cannot be null");
+            mustNotBeNull(finalClicks, "finalClicks");
+            mustNotBeNull(startIndices, "startIndices");
 
             // Ensure that finalClicks is valid
             for (int i = 0; i < finalClicks.size(); i++) {
@@ -235,9 +240,10 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      *         not own the latter. Minimal, fixed overhead per instance.
      * @threading Not thread-safe. Instances are owned and operated on by a single thread at a time.
      */
+    @NullMarked
     public static class WorkItem {
         private short[] prefix;
-        private Parity prefixParity;
+        private @Nullable Parity prefixParity;
         private int start;
 
         /**
@@ -335,7 +341,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @threading Not thread-safe.
          * @memory Does not allocate; returns reference to existing array.
          */
-        public ShortList getFinalClicks() {
+        public @Nullable ShortList getFinalClicks() {
             return prefixParity != null ? prefixParity.finalClicks() : null;
         }
 
@@ -405,7 +411,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          * @memory Does not allocate.
          */
         @Override
-        public boolean equals(Object obj) {
+        public boolean equals(@Nullable Object obj) {
             return this == obj || (obj instanceof WorkItem other && this.start == other.start
                     && Objects.equals(this.prefixParity, other.prefixParity)
                     && Arrays.equals(this.prefix, other.prefix));

@@ -75,8 +75,8 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  * @memory Fixed memory usage; all internal structures are pre-allocated.
  * @threading Not thread-safe; ownership is transferred via queues.
  */
+@NullMarked
 public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
-    @NullMarked
     public record Parity(ShortList finalClicks, IntList startIndices) {
         // TODO: Consider replacing this method with a utility inside of Grid for reduced
         // duplication
@@ -240,7 +240,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      *         not own the latter. Minimal, fixed overhead per instance.
      * @threading Not thread-safe. Instances are owned and operated on by a single thread at a time.
      */
-    @NullMarked
     public static class WorkItem {
         private short[] prefix;
         private @Nullable Parity prefixParity;
@@ -331,6 +330,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         public int getPrefixLength() { return prefix.length; }
 
+        // TODO: Consider returning ShortLists.EMPTY_LIST (or ShortLists.emptyList())
         /**
          * Returns the array of possible final clicks for this work range by retrieving it from the
          * {@link #prefixParity} enum.
@@ -457,7 +457,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
      *            monkey} thread at a time.
      * @memory Minimal and fixed memory footprint for the instance itself.
      */
-    @NullMarked
     private class BatchIterator implements Iterator<WorkItem> {
         private int currentWorkItemIndex;
 
@@ -555,11 +554,7 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
 
     // TODO: Add documentation
     public WorkBatch(SolverConfiguration config) {
-        requireNonNull(config);
-
-        if (config.batchSize() <= 0) {
-            throw new IllegalArgumentException("capacity must be a positive integer.");
-        }
+        mustNotBeNull(config, "config");
 
         this.capacity = config.batchSize();
         this.parities = Parity.pair(config);

@@ -66,11 +66,11 @@ import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
  * 
  * @since 2026.06 - Reduced Queue Strategy Duplication
  */
+@NullMarked
 public final class QueueStrategies {
     @ExcludeFromGeneratedCoverage
     private QueueStrategies() { utilityClassError("QueueStrategies"); }
 
-    @NullMarked
     private static abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
         private final List<G> gtmQueues;
         private final List<M> mtgQueues;

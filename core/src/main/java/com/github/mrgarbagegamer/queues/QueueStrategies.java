@@ -70,6 +70,7 @@ public final class QueueStrategies {
     @ExcludeFromGeneratedCoverage
     private QueueStrategies() { utilityClassError("QueueStrategies"); }
 
+    @NullMarked
     private static abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
         private final List<G> gtmQueues;
         private final List<M> mtgQueues;
@@ -106,7 +107,6 @@ public final class QueueStrategies {
                     "monkeyShouldContinue");
         }
 
-        @NullMarked
         private static abstract class Builder<G, M, B extends Builder<G, M, B>> {
             // 1: Required parameters (enforced via constructor)
             private final List<G> gtmQueues;
@@ -331,7 +331,7 @@ public final class QueueStrategies {
         }
 
         @Override
-        public final WorkBatch generatorPoll(int generatorId) {
+        public final @Nullable WorkBatch generatorPoll(int generatorId) {
             return this.generatorPollSelector.poll(generatorId, this.mtgQueues,
                     this.generatorBackoff, this.generatorShouldContinue);
         }
@@ -349,7 +349,7 @@ public final class QueueStrategies {
         }
 
         @Override
-        public final WorkBatch monkeyPoll(int monkeyId) {
+        public final @Nullable WorkBatch monkeyPoll(int monkeyId) {
             return this.monkeyPollSelector.poll(monkeyId, this.gtmQueues, this.monkeyBackoff,
                     this.monkeyShouldContinue);
         }

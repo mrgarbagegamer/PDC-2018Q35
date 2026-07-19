@@ -63,6 +63,7 @@ final class QueueWrappers {
         @ExcludeFromGeneratedCoverage
         private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
 
+        @NullMarked
         private static abstract class AbstractBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
                 extends AbstractWrapper<Q> {
             AbstractBlockingWrapper(Q delegate, AccessMode accessMode,
@@ -71,12 +72,15 @@ final class QueueWrappers {
             }
 
             @Override
+            @SuppressWarnings("null") // delegate is non-null
             public boolean offer(WorkBatch e) { return delegate.offer(e); }
 
             @Override
+            @SuppressWarnings("null") // delegate is non-null
             public int size() { return delegate.size(); }
 
             @Override
+            @SuppressWarnings("null") // delegate is non-null
             public boolean isEmpty() { return delegate.isEmpty(); }
         }
 

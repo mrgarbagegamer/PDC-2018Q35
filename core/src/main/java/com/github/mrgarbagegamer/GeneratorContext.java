@@ -1,6 +1,10 @@
 package com.github.mrgarbagegamer;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+
 // Add Javadocs
+@NullMarked
 public interface GeneratorContext {
 
     /**
@@ -30,6 +34,7 @@ public interface GeneratorContext {
      * @threading Must be thread-safe.
      * @memory Should not allocate.
      */
+    @Nullable
     WorkBatch getCurrentBatch();
 
     /**
@@ -44,7 +49,14 @@ public interface GeneratorContext {
      */
     WorkBatch resetBatch();
 
-    default int getCurrentBatchSize() { return hasBatch() ? getCurrentBatch().size() : 0; }
+    default int getCurrentBatchSize() {
+        if (this.hasBatch()) {
+            WorkBatch currentBatch = this.getCurrentBatch();
+            // Check if the returned batch is null (should be impossible)
+            return currentBatch != null ? currentBatch.size() : 0;
+        }
+        return 0;
+    }
 
     ArrayPool getArrayPool();
 

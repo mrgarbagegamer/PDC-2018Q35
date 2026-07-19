@@ -257,17 +257,20 @@ final class QueueSelectors {
         }
     }
 
+    @NullMarked
     private enum BlockingQueueSelector
             implements BaseSelector<BlockingQueue<WorkBatch>>, SelectorValidator {
 
         PREFERRED(SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
-            public WorkBatch tryPoll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues)
-                    throws InterruptedException {
+            @SuppressWarnings("null") // queues isn't null, so this is fine.
+            public @Nullable WorkBatch tryPoll(int threadId,
+                    List<? extends BlockingQueue<WorkBatch>> queues) throws InterruptedException {
                 return queues.get(threadId).poll(100, TimeUnit.MILLISECONDS);
             }
 
             @Override
+            @SuppressWarnings("null") // queues isn't null, so this is fine.
             public boolean tryOffer(WorkBatch batch, int threadId,
                     List<? extends BlockingQueue<WorkBatch>> queues) throws InterruptedException {
                 return queues.get(threadId).offer(batch, 100, TimeUnit.MILLISECONDS);
@@ -276,8 +279,8 @@ final class QueueSelectors {
 
         EXCLUSIVE(SelectorRules.EXCLUSIVE) {
             @Override
-            public WorkBatch tryPoll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues)
-                    throws InterruptedException {
+            public @Nullable WorkBatch tryPoll(int threadId,
+                    List<? extends BlockingQueue<WorkBatch>> queues) throws InterruptedException {
                 return PREFERRED.tryPoll(0, queues);
             }
 

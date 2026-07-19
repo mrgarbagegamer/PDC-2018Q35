@@ -11,6 +11,7 @@ import java.util.function.BooleanSupplier;
 
 import org.jctools.queues.MessagePassingQueue;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
@@ -27,14 +28,15 @@ final class QueueSelectors {
         void validate(SelectorValidationTarget<?> target);
     }
 
+    @NullMarked
     private interface BaseSelector<Q> extends QueueSelector<Q> {
-        WorkBatch tryPoll(int threadId, List<? extends Q> queues) throws InterruptedException;
+        @Nullable WorkBatch tryPoll(int threadId, List<? extends Q> queues) throws InterruptedException;
 
         boolean tryOffer(WorkBatch batch, int threadId, List<? extends Q> queues)
                 throws InterruptedException;
 
         @Override
-        default WorkBatch poll(int threadId, List<? extends Q> queues, BackoffStrategy backoff,
+        default @Nullable WorkBatch poll(int threadId, List<? extends Q> queues, BackoffStrategy backoff,
                 BooleanSupplier shouldContinue) {
             mustNotBeNull(queues, "queues");
             mustNotBeNull(backoff, "backoff");

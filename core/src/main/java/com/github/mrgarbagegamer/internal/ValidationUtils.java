@@ -20,7 +20,8 @@ public final class ValidationUtils {
     }
 
     // Method to ensure a list isn't empty:
-    public static <T> List<T> mustNotBeEmpty(@Nullable List<T> list, String fieldName) {
+    public static <T extends @Nullable Object> List<T> mustNotBeEmpty(@Nullable List<T> list,
+            String fieldName) {
         List<T> checkedList = mustNotBeNull(list, fieldName);
         checkArgument(!checkedList.isEmpty(), "%s must not be empty", fieldName);
         return checkedList; // We won't return List.copyOf here, since this method is meant to

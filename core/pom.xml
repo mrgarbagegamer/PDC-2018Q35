@@ -260,10 +260,7 @@
                     <compilerArgs combine.children="append">
                         <arg>-XDcompilePolicy=simple</arg>
                         <arg>--should-stop=ifError=FLOW</arg>
-                        <!-- TODO: Remove the custom block tags arg when you remove the custom tags.
-                        CDATA is used to bypass formatting problems when keeping args on the same
-                        line -->
-                        <arg><![CDATA[-Xplugin:ErrorProne -XepOpt:Javadoc:customBlockTags=performance,threading,algorithm,memory]]></arg>
+                        <arg>-Xplugin:ErrorProne @${project.basedir}/errorprone.cfg</arg>
                     </compilerArgs>
                 </configuration>
             </plugin>

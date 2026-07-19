@@ -1,11 +1,14 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 
 import java.util.List;
+
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 
@@ -70,14 +73,15 @@ class QueueValidationContext<G, M> {
 
     QueueGroup<M> mtgGroup() { return this.mtgGroup; }
 
+    @NullMarked
     static class Builder<G, M> {
         private final List<QueueWrapper<G>> gtmQueues;
         private final List<QueueWrapper<M>> mtgQueues;
-        private QueueSelector<M> generatorPollSelector;
-        private QueueSelector<G> generatorOfferSelector;
-        private QueueSelector<G> monkeyPollSelector;
-        private QueueSelector<M> monkeyOfferSelector;
-        private SolverConfiguration solverConfig;
+        private @Nullable QueueSelector<M> generatorPollSelector;
+        private @Nullable QueueSelector<G> generatorOfferSelector;
+        private @Nullable QueueSelector<G> monkeyPollSelector;
+        private @Nullable QueueSelector<M> monkeyOfferSelector;
+        private @Nullable SolverConfiguration solverConfig;
 
         private Builder(List<? extends QueueWrapper<G>> gtmQueues,
                 List<? extends QueueWrapper<M>> mtgQueues) {

@@ -18,6 +18,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.function.Function;
 
 import org.jctools.queues.MessagePassingQueue;
+import org.jspecify.annotations.NullMarked;
 
 import com.conversantmedia.util.concurrent.ConcurrentQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
@@ -29,6 +30,7 @@ final class QueueWrappers {
     @ExcludeFromGeneratedCoverage
     private QueueWrappers() { utilityClassError("QueueWrappers"); }
 
+    @NullMarked
     private static abstract class AbstractWrapper<Q> implements QueueWrapper<Q> {
         final Q delegate;
         private final AccessMode accessMode;

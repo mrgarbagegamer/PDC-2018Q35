@@ -1,5 +1,8 @@
 package com.github.mrgarbagegamer;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+
 /**
  * A strategy interface for managing the interaction between {@link CombinationGeneratorTask
  * generators} and {@link TestClickCombination monkeys}.
@@ -27,6 +30,7 @@ package com.github.mrgarbagegamer;
  * @see com.github.mrgarbagegamer.queues
  * @since 2026.02 - Queue Injection Refactor
  */
+@NullMarked
 public interface QueueStrategy {
 
     /**
@@ -39,6 +43,7 @@ public interface QueueStrategy {
      * @see GeneratorContext#getCurrentBatch()
      * @since 2026.02 - Queue Injection Refactor
      */
+    @Nullable
     WorkBatch generatorPoll(int generatorId);
 
     /**
@@ -69,6 +74,7 @@ public interface QueueStrategy {
      *         will arrive
      * @since 2026.02 - Queue Injection Refactor
      */
+    @Nullable
     WorkBatch monkeyPoll(int monkeyId);
 
     /**

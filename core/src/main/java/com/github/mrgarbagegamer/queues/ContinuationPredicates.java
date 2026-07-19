@@ -11,10 +11,12 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 
 import org.jctools.queues.MessagePassingQueue;
+import org.jspecify.annotations.NullMarked;
 
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
+@NullMarked
 final class ContinuationPredicates {
 
     @ExcludeFromGeneratedCoverage

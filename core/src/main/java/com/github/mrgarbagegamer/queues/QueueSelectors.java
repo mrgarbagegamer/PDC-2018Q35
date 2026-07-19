@@ -30,14 +30,15 @@ final class QueueSelectors {
 
     @NullMarked
     private interface BaseSelector<Q> extends QueueSelector<Q> {
-        @Nullable WorkBatch tryPoll(int threadId, List<? extends Q> queues) throws InterruptedException;
+        @Nullable
+        WorkBatch tryPoll(int threadId, List<? extends Q> queues) throws InterruptedException;
 
         boolean tryOffer(WorkBatch batch, int threadId, List<? extends Q> queues)
                 throws InterruptedException;
 
         @Override
-        default @Nullable WorkBatch poll(int threadId, List<? extends Q> queues, BackoffStrategy backoff,
-                BooleanSupplier shouldContinue) {
+        default @Nullable WorkBatch poll(int threadId, List<? extends Q> queues,
+                BackoffStrategy backoff, BooleanSupplier shouldContinue) {
             mustNotBeNull(queues, "queues");
             mustNotBeNull(backoff, "backoff");
             mustNotBeNull(shouldContinue, "shouldContinue");

@@ -21,6 +21,8 @@ import java.util.function.BooleanSupplier;
 
 import org.jctools.queues.MessagePassingQueue;
 import org.jctools.queues.MpmcArrayQueue;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
@@ -104,6 +106,7 @@ public final class QueueStrategies {
                     "monkeyShouldContinue");
         }
 
+        @NullMarked
         private static abstract class Builder<G, M, B extends Builder<G, M, B>> {
             // 1: Required parameters (enforced via constructor)
             private final List<G> gtmQueues;
@@ -111,16 +114,16 @@ public final class QueueStrategies {
             private final SolverConfiguration config;
 
             // 2. Selectors (with overridable defaults from the asXyz() methods)
-            private QueueSelector<M> generatorPollSelector;
-            private QueueSelector<G> generatorOfferSelector;
-            private QueueSelector<G> monkeyPollSelector;
-            private QueueSelector<M> monkeyOfferSelector;
+            private @Nullable QueueSelector<M> generatorPollSelector;
+            private @Nullable QueueSelector<G> generatorOfferSelector;
+            private @Nullable QueueSelector<G> monkeyPollSelector;
+            private @Nullable QueueSelector<M> monkeyOfferSelector;
 
             // 3: Execution state (with overridable defaults)
-            private BackoffStrategy generatorBackoff;
-            private BackoffStrategy monkeyBackoff;
-            private BooleanSupplier generatorShouldContinue;
-            private BooleanSupplier monkeyShouldContinue;
+            private @Nullable BackoffStrategy generatorBackoff;
+            private @Nullable BackoffStrategy monkeyBackoff;
+            private @Nullable BooleanSupplier generatorShouldContinue;
+            private @Nullable BooleanSupplier monkeyShouldContinue;
 
             // 4. Preallocation value (with overridable default of 0, which means no preallocation):
             private int batchesPerQueue = 0;

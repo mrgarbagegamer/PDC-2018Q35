@@ -18,17 +18,16 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 import com.google.common.collect.ImmutableList;
 
+@NullMarked
 final class QueueSelectors {
 
     @ExcludeFromGeneratedCoverage
     private QueueSelectors() { utilityClassError("QueueSelectors"); }
 
-    @NullMarked
     interface SelectorValidator {
         void validate(SelectorValidationTarget<?> target);
     }
 
-    @NullMarked
     private interface BaseSelector<Q> extends QueueSelector<Q> {
         @Nullable
         WorkBatch tryPoll(int threadId, List<? extends Q> queues) throws InterruptedException;
@@ -112,7 +111,6 @@ final class QueueSelectors {
         return BlockingQueueSelector.EXCLUSIVE;
     }
 
-    @NullMarked
     private enum JCToolsSelector
             implements BaseSelector<MessagePassingQueue<WorkBatch>>, SelectorValidator {
 
@@ -257,7 +255,6 @@ final class QueueSelectors {
         }
     }
 
-    @NullMarked
     private enum BlockingQueueSelector
             implements BaseSelector<BlockingQueue<WorkBatch>>, SelectorValidator {
 

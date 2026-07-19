@@ -112,15 +112,17 @@ final class QueueSelectors {
         return BlockingQueueSelector.EXCLUSIVE;
     }
 
+    @NullMarked
     private enum JCToolsSelector
             implements BaseSelector<MessagePassingQueue<WorkBatch>>, SelectorValidator {
 
         RANDOM_SEQUENTIAL(SelectorRules.SEQUENTIAL) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 final int start = ThreadLocalRandom.current().nextInt(queues.size());
                 for (int i = 0; i < queues.size(); i++) {
+                    @SuppressWarnings("null") // queues isn't null, so this is fine.
                     final WorkBatch batch = queues.get((start + i) % queues.size()).relaxedPoll();
                     if (batch != null)
                         return batch;
@@ -133,7 +135,10 @@ final class QueueSelectors {
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 final int start = ThreadLocalRandom.current().nextInt(queues.size());
                 for (int i = 0; i < queues.size(); i++) {
-                    if (queues.get((start + i) % queues.size()).relaxedOffer(batch))
+                    @SuppressWarnings("null") // queues isn't null, so this is fine.
+                    boolean successful = queues.get((start + i) % queues.size())
+                            .relaxedOffer(batch);
+                    if (successful)
                         return true;
                 }
                 return false;
@@ -142,9 +147,10 @@ final class QueueSelectors {
 
         LINEAR_SEQUENTIAL(SelectorRules.SEQUENTIAL) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 for (int i = 0; i < queues.size(); i++) {
+                    @SuppressWarnings("null") // queues isn't null, so this is fine.
                     final WorkBatch batch = queues.get(i).relaxedPoll();
                     if (batch != null)
                         return batch;
@@ -156,7 +162,9 @@ final class QueueSelectors {
             public boolean tryOffer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 for (int i = 0; i < queues.size(); i++) {
-                    if (queues.get(i).relaxedOffer(batch))
+                    @SuppressWarnings("null") // queues isn't null, so this is fine.
+                    boolean successful = queues.get(i).relaxedOffer(batch);
+                    if (successful)
                         return true;
                 }
                 return false;
@@ -165,9 +173,10 @@ final class QueueSelectors {
 
         BIASED_SEQUENTIAL(SelectorRules.SEQUENTIAL, SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 // Preferred queue first
+                @SuppressWarnings("null") // queues isn't null, so this is fine.
                 final WorkBatch preferredBatch = queues.get(threadId).relaxedPoll();
                 if (preferredBatch != null)
                     return preferredBatch;
@@ -175,6 +184,7 @@ final class QueueSelectors {
                 // Round-robin the rest
                 for (int idx = (threadId + 1) % queues.size(); idx != threadId; idx = (idx + 1)
                         % queues.size()) {
+                    @SuppressWarnings("null") // queues isn't null, so this is fine.
                     final WorkBatch batch = queues.get(idx).relaxedPoll();
                     if (batch != null)
                         return batch;
@@ -186,13 +196,17 @@ final class QueueSelectors {
             public boolean tryOffer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 // Preferred queue first
-                if (queues.get(threadId).relaxedOffer(batch))
+                @SuppressWarnings("null") // queues isn't null, so this is fine.
+                boolean preferred = queues.get(threadId).relaxedOffer(batch);
+                if (preferred)
                     return true;
 
                 // Round-robin the rest
                 for (int idx = (threadId + 1) % queues.size(); idx != threadId; idx = (idx + 1)
                         % queues.size()) {
-                    if (queues.get(idx).relaxedOffer(batch))
+                    @SuppressWarnings("null") // queues isn't null, so this is fine.
+                    boolean roundRobin = queues.get(idx).relaxedOffer(batch);
+                    if (roundRobin)
                         return true;
                 }
                 return false;
@@ -201,12 +215,14 @@ final class QueueSelectors {
 
         PREFERRED(SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            @SuppressWarnings("null") // queues isn't null, so this is fine.
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 return queues.get(threadId).relaxedPoll();
             }
 
             @Override
+            @SuppressWarnings("null") // queues isn't null, so this is fine.
             public boolean tryOffer(WorkBatch batch, int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 return queues.get(threadId).relaxedOffer(batch);
@@ -215,7 +231,7 @@ final class QueueSelectors {
 
         EXCLUSIVE(SelectorRules.EXCLUSIVE) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues)
                     throws InterruptedException {
                 return PREFERRED.tryPoll(0, queues);

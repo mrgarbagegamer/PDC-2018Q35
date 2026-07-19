@@ -4,6 +4,9 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
 
+import org.jspecify.annotations.NullMarked;
+
+@NullMarked
 final class SelectorValidationTarget<Q> {
     private final QueueGroup<Q> group;
     private final ValidationRole role;

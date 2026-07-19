@@ -330,19 +330,8 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
          */
         public int getPrefixLength() { return prefix.length; }
 
-        // TODO: Consider returning ShortLists.EMPTY_LIST (or ShortLists.emptyList())
-        /**
-         * Returns the array of possible final clicks for this work range by retrieving it from the
-         * {@link #prefixParity} enum.
-         *
-         * @return The array of final clicks, or {@code null} if parity is not set.
-         * @since 2025.12 - Parity Enum Refactor
-         * @performance {@code O(1)} access time.
-         * @threading Not thread-safe.
-         * @memory Does not allocate; returns reference to existing array.
-         */
-        public @Nullable ShortList getFinalClicks() {
-            return prefixParity != null ? prefixParity.finalClicks() : null;
+        public ShortList getFinalClicks() {
+            return prefixParity != null ? prefixParity.finalClicks() : ShortList.of();
         }
 
         /**

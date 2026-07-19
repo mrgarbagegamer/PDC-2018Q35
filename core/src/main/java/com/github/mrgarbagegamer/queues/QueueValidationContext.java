@@ -12,6 +12,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 
+@NullMarked
 class QueueValidationContext<G, M> {
     private final QueueGroup<G> gtmGroup;
     private final QueueGroup<M> mtgGroup;
@@ -73,7 +74,6 @@ class QueueValidationContext<G, M> {
 
     QueueGroup<M> mtgGroup() { return this.mtgGroup; }
 
-    @NullMarked
     static class Builder<G, M> {
         private final List<QueueWrapper<G>> gtmQueues;
         private final List<QueueWrapper<M>> mtgQueues;

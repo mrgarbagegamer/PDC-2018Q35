@@ -3,12 +3,15 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
+import org.jspecify.annotations.NullMarked;
+
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 
+@NullMarked
 final class MetadataValidator {
     @ExcludeFromGeneratedCoverage
     private MetadataValidator() { utilityClassError("MetadataValidator"); }
@@ -17,7 +20,7 @@ final class MetadataValidator {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         // Ensure that all queues in the group have the same boundedness:
-        final Boundedness firstBoundedness = wrappedQueues.get(0).boundedness();
+        final Boundedness firstBoundedness = wrappedQueues.getFirst().boundedness();
         for (int i = 1; i < wrappedQueues.size(); i++) {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final Boundedness currentBoundedness = currentQueue.boundedness();
@@ -32,7 +35,7 @@ final class MetadataValidator {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         // Ensure that all queues in the group have the same access mode:
-        final AccessMode firstAccessMode = wrappedQueues.get(0).accessMode();
+        final AccessMode firstAccessMode = wrappedQueues.getFirst().accessMode();
         for (int i = 1; i < wrappedQueues.size(); i++) {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final AccessMode currentAccessMode = currentQueue.accessMode();

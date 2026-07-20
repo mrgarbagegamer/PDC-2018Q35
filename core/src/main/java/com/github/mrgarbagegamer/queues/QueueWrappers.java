@@ -148,6 +148,7 @@ final class QueueWrappers {
         }
     }
 
+    @NullMarked
     private static final class JCToolsWrappers {
 
         @ExcludeFromGeneratedCoverage
@@ -160,15 +161,19 @@ final class QueueWrappers {
             }
 
             @Override
+            @SuppressWarnings("null") // delegate is non-null
             public int capacity() { return delegate.capacity(); }
 
             @Override
+            @SuppressWarnings("null") // delegate is non-null
             public boolean offer(WorkBatch e) { return delegate.offer(e); }
 
             @Override
+            @SuppressWarnings("null") // delegate is non-null
             public int size() { return delegate.size(); }
 
             @Override
+            @SuppressWarnings("null") // delegate is non-null
             public boolean isEmpty() { return delegate.isEmpty(); }
 
             // Static factories:
@@ -176,7 +181,9 @@ final class QueueWrappers {
             private static <Q extends MessagePassingQueue<WorkBatch>> BoundedJCWrapper<Q> create(
                     Q delegate) {
                 mustNotBeNull(delegate, "delegate");
-                checkArgument(delegate.capacity() != MessagePassingQueue.UNBOUNDED_CAPACITY,
+                @SuppressWarnings("null") // delegate is not @Nullable
+                int capacity = delegate.capacity();
+                checkArgument(capacity != MessagePassingQueue.UNBOUNDED_CAPACITY,
                         "Cannot create a bounded wrapper for an unbounded queue");
 
                 final String name = delegate.getClass().getSimpleName();

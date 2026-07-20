@@ -19,10 +19,16 @@ class QueueValidationContext<G, M> {
 
     private QueueValidationContext(Builder<G, M> builder) {
         // Let's construct the QueueGroups:
-        this.gtmGroup = QueueGroup.newGtmGroup(builder.gtmQueues, builder.generatorOfferSelector,
-                builder.monkeyPollSelector, builder.solverConfig);
-        this.mtgGroup = QueueGroup.newMtgGroup(builder.mtgQueues, builder.monkeyOfferSelector,
-                builder.generatorPollSelector, builder.solverConfig);
+        QueueSelector<M> genPoll = mustBeSet(builder.generatorPollSelector,
+                "generatorPollSelector");
+        QueueSelector<G> genOffer = mustBeSet(builder.generatorOfferSelector,
+                "generatorOfferSelector");
+        QueueSelector<G> monPoll = mustBeSet(builder.monkeyPollSelector, "monkeyPollSelector");
+        QueueSelector<M> monOffer = mustBeSet(builder.monkeyOfferSelector, "monkeyOfferSelector");
+        SolverConfiguration nonNullConfig = mustBeSet(builder.solverConfig, "solverConfig");
+
+        this.gtmGroup = QueueGroup.newGtmGroup(builder.gtmQueues, genOffer, monPoll, nonNullConfig);
+        this.mtgGroup = QueueGroup.newMtgGroup(builder.mtgQueues, monOffer, genPoll, nonNullConfig);
     }
 
     // Builder method:

@@ -6,9 +6,12 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
 
+import org.jspecify.annotations.NullMarked;
+
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.queues.QueueSelectors.SelectorValidator;
 
+@NullMarked
 class QueueGroup<Q> {
     private final QueueDirection direction;
     private final List<QueueWrapper<Q>> wrappedQueues;

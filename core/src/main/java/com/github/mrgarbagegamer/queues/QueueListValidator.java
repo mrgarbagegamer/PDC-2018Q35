@@ -5,6 +5,8 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassErr
 
 import java.util.List;
 
+import org.jspecify.annotations.NullMarked;
+
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
@@ -12,6 +14,7 @@ import com.google.errorprone.annotations.FormatString;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 
+@NullMarked
 final class QueueListValidator {
     @ExcludeFromGeneratedCoverage
     private QueueListValidator() { utilityClassError("QueueListValidator"); }

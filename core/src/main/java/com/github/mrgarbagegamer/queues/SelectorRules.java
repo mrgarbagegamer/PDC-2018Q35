@@ -3,11 +3,14 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassError;
 
+import org.jspecify.annotations.NullMarked;
+
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import com.google.errorprone.annotations.Immutable;
 
+@NullMarked
 final class SelectorRules {
 
     @ExcludeFromGeneratedCoverage

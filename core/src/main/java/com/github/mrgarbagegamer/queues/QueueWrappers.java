@@ -25,12 +25,12 @@ import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
+@NullMarked
 final class QueueWrappers {
 
     @ExcludeFromGeneratedCoverage
     private QueueWrappers() { utilityClassError("QueueWrappers"); }
 
-    @NullMarked
     private static abstract class AbstractWrapper<Q> implements QueueWrapper<Q> {
         final Q delegate;
         private final AccessMode accessMode;
@@ -52,13 +52,14 @@ final class QueueWrappers {
         public final Boundedness boundedness() { return boundedness; }
     }
 
+    @SuppressWarnings("null") // toUnmodifiableList() gives a non-null, null-prohibiting list, so
+                              // this VSCode warning is safe to suppress.
     private static <Q> List<QueueWrapper<Q>> wrapListHelper(List<? extends Q> delegates,
             Function<? super Q, ? extends QueueWrapper<Q>> wrapperFactory) {
         final List<Q> nonNullDelegates = copyOfNonNullList(delegates, "delegates");
         return nonNullDelegates.stream().map(wrapperFactory).collect(toUnmodifiableList());
     }
 
-    @NullMarked
     private static final class BlockingQueueWrappers {
 
         @ExcludeFromGeneratedCoverage
@@ -148,7 +149,6 @@ final class QueueWrappers {
         }
     }
 
-    @NullMarked
     private static final class JCToolsWrappers {
 
         @ExcludeFromGeneratedCoverage

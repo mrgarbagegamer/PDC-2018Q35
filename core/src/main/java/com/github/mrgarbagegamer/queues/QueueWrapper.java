@@ -5,11 +5,8 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
 
-import org.jspecify.annotations.NullMarked;
-
 import com.github.mrgarbagegamer.WorkBatch;
 
-@NullMarked
 interface QueueWrapper<Q> {
     Q unwrap();
 

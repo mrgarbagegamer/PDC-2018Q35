@@ -8,8 +8,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassErr
 
 import java.util.List;
 
-import org.jspecify.annotations.NullMarked;
-
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
@@ -17,7 +15,6 @@ import com.google.common.base.Ascii;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 
-@NullMarked
 final class QueuePreallocator {
     @ExcludeFromGeneratedCoverage
     private QueuePreallocator() { utilityClassError("QueuePreallocator"); }

@@ -18,14 +18,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.function.Function;
 
 import org.jctools.queues.MessagePassingQueue;
-import org.jspecify.annotations.NullMarked;
 
 import com.conversantmedia.util.concurrent.ConcurrentQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
-@NullMarked
 final class QueueWrappers {
 
     @ExcludeFromGeneratedCoverage

@@ -8,11 +8,8 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import org.jspecify.annotations.NullMarked;
-
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 
-@NullMarked
 final class QueueUtils {
 
     @ExcludeFromGeneratedCoverage

@@ -10,7 +10,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 import org.jctools.queues.MessagePassingQueue;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.WorkBatch;
@@ -18,7 +17,6 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
 import com.google.common.collect.ImmutableList;
 
-@NullMarked
 final class QueueSelectors {
 
     @ExcludeFromGeneratedCoverage

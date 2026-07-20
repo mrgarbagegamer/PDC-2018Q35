@@ -4,12 +4,10 @@ import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.WorkBatch;
 
-@NullMarked
 interface QueueSelector<Q> {
 
     @Nullable

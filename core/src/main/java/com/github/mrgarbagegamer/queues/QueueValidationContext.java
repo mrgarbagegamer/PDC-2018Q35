@@ -7,12 +7,10 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 
-@NullMarked
 class QueueValidationContext<G, M> {
     private final QueueGroup<G> gtmGroup;
     private final QueueGroup<M> mtgGroup;

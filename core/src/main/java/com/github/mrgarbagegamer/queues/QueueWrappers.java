@@ -58,16 +58,15 @@ final class QueueWrappers {
         return nonNullDelegates.stream().map(wrapperFactory).collect(toUnmodifiableList());
     }
 
+    @NullMarked
     private static final class BlockingQueueWrappers {
 
         @ExcludeFromGeneratedCoverage
         private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
 
-        @NullMarked
         private static abstract class AbstractBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
                 extends AbstractWrapper<Q> {
-            AbstractBlockingWrapper(Q delegate, AccessMode accessMode,
-                    Boundedness boundedness) {
+            AbstractBlockingWrapper(Q delegate, AccessMode accessMode, Boundedness boundedness) {
                 super(delegate, accessMode, boundedness);
             }
 
@@ -98,6 +97,7 @@ final class QueueWrappers {
 
             private static <Q extends BlockingQueue<WorkBatch>> BoundedBlockingWrapper<Q> create(
                     Q delegate) {
+                @SuppressWarnings("null") // delegate is non-null
                 int capacity = estimateCapacity(delegate);
 
                 return delegate instanceof PushPullBlockingQueue<?>
@@ -130,6 +130,7 @@ final class QueueWrappers {
 
         // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
 
+        @SuppressWarnings("null") // delegate is non-null
         private static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
             return isBounded(delegate) ? BoundedBlockingWrapper.create(delegate)
                     : UnboundedBlockingWrapper.create(delegate);

@@ -15,6 +15,7 @@ import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.NullMarked;
 
 import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 
@@ -343,6 +344,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     }
 
     @FunctionalInterface
+    @NullMarked
     public interface SolutionHandler {
         void handleSolution(short[] prefix, short finalClick, SolverState solverState,
                 ForkJoinPool generatorPool, Logger logger);
@@ -350,11 +352,13 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
     // Replace BiFunction with a TriFunction-style interface
     @FunctionalInterface
+    @NullMarked
     public interface GeneratorFactoryProvider {
         GeneratorFactory create(SolverConfiguration config, QueueStrategy queueStrategy,
                 ContextRegistry registry);
     }
 
+    // TODO: Consider just using a BiFunction
     /**
      * A factory interface for {@link #create(SolverConfiguration, SolverState) creating}
      * {@link QueueStrategy} instances based on the provided {@link SolverConfiguration} and
@@ -367,6 +371,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
      * @threading Thread-safe (since it should be stateless and only used for instantiation).
      */
     @FunctionalInterface
+    @NullMarked
     public interface QueueStrategyFactory {
         /**
          * Creates a new {@link QueueStrategy} instance based on the provided

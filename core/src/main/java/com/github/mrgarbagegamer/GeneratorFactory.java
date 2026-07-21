@@ -4,12 +4,16 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.jspecify.annotations.NullMarked;
+
 // TODO: Add Javadoc
+@NullMarked
 @FunctionalInterface
 public interface GeneratorFactory extends ForkJoinWorkerThreadFactory {
 
     @Override
-    GeneratorThread newThread(ForkJoinPool pool);
+    // ForkJoinPool is non-null, so this is fine.
+    GeneratorThread newThread(@SuppressWarnings("null") ForkJoinPool pool);
 
     static GeneratorFactory ofDefault(SolverConfiguration config, QueueStrategy queueStrategy,
             ContextRegistry registry) {

@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
@@ -77,7 +78,9 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 Long.toBinaryString(mask), Long.bitCount(mask));
     }
 
+    @NullMarked
     private static Supplier<ShortList> defensiveSupplier(ShortList list) {
+        mustNotBeNull(list, "list");
         return switch (list) {
             case final ShortImmutableList immutable -> () -> immutable;
             case final ShortLists.Singleton singleton -> () -> singleton;
@@ -85,12 +88,15 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
+    @NullMarked
     @SuppressWarnings("unused")
     private static Supplier<ShortList> defensiveSupplier(short[] array) {
         return defensiveSupplier(arrayToFastList(array));
     }
 
+    @NullMarked
     private static Supplier<LongList> defensiveSupplier(LongList list) {
+        mustNotBeNull(list, "list");
         return switch (list) {
             case final LongImmutableList immutable -> () -> immutable;
             case final LongLists.Singleton singleton -> () -> singleton;
@@ -98,12 +104,15 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
+    @NullMarked
     @SuppressWarnings("unused")
     private static Supplier<LongList> defensiveSupplier(long[] array) {
         return defensiveSupplier(arrayToFastList(array));
     }
 
+    @NullMarked
     private static Supplier<IntList> defensiveSupplier(IntList list) {
+        mustNotBeNull(list, "list");
         return switch (list) {
             case final IntImmutableList immutable -> () -> immutable;
             case final IntLists.Singleton singleton -> () -> singleton;
@@ -111,44 +120,55 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
+    @NullMarked
     @SuppressWarnings("unused")
     private static Supplier<IntList> defensiveSupplier(int[] array) {
         return defensiveSupplier(arrayToFastList(array));
     }
 
+    @NullMarked
     private static Supplier<ShortList> trustedSupplier(ShortList list) {
         // Since the list is trusted, we can directly wrap it without defensive copying
         return () -> list;
     }
 
+    @NullMarked
+    @SuppressWarnings("null") // ShortList.of() returns @NonNull ShortList
     private static Supplier<ShortList> trustedSupplier(short[] array) {
         // Since the array is trusted, we can directly wrap it without defensive copying
         return trustedSupplier(ShortList.of(array));
     }
 
+    @NullMarked
     private static Supplier<LongList> trustedSupplier(LongList list) {
         // Since the list is trusted, we can directly wrap it without defensive copying
         return () -> list;
     }
 
-    @SuppressWarnings("unused")
+    @NullMarked
+    @SuppressWarnings({"unused", "null"}) // LongList.of() returns @NonNull LongList
     private static Supplier<LongList> trustedSupplier(long[] array) {
         // Since the array is trusted, we can directly wrap it without defensive copying
         return trustedSupplier(LongList.of(array));
     }
 
+    @NullMarked
     private static Supplier<IntList> trustedSupplier(IntList list) {
         // Since the list is trusted, we can directly wrap it without defensive copying
         return () -> list;
     }
 
-    @SuppressWarnings("unused")
+    @NullMarked
+    @SuppressWarnings({"unused", "null"}) // IntList.of() returns @NonNull IntList
     private static Supplier<IntList> trustedSupplier(int[] array) {
         // Since the array is trusted, we can directly wrap it without defensive copying
         return trustedSupplier(IntList.of(array));
     }
 
+    @NullMarked
+    @SuppressWarnings("null") // ShortList.of() returns @NonNull ShortList
     private static ShortList arrayToFastList(short[] array) {
+        mustNotBeNull(array, "array");
         return switch (array.length) {
             case 0 -> ShortList.of();
             case 1 -> ShortList.of(array[0]);
@@ -156,7 +176,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
+    @NullMarked
+    @SuppressWarnings("null") // LongList.of() returns @NonNull LongList
     private static LongList arrayToFastList(long[] array) {
+        mustNotBeNull(array, "array");
         return switch (array.length) {
             case 0 -> LongList.of();
             case 1 -> LongList.of(array[0]);
@@ -164,7 +187,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
+    @NullMarked
+    @SuppressWarnings("null") // IntList.of() returns @NonNull IntList
     private static IntList arrayToFastList(int[] array) {
+        mustNotBeNull(array, "array");
         return switch (array.length) {
             case 0 -> IntList.of();
             case 1 -> IntList.of(array[0]);

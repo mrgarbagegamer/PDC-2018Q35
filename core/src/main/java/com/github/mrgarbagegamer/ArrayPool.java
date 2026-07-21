@@ -1,8 +1,14 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.google.common.base.Preconditions.checkArgument;
+
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadoc
+// TODO: Consider removing this class by using a pre-allocated JDK data structure.
 /**
  * A high-performance, non-thread-safe object pool for recycling fixed-size {@code short[]} arrays.
  *
@@ -40,6 +46,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
  *         determined by the {@link #capacity} and the number of clicks configured in
  *         {@link StartYourMonkeys.GlobalConfig}.
  */
+@NullMarked
 public final class ArrayPool {
     /**
      * The internal buffer storing the pre-allocated {@code short[]} arrays.
@@ -59,7 +66,7 @@ public final class ArrayPool {
      * @threading Not thread-safe; must be confined to a single thread.
      * @memory Fixed memory footprint of ~{@code capacity * (numClicks - 1) * 2} bytes.
      */
-    private final short[][] arrays;
+    private final short[] @Nullable [] arrays;
     /**
      * The maximum number of arrays the pool can hold.
      *
@@ -142,14 +149,17 @@ public final class ArrayPool {
      * @performance {@code O(capacity * numClicks)} for pre-allocation.
      * @memory Allocates a {@code short[capacity][numClicks - 1]} buffer.
      */
+    @SuppressWarnings("null")
     public ArrayPool(int capacity, int numClicks) {
         this.capacity = mustBePositive(capacity, "capacity");
+        checkArgument(numClicks > 1, "numClicks must be greater than 1, was: %s", numClicks);
         this.arrays = new short[capacity][numClicks - 1];
         // Pre-allocated arrays are immediately available
         this.size = capacity;
     }
 
     public ArrayPool(SolverConfiguration config) {
+        mustNotBeNull(config, "config");
         this(config.arrayPoolSize(), config.numClicks());
     }
 
@@ -171,7 +181,7 @@ public final class ArrayPool {
      * @performance {@code O(1)} retrieval and field updates.
      * @memory Does not allocate.
      */
-    public short[] get() {
+    public short @Nullable [] get() {
         if (size == 0) {
             return null;
         }
@@ -201,6 +211,7 @@ public final class ArrayPool {
      * @performance {@code O(1)} insertion and field updates.
      * @memory Does not allocate.
      */
+    // TODO: Make this return a boolean.
     public void put(short[] array) {
         if (size >= capacity) {
             // This should not happen if the pool is sized correctly, but as a safeguard:
@@ -208,7 +219,7 @@ public final class ArrayPool {
             return;
         }
 
-        arrays[tail] = array;
+        arrays[tail] = mustNotBeNull(array, "array");
         tail = (tail + 1) % capacity;
         size++;
     }

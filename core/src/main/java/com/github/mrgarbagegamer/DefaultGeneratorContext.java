@@ -191,12 +191,6 @@ class DefaultGeneratorContext implements GeneratorContext {
     }
 
     @Override
-    public WorkBatch resetBatch() {
-        this.currentBatch = pollBatch();
-        return this.currentBatch;
-    }
-
-    @Override
     public ArrayPool getArrayPool() { return this.arrayPool; }
 
     @Override

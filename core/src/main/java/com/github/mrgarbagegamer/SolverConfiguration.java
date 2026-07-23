@@ -82,79 +82,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 Long.toBinaryString(mask), Long.bitCount(mask));
     }
 
-    private static Supplier<ShortList> defensiveSupplier(ShortList list) {
-        mustNotBeNull(list, "list");
-        return switch (list) {
-            case final ShortImmutableList immutable -> () -> immutable;
-            case final ShortLists.Singleton singleton -> () -> singleton;
-            default -> () -> new ShortImmutableList(list);
-        };
-    }
-
-    @SuppressWarnings("unused")
-    private static Supplier<ShortList> defensiveSupplier(short[] array) {
-        return defensiveSupplier(arrayToFastList(array));
-    }
-
-    private static Supplier<LongList> defensiveSupplier(LongList list) {
-        mustNotBeNull(list, "list");
-        return switch (list) {
-            case final LongImmutableList immutable -> () -> immutable;
-            case final LongLists.Singleton singleton -> () -> singleton;
-            default -> () -> new LongImmutableList(list);
-        };
-    }
-
-    @SuppressWarnings("unused")
-    private static Supplier<LongList> defensiveSupplier(long[] array) {
-        return defensiveSupplier(arrayToFastList(array));
-    }
-
-    private static Supplier<IntList> defensiveSupplier(IntList list) {
-        mustNotBeNull(list, "list");
-        return switch (list) {
-            case final IntImmutableList immutable -> () -> immutable;
-            case final IntLists.Singleton singleton -> () -> singleton;
-            default -> () -> new IntImmutableList(list);
-        };
-    }
-
-    @SuppressWarnings("unused")
-    private static Supplier<IntList> defensiveSupplier(int[] array) {
-        return defensiveSupplier(arrayToFastList(array));
-    }
-
-    private static Supplier<ShortList> trustedSupplier(ShortList list) {
-        // Since the list is trusted, we can directly wrap it without defensive copying
-        return () -> list;
-    }
-
-    @SuppressWarnings("null") // ShortList.of() returns @NonNull ShortList
     private static Supplier<ShortList> trustedSupplier(short[] array) {
         // Since the array is trusted, we can directly wrap it without defensive copying
-        return trustedSupplier(ShortList.of(array));
-    }
-
-    private static Supplier<LongList> trustedSupplier(LongList list) {
-        // Since the list is trusted, we can directly wrap it without defensive copying
+        final ShortList list = ShortList.of(array);
         return () -> list;
-    }
-
-    @SuppressWarnings({"unused", "null"}) // LongList.of() returns @NonNull LongList
-    private static Supplier<LongList> trustedSupplier(long[] array) {
-        // Since the array is trusted, we can directly wrap it without defensive copying
-        return trustedSupplier(LongList.of(array));
-    }
-
-    private static Supplier<IntList> trustedSupplier(IntList list) {
-        // Since the list is trusted, we can directly wrap it without defensive copying
-        return () -> list;
-    }
-
-    @SuppressWarnings({"unused", "null"}) // IntList.of() returns @NonNull IntList
-    private static Supplier<IntList> trustedSupplier(int[] array) {
-        // Since the array is trusted, we can directly wrap it without defensive copying
-        return trustedSupplier(IntList.of(array));
     }
 
     @SuppressWarnings("null") // ShortList.of() returns @NonNull ShortList
@@ -255,7 +186,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final Supplier<Boolean> useDualMasks = requireNonNullElse(builder.useDualMasks,
                 () -> baseGrid.getTrueCount() > 64);
         final Supplier<LongList> trueCellMasksLower = requireNonNullElse(builder.trueCellMasksLower,
-                trustedSupplier(computeTrueCellMasksLower(trueCells.get())));
+                () -> computeTrueCellMasksLower(trueCells.get()));
         final Supplier<LongList> trueCellMasksUpper = requireNonNullElse(builder.trueCellMasksUpper,
                 () -> computeTrueCellMasksUpper(trueCells.get(), useDualMasks.get()));
         final Supplier<Long> expectedMaskLower = requireNonNullElse(builder.expectedMaskLower,
@@ -265,7 +196,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final Supplier<ShortList> oddClickIndices = requireNonNullElse(builder.oddClickIndices,
                 trustedSupplier(baseGrid.findFirstTrueAdjacents()));
         final Supplier<ShortList> evenClickIndices = requireNonNullElse(builder.evenClickIndices,
-                trustedSupplier(Grid.invertCombination(oddClickIndices.get())));
+                () -> Grid.invertCombination(oddClickIndices.get()));
         final Supplier<LongList> suffixMasksLower = requireNonNullElse(builder.suffixMasksLower,
                 () -> computeSuffixMasksLower(trueCellMasksLower.get()));
         final Supplier<LongList> suffixMasksUpper = requireNonNullElse(builder.suffixMasksUpper,
@@ -548,7 +479,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             ensureUniqueAndAscending(copy);
 
             // Delegate to the supplier overload with a trusted supplier
-            return trueCells(trustedSupplier(copy));
+            return trueCells(() -> copy);
         }
 
         public Builder trueCells(Supplier<ShortList> trueCells) {
@@ -580,7 +511,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                     Grid.NUM_CELLS, copy.size());
 
             // Delegate to the supplier overload with a trusted supplier
-            return trueCellMasksLower(trustedSupplier(copy));
+            return trueCellMasksLower(() -> copy);
         }
 
         public Builder trueCellMasksLower(Supplier<LongList> trueCellMasksLower) {
@@ -609,7 +540,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             }
 
             // Delegate to the supplier overload with a trusted supplier
-            return trueCellMasksUpper(trustedSupplier(copy));
+            return trueCellMasksUpper(() -> copy);
         }
 
         public Builder trueCellMasksUpper(Supplier<LongList> trueCellMasksUpper) {
@@ -660,7 +591,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             ensureUniqueAndAscending(copy);
 
             // Delegate to the supplier overload with a trusted supplier
-            return oddClickIndices(trustedSupplier(copy));
+            return oddClickIndices(() -> copy);
         }
 
         public Builder oddClickIndices(Supplier<ShortList> oddClickIndices) {
@@ -691,7 +622,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             ensureUniqueAndAscending(copy);
 
             // Delegate to the supplier overload with a trusted supplier
-            return evenClickIndices(trustedSupplier(copy));
+            return evenClickIndices(() -> copy);
         }
 
         public Builder evenClickIndices(Supplier<ShortList> evenClickIndices) {
@@ -723,7 +654,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             }
 
             // Delegate to the supplier overload with a trusted supplier
-            return suffixMasksLower(trustedSupplier(copy));
+            return suffixMasksLower(() -> copy);
         }
 
         public Builder suffixMasksLower(Supplier<LongList> suffixMasksLower) {
@@ -760,7 +691,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             }
 
             // Delegate to the supplier overload with a trusted supplier
-            return suffixMasksUpper(trustedSupplier(copy));
+            return suffixMasksUpper(() -> copy);
         }
 
         public Builder suffixMasksUpper(Supplier<LongList> suffixMasksUpper) {
@@ -798,7 +729,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             }
 
             // Delegate to the supplier overload with a trusted supplier
-            return oddStartIndices(trustedSupplier(copy));
+            return oddStartIndices(() -> copy);
         }
 
         public Builder oddStartIndices(Supplier<IntList> oddStartIndices) {
@@ -836,7 +767,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             }
 
             // Delegate to the supplier overload with a trusted supplier
-            return evenStartIndices(trustedSupplier(copy));
+            return evenStartIndices(() -> copy);
         }
 
         public Builder evenStartIndices(Supplier<IntList> evenStartIndices) {

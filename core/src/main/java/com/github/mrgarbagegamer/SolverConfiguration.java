@@ -4,7 +4,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
 import java.util.Arrays;
@@ -37,6 +36,7 @@ import it.unimi.dsi.fastutil.shorts.ShortLists;
 // TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
 // potentially performing eager initialization of some fields.
 // TODO: Add class-level Javadoc
+@NullMarked
 public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
         int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
         Supplier<Boolean> useDualMasks, Supplier<LongList> trueCellMasksLower,
@@ -82,7 +82,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 Long.toBinaryString(mask), Long.bitCount(mask));
     }
 
-    @NullMarked
     private static Supplier<ShortList> defensiveSupplier(ShortList list) {
         mustNotBeNull(list, "list");
         return switch (list) {
@@ -92,13 +91,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @NullMarked
     @SuppressWarnings("unused")
     private static Supplier<ShortList> defensiveSupplier(short[] array) {
         return defensiveSupplier(arrayToFastList(array));
     }
 
-    @NullMarked
     private static Supplier<LongList> defensiveSupplier(LongList list) {
         mustNotBeNull(list, "list");
         return switch (list) {
@@ -108,13 +105,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @NullMarked
     @SuppressWarnings("unused")
     private static Supplier<LongList> defensiveSupplier(long[] array) {
         return defensiveSupplier(arrayToFastList(array));
     }
 
-    @NullMarked
     private static Supplier<IntList> defensiveSupplier(IntList list) {
         mustNotBeNull(list, "list");
         return switch (list) {
@@ -124,52 +119,44 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @NullMarked
     @SuppressWarnings("unused")
     private static Supplier<IntList> defensiveSupplier(int[] array) {
         return defensiveSupplier(arrayToFastList(array));
     }
 
-    @NullMarked
     private static Supplier<ShortList> trustedSupplier(ShortList list) {
         // Since the list is trusted, we can directly wrap it without defensive copying
         return () -> list;
     }
 
-    @NullMarked
     @SuppressWarnings("null") // ShortList.of() returns @NonNull ShortList
     private static Supplier<ShortList> trustedSupplier(short[] array) {
         // Since the array is trusted, we can directly wrap it without defensive copying
         return trustedSupplier(ShortList.of(array));
     }
 
-    @NullMarked
     private static Supplier<LongList> trustedSupplier(LongList list) {
         // Since the list is trusted, we can directly wrap it without defensive copying
         return () -> list;
     }
 
-    @NullMarked
     @SuppressWarnings({"unused", "null"}) // LongList.of() returns @NonNull LongList
     private static Supplier<LongList> trustedSupplier(long[] array) {
         // Since the array is trusted, we can directly wrap it without defensive copying
         return trustedSupplier(LongList.of(array));
     }
 
-    @NullMarked
     private static Supplier<IntList> trustedSupplier(IntList list) {
         // Since the list is trusted, we can directly wrap it without defensive copying
         return () -> list;
     }
 
-    @NullMarked
     @SuppressWarnings({"unused", "null"}) // IntList.of() returns @NonNull IntList
     private static Supplier<IntList> trustedSupplier(int[] array) {
         // Since the array is trusted, we can directly wrap it without defensive copying
         return trustedSupplier(IntList.of(array));
     }
 
-    @NullMarked
     @SuppressWarnings("null") // ShortList.of() returns @NonNull ShortList
     private static ShortList arrayToFastList(short[] array) {
         mustNotBeNull(array, "array");
@@ -180,7 +167,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @NullMarked
     @SuppressWarnings("null") // LongList.of() returns @NonNull LongList
     private static LongList arrayToFastList(long[] array) {
         mustNotBeNull(array, "array");
@@ -191,7 +177,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @NullMarked
     @SuppressWarnings("null") // IntList.of() returns @NonNull IntList
     private static IntList arrayToFastList(int[] array) {
         mustNotBeNull(array, "array");
@@ -202,6 +187,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
+    @SuppressWarnings("null") // LazyConstant.of() returns a @NonNull LazyConstant and Grid.copy()
+                              // returns a @NonNull Grid
     public SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
             int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
             Supplier<Boolean> useDualMasks, Supplier<LongList> trueCellMasksLower,
@@ -213,13 +200,9 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             Function<Class<?>, Logger> loggerFunction,
             GeneratorFactoryProvider generatorFactoryProvider, // Changed type
             Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
-        // TODO: Consider importing Guava's Preconditions for validation
-        if (numClicks <= 0 || numClicks > Grid.NUM_CELLS) {
-            throw new IllegalArgumentException(
-                    "numClicks must be in the range 1 to " + Grid.NUM_CELLS);
-        } else if (numThreads <= 1) {
-            throw new IllegalArgumentException("numThreads must be greater than 1");
-        }
+        checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
+                "numClicks must be in range [1, %s], was %d", Grid.NUM_CELLS, numClicks);
+        checkArgument(numThreads > 1, "numThreads must be greater than 1, was %s", numThreads);
 
         // We can't validate the values of the Supplier parameters here, else we'd be forcing
         // their evaluation at construction time. Instead, we rely on the Builder to perform
@@ -234,8 +217,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         this.arrayPoolSize = mustBePositive(arrayPoolSize, "arrayPoolSize");
         this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
         this.queueSize = mustBePositive(queueSize, "queueSize");
-        this.baseGrid = requireNonNull(baseGrid); // Avoid a copy, in hopes that the caller
-                                                  // maintains immutability
+        this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
         this.trueCells = LazyConstant.of(trueCells);
         this.useDualMasks = LazyConstant.of(useDualMasks);
         this.trueCellMasksLower = LazyConstant.of(trueCellMasksLower);
@@ -248,13 +230,15 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         this.suffixMasksUpper = LazyConstant.of(suffixMasksUpper);
         this.oddStartIndices = LazyConstant.of(oddStartIndices);
         this.evenStartIndices = LazyConstant.of(evenStartIndices);
-        this.solutionHandler = requireNonNull(solutionHandler);
-        this.loggerFunction = requireNonNull(loggerFunction);
-        this.generatorFactoryProvider = requireNonNull(generatorFactoryProvider);
-        this.registryQueue = requireNonNull(registryQueue);
-        this.queueStrategyFactory = requireNonNull(queueStrategyFactory);
+        this.solutionHandler = mustNotBeNull(solutionHandler, "solutionHandler");
+        this.loggerFunction = mustNotBeNull(loggerFunction, "loggerFunction");
+        this.generatorFactoryProvider = mustNotBeNull(generatorFactoryProvider,
+                "generatorFactoryProvider");
+        this.registryQueue = mustNotBeNull(registryQueue, "registryQueue");
+        this.queueStrategyFactory = mustNotBeNull(queueStrategyFactory, "queueStrategyFactory");
     }
 
+    @SuppressWarnings("null") // All suppliers have @NonNull parameters in a NullMarked context
     private SolverConfiguration(Builder builder) {
         // One big constructor call (making sure to use requireNonNullElse for the derived fields)
 
@@ -333,35 +317,46 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
+    @SuppressWarnings("null") // Grid.copy() returns a @NonNull Grid
     @Override
     public Grid baseGrid() {
         return baseGrid.copy(); // Defensive copy to maintain immutability
     }
 
+    @SuppressWarnings("null") // trueCells is a Supplier<@NonNull ShortList>
     public ShortList getTrueCells() { return trueCells.get(); }
 
     public boolean getUseDualMasks() { return useDualMasks.get(); }
 
+    @SuppressWarnings("null") // trueCellMasksLower is a Supplier<@NonNull LongList>
     public LongList getTrueCellMasksLower() { return trueCellMasksLower.get(); }
 
+    @SuppressWarnings("null") // trueCellMasksUpper is a Supplier<@NonNull LongList>
     public LongList getTrueCellMasksUpper() { return trueCellMasksUpper.get(); }
 
     public long getExpectedMaskLower() { return expectedMaskLower.get(); }
 
     public long getExpectedMaskUpper() { return expectedMaskUpper.get(); }
 
+    @SuppressWarnings("null") // oddClickIndices is a Supplier<@NonNull ShortList>
     public ShortList getOddClickIndices() { return oddClickIndices.get(); }
 
+    @SuppressWarnings("null") // evenClickIndices is a Supplier<@NonNull ShortList>
     public ShortList getEvenClickIndices() { return evenClickIndices.get(); }
 
+    @SuppressWarnings("null") // suffixMasksLower is a Supplier<@NonNull LongList>
     public LongList getSuffixMasksLower() { return suffixMasksLower.get(); }
 
+    @SuppressWarnings("null") // suffixMasksUpper is a Supplier<@NonNull LongList>
     public LongList getSuffixMasksUpper() { return suffixMasksUpper.get(); }
 
+    @SuppressWarnings("null") // oddStartIndices is a Supplier<@NonNull IntList>
     public IntList getOddStartIndices() { return oddStartIndices.get(); }
 
+    @SuppressWarnings("null") // evenStartIndices is a Supplier<@NonNull IntList>
     public IntList getEvenStartIndices() { return evenStartIndices.get(); }
 
+    @SuppressWarnings("null") // loggerFunction is a Function<@NonNull Class<?>, @NonNull Logger>
     public Logger getLogger(Class<?> clazz) { return loggerFunction.apply(clazz); }
 
     public GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy,
@@ -374,7 +369,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     }
 
     @FunctionalInterface
-    @NullMarked
     public interface SolutionHandler {
         void handleSolution(short[] prefix, short finalClick, SolverState solverState,
                 ForkJoinPool generatorPool, Logger logger);
@@ -382,7 +376,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
     // Replace BiFunction with a TriFunction-style interface
     @FunctionalInterface
-    @NullMarked
     public interface GeneratorFactoryProvider {
         GeneratorFactory create(SolverConfiguration config, QueueStrategy queueStrategy,
                 ContextRegistry registry);
@@ -401,7 +394,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
      * @threading Thread-safe (since it should be stateless and only used for instantiation).
      */
     @FunctionalInterface
-    @NullMarked
     public interface QueueStrategyFactory {
         /**
          * Creates a new {@link QueueStrategy} instance based on the provided
@@ -420,7 +412,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         QueueStrategy create(SolverConfiguration config, SolverState solverState);
     }
 
-    @NullMarked
     public static class Builder {
         private int numClicks = 17;
         private int numThreads = Runtime.getRuntime().availableProcessors();
@@ -936,6 +927,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return generateTrueCellMasks(sublist(trueCells, 0, 64));
     }
 
+    @SuppressWarnings("null") // ShortList.subList() returns a @NonNull ShortList
     private static ShortList sublist(ShortList list, int fromIndex, int toIndex) {
         return list.subList(fromIndex, Math.min(toIndex, list.size()));
     }

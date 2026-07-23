@@ -7,6 +7,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -21,9 +22,11 @@ import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongImmutableList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.longs.LongLists;
@@ -938,23 +941,27 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     }
 
     private static LongList generateTrueCellMasks(ShortList trimmedTrueCells) {
-        final long[] masks = new long[Grid.NUM_CELLS];
+        // Create a list with an initial capacity of Grid.NUM_CELLS
+        final LongList masks = new LongArrayList(Grid.NUM_CELLS);
+
         for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
             long mask = 0L;
+            // Build mask for this cell: if this cell is adjacent to the jth true cell,
+            // set the jth bit of the mask.
             for (int j = 0; j < trimmedTrueCells.size(); j++) {
                 if (Grid.areAdjacent(cell, trimmedTrueCells.getShort(j))) {
                     mask |= (1L << j);
                 }
             }
-            masks[cell] = mask;
+            masks.add(mask);
         }
-        return LongList.of(masks);
+        return new LongImmutableList(masks); // Return an immutable list
     }
 
     private static LongList computeTrueCellMasksUpper(ShortList trueCells, boolean useDualMasks) {
         // Let this method short-circuit if not using dual masks
         return useDualMasks ? generateTrueCellMasks(sublist(trueCells, 64, trueCells.size()))
-                : LongList.of(new long[Grid.NUM_CELLS]);
+                : new LongImmutableList(new long[Grid.NUM_CELLS]);
     }
 
     private static long computeExpectedMaskLower(ShortList trueCells) {
@@ -972,41 +979,48 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     private static LongList computeSuffixMasksUpper(LongList trueCellMasksUpper,
             boolean useDualMasks) {
         return useDualMasks ? computeSuffixMasks(trueCellMasksUpper)
-                : LongList.of(new long[Grid.NUM_CELLS]);
+                : new LongImmutableList(new long[Grid.NUM_CELLS]);
     }
 
-    // Extracted to prevent code duplication
     private static LongList computeSuffixMasks(LongList trueCellMasks) {
-        final long[] suffixMasks = new long[Grid.NUM_CELLS];
+        // Create a list with an initial capacity of Grid.NUM_CELLS
+        final LongList suffixMasks = new LongArrayList(new long[Grid.NUM_CELLS]);
+
+        // Compute suffix masks: iterate from the last cell to the first
         for (short cell = (short) (Grid.NUM_CELLS - 1); cell >= 0; cell--) {
             if (cell == Grid.NUM_CELLS - 1) {
-                suffixMasks[cell] = trueCellMasks.getLong(cell);
+                // The last cell's suffix mask is just its own true cell mask
+                suffixMasks.set(cell, trueCellMasks.getLong(cell));
             } else {
-                suffixMasks[cell] = suffixMasks[cell + 1] | trueCellMasks.getLong(cell);
+                // The suffix mask for the current cell is the bitwise OR of the next
+                // cell's suffix mask and the current cell's true cell mask
+                suffixMasks.set(cell, suffixMasks.getLong(cell + 1) | trueCellMasks.getLong(cell));
             }
         }
-        return LongList.of(suffixMasks);
+        return new LongImmutableList(suffixMasks); // Return an immutable list
     }
 
     private static IntList computeStartIndices(ShortList clickIndices) {
-        final int[] startIndices = new int[Grid.NUM_CELLS];
-        int clickIdx = 0;
+        // Create a list with an initial capacity of Grid.NUM_CELLS
+        final IntList startIndices = new IntArrayList(Grid.NUM_CELLS);
+        int startIdx = 0; // index of the first click in clickIndices that is strictly > 'lastClick'
 
+        // Iterate through all possible values of 'lastClick', from 0 to Grid.NUM_CELLS - 1
         for (short lastClick = 0; lastClick < Grid.NUM_CELLS; lastClick++) {
-            while (clickIdx < clickIndices.size() && clickIndices.getShort(clickIdx) <= lastClick) {
-                clickIdx++;
+            // Advance startIdx until clickIndices.getShort(startIdx) > lastClick
+            while (startIdx < clickIndices.size() && clickIndices.getShort(startIdx) <= lastClick) {
+                startIdx++;
             }
-            startIndices[lastClick] = clickIdx;
+            startIndices.add(startIdx);
         }
 
-        return IntList.of(startIndices);
+        return new IntImmutableList(startIndices);
     }
 
     private static void defaultSolutionHandling(short[] prefix, short finalClick,
             SolverState solverState, ForkJoinPool generatorPool, Logger logger) {
         // Default implementation: log the solution
-        final short[] winningCombination = new short[prefix.length + 1];
-        System.arraycopy(prefix, 0, winningCombination, 0, prefix.length);
+        final short[] winningCombination = Arrays.copyOf(prefix, prefix.length + 1);
         winningCombination[prefix.length] = finalClick;
         solverState.markSolutionFound(winningCombination);
         logger.info("Found the solution as the following click combination: {}",

@@ -3,6 +3,9 @@ package com.github.mrgarbagegamer;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+
 import it.unimi.dsi.fastutil.longs.LongList;
 
 // TODO: Update Javadoc
@@ -68,13 +71,17 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
  *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
  */
+@NullMarked
 public class CombinationGeneratorTask extends RecursiveAction {
 
     private final int numClicks;
-    private final int maxFirstClickIndex;
+    private final int maxFirstClickIndex; // TODO: Consider removing this field and calculating the
+                                          // value in computeRootSubtasks()
 
     // Cached data between tasks
-    private short[] prefix;
+    // TODO: Consider initializing the prefix at creation time and making this @NonNull
+    // This would have the added benefit of removing the need for an ArrayPool.
+    private short @Nullable [] prefix;
     private int prefixLength;
     private long currentAdjacenciesLower = -1;
     private long currentAdjacenciesUpper = -1;
@@ -85,6 +92,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private final LongList trueCellMasksUpper;
     private final long expectedMaskLower;
     private final long expectedMaskUpper;
+    private final LongList suffixMasksLower;
+    private final LongList suffixMasksUpper;
     private final boolean useDualMasks;
 
     public static CombinationGeneratorTask createRootTask(SolverConfiguration config) {
@@ -259,9 +268,11 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     // LEAF TASK PATH:
     private final void computeLeafCombinations(GeneratorContext ctx) {
-        // REDESIGNED: Offload combination generation to the WorkBatch iterator.
-        // This method now only defines the *range* of work.
-        final short lastPrefixClick = (short) (this.prefix[this.prefixLength - 1] + 1);
+        final short[] localPrefix = this.prefix;
+        if (localPrefix == null)
+            return;
+
+        final short lastPrefixClick = (short) (localPrefix[this.prefixLength - 1] + 1);
 
         // 1. Add the work range to the batch.
         WorkBatch batch = ctx.getCurrentBatch();
@@ -280,11 +291,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
 
         // Add the entire valid range as a single work item.
-        batch.addWork(this.prefix, lastPrefixClick, this.isOdd);
+        batch.addWork(localPrefix, lastPrefixClick, this.isOdd);
     }
 
     private void computeIntermediateSubtasks(GeneratorContext ctx) {
-        final short start = (short) (this.prefix[this.prefixLength - 1] + 1);
+        final short[] localPrefix = this.prefix;
+        if (localPrefix == null)
+            return;
+
+        final short start = (short) (localPrefix[this.prefixLength - 1] + 1);
         final short max = (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);
 
         if (this.skipConstraintsCheck) {
@@ -393,15 +408,15 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 && (this.suffixMasksUpper.getLong(startIdx) & neededUpper) == neededUpper;
     }
 
-    private final LongList suffixMasksLower;
-    private final LongList suffixMasksUpper;
-
     private void recycleOwnResources(GeneratorContext ctx) {
         // No ThreadLocal access needed - use passed context
 
-        // Recycle prefix array to context pool
-        ctx.getArrayPool().put(this.prefix);
-        this.prefix = null;
+        // Recycle prefix array to context pool if non-null
+        final short[] localPrefix = this.prefix;
+        if (localPrefix != null) {
+            ctx.getArrayPool().put(localPrefix);
+            this.prefix = null;
+        }
 
         // Recycle task to context pool
         ctx.getTaskPool().put(this);

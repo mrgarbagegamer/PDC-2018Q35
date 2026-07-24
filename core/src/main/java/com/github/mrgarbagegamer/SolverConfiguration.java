@@ -78,8 +78,10 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     }
 
     private static void ensureUpperMaskValid(long mask) {
-        checkArgument(Long.bitCount(mask) <= 45, "Upper mask %s has bitcount %s greater than 45",
-                Long.toBinaryString(mask), Long.bitCount(mask));
+        // Check that no bits from 45 onwards (zero-indexed) are toggled on, since
+        // the total number of cells can't be greater than 109.
+        checkArgument((mask >>> 45) == 0L, "Upper mask %s has bits set at or above index 45",
+                Long.toBinaryString(mask));
     }
 
     private static Supplier<ShortList> trustedSupplier(short[] array) {

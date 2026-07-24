@@ -132,7 +132,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             GeneratorFactoryProvider generatorFactoryProvider, // Changed type
             Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
         checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
-                "numClicks must be in range [1, %s], was %d", Grid.NUM_CELLS, numClicks);
+                "numClicks must be in range [1, %s], was %s", Grid.NUM_CELLS, numClicks);
         checkArgument(numThreads > 1, "numThreads must be greater than 1, was %s", numThreads);
 
         // We can't validate the values of the Supplier parameters here, else we'd be forcing

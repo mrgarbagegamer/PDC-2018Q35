@@ -5,6 +5,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
 
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
+
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
@@ -101,6 +104,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *            using pre-computed adjacency masks and bitwise XOR operations. Adjacency lookups and
  *            format conversions are accelerated by statically initialized caches.
  */
+@NullMarked
 public abstract class Grid {
     /**
      * Defines the different formats used to represent a cell's location on the grid.
@@ -239,6 +243,7 @@ public abstract class Grid {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
      */
+    @SuppressWarnings("null") // ShortImmutableList.of() returns a @NonNull ShortImmutableList
     public static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
             (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
     /**
@@ -1812,12 +1817,9 @@ public abstract class Grid {
      */
     public static boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell,
             ValueFormat format) {
-        if (format == ValueFormat.Bitmask) {
-            throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
-        } else if (format == null) {
-            throw new NullPointerException("Format cannot be null.");
-        }
+        mustNotBeNull(format, "format");
+        checkArgument(format != ValueFormat.Bitmask,
+                "Bitmask format is not supported for this operation.");
 
         if (firstTrueCell == -1)
             return true; // No true cells, any click can create one
@@ -1914,7 +1916,7 @@ public abstract class Grid {
             }
         }
 
-        return inverted;
+        return new ShortImmutableList(inverted); // Make an immutable copy.
     }
 
     /**
@@ -1930,8 +1932,9 @@ public abstract class Grid {
      * @threading Thread-safe; does not modify any instance state.
      * @memory Allocates a new {@link ShortArrayList} and resulting {@code short[]} array.
      */
+    @SuppressWarnings("null") // toShortArray() returns a short @NonNull []
     public static short[] invertCombination(short[] clicks) {
-        return invertCombination(ShortList.of(clicks)).toShortArray();
+        return invertCombination(new ShortImmutableList(clicks)).toShortArray();
     }
 
     /**
@@ -1961,6 +1964,7 @@ public abstract class Grid {
      * @memory Allocates a new {@link StringBuilder} and {@link String} for the grid representation.
      */
     @Override
+    @SuppressWarnings("null") // StringBuilder.toString() returns a @NonNull String
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (int row = 0; row < NUM_ROWS; row++) {
@@ -1993,9 +1997,8 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         // Following the Effective Java recipe for equals
-
         return obj == this
                 || (obj instanceof Grid other && Arrays.equals(this.gridState, other.gridState));
     }

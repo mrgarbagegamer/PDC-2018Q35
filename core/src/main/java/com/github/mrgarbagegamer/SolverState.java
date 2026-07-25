@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+
 import java.util.Optional;
 
 import org.jspecify.annotations.NullMarked;
@@ -224,13 +226,13 @@ public final class SolverState {
      * @memory Does not allocate.
      */
     public void markSolutionFound(short[] combination) {
+        mustNotBeNull(combination, "combination");
         if (!solutionFound) {
             synchronized (this) {
                 if (!solutionFound) {
-                    // TODO: Create a defensive copy of the combination array for safety.
                     // Set the time first to ensure accurate timing
                     this.endTime = System.currentTimeMillis();
-                    this.winningCombination = combination;
+                    this.winningCombination = combination.clone();
                     this.winningThread = Thread.currentThread();
                     this.solutionFound = true;
                 }

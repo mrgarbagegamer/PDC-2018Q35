@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -946,11 +945,11 @@ class GridTest {
                     Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt);
 
             if (expectedAdjacentsIndexOutput.length == 0) {
-                assertNull(actualAdjacentsIndexOutput, "First true adjacents after " + cell
-                        + " for Index input & Index output should be null when no adjacents exist after the cell (Combination: "
+                assertEquals(0, actualAdjacentsIndexOutput.length, "First true adjacents after " + cell
+                        + " for Index input & Index output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
-                assertNull(actualAdjacentsPackedIntOutput, "First true adjacents after " + cell
-                        + " for Index input & PackedInt output should be null when no adjacents exist after the cell (Combination: "
+                assertEquals(0, actualAdjacentsPackedIntOutput.length, "First true adjacents after " + cell
+                        + " for Index input & PackedInt output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
                 break; // No further cells will have adjacents
             } else {
@@ -1006,12 +1005,12 @@ class GridTest {
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
 
             if (expectedAdjacentsIndexOutput.length == 0) {
-                assertNull(actualAdjacentsIndexOutput, "First true adjacents after " + cellPackedInt
-                        + " for PackedInt input & Index output should be null when no adjacents exist after the cell (Combination: "
+                assertEquals(0, actualAdjacentsIndexOutput.length, "First true adjacents after " + cellPackedInt
+                        + " for PackedInt input & Index output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
-                assertNull(actualAdjacentsPackedIntOutput, "First true adjacents after "
+                assertEquals(0, actualAdjacentsPackedIntOutput.length, "First true adjacents after "
                         + cellPackedInt
-                        + " for PackedInt input & PackedInt output should be null when no adjacents exist after the cell (Combination: "
+                        + " for PackedInt input & PackedInt output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
                 break; // No further cells will have adjacents
             } else {

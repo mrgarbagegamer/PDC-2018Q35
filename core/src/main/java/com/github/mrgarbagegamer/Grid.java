@@ -654,6 +654,7 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result only if format conversion is
      *         necessary.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public static short[] findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         final short index = switch (inputFormat) {
@@ -664,7 +665,7 @@ public abstract class Grid {
             case null -> throw new NullPointerException("Input format cannot be null.");
         };
 
-        final short[] result = adjacencyArray[index];
+        final short[] result = adjacencyArray[index].clone();
 
         return switch (outputFormat) {
             case Bitmask -> throw new IllegalArgumentException(
@@ -672,11 +673,10 @@ public abstract class Grid {
             case Index -> result;
             case PackedInt -> {
                 // Convert index to packed int format
-                final short[] packedResult = new short[result.length];
                 for (short i = 0; i < result.length; i++) {
-                    packedResult[i] = indexToPacked(result[i]);
+                    result[i] = indexToPacked(result[i]);
                 }
-                yield packedResult;
+                yield result;
             }
             case null -> throw new NullPointerException("Output format cannot be null.");
         };
@@ -699,6 +699,7 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result only if format conversion is
      *         necessary.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public static short[] findAdjacents(short cell, ValueFormat format) {
         return findAdjacents(cell, format, format);
     }
@@ -717,6 +718,7 @@ public abstract class Grid {
      *            method}.
      * @memory Does not allocate; returns a reference to an existing {@code short[]}.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public static short[] findAdjacents(short cell) {
         return findAdjacents(cell, ValueFormat.Index);
     }
@@ -1609,21 +1611,16 @@ public abstract class Grid {
      * @threading Not thread-safe; depends on the result of non-thread-safe methods.
      * @memory Allocates a new {@code short[]} for the result.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public short[] findFirstTrueAdjacents(ValueFormat format) {
-        if (format == ValueFormat.Bitmask) {
-            throw new IllegalArgumentException(
-                    "Bitmask format is not supported for this operation.");
-        } else if (format == null) {
-            throw new NullPointerException("Format cannot be null.");
-        }
+        mustNotBeNull(format, "format");
+        checkArgument(format != ValueFormat.Bitmask,
+                "Bitmask format is not supported for this operation.");
 
         short firstTrueCell = findFirstTrueCell(format);
         if (firstTrueCell == -1)
-            return null;
+            return new short[0];
         short[] trueAdjacents = findAdjacents(firstTrueCell, format);
-
-        if (trueAdjacents == null || trueAdjacents.length == 0)
-            return null;
 
         return trueAdjacents;
     }
@@ -1640,6 +1637,7 @@ public abstract class Grid {
      * @threading Not thread-safe.
      * @memory Allocates a new {@code short[]} for the result.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public short[] findFirstTrueAdjacents() { return findFirstTrueAdjacents(ValueFormat.Index); }
 
     /**
@@ -1688,17 +1686,19 @@ public abstract class Grid {
      * @threading Not thread-safe; relies on non-thread-safe methods.
      * @memory Allocates a new {@code short[]} for the result.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
-        if (inputFormat == ValueFormat.Bitmask || outputFormat == ValueFormat.Bitmask) {
-            throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
-        } else if (inputFormat == null || outputFormat == null) {
-            throw new NullPointerException("Formats cannot be null.");
-        }
+        mustNotBeNull(inputFormat, "inputFormat");
+        mustNotBeNull(outputFormat, "outputFormat");
+        checkArgument(inputFormat != ValueFormat.Bitmask,
+                "Bitmask is not a supported input format");
+        checkArgument(outputFormat != ValueFormat.Bitmask,
+                "Bitmask is not a supported output format");
+
         short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
-        if (firstTrueAdjacents == null)
-            return null; // TODO: Consider replacing this with an empty array for consistency.
+        if (firstTrueAdjacents.length == 0)
+            return new short[0];
 
         // Binary search to find the index of the first adjacent cell greater than 'cell'
         int index = -1;
@@ -1715,7 +1715,7 @@ public abstract class Grid {
 
         // If no adjacent cell greater than 'cell' is found, return null
         if (index == -1)
-            return null;
+            return new short[0];
 
         // If the index is found, return the subarray starting from that index
         short[] result = new short[firstTrueAdjacents.length - index];

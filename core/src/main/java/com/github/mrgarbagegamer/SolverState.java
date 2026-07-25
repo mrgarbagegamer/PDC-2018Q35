@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import java.util.Optional;
+
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -301,8 +303,6 @@ public final class SolverState {
      */
     public long getEndTime() { return endTime; }
 
-    // TODO: Consider returning Optional<Thread> instead of @Nullable Thread
-
     /**
      * {@return the {@link Thread} that found the solution, or {@code null} if no solution has been
      * found}
@@ -315,7 +315,8 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile} reference.
      * @memory Does not allocate.
      */
-    public @Nullable Thread getWinningThread() { return winningThread; }
+    @SuppressWarnings("null") // Optional.ofNullable() returns an Optional<@NonNull Thread>
+    public Optional<Thread> getWinningThread() { return Optional.ofNullable(this.winningThread); }
 
     // TODO: Consider a different return type or format for the combination
 
@@ -331,7 +332,14 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile} reference.
      * @memory Does not allocate.
      */
-    public short @Nullable [] getWinningCombination() { return winningCombination; }
+    @SuppressWarnings("null") // Optional.ofNullable() returns an Optional<@NonNull short[]>
+    public Optional<short[]> getWinningCombination() {
+        short[] localWinningCombination = this.winningCombination;
+
+        if (localWinningCombination == null)
+            return Optional.empty();
+        return Optional.of(localWinningCombination.clone());
+    }
 
     /**
      * {@return {@code true} if a solution has been found by any thread, {@code false} otherwise}

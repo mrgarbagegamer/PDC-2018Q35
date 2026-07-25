@@ -237,14 +237,18 @@ public class StartYourMonkeys {
                         Unbox.box(this.config.numClicks()));
                 this.logger.info(elapsedFormatted);
             } else {
-                final short[] winningCombination = this.solverState.getWinningCombination();
+                final short[] winningCombination = this.solverState.getWinningCombination()
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Solver marked as complete but recorded no winning combination"));
+                final Thread winningThread = this.solverState.getWinningThread()
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Solver marked as complete but recorded no winning thread"));
 
                 // Display results as a click combination
                 this.logger.info("{} - Found the solution as the following click combination: {}",
-                        this.solverState.getWinningThread().getName(),
+                        winningThread.getName(),
                         new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
-                this.logger.info("{} - {}", this.solverState.getWinningThread().getName(),
-                        elapsedFormatted);
+                this.logger.info("{} - {}", winningThread.getName(), elapsedFormatted);
 
                 // Verify solution
                 final Grid puzzleGrid = this.config.baseGrid(); // baseGrid() performs a copy

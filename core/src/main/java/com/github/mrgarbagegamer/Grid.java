@@ -782,16 +782,10 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     public final static short packedToIndex(short packed) {
-        if (packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length) {
-            // TODO: Explicitly pre-compute the entire cache in the static block to avoid on-the-fly
-            // calculations.
-            if (PACKED_TO_INDEX_CACHE[packed] == 0 && packed != 0) {
-                // If the cache is not initialized, compute it
-                PACKED_TO_INDEX_CACHE[packed] = computePackedToIndex(packed);
-            }
-            return PACKED_TO_INDEX_CACHE[packed];
-        }
-        throw new IllegalArgumentException("Invalid packed int: " + packed);
+        checkArgument(packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length,
+                "packed must be in range [0, %s], but was %s", PACKED_TO_INDEX_CACHE.length - 1,
+                packed);
+        return PACKED_TO_INDEX_CACHE[packed];
     }
 
     /**

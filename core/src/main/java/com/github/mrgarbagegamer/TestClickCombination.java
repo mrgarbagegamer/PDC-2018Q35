@@ -1,10 +1,12 @@
 package com.github.mrgarbagegamer;
 
-import static java.util.Objects.requireNonNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.SolverConfiguration.SolutionHandler;
 
@@ -84,6 +86,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *            shutdown.
  * @memory Fixed memory footprint with minimal allocations, except for logging.
  */
+@NullMarked
 public class TestClickCombination extends Thread {
     /**
      * A constant defining the frequency of logging for failed attempts.
@@ -119,17 +122,17 @@ public class TestClickCombination extends Thread {
     public TestClickCombination(String name, int monkeyId, SolverConfiguration config,
             QueueStrategy queueStrategy, SolverState solverState, ForkJoinPool generatorPool) {
         super(name); // The constructor for Thread handles null checks for the name
-        this.logger = requireNonNull(config.getLogger(TestClickCombination.class));
-        this.queueStrategy = requireNonNull(queueStrategy);
+        this.logger = config.getLogger(TestClickCombination.class);
+        this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         this.monkeyId = monkeyId;
-        this.solverState = requireNonNull(solverState);
-        this.puzzleGrid = config.baseGrid(); // Copy of the base grid
-        this.masksLower = requireNonNull(config.getTrueCellMasksLower());
-        this.masksUpper = requireNonNull(config.getTrueCellMasksUpper());
+        this.solverState = mustNotBeNull(solverState, "solverState");
+        this.puzzleGrid = config.baseGrid().copy(); // Copy of the base grid
+        this.masksLower = config.getTrueCellMasksLower();
+        this.masksUpper = config.getTrueCellMasksUpper();
         this.expectedLower = config.getExpectedMaskLower();
         this.expectedUpper = config.getExpectedMaskUpper();
         this.useDualMasks = config.getUseDualMasks();
-        this.generatorPool = requireNonNull(generatorPool);
+        this.generatorPool = mustNotBeNull(generatorPool, "generatorPool");
         this.solutionHandler = config.solutionHandler();
     }
 
@@ -238,7 +241,7 @@ public class TestClickCombination extends Thread {
         }
     }
 
-    private WorkBatch getWork() {
+    private @Nullable WorkBatch getWork() {
         final WorkBatch batch = this.queueStrategy.monkeyPoll(this.monkeyId);
         if (batch == null) {
             // TODO: Consider using separate logging for "generation complete" vs "solution found"

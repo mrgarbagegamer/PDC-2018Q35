@@ -250,7 +250,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @SuppressWarnings("null") // Grid.copy() returns a @NonNull Grid
     @Override
     public Grid baseGrid() {
         return baseGrid.copy(); // Defensive copy to maintain immutability
@@ -454,7 +453,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             return this;
         }
 
-        @SuppressWarnings("null") // copy() returns a @NonNull Grid
         public Builder baseGrid(Grid baseGrid) {
             // TODO: Look at using another mechanism for copying the base grid to avoid reliance on
             // an abstract method.

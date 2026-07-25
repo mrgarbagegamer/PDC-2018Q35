@@ -33,7 +33,6 @@ public final class ContextRegistry {
         this(LogManager.getLogger(ContextRegistry.class), new ConcurrentLinkedQueue<>());
     }
 
-    @SuppressWarnings("null") // config.getLogger() and config.registryQueue() are not nullable.
     public static ContextRegistry newRegistry(SolverConfiguration config) {
         mustNotBeNull(config, "config");
         return new ContextRegistry(config.getLogger(ContextRegistry.class), config.registryQueue());

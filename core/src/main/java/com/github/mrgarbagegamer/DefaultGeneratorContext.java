@@ -77,7 +77,6 @@ class DefaultGeneratorContext implements GeneratorContext {
      * @threading Thread-safe by nature of construction.
      * @memory Does not allocate, apart from the instance itself.
      */
-    @SuppressWarnings("null") // config.getLogger() is @NonNull
     public DefaultGeneratorContext(String name, int generatorId, QueueStrategy queueStrategy,
             ContextRegistry registry, SolverConfiguration config) {
         // Perform the config null check first, as it's needed for logging and we want to fail fast

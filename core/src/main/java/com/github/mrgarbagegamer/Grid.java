@@ -441,6 +441,11 @@ public abstract class Grid {
     // We don't necessarily need to worry too much about how optimized this block
     // is, since it's only run once at startup.
     static {
+        // 1. Populate the packed-to-index lookup cache first:
+        for (short cell = 0; cell < NUM_CELLS; cell++) {
+            PACKED_TO_INDEX_CACHE[indexToPacked(cell)] = cell;
+        }
+
         for (short cell = 0; cell < NUM_CELLS; cell++) {
             ShortList adjSet = computeAdjacents(cell, ValueFormat.Index, ValueFormat.Index);
             short[] adjArr = new short[adjSet.size()];
@@ -464,7 +469,6 @@ public abstract class Grid {
 
             adjacencyArray[cell] = adjArr;
             ADJACENCY_MASKS[cell] = mask;
-            PACKED_TO_INDEX_CACHE[computePackedToIndex(cell)] = cell;
         }
     }
 
@@ -727,43 +731,11 @@ public abstract class Grid {
     }
 
     /**
-     * Computes the {@link #packedToIndex(short) conversion} from {@link ValueFormat#PackedInt} to
-     * {@link ValueFormat#Index} format.
-     *
-     * <p>
-     * This method performs the necessary arithmetic to determine the correct {@code Index} for a
-     * given {@code PackedInt} value, taking into account the varying row lengths of the hexagonal
-     * grid. It extracts the row and column from the {@code PackedInt} and uses the
-     * {@link #ROW_OFFSETS} array to calculate the flattened index.
-     * </p>
-     *
-     * <p>
-     * This method is primarily used during {@code static} initialization to populate the
-     * {@link #PACKED_TO_INDEX_CACHE}. It does not perform bounds checking, assuming valid input
-     * during its intended use.
-     * </p>
-     *
-     * @param packed The cell in {@link ValueFormat#PackedInt} format.
-     * @return The cell in {@link ValueFormat#Index} format.
-     * @since 2025.06 - {@link ValueFormat#PackedInt} to {@link ValueFormat#Index} Precomputation
-     * @performance {@code O(1)} complexity due to direct arithmetic and a single array lookup.
-     * @threading Thread-safe; does not modify instance state.
-     * @memory Does not allocate.
-     */
-    private static short computePackedToIndex(short packed) {
-        short row = (short) (packed / 100);
-        short col = (short) (packed % 100);
-        return (short) (ROW_OFFSETS.getShort(row) + col);
-    }
-
-    /**
      * Converts a cell from {@link ValueFormat#PackedInt} to {@link ValueFormat#Index} format using
      * a pre-computed cache.
      *
      * <p>
-     * This method leverages the {@link #PACKED_TO_INDEX_CACHE} for {@code O(1)} lookups. If a value
-     * is not found in the cache (which should only happen for {@code packed = 0} during initial
-     * {@code static} setup), it is computed on-the-fly using {@link #computePackedToIndex(short)}.
+     * This method leverages the {@link #PACKED_TO_INDEX_CACHE} for {@code O(1)} lookups.
      * </p>
      *
      * <h3>Optimization Rationale</h3>

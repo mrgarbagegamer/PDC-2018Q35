@@ -10,8 +10,6 @@ import com.github.mrgarbagegamer.WorkBatch;
 interface QueueWrapper<Q> {
     Q unwrap();
 
-    @SuppressWarnings("null") // toUnmodifiableList() gives a non-null null-prohibiting list, so
-                              // this VS Code warning is safe to suppress.
     static <Q> List<Q> unwrapList(List<? extends QueueWrapper<Q>> wrappers) {
         return copyOfNonNullList(wrappers, "wrappers").stream().map(QueueWrapper::unwrap)
                 .collect(toUnmodifiableList());

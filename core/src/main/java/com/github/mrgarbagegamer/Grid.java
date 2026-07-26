@@ -241,7 +241,6 @@ public abstract class Grid {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
      */
-    @SuppressWarnings("null") // ShortImmutableList.of() returns a @NonNull ShortImmutableList
     public static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
             (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
     /**
@@ -1902,7 +1901,6 @@ public abstract class Grid {
      * @threading Thread-safe; does not modify any instance state.
      * @memory Allocates a new {@link ShortArrayList} and resulting {@code short[]} array.
      */
-    @SuppressWarnings("null") // toShortArray() returns a short @NonNull []
     public static short[] invertCombination(short[] clicks) {
         return invertCombination(new ShortImmutableList(clicks)).toShortArray();
     }
@@ -1934,7 +1932,6 @@ public abstract class Grid {
      * @memory Allocates a new {@link StringBuilder} and {@link String} for the grid representation.
      */
     @Override
-    @SuppressWarnings("null") // StringBuilder.toString() returns a @NonNull String
     public String toString() {
         StringBuilder sb = new StringBuilder();
         for (int row = 0; row < NUM_ROWS; row++) {

@@ -315,8 +315,9 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile} reference.
      * @memory Does not allocate.
      */
-    @SuppressWarnings("null") // Optional.ofNullable() returns an Optional<@NonNull Thread>
-    public Optional<Thread> getWinningThread() { return Optional.ofNullable(this.winningThread); }
+    public Optional<Thread> getWinningThread() {
+        return Optional.ofNullable(this.winningThread);
+    }
 
     // TODO: Consider replacing the short[] with some other representation that is immutable
     /**
@@ -331,7 +332,6 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile} reference.
      * @memory Does not allocate.
      */
-    @SuppressWarnings("null") // Optional.ofNullable() returns an Optional<@NonNull short[]>
     public Optional<short[]> getWinningCombination() {
         short[] localWinningCombination = this.winningCombination;
 

@@ -88,7 +88,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return () -> list;
     }
 
-    @SuppressWarnings("null") // ShortList.of() returns @NonNull ShortList
     private static ShortList arrayToFastList(short[] array) {
         mustNotBeNull(array, "array");
         return switch (array.length) {
@@ -98,7 +97,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @SuppressWarnings("null") // LongList.of() returns @NonNull LongList
     private static LongList arrayToFastList(long[] array) {
         mustNotBeNull(array, "array");
         return switch (array.length) {
@@ -108,7 +106,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @SuppressWarnings("null") // IntList.of() returns @NonNull IntList
     private static IntList arrayToFastList(int[] array) {
         mustNotBeNull(array, "array");
         return switch (array.length) {
@@ -118,8 +115,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @SuppressWarnings("null") // LazyConstant.of() returns a @NonNull LazyConstant and Grid.copy()
-                              // returns a @NonNull Grid
     public SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
             int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
             Supplier<Boolean> useDualMasks, Supplier<LongList> trueCellMasksLower,
@@ -169,7 +164,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         this.queueStrategyFactory = mustNotBeNull(queueStrategyFactory, "queueStrategyFactory");
     }
 
-    @SuppressWarnings("null") // All suppliers have @NonNull parameters in a NullMarked context
     private SolverConfiguration(Builder builder) {
         // One big constructor call (making sure to use requireNonNullElse for the derived fields)
 
@@ -253,40 +247,30 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return baseGrid.copy(); // Defensive copy to maintain immutability
     }
 
-    @SuppressWarnings("null") // trueCells is a Supplier<@NonNull ShortList>
     public ShortList getTrueCells() { return trueCells.get(); }
 
     public boolean getUseDualMasks() { return useDualMasks.get(); }
 
-    @SuppressWarnings("null") // trueCellMasksLower is a Supplier<@NonNull LongList>
     public LongList getTrueCellMasksLower() { return trueCellMasksLower.get(); }
 
-    @SuppressWarnings("null") // trueCellMasksUpper is a Supplier<@NonNull LongList>
     public LongList getTrueCellMasksUpper() { return trueCellMasksUpper.get(); }
 
     public long getExpectedMaskLower() { return expectedMaskLower.get(); }
 
     public long getExpectedMaskUpper() { return expectedMaskUpper.get(); }
 
-    @SuppressWarnings("null") // oddClickIndices is a Supplier<@NonNull ShortList>
     public ShortList getOddClickIndices() { return oddClickIndices.get(); }
 
-    @SuppressWarnings("null") // evenClickIndices is a Supplier<@NonNull ShortList>
     public ShortList getEvenClickIndices() { return evenClickIndices.get(); }
 
-    @SuppressWarnings("null") // suffixMasksLower is a Supplier<@NonNull LongList>
     public LongList getSuffixMasksLower() { return suffixMasksLower.get(); }
 
-    @SuppressWarnings("null") // suffixMasksUpper is a Supplier<@NonNull LongList>
     public LongList getSuffixMasksUpper() { return suffixMasksUpper.get(); }
 
-    @SuppressWarnings("null") // oddStartIndices is a Supplier<@NonNull IntList>
     public IntList getOddStartIndices() { return oddStartIndices.get(); }
 
-    @SuppressWarnings("null") // evenStartIndices is a Supplier<@NonNull IntList>
     public IntList getEvenStartIndices() { return evenStartIndices.get(); }
 
-    @SuppressWarnings("null") // loggerFunction is a Function<@NonNull Class<?>, @NonNull Logger>
     public Logger getLogger(Class<?> clazz) { return loggerFunction.apply(clazz); }
 
     public GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy,
@@ -370,7 +354,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private @Nullable Queue<GeneratorContext> registryQueue;
         private @Nullable QueueStrategyFactory queueStrategyFactory;
 
-        @SuppressWarnings("null") // ShortList.of() returns a @NonNull ShortList
         private static ShortList copyOfShortList(List<Short> list) {
             if (list instanceof ShortImmutableList immutable) {
                 return immutable;
@@ -385,7 +368,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             };
         }
 
-        @SuppressWarnings("null") // LongList.of() returns a @NonNull LongList
         private static LongList copyOfLongList(List<Long> list) {
             if (list instanceof LongImmutableList immutable) {
                 return immutable;
@@ -400,7 +382,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             };
         }
 
-        @SuppressWarnings("null") // IntList.of() returns a @NonNull IntList
         private static IntList copyOfIntList(List<Integer> list) {
             if (list instanceof IntImmutableList immutable) {
                 return immutable;
@@ -458,8 +439,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             return this;
         }
 
-        @SuppressWarnings("null") // A ShortList is a List<@NonNull Short>, so mustNotBeEmpty(copy)
-                                  // is safe.
         public Builder trueCells(List<Short> trueCells) {
             ShortList copy = copyOfShortList(trueCells);
 
@@ -856,7 +835,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return generateTrueCellMasks(sublist(trueCells, 0, 64));
     }
 
-    @SuppressWarnings("null") // ShortList.subList() returns a @NonNull ShortList
     private static ShortList sublist(ShortList list, int fromIndex, int toIndex) {
         return list.subList(fromIndex, Math.min(toIndex, list.size()));
     }

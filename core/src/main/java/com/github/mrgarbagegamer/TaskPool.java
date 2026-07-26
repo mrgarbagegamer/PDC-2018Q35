@@ -181,7 +181,6 @@ public class TaskPool {
     // Used for the allocation fallback in get()
     private final SolverConfiguration config;
 
-    @SuppressWarnings("null") // The created array is @Nullable CombinationGeneratorTask[]
     public TaskPool(SolverConfiguration config) {
         this.config = mustNotBeNull(config, "config");
 
@@ -222,7 +221,7 @@ public class TaskPool {
      * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
      * @memory Only allocates if the pool is empty, otherwise reuses existing tasks.
      */
-    @SuppressWarnings({"NullAway", "null"}) // A null return is impossible if size > 0.
+    @SuppressWarnings("NullAway") // A null return is impossible if size > 0.
     public CombinationGeneratorTask get() {
         // TODO: Consider removing the allocation fallback and making this nullable.
         if (this.size == 0) {

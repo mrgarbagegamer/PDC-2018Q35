@@ -147,7 +147,6 @@ public final class ArrayPool {
      * @performance {@code O(capacity * numClicks)} for pre-allocation.
      * @memory Allocates a {@code short[capacity][numClicks - 1]} buffer.
      */
-    @SuppressWarnings("null")
     public ArrayPool(int capacity, int numClicks) {
         this.capacity = mustBePositive(capacity, "capacity");
         checkArgument(numClicks > 1, "numClicks must be greater than 1, was: %s", numClicks);

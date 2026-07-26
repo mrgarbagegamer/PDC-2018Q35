@@ -25,6 +25,6 @@
 		"[java]": {
 			"editor.detectIndentation": false
 		},
-		"java.compile.nullAnalysis.mode": "automatic",
+		"java.compile.nullAnalysis.mode": "disabled", // It's unreliable.
 	}
 }

@@ -50,8 +50,6 @@ final class QueueWrappers {
         public final Boundedness boundedness() { return boundedness; }
     }
 
-    @SuppressWarnings("null") // toUnmodifiableList() gives a non-null, null-prohibiting list, so
-                              // this VSCode warning is safe to suppress.
     private static <Q> List<QueueWrapper<Q>> wrapListHelper(List<? extends Q> delegates,
             Function<? super Q, ? extends QueueWrapper<Q>> wrapperFactory) {
         final List<Q> nonNullDelegates = copyOfNonNullList(delegates, "delegates");
@@ -70,15 +68,12 @@ final class QueueWrappers {
             }
 
             @Override
-            @SuppressWarnings("null") // delegate is non-null
             public boolean offer(WorkBatch e) { return delegate.offer(e); }
 
             @Override
-            @SuppressWarnings("null") // delegate is non-null
             public int size() { return delegate.size(); }
 
             @Override
-            @SuppressWarnings("null") // delegate is non-null
             public boolean isEmpty() { return delegate.isEmpty(); }
         }
 
@@ -96,7 +91,6 @@ final class QueueWrappers {
 
             private static <Q extends BlockingQueue<WorkBatch>> BoundedBlockingWrapper<Q> create(
                     Q delegate) {
-                @SuppressWarnings("null") // delegate is non-null
                 int capacity = estimateCapacity(delegate);
 
                 return delegate instanceof PushPullBlockingQueue<?>
@@ -129,7 +123,6 @@ final class QueueWrappers {
 
         // Add more as needed (BoundedMpsc, BoundedSpmc, etc.)
 
-        @SuppressWarnings("null") // delegate is non-null
         private static <Q extends BlockingQueue<WorkBatch>> QueueWrapper<Q> wrap(Q delegate) {
             return isBounded(delegate) ? BoundedBlockingWrapper.create(delegate)
                     : UnboundedBlockingWrapper.create(delegate);
@@ -159,19 +152,15 @@ final class QueueWrappers {
             }
 
             @Override
-            @SuppressWarnings("null") // delegate is non-null
             public int capacity() { return delegate.capacity(); }
 
             @Override
-            @SuppressWarnings("null") // delegate is non-null
             public boolean offer(WorkBatch e) { return delegate.offer(e); }
 
             @Override
-            @SuppressWarnings("null") // delegate is non-null
             public int size() { return delegate.size(); }
 
             @Override
-            @SuppressWarnings("null") // delegate is non-null
             public boolean isEmpty() { return delegate.isEmpty(); }
 
             // Static factories:
@@ -179,7 +168,6 @@ final class QueueWrappers {
             private static <Q extends MessagePassingQueue<WorkBatch>> BoundedJCWrapper<Q> create(
                     Q delegate) {
                 mustNotBeNull(delegate, "delegate");
-                @SuppressWarnings("null") // delegate is not @Nullable
                 int capacity = delegate.capacity();
                 checkArgument(capacity != MessagePassingQueue.UNBOUNDED_CAPACITY,
                         "Cannot create a bounded wrapper for an unbounded queue");

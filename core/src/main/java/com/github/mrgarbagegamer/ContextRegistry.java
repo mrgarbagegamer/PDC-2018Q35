@@ -21,12 +21,10 @@ public final class ContextRegistry {
 
     public ContextRegistry(Logger logger) { this(logger, new ConcurrentLinkedQueue<>()); }
 
-    @SuppressWarnings("null") // LogManager.getLogger() is not nullable
     public ContextRegistry(Queue<GeneratorContext> contexts) {
         this(LogManager.getLogger(ContextRegistry.class), contexts);
     }
 
-    @SuppressWarnings("null") // LogManager.getLogger() is not nullable
     public ContextRegistry() {
         this(LogManager.getLogger(ContextRegistry.class), new ConcurrentLinkedQueue<>());
     }

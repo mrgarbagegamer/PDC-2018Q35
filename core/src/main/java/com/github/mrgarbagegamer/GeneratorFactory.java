@@ -9,8 +9,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public interface GeneratorFactory extends ForkJoinWorkerThreadFactory {
 
     @Override
-    // ForkJoinPool is non-null, so this is fine.
-    GeneratorThread newThread(@SuppressWarnings("null") ForkJoinPool pool);
+    GeneratorThread newThread(ForkJoinPool pool);
 
     static GeneratorFactory ofDefault(SolverConfiguration config, QueueStrategy queueStrategy,
             ContextRegistry registry) {

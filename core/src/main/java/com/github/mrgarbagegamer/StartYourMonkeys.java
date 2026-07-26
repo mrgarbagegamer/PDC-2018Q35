@@ -276,7 +276,6 @@ public class StartYourMonkeys {
          * @memory Allocates a small, fixed-size {@link StringBuilder} for formatting and returns a
          *         new {@link String}.
          */
-        @SuppressWarnings("null") // StringBuilder.toString() returns a @NonNull String
         private static String formatElapsedTime(long millis) {
             long seconds = millis / 1000;
             long minutes = seconds / 60;

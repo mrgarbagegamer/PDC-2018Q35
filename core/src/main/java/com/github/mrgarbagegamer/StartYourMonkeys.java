@@ -1,12 +1,13 @@
 package com.github.mrgarbagegamer;
 
-import static java.util.Objects.requireNonNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
+import org.jspecify.annotations.NullMarked;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 
@@ -148,14 +149,15 @@ public class StartYourMonkeys {
         return configBuilder.build();
     }
 
+    @NullMarked
     public static record Solver(SolverConfiguration config, Logger logger, SolverState solverState,
             QueueStrategy queueStrategy) {
 
         public Solver {
-            requireNonNull(config, "config cannot be null");
-            requireNonNull(logger, "logger cannot be null");
-            requireNonNull(solverState, "solverState cannot be null");
-            requireNonNull(queueStrategy, "queueStrategy cannot be null");
+            mustNotBeNull(config, "config");
+            mustNotBeNull(logger, "logger");
+            mustNotBeNull(solverState, "solverState");
+            mustNotBeNull(queueStrategy, "queueStrategy");
         }
 
         public static Solver ofConfig(SolverConfiguration config) {
@@ -204,7 +206,8 @@ public class StartYourMonkeys {
 
                 // Wait for worker threads to finish
                 for (TestClickCombination worker : monkeys)
-                    Uninterruptibles.joinUninterruptibly(worker);
+                    if (worker != null) // Should always be true, but adding a check just in case.
+                        Uninterruptibles.joinUninterruptibly(worker);
 
                 // Shutdown generator pool immediately, if not already
                 generatorPool.shutdownNow();

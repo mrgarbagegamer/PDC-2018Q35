@@ -1,10 +1,8 @@
 package com.github.mrgarbagegamer;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 // Add Javadocs
-@NullMarked
 public interface GeneratorContext {
 
     /**

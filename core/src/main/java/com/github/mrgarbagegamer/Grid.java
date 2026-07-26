@@ -5,7 +5,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
@@ -104,7 +103,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *            using pre-computed adjacency masks and bitwise XOR operations. Adjacency lookups and
  *            format conversions are accelerated by statically initialized caches.
  */
-@NullMarked
 public abstract class Grid {
     /**
      * Defines the different formats used to represent a cell's location on the grid.

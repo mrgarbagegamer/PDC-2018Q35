@@ -8,10 +8,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
-import org.jspecify.annotations.NullMarked;
 
 // TODO: Add Javadocs
-@NullMarked
 public final class ContextRegistry {
     private final Logger logger;
     private final Queue<GeneratorContext> contexts;

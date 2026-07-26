@@ -2,7 +2,6 @@ package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadocs.
@@ -46,7 +45,6 @@ import org.jspecify.annotations.Nullable;
  * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
  * @memory Fixed memory footprint based on the {@link #capacity} specified at construction.
  */
-@NullMarked
 public class TaskPool {
     /**
      * The array of pooled tasks, managed as a circular buffer.

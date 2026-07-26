@@ -7,7 +7,6 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
-import org.jspecify.annotations.NullMarked;
 
 import com.google.common.util.concurrent.Uninterruptibles;
 
@@ -56,7 +55,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
  * @threading Thread-safe; single-threaded orchestration.
  * @memory Pre-allocation of shared resources to minimize runtime overhead.
  */
-@NullMarked
 public class StartYourMonkeys {
 
     /**

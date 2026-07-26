@@ -4,10 +4,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinPool.ForkJoinWorkerThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.jspecify.annotations.NullMarked;
-
 // TODO: Add Javadoc
-@NullMarked
 @FunctionalInterface
 public interface GeneratorFactory extends ForkJoinWorkerThreadFactory {
 

@@ -5,7 +5,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.Logger;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.SolverConfiguration.SolutionHandler;
@@ -86,7 +85,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *            shutdown.
  * @memory Fixed memory footprint with minimal allocations, except for logging.
  */
-@NullMarked
 public class TestClickCombination extends Thread {
     /**
      * A constant defining the frequency of logging for failed attempts.

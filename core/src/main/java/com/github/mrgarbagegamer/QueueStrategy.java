@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -30,7 +29,6 @@ import org.jspecify.annotations.Nullable;
  * @see com.github.mrgarbagegamer.queues
  * @since 2026.02 - Queue Injection Refactor
  */
-@NullMarked
 public interface QueueStrategy {
 
     /**

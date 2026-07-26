@@ -55,5 +55,7 @@
  * {@code WorkBatch} objects.</li>
  * </ul>
  */
-@org.jspecify.annotations.NullUnmarked
+@NullMarked
 package com.github.mrgarbagegamer;
+
+import org.jspecify.annotations.NullMarked;

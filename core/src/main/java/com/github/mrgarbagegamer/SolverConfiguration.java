@@ -16,7 +16,6 @@ import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
@@ -36,7 +35,6 @@ import it.unimi.dsi.fastutil.shorts.ShortLists;
 // TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
 // potentially performing eager initialization of some fields.
 // TODO: Add class-level Javadoc
-@NullMarked
 public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
         int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
         Supplier<Boolean> useDualMasks, Supplier<LongList> trueCellMasksLower,

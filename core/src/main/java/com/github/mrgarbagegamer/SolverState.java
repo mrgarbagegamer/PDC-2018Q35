@@ -4,7 +4,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.Optional;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 // TODO: Consider allowing injectability of a Clock or similar for easier testing and potential
@@ -53,7 +52,6 @@ import org.jspecify.annotations.Nullable;
  * @threading Thread-safe.
  * @memory Does not allocate after construction.
  */
-@NullMarked
 public final class SolverState {
     /**
      * The timestamp indicating when the solver started. This is initialized during

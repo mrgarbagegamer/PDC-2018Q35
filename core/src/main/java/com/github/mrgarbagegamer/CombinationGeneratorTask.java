@@ -3,7 +3,6 @@ package com.github.mrgarbagegamer;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.longs.LongList;
@@ -71,7 +70,6 @@ import it.unimi.dsi.fastutil.longs.LongList;
  * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
  *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
  */
-@NullMarked
 public class CombinationGeneratorTask extends RecursiveAction {
 
     private final int numClicks;

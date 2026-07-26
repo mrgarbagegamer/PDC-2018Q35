@@ -7,7 +7,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.Logger;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadoc
@@ -39,7 +38,6 @@ import org.jspecify.annotations.Nullable;
  * @threading This class is NOT thread-safe, but is intended to be used in a thread-local manner.
  * @memory Minimal memory footprint of two fixed-capacity pools and a batch reference.
  */
-@NullMarked
 class DefaultGeneratorContext implements GeneratorContext {
     private final Logger logger;
 

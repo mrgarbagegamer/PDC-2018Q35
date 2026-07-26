@@ -9,7 +9,6 @@ import java.util.Iterator;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -75,7 +74,6 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  * @memory Fixed memory usage; all internal structures are pre-allocated.
  * @threading Not thread-safe; ownership is transferred via queues.
  */
-@NullMarked
 public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     public record Parity(ShortList finalClicks, IntList startIndices) {
         // TODO: Consider replacing this method with a utility inside of Grid for reduced

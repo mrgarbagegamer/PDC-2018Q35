@@ -4,7 +4,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadoc
@@ -46,7 +45,6 @@ import org.jspecify.annotations.Nullable;
  *         determined by the {@link #capacity} and the number of clicks configured in
  *         {@link StartYourMonkeys.GlobalConfig}.
  */
-@NullMarked
 public final class ArrayPool {
     /**
      * The internal buffer storing the pre-allocated {@code short[]} arrays.

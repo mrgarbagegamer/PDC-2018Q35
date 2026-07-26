@@ -5,7 +5,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import org.apache.logging.log4j.message.AsynchronouslyFormattable;
 import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadoc
@@ -75,7 +74,6 @@ import org.jspecify.annotations.Nullable;
  *         {@link #getFormattedMessage()} is called.
  */
 @AsynchronouslyFormattable
-@NullMarked
 public class CombinationMessage implements Message, StringBuilderFormattable {
     /**
      * The combination data. The interpretation of this data depends on the {@link #format} field.

@@ -1,7 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import org.jspecify.annotations.NullMarked;
-
 // TODO: Update Javadocs
 /**
  * A concrete {@link Grid} that provides the initial puzzle state for Q22 ("Shrek").
@@ -35,7 +33,6 @@ import org.jspecify.annotations.NullMarked;
  * @memory No allocations after initialization (except for methods that explicitly create new
  *         objects).
  */
-@NullMarked
 public class Grid22 extends Grid {
     /**
      * Default constructor for {@code Grid22}.

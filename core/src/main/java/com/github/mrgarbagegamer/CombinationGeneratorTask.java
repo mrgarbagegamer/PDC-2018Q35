@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
@@ -266,9 +268,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     // LEAF TASK PATH:
     private final void computeLeafCombinations(GeneratorContext ctx) {
-        final short[] localPrefix = this.prefix;
-        if (localPrefix == null)
-            return;
+        final short[] localPrefix = mustNotBeNull(this.prefix, "prefix");
 
         final short lastPrefixClick = (short) (localPrefix[this.prefixLength - 1] + 1);
 
@@ -293,9 +293,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     }
 
     private void computeIntermediateSubtasks(GeneratorContext ctx) {
-        final short[] localPrefix = this.prefix;
-        if (localPrefix == null)
-            return;
+        final short[] localPrefix = mustNotBeNull(this.prefix, "prefix");
 
         final short start = (short) (localPrefix[this.prefixLength - 1] + 1);
         final short max = (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);

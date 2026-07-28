@@ -1,5 +1,8 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullIntList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullLongList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullShortList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
@@ -23,14 +26,10 @@ import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.ints.IntLists;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongImmutableList;
 import it.unimi.dsi.fastutil.longs.LongList;
-import it.unimi.dsi.fastutil.longs.LongLists;
-import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
-import it.unimi.dsi.fastutil.shorts.ShortLists;
 
 // TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
 // potentially performing eager initialization of some fields.
@@ -354,48 +353,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private @Nullable Queue<GeneratorContext> registryQueue;
         private @Nullable QueueStrategyFactory queueStrategyFactory;
 
-        private static ShortList copyOfShortList(List<Short> list) {
-            if (list instanceof ShortImmutableList immutable) {
-                return immutable;
-            } else if (list instanceof ShortLists.Singleton singleton) {
-                return singleton;
-            }
-
-            return switch (list.size()) {
-                case 0 -> ShortList.of();
-                case 1 -> ShortList.of(list.get(0));
-                default -> new ShortImmutableList(list);
-            };
-        }
-
-        private static LongList copyOfLongList(List<Long> list) {
-            if (list instanceof LongImmutableList immutable) {
-                return immutable;
-            } else if (list instanceof LongLists.Singleton singleton) {
-                return singleton;
-            }
-
-            return switch (list.size()) {
-                case 0 -> LongList.of();
-                case 1 -> LongList.of(list.get(0));
-                default -> new LongImmutableList(list);
-            };
-        }
-
-        private static IntList copyOfIntList(List<Integer> list) {
-            if (list instanceof IntImmutableList immutable) {
-                return immutable;
-            } else if (list instanceof IntLists.Singleton singleton) {
-                return singleton;
-            }
-
-            return switch (list.size()) {
-                case 0 -> IntList.of();
-                case 1 -> IntList.of(list.get(0));
-                default -> new IntImmutableList(list);
-            };
-        }
-
         public Builder numClicks(int numClicks) {
             checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
                     "numClicks must be in the range [1, %s], was %s", Grid.NUM_CELLS, numClicks);
@@ -440,7 +397,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder trueCells(List<Short> trueCells) {
-            ShortList copy = copyOfShortList(trueCells);
+            ShortList copy = copyOfNonNullShortList(trueCells, "trueCells");
 
             mustNotBeEmpty(copy, "trueCells");
             checkArgument(copy.size() <= Grid.NUM_CELLS,
@@ -480,7 +437,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder trueCellMasksLower(List<Long> trueCellMasksLower) {
-            LongList copy = copyOfLongList(trueCellMasksLower);
+            LongList copy = copyOfNonNullLongList(trueCellMasksLower, "trueCellMasksLower");
 
             // The list must have exactly Grid.NUM_CELLS elements
             checkArgument(copy.size() == Grid.NUM_CELLS,
@@ -502,7 +459,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder trueCellMasksUpper(List<Long> trueCellMasksUpper) {
-            LongList copy = copyOfLongList(trueCellMasksUpper);
+            LongList copy = copyOfNonNullLongList(trueCellMasksUpper, "trueCellMasksUpper");
 
             // Two conditions must be met:
             // - The list must have exactly Grid.NUM_CELLS elements
@@ -551,7 +508,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder oddClickIndices(List<Short> oddClickIndices) {
-            ShortList copy = copyOfShortList(oddClickIndices);
+            ShortList copy = copyOfNonNullShortList(oddClickIndices, "oddClickIndices");
 
             // Confirm that the size is valid
             if (copy.size() < 2 || copy.size() > 6) {
@@ -582,7 +539,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder evenClickIndices(List<Short> evenClickIndices) {
-            ShortList copy = copyOfShortList(evenClickIndices);
+            ShortList copy = copyOfNonNullShortList(evenClickIndices, "evenClickIndices");
 
             // Confirm that the size is valid
             if (copy.size() < (Grid.NUM_CELLS - 6) || copy.size() > (Grid.NUM_CELLS - 2)) {
@@ -613,7 +570,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder suffixMasksLower(List<Long> suffixMasksLower) {
-            LongList copy = copyOfLongList(suffixMasksLower);
+            LongList copy = copyOfNonNullLongList(suffixMasksLower, "suffixMasksLower");
 
             // The list must satisfy two conditions;
             // - It must have exactly Grid.NUM_CELLS elements
@@ -645,7 +602,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder suffixMasksUpper(List<Long> suffixMasksUpper) {
-            LongList copy = copyOfLongList(suffixMasksUpper);
+            LongList copy = copyOfNonNullLongList(suffixMasksUpper, "suffixMasksUpper");
 
             // The list must satisfy three conditions:
             // - The list must have exactly Grid.NUM_CELLS elements
@@ -682,7 +639,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder oddStartIndices(List<Integer> oddStartIndices) {
-            IntList copy = copyOfIntList(oddStartIndices);
+            IntList copy = copyOfNonNullIntList(oddStartIndices, "oddStartIndices");
 
             // The list must satisfy 3 conditions:
             // - It must have exactly Grid.NUM_CELLS elements
@@ -720,7 +677,7 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         }
 
         public Builder evenStartIndices(List<Integer> evenStartIndices) {
-            IntList copy = copyOfIntList(evenStartIndices);
+            IntList copy = copyOfNonNullIntList(evenStartIndices, "evenStartIndices");
 
             // The list must satisfy 3 conditions:
             // - It must have exactly Grid.NUM_CELLS elements

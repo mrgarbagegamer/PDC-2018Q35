@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullIntList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullShortList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -128,13 +130,12 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                     startIndices.size() - 1, finalClicksSize, previousIndex);
         }
 
-        // TODO: Consider performing defensive copies to prevent state corruption
-        public Parity {
-            mustNotBeNull(finalClicks, "finalClicks");
-            mustNotBeNull(startIndices, "startIndices");
+        public Parity(ShortList finalClicks, IntList startIndices) {
+            this.finalClicks = copyOfNonNullShortList(finalClicks, "finalClicks");
+            this.startIndices = copyOfNonNullIntList(startIndices, "startIndices");
 
-            validateFinalClicks(finalClicks);
-            validateStartIndices(startIndices, finalClicks.size());
+            validateFinalClicks(this.finalClicks);
+            validateStartIndices(this.startIndices, this.finalClicks.size());
         }
 
         public int getStartIndex(int lastPrefixClick) {
@@ -181,7 +182,6 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
                 }
             }
 
-            // TODO: Consider performing defensive copies to prevent state corruption
             public ParityPair {
                 mustNotBeNull(odd, "odd");
                 mustNotBeNull(even, "even");

@@ -2,7 +2,6 @@ package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -12,9 +11,7 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
 import it.unimi.dsi.fastutil.shorts.ShortList;
-import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
 
 // TODO: Update Javadocs
 /**
@@ -76,15 +73,7 @@ import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
  */
 public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
     public record Parity(ShortList finalClicks, IntList startIndices) {
-        // TODO: Consider replacing this method with a utility inside of Grid for reduced
-        // duplication
-        private static void ensureValidIndex(short cell) {
-            checkArgument(cell >= 0 && cell < Grid.NUM_CELLS, "Index %s is out of bounds [0, %s)",
-                    cell, Grid.NUM_CELLS);
-        }
-
-        private static void ensureUniqueAndAscending(ShortList list) {
-            // A list of size 0 or 1 is trivially valid
+        private static void ensureStrictlyAscending(ShortList list) {
             if (list.size() <= 1) {
                 return;
             }
@@ -92,65 +81,60 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
             short previous = list.getShort(0);
             for (int i = 1; i < list.size(); i++) {
                 short current = list.getShort(i);
-                if (current <= previous) {
-                    if (current == previous) {
-                        throw new IllegalArgumentException(
-                                "List contains duplicate element: " + current);
-                    } else {
-                        throw new IllegalArgumentException(
-                                "List is not in ascending order: " + current + " < " + previous);
-                    }
-                }
+                checkArgument(current > previous,
+                        "list is not in strictly ascending order at index %s: %s <= %s", i, current,
+                        previous);
                 previous = current;
             }
         }
 
+        private static void validateFinalClicks(ShortList finalClicks) {
+            checkArgument(finalClicks.size() >= 2 && finalClicks.size() < (Grid.NUM_CELLS - 2),
+                    "finalClicks size must be in the range [2, %s], but was %s",
+                    (Grid.NUM_CELLS - 3), finalClicks.size());
+
+            // 1. Validate strictly ascending order (implicitly guarantees uniqueness)
+            ensureStrictlyAscending(finalClicks);
+
+            // 2. Validate bounds of elements. Since finalClicks is sorted, we check minimum and
+            // maximum.
+            final short minClick = finalClicks.getShort(0);
+            final short maxClick = finalClicks.getShort(finalClicks.size() - 1);
+            checkArgument(minClick >= 0, "Minimum final click %s is out of bounds (must be >= 0)",
+                    minClick);
+            checkArgument(maxClick < Grid.NUM_CELLS,
+                    "Maximum final click %s is out of bounds (must be < %s)", maxClick,
+                    Grid.NUM_CELLS);
+        }
+
+        private static void validateStartIndices(IntList startIndices, int finalClicksSize) {
+            checkArgument(startIndices.size() == Grid.NUM_CELLS,
+                    "startIndices size must be %s but was %s", Grid.NUM_CELLS, startIndices.size());
+
+            int previousIndex = startIndices.getInt(0);
+            checkArgument(previousIndex >= 0,
+                    "startIndices element at position 0 must be >= 0, was %s", previousIndex);
+
+            for (int i = 1; i < startIndices.size(); i++) {
+                final int currentIndex = startIndices.getInt(i);
+                checkArgument(currentIndex >= previousIndex,
+                        "startIndices must be in non-descending order, but %s < %s at position %s",
+                        currentIndex, previousIndex, i);
+                previousIndex = currentIndex;
+            }
+
+            checkArgument(previousIndex <= finalClicksSize,
+                    "startIndices element at position %s must be <= finalClicks.size() == %s, was %s",
+                    startIndices.size() - 1, finalClicksSize, previousIndex);
+        }
+
+        // TODO: Consider performing defensive copies to prevent state corruption
         public Parity {
-            // TODO: Consider importing Guava's Preconditions for null checks
             mustNotBeNull(finalClicks, "finalClicks");
             mustNotBeNull(startIndices, "startIndices");
 
-            // Ensure that finalClicks is valid
-            for (int i = 0; i < finalClicks.size(); i++) {
-                ensureValidIndex(finalClicks.getShort(i));
-            }
-            if (finalClicks.size() < 2 || finalClicks.size() > (Grid.NUM_CELLS - 2)) {
-                throw new IllegalArgumentException("finalClicks size must be between 2 and "
-                        + (Grid.NUM_CELLS - 2) + ", but was: " + finalClicks.size());
-            }
-            ensureUniqueAndAscending(finalClicks);
-
-            // Ensure that startIndices is valid
-            if (startIndices.size() != Grid.NUM_CELLS) {
-                throw new IllegalArgumentException("startIndices size must be " + Grid.NUM_CELLS
-                        + ", but was: " + startIndices.size());
-            }
-            for (int i = 0; i < startIndices.size(); i++) {
-                final int index = startIndices.getInt(i);
-                if (index < 0 || index > finalClicks.size()) {
-                    throw new IllegalArgumentException(
-                            "startIndices contains invalid index at position " + i + ": " + index);
-                }
-
-                // Additional check for ascending order (to avoid an extra loop here):
-                if (i > 0) {
-                    final int previous = startIndices.getInt(i - 1);
-                    if (index < previous) {
-                        throw new IllegalArgumentException(
-                                "startIndices is not in ascending order at position " + i + ": "
-                                        + index + " < " + previous);
-                    }
-                }
-            }
-            for (int i = 1; i < startIndices.size(); i++) {
-                int current = startIndices.getInt(i);
-                int previous = startIndices.getInt(i - 1);
-                if (current < previous) {
-                    throw new IllegalArgumentException(
-                            "startIndices is not in ascending order at position " + i + ": "
-                                    + current + " < " + previous);
-                }
-            }
+            validateFinalClicks(finalClicks);
+            validateStartIndices(startIndices, finalClicks.size());
         }
 
         public int getStartIndex(int lastPrefixClick) {
@@ -158,10 +142,12 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
         }
 
         public static Parity even(SolverConfiguration config) {
+            // For "even" parity, an "odd" click is needed to turn the final parity "odd."
             return new Parity(config.getOddClickIndices(), config.getOddStartIndices());
         }
 
         public static Parity odd(SolverConfiguration config) {
+            // For "odd" parity, an "even" click is needed to keep the final parity "odd."
             return new Parity(config.getEvenClickIndices(), config.getEvenStartIndices());
         }
 
@@ -175,27 +161,30 @@ public final class WorkBatch implements Iterable<WorkBatch.WorkItem> {
 
         public record ParityPair(Parity odd, Parity even) {
             private static void ensureDisjoint(Parity odd, Parity even) {
-                // Ensure non-nullity
-                requireNonNull(odd, "odd parity cannot be null");
-                requireNonNull(even, "even parity cannot be null");
-
-                // Get the lists:
                 final ShortList oddClicks = odd.finalClicks();
                 final ShortList evenClicks = even.finalClicks();
 
-                // Check for overlap by combining the two lists into a set and
-                // comparing sizes
-                final ShortSortedSet combinedSet = new ShortAVLTreeSet(oddClicks);
-                combinedSet.addAll(evenClicks);
-                if (combinedSet.size() < (oddClicks.size() + evenClicks.size())) {
-                    throw new IllegalArgumentException(
-                            "Odd and even parity finalClicks must be disjoint.");
+                // Allocation-free two-pointer disjointness check (since lists are sorted)
+                int i = 0, j = 0;
+                while (i < oddClicks.size() && j < evenClicks.size()) {
+                    short o = oddClicks.getShort(i);
+                    short e = evenClicks.getShort(j);
+                    if (o == e) {
+                        throw new IllegalArgumentException(
+                                "Odd and even parity finalClicks must be disjoint, but share the element %s at indices %s and %s, respectively"
+                                        .formatted(o, i, j));
+                    } else if (o < e) {
+                        i++;
+                    } else {
+                        j++;
+                    }
                 }
             }
 
+            // TODO: Consider performing defensive copies to prevent state corruption
             public ParityPair {
-                requireNonNull(odd, "odd parity cannot be null");
-                requireNonNull(even, "even parity cannot be null");
+                mustNotBeNull(odd, "odd");
+                mustNotBeNull(even, "even");
 
                 // Ensure that the finalClicks lists are disjoint
                 ensureDisjoint(odd, even);

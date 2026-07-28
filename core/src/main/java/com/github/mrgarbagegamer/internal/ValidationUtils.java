@@ -26,13 +26,12 @@ public final class ValidationUtils {
         return checkNotNull(obj, "%s must not be null", fieldName);
     }
 
-    // Method to ensure a list isn't empty:
-    public static <T extends @Nullable Object> List<T> mustNotBeEmpty(@Nullable List<T> list,
+    // Method to ensure a list isn't empty (typed to allow the return of a fastutil list)
+    public static <T extends @Nullable Object, U extends List<T>> U mustNotBeEmpty(@Nullable U list,
             String fieldName) {
-        List<T> checkedList = mustNotBeNull(list, fieldName);
+        U checkedList = mustNotBeNull(list, fieldName);
         checkArgument(!checkedList.isEmpty(), "%s must not be empty", fieldName);
-        return checkedList; // We won't return List.copyOf here, since this method is meant to
-                            // validate.
+        return checkedList;
     }
 
     private static <T> T mustNotContainNullElements(@Nullable T element, String listName,

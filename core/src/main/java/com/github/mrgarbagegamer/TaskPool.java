@@ -178,11 +178,8 @@ public class TaskPool {
      */
     private int size = 0;
 
-    // Used for the allocation fallback in get()
-    private final SolverConfiguration config;
-
     public TaskPool(SolverConfiguration config) {
-        this.config = mustNotBeNull(config, "config");
+        mustNotBeNull(config, "config");
 
         this.capacity = config.taskPoolSize();
         this.array = new CombinationGeneratorTask[capacity];
@@ -194,38 +191,10 @@ public class TaskPool {
         this.size = this.capacity;
     }
 
-    /**
-     * Retrieves a task from the pool.
-     * 
-     * <p>
-     * If the pool is empty, a new {@link CombinationGeneratorTask} is created to prevent stalls
-     * rather than returning {@code null}. This fallback allocation is a performance anti-pattern
-     * and indicates that the pool may be undersized for the current workload.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This operation is on the hot path of combination generation and must be extremely fast. The
-     * implementation uses a circular buffer for {@code O(1)} complexity. A {@code null} check on
-     * the retrieved task is avoided, as the pool should never contain {@code null}s if used
-     * correctly. The initial {@code size} check provides a fast path for the empty-pool case.
-     * Removing it could risk {@code size} becoming negative and returning a {@code null} task, so
-     * it is kept as a safety measure.
-     * </p>
-     *
-     * @return A recycled or newly created {@link CombinationGeneratorTask}.
-     * @see #isEmpty()
-     * @see #put(CombinationGeneratorTask)
-     * @since 2025.07 - {@code TaskPool} Introduction
-     * @performance {@code O(1)} time complexity.
-     * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
-     * @memory Only allocates if the pool is empty, otherwise reuses existing tasks.
-     */
-    @SuppressWarnings("NullAway") // A null return is impossible if size > 0.
-    public CombinationGeneratorTask get() {
-        // TODO: Consider removing the allocation fallback and making this nullable.
+    // TODO: Add Javadocs.
+    public @Nullable CombinationGeneratorTask get() {
         if (this.size == 0) {
-            return new CombinationGeneratorTask(this.config);
+            return null;
         }
 
         CombinationGeneratorTask task = this.array[this.head];

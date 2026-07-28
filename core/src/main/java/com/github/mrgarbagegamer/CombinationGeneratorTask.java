@@ -88,6 +88,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private boolean isOdd;
     private boolean skipConstraintsCheck = false;
 
+    private final SolverConfiguration solverConfig;
     private final LongList trueCellMasksLower;
     private final LongList trueCellMasksUpper;
     private final long expectedMaskLower;
@@ -96,8 +97,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private final LongList suffixMasksUpper;
     private final boolean useDualMasks;
 
-    public static CombinationGeneratorTask createRootTask(SolverConfiguration config) {
-        final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(config);
+    public static CombinationGeneratorTask createRootTask(SolverConfiguration solverConfig) {
+        final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(solverConfig);
 
         // Initialize instance fields
         rootTask.prefix = new short[rootTask.numClicks - 1];
@@ -108,17 +109,19 @@ public class CombinationGeneratorTask extends RecursiveAction {
         return rootTask;
     }
 
-    protected CombinationGeneratorTask(SolverConfiguration config) {
-        this.numClicks = config.numClicks();
-        this.maxFirstClickIndex = config.getEvenClickIndices()
-                .getShort(config.getEvenClickIndices().size() - 1);
-        this.trueCellMasksLower = config.getTrueCellMasksLower();
-        this.trueCellMasksUpper = config.getTrueCellMasksUpper();
-        this.expectedMaskLower = config.getExpectedMaskLower();
-        this.expectedMaskUpper = config.getExpectedMaskUpper();
-        this.suffixMasksLower = config.getSuffixMasksLower();
-        this.suffixMasksUpper = config.getSuffixMasksUpper();
-        this.useDualMasks = config.getUseDualMasks();
+    protected CombinationGeneratorTask(SolverConfiguration solverConfig) {
+        this.solverConfig = mustNotBeNull(solverConfig, "config");
+
+        this.numClicks = solverConfig.numClicks();
+        this.maxFirstClickIndex = solverConfig.getEvenClickIndices()
+                .getShort(solverConfig.getEvenClickIndices().size() - 1);
+        this.trueCellMasksLower = solverConfig.getTrueCellMasksLower();
+        this.trueCellMasksUpper = solverConfig.getTrueCellMasksUpper();
+        this.expectedMaskLower = solverConfig.getExpectedMaskLower();
+        this.expectedMaskUpper = solverConfig.getExpectedMaskUpper();
+        this.suffixMasksLower = solverConfig.getSuffixMasksLower();
+        this.suffixMasksUpper = solverConfig.getSuffixMasksUpper();
+        this.useDualMasks = solverConfig.getUseDualMasks();
     }
 
     /**
@@ -213,7 +216,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     private void getAndForkSubtask(GeneratorContext ctx, short[] newPrefix, long newAdjacencyLower,
             long newAdjacencyUpper, boolean skipConstraints, boolean isOdd) {
-        final CombinationGeneratorTask subtask = ctx.getTaskPool().get();
+        CombinationGeneratorTask subtask = ctx.getTaskPool().get();
+        if (subtask == null)
+            subtask = new CombinationGeneratorTask(this.solverConfig);
         subtask.init(newPrefix, this.prefixLength + 1, newAdjacencyLower, newAdjacencyUpper,
                 skipConstraints, isOdd);
 

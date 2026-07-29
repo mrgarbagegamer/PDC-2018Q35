@@ -34,15 +34,14 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 // TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
 // potentially performing eager initialization of some fields.
 // TODO: Add class-level Javadoc
-public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
-        int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
-        Supplier<Boolean> useDualMasks, Supplier<LongList> trueCellMasksLower,
-        Supplier<LongList> trueCellMasksUpper, Supplier<Long> expectedMaskLower,
-        Supplier<Long> expectedMaskUpper, Supplier<ShortList> oddClickIndices,
-        Supplier<ShortList> evenClickIndices, Supplier<LongList> suffixMasksLower,
-        Supplier<LongList> suffixMasksUpper, Supplier<IntList> oddStartIndices,
-        Supplier<IntList> evenStartIndices, SolutionHandler solutionHandler,
-        Function<Class<?>, Logger> loggerFunction,
+public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int taskPoolSize,
+        int queueSize, Grid baseGrid, Supplier<ShortList> trueCells, Supplier<Boolean> useDualMasks,
+        Supplier<LongList> trueCellMasksLower, Supplier<LongList> trueCellMasksUpper,
+        Supplier<Long> expectedMaskLower, Supplier<Long> expectedMaskUpper,
+        Supplier<ShortList> oddClickIndices, Supplier<ShortList> evenClickIndices,
+        Supplier<LongList> suffixMasksLower, Supplier<LongList> suffixMasksUpper,
+        Supplier<IntList> oddStartIndices, Supplier<IntList> evenStartIndices,
+        SolutionHandler solutionHandler, Function<Class<?>, Logger> loggerFunction,
         GeneratorFactoryProvider generatorFactoryProvider, // Changed type
         Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
 
@@ -114,8 +113,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    public SolverConfiguration(int numClicks, int numThreads, int batchSize, int arrayPoolSize,
-            int taskPoolSize, int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
+    public SolverConfiguration(int numClicks, int numThreads, int batchSize, int taskPoolSize,
+            int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
             Supplier<Boolean> useDualMasks, Supplier<LongList> trueCellMasksLower,
             Supplier<LongList> trueCellMasksUpper, Supplier<Long> expectedMaskLower,
             Supplier<Long> expectedMaskUpper, Supplier<ShortList> oddClickIndices,
@@ -139,7 +138,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         this.numClicks = numClicks;
         this.numThreads = numThreads;
         this.batchSize = mustBePositive(batchSize, "batchSize");
-        this.arrayPoolSize = mustBePositive(arrayPoolSize, "arrayPoolSize");
         this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
         this.queueSize = mustBePositive(queueSize, "queueSize");
         this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
@@ -170,7 +168,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final int numClicks = builder.numClicks;
         final int numThreads = builder.numThreads;
         final int batchSize = builder.batchSize;
-        final int arrayPoolSize = builder.arrayPoolSize;
         final int taskPoolSize = builder.taskPoolSize;
         final int queueSize = builder.queueSize;
         final Grid baseGrid = builder.baseGrid;
@@ -209,8 +206,8 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final QueueStrategyFactory queueStrategyFactory = requireNonNullElse(
                 builder.queueStrategyFactory, JCToolsQueueStrategy::multiSingle);
 
-        this(numClicks, numThreads, batchSize, arrayPoolSize, taskPoolSize, queueSize, baseGrid,
-                trueCells, useDualMasks, trueCellMasksLower, trueCellMasksUpper, expectedMaskLower,
+        this(numClicks, numThreads, batchSize, taskPoolSize, queueSize, baseGrid, trueCells,
+                useDualMasks, trueCellMasksLower, trueCellMasksUpper, expectedMaskLower,
                 expectedMaskUpper, oddClickIndices, evenClickIndices, suffixMasksLower,
                 suffixMasksUpper, oddStartIndices, evenStartIndices, solutionHandler,
                 loggerFunction, generatorFactoryProvider, registryQueue, queueStrategyFactory);
@@ -330,7 +327,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private int numThreads = Runtime.getRuntime().availableProcessors();
         private Grid baseGrid = new Grid35();
         private int batchSize = 256;
-        private int arrayPoolSize = 512;
         private int taskPoolSize = 128;
         private int queueSize = 16;
 
@@ -371,11 +367,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
         public Builder batchSize(int batchSize) {
             this.batchSize = mustBePositive(batchSize, "batchSize");
-            return this;
-        }
-
-        public Builder arrayPoolSize(int arrayPoolSize) {
-            this.arrayPoolSize = mustBePositive(arrayPoolSize, "arrayPoolSize");
             return this;
         }
 
@@ -761,7 +752,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             this.numThreads = Runtime.getRuntime().availableProcessors();
             this.baseGrid = new Grid35();
             this.batchSize = 256;
-            this.arrayPoolSize = 512;
             this.taskPoolSize = 128;
             this.queueSize = 16;
             this.trueCells = null;

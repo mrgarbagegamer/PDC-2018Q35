@@ -67,8 +67,8 @@ import it.unimi.dsi.fastutil.longs.LongList;
  *            {@link #numClicks target length} is reached. Leaf tasks
  *            {@link #computeLeafCombinations(DefaultGeneratorContext) generate} work items, which
  *            are {@link GeneratorContext#flushCurrentBatch() flushed} to the queues for processing.
- * @memory Object allocations are minimized through extensive use of {@link ArrayPool} and
- *         {@link TaskPool}, managed by a thread-local {@code GeneratorContext}.
+ * @memory Object allocations are minimized through extensive use of {@link TaskPool}, managed by a
+ *         thread-local {@code GeneratorContext}.
  */
 public class CombinationGeneratorTask extends RecursiveAction {
 

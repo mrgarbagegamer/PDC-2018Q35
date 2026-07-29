@@ -38,7 +38,6 @@ import org.jspecify.annotations.Nullable;
  * performance in the hot path.
  * </p>
  *
- * @see ArrayPool
  * @see WorkBatch
  * @since 2025.07 - {@code TaskPool} Introduction
  * @performance O(1) for both {@link #get()} and {@link #put(CombinationGeneratorTask)} operations.

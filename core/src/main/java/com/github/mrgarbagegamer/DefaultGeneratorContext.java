@@ -26,7 +26,6 @@ import org.jspecify.annotations.Nullable;
  * performance penalty of multiple {@code ThreadLocal} lookups in the hot path. The context is then
  * passed as a parameter to downstream methods, providing fast, contention-free access to:
  * <ul>
- * <li>An {@link #arrayPool} for recycling {@code short[]} arrays.</li>
  * <li>A {@link #taskPool} for recycling {@code CombinationGeneratorTask} objects.</li>
  * <li>The {@link #currentBatch} being filled by the thread.</li>
  * </ul>
@@ -84,7 +83,6 @@ class DefaultGeneratorContext implements GeneratorContext {
         this.logger = this.config.getLogger(DefaultGeneratorContext.class);
         this.name = mustNotBeNull(name, "name");
         this.generatorId = generatorId;
-        this.arrayPool = new ArrayPool(this.config);
 
         this.taskPool = new TaskPool(this.config);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
@@ -96,18 +94,6 @@ class DefaultGeneratorContext implements GeneratorContext {
         return new DefaultGeneratorContext(name, generatorId, queueStrategy, registry, config);
     }
 
-    /**
-     * A {@link ThreadLocal thread-local} {@link ArrayPool pool} for recycling {@code short[]}
-     * arrays used for {@code prefix}es.
-     * 
-     * @see ArrayPool
-     * @since 2025.07 - {@code GeneratorContext} Introduction
-     * @performance {@code O(1)} amortized access time for {@link ArrayPool#get()} and
-     *              {@link ArrayPool#put(short[])}.
-     * @threading Not thread-safe, should be used in a thread-local manner.
-     * @memory Fixed footprint of ~4 bytes as a reference.
-     */
-    private final ArrayPool arrayPool;
     /**
      * A {@link ThreadLocal thread-local} {@link TaskPool pool} for recycling
      * {@link CombinationGeneratorTask} instances.
@@ -190,9 +176,6 @@ class DefaultGeneratorContext implements GeneratorContext {
             }
         }
     }
-
-    @Override
-    public ArrayPool getArrayPool() { return this.arrayPool; }
 
     @Override
     public TaskPool getTaskPool() { return this.taskPool; }

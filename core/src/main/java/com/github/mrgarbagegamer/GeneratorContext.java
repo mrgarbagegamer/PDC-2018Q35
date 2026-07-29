@@ -44,8 +44,6 @@ public interface GeneratorContext {
         return 0;
     }
 
-    ArrayPool getArrayPool();
-
     TaskPool getTaskPool();
 
     QueueStrategy getQueueStrategy();

@@ -5,8 +5,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
-import org.jspecify.annotations.Nullable;
-
 import it.unimi.dsi.fastutil.longs.LongList;
 
 // TODO: Update Javadoc
@@ -74,14 +72,12 @@ import it.unimi.dsi.fastutil.longs.LongList;
  */
 public class CombinationGeneratorTask extends RecursiveAction {
 
+    private final short[] prefix;
     private final int numClicks;
     private final int maxFirstClickIndex; // TODO: Consider removing this field and calculating the
                                           // value in computeRootSubtasks()
 
     // Cached data between tasks
-    // TODO: Consider initializing the prefix at creation time and making this @NonNull
-    // This would have the added benefit of removing the need for an ArrayPool.
-    private short @Nullable [] prefix;
     private int prefixLength;
     private long currentAdjacenciesLower = -1;
     private long currentAdjacenciesUpper = -1;
@@ -101,7 +97,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final CombinationGeneratorTask rootTask = new CombinationGeneratorTask(solverConfig);
 
         // Initialize instance fields
-        rootTask.prefix = new short[rootTask.numClicks - 1];
         rootTask.prefixLength = 0;
         rootTask.currentAdjacenciesLower = -1;
         rootTask.currentAdjacenciesUpper = -1;
@@ -111,8 +106,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     protected CombinationGeneratorTask(SolverConfiguration solverConfig) {
         this.solverConfig = mustNotBeNull(solverConfig, "config");
-
         this.numClicks = solverConfig.numClicks();
+        this.prefix = new short[this.numClicks - 1];
         this.maxFirstClickIndex = solverConfig.getEvenClickIndices()
                 .getShort(solverConfig.getEvenClickIndices().size() - 1);
         this.trueCellMasksLower = solverConfig.getTrueCellMasksLower();
@@ -138,8 +133,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * <li><b>Intermediate Task</b> (otherwise): Invokes
      * {@link #computeIntermediateSubtasks(DefaultGeneratorContext)}.</li>
      * </ul>
-     * A {@code finally} block ensures that {@link #recycleOwnResources(DefaultGeneratorContext)} is
-     * always called to return the task and its prefix array to their respective pools. The
+     * A {@code finally} block ensures that {@link #recycleTask(DefaultGeneratorContext)} is always
+     * called to return the task and its prefix array to their respective pools. The
      * {@link DefaultGeneratorContext context} is {@link ThreadLocal#get() fetched} once at the
      * start to minimize {@link ThreadLocal} access overhead.
      * </p>
@@ -179,7 +174,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
             }
         } finally {
             // Self-cleanup: recycle our own resources
-            recycleOwnResources(ctx);
+            recycleTask(ctx);
         }
     }
 
@@ -191,13 +186,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
         for (short i = start; i < max; i++) {
             final long lowerMask = this.trueCellMasksLower.getLong(i);
 
-            final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
-
             // Identify the parity of this root subtask:
             final boolean parity = (lowerMask & 1L) != 0;
 
-            getAndForkSubtask(ctx, newPrefix, lowerMask, this.trueCellMasksUpper.getLong(i), false,
-                    parity);
+            getAndForkSubtask(ctx, i, lowerMask, this.trueCellMasksUpper.getLong(i), false, parity);
         }
 
         helpQuiesce(); // Wait for all subtasks to complete before returning
@@ -205,36 +197,33 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // parked
     }
 
-    private short[] buildPrefixWithNewValue(GeneratorContext ctx, short newValue) {
-        short[] newPrefix = ctx.getArrayPool().get();
-        if (newPrefix == null)
-            newPrefix = new short[this.numClicks - 1]; // Safeguard if pool is empty
-        System.arraycopy(this.prefix, 0, newPrefix, 0, this.prefixLength);
-        newPrefix[this.prefixLength] = newValue;
-        return newPrefix;
-    }
-
-    private void getAndForkSubtask(GeneratorContext ctx, short[] newPrefix, long newAdjacencyLower,
+    private void getAndForkSubtask(GeneratorContext ctx, short newValue, long newAdjacencyLower,
             long newAdjacencyUpper, boolean skipConstraints, boolean isOdd) {
         CombinationGeneratorTask subtask = ctx.getTaskPool().get();
         if (subtask == null)
             subtask = new CombinationGeneratorTask(this.solverConfig);
-        subtask.init(newPrefix, this.prefixLength + 1, newAdjacencyLower, newAdjacencyUpper,
-                skipConstraints, isOdd);
+
+        // Populate the subtask's preallocated prefix array
+        System.arraycopy(this.prefix, 0, subtask.prefix, 0, this.prefixLength);
+        subtask.prefix[this.prefixLength] = newValue;
+
+        subtask.init(this.prefixLength + 1, newAdjacencyLower, newAdjacencyUpper, skipConstraints,
+                isOdd);
 
         // Fork the subtask - it will clean itself up
         subtask.fork();
     }
 
+    // TODO: Consider removing a lot of these parameters in favor of passing a parent task.
     /**
-     * Initializes a recycled task with a new {@link #prefix} and state.
+     * Initializes a recycled task with a new state.
      * 
      * <p>
      * This method is central to the object pooling strategy. Instead of creating a new task, we
-     * recycle an existing one from the {@link TaskPool} and re-initialize it with a new
-     * {@code prefix} and state. It assigns the given parameters and calls {@link #reinitialize()}
-     * to reset the {@link java.util.concurrent.ForkJoinTask ForkJoinTask} state, making the task
-     * ready for re-submission.
+     * recycle an existing one from the {@link TaskPool} and re-initialize it with a new state. It
+     * assigns the given parameters and calls {@link #reinitialize()} to reset the
+     * {@link java.util.concurrent.ForkJoinTask ForkJoinTask} state, making the task ready for
+     * re-submission.
      * </p>
      * 
      * <p>
@@ -244,7 +233,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * optimizations, at the small cost of the occasional unnecessary assignment.
      * </p>
      * 
-     * @param prefix                    The prefix {@code short[]} for the new task.
      * @param prefixLength              The length of the {@code prefix}.
      * @param parentAdjacencyStateLower The lower adjacency state bits from the parent task.
      * @param parentAdjacencyStateUpper The upper adjacency state bits from the parent task.
@@ -256,9 +244,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
      * @threading Not thread-safe; must be called by only one thread at a time on a given task.
      * @memory Does not allocate; uses pooled resources.
      */
-    public void init(short[] prefix, int prefixLength, long parentAdjacencyStateLower,
+    public void init(int prefixLength, long parentAdjacencyStateLower,
             long parentAdjacencyStateUpper, boolean skipConstraints, boolean prefixParity) {
-        this.prefix = prefix;
         this.prefixLength = prefixLength;
         this.skipConstraintsCheck = skipConstraints;
         this.isOdd = prefixParity;
@@ -273,9 +260,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     // LEAF TASK PATH:
     private final void computeLeafCombinations(GeneratorContext ctx) {
-        final short[] localPrefix = mustNotBeNull(this.prefix, "prefix");
-
-        final short lastPrefixClick = (short) (localPrefix[this.prefixLength - 1] + 1);
+        final short lastPrefixClick = (short) (this.prefix[this.prefixLength - 1] + 1);
 
         // 1. Add the work range to the batch.
         WorkBatch batch = ctx.getCurrentBatch();
@@ -294,13 +279,11 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
 
         // Add the entire valid range as a single work item.
-        batch.addWork(localPrefix, lastPrefixClick, this.isOdd);
+        batch.addWork(this.prefix, lastPrefixClick, this.isOdd);
     }
 
     private void computeIntermediateSubtasks(GeneratorContext ctx) {
-        final short[] localPrefix = mustNotBeNull(this.prefix, "prefix");
-
-        final short start = (short) (localPrefix[this.prefixLength - 1] + 1);
+        final short start = (short) (this.prefix[this.prefixLength - 1] + 1);
         final short max = (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);
 
         if (this.skipConstraintsCheck) {
@@ -316,13 +299,10 @@ public class CombinationGeneratorTask extends RecursiveAction {
         for (short i = start; i < max; i++) {
             final long lowerMask = this.trueCellMasksLower.getLong(i);
 
-            final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
-
             // Determine the parity of the new prefix based on the new click
             final boolean newPrefixParity = getNewPrefixParity(lowerMask);
 
-            // All parameters are constants - perfect for JIT optimization
-            getAndForkSubtask(ctx, newPrefix, -1L, -1L, true, newPrefixParity);
+            getAndForkSubtask(ctx, i, -1L, -1L, true, newPrefixParity);
         }
     }
 
@@ -342,8 +322,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
         for (short i = start; i < max; i++) {
             final long lowerMask = this.trueCellMasksLower.getLong(i);
 
-            final short[] newPrefix = buildPrefixWithNewValue(ctx, i);
-
             // Determine the parity of the new prefix based on the new click
             final boolean newPrefixParity = getNewPrefixParity(lowerMask);
 
@@ -356,7 +334,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
                                                           // otherwise constant folded out
 
             // All parameters determined - perfect for JIT constant propagation
-            getAndForkSubtask(ctx, newPrefix, childAdjacenciesLower, childAdjacenciesUpper,
+            getAndForkSubtask(ctx, i, childAdjacenciesLower, childAdjacenciesUpper,
                     this.skipConstraintsCheck, newPrefixParity);
         }
     }
@@ -409,15 +387,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
                 && (this.suffixMasksUpper.getLong(startIdx) & neededUpper) == neededUpper;
     }
 
-    private void recycleOwnResources(GeneratorContext ctx) {
+    private void recycleTask(GeneratorContext ctx) {
         // No ThreadLocal access needed - use passed context
-
-        // Recycle prefix array to context pool if non-null
-        final short[] localPrefix = this.prefix;
-        if (localPrefix != null) {
-            ctx.getArrayPool().put(localPrefix);
-            this.prefix = null;
-        }
 
         // Recycle task to context pool
         ctx.getTaskPool().put(this);

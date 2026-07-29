@@ -247,16 +247,9 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final short start = (short) (this.prefix[this.prefixLength - 1] + 1);
         final short max = (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);
 
-        if (this.skipConstraintsCheck) {
-            computeIntermediateSubtasksSkipPath(ctx, start, max);
-        } else {
-            computeIntermediateSubtasksConstraintPath(ctx, start, max);
-        }
-    }
+        if (!this.skipConstraintsCheck && this.prefixLength >= 2 && !constraintCheck(start))
+            return;
 
-    // PURE HOT PATH 1:
-    private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx, short start, short max) {
-        // Pure loop - no constraint checking, no mask loading, no conditionals
         for (short i = start; i < max; i++)
             getAndForkSubtask(ctx, i);
     }
@@ -264,19 +257,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
     private boolean getNewPrefixParity(short newValue) {
         final long lowerMask = this.trueCellMasksLower.getLong(newValue);
         return this.isOdd ^ ((lowerMask & 1L) != 0);
-    }
-
-    // PURE HOT PATH 2:
-    private void computeIntermediateSubtasksConstraintPath(GeneratorContext ctx, short start,
-            short max) {
-        // Early constraint check - happens ONCE per task, not per iteration
-        if (this.prefixLength >= 2 && !constraintCheck(start)) {
-            return; // Skip this entire branch if constraints cannot be satisfied
-        }
-
-        // Pure loop - no conditionals inside, all branching resolved outside loop
-        for (short i = start; i < max; i++)
-            getAndForkSubtask(ctx, i);
     }
 
     boolean constraintCheck(int startIdx) {

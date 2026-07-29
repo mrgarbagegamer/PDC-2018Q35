@@ -79,8 +79,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     // Cached data between tasks
     private int prefixLength;
-    private long currentAdjacenciesLower = -1;
-    private long currentAdjacenciesUpper = -1;
+    private long currentAdjacenciesLower = 0L;
+    private long currentAdjacenciesUpper = 0L;
     private boolean isOdd;
     private boolean skipConstraintsCheck = false;
 
@@ -98,8 +98,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         // Initialize instance fields
         rootTask.prefixLength = 0;
-        rootTask.currentAdjacenciesLower = -1;
-        rootTask.currentAdjacenciesUpper = -1;
 
         return rootTask;
     }
@@ -183,83 +181,49 @@ public class CombinationGeneratorTask extends RecursiveAction {
         final short max = (short) (Math.min(Grid.NUM_CELLS - this.numClicks,
                 this.maxFirstClickIndex) + 1);
 
-        for (short i = start; i < max; i++) {
-            final long lowerMask = this.trueCellMasksLower.getLong(i);
-
-            // Identify the parity of this root subtask:
-            final boolean parity = (lowerMask & 1L) != 0;
-
-            getAndForkSubtask(ctx, i, lowerMask, this.trueCellMasksUpper.getLong(i), false, parity);
-        }
+        for (short i = start; i < max; i++)
+            getAndForkSubtask(ctx, i);
 
         helpQuiesce(); // Wait for all subtasks to complete before returning
         // This will ensure that the root task does not exit prematurely, keeping the main thread
         // parked
     }
 
-    private void getAndForkSubtask(GeneratorContext ctx, short newValue, long newAdjacencyLower,
-            long newAdjacencyUpper, boolean skipConstraints, boolean isOdd) {
+    private void getAndForkSubtask(GeneratorContext ctx, short newValue) {
         CombinationGeneratorTask subtask = ctx.getTaskPool().get();
         if (subtask == null)
             subtask = new CombinationGeneratorTask(this.solverConfig);
 
-        // Populate the subtask's preallocated prefix array
-        System.arraycopy(this.prefix, 0, subtask.prefix, 0, this.prefixLength);
-        subtask.prefix[this.prefixLength] = newValue;
-
-        subtask.init(this.prefixLength + 1, newAdjacencyLower, newAdjacencyUpper, skipConstraints,
-                isOdd);
+        subtask.init(this, newValue);
 
         // Fork the subtask - it will clean itself up
         subtask.fork();
     }
 
-    // TODO: Consider removing a lot of these parameters in favor of passing a parent task.
-    /**
-     * Initializes a recycled task with a new state.
-     * 
-     * <p>
-     * This method is central to the object pooling strategy. Instead of creating a new task, we
-     * recycle an existing one from the {@link TaskPool} and re-initialize it with a new state. It
-     * assigns the given parameters and calls {@link #reinitialize()} to reset the
-     * {@link java.util.concurrent.ForkJoinTask ForkJoinTask} state, making the task ready for
-     * re-submission.
-     * </p>
-     * 
-     * <p>
-     * This method was intentionally designed as a single, monomorphic call site. Previous versions
-     * had multiple {@code init} overloads, which hindered JIT compiler optimizations. By
-     * consolidating them into one method, we improve performance and allow for greater JIT
-     * optimizations, at the small cost of the occasional unnecessary assignment.
-     * </p>
-     * 
-     * @param prefixLength              The length of the {@code prefix}.
-     * @param parentAdjacencyStateLower The lower adjacency state bits from the parent task.
-     * @param parentAdjacencyStateUpper The upper adjacency state bits from the parent task.
-     * @param skipConstraints           A flag indicating if constraint checks can be skipped.
-     * @param prefixParity              The parity of the {@code prefix} affecting the first
-     *                                  {@code true} cell.
-     * @since 2025.07 - Task Pool Introduction
-     * @performance {@code O(1)} for assignments and reinitialization.
-     * @threading Not thread-safe; must be called by only one thread at a time on a given task.
-     * @memory Does not allocate; uses pooled resources.
-     */
-    public void init(int prefixLength, long parentAdjacencyStateLower,
-            long parentAdjacencyStateUpper, boolean skipConstraints, boolean prefixParity) {
-        this.prefixLength = prefixLength;
-        this.skipConstraintsCheck = skipConstraints;
-        this.isOdd = prefixParity;
-        this.currentAdjacenciesLower = parentAdjacencyStateLower;
-        reinitialize();
+    public void init(CombinationGeneratorTask parentTask, short newValue) {
+        // Copy the parent's prefix to the subtask, then append the new value
+        System.arraycopy(parentTask.prefix, 0, this.prefix, 0, parentTask.prefixLength);
+        this.prefix[parentTask.prefixLength] = newValue;
 
-        if (this.useDualMasks) {
-            // Update the upper state
-            this.currentAdjacenciesUpper = parentAdjacencyStateUpper;
+        this.prefixLength = parentTask.prefixLength + 1;
+        this.skipConstraintsCheck = parentTask.skipConstraintsCheck;
+        this.isOdd = parentTask.getNewPrefixParity(newValue);
+
+        if (!this.skipConstraintsCheck) {
+            this.currentAdjacenciesLower = parentTask.currentAdjacenciesLower
+                    | this.trueCellMasksLower.getLong(newValue);
+
+            if (this.useDualMasks)
+                this.currentAdjacenciesUpper = parentTask.currentAdjacenciesUpper
+                        | this.trueCellMasksUpper.getLong(newValue);
         }
+
+        reinitialize();
     }
 
     // LEAF TASK PATH:
     private final void computeLeafCombinations(GeneratorContext ctx) {
+        // TODO: Add a lastPrefixClick helper method to reduce duplication.
         final short lastPrefixClick = (short) (this.prefix[this.prefixLength - 1] + 1);
 
         // 1. Add the work range to the batch.
@@ -296,17 +260,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
     // PURE HOT PATH 1:
     private void computeIntermediateSubtasksSkipPath(GeneratorContext ctx, short start, short max) {
         // Pure loop - no constraint checking, no mask loading, no conditionals
-        for (short i = start; i < max; i++) {
-            final long lowerMask = this.trueCellMasksLower.getLong(i);
-
-            // Determine the parity of the new prefix based on the new click
-            final boolean newPrefixParity = getNewPrefixParity(lowerMask);
-
-            getAndForkSubtask(ctx, i, -1L, -1L, true, newPrefixParity);
-        }
+        for (short i = start; i < max; i++)
+            getAndForkSubtask(ctx, i);
     }
 
-    private boolean getNewPrefixParity(long lowerMask) {
+    private boolean getNewPrefixParity(short newValue) {
+        final long lowerMask = this.trueCellMasksLower.getLong(newValue);
         return this.isOdd ^ ((lowerMask & 1L) != 0);
     }
 
@@ -319,24 +278,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
         }
 
         // Pure loop - no conditionals inside, all branching resolved outside loop
-        for (short i = start; i < max; i++) {
-            final long lowerMask = this.trueCellMasksLower.getLong(i);
-
-            // Determine the parity of the new prefix based on the new click
-            final boolean newPrefixParity = getNewPrefixParity(lowerMask);
-
-            // Update the adjacency state for the child task
-            final long childAdjacenciesLower = this.currentAdjacenciesLower | lowerMask;
-            // TODO: Extract this to a separate method that checks if dual masks are enabled for
-            // better JIT constant folding
-            final long childAdjacenciesUpper = this.currentAdjacenciesUpper
-                    | this.trueCellMasksUpper.getLong(i); // Only used if dual masks are enabled,
-                                                          // otherwise constant folded out
-
-            // All parameters determined - perfect for JIT constant propagation
-            getAndForkSubtask(ctx, i, childAdjacenciesLower, childAdjacenciesUpper,
-                    this.skipConstraintsCheck, newPrefixParity);
-        }
+        for (short i = start; i < max; i++)
+            getAndForkSubtask(ctx, i);
     }
 
     boolean constraintCheck(int startIdx) {

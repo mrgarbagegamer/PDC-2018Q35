@@ -168,8 +168,7 @@ final class QueueWrappers {
             private static <Q extends MessagePassingQueue<WorkBatch>> BoundedJCWrapper<Q> create(
                     Q delegate) {
                 mustNotBeNull(delegate, "delegate");
-                int capacity = delegate.capacity();
-                checkArgument(capacity != MessagePassingQueue.UNBOUNDED_CAPACITY,
+                checkArgument(delegate.capacity() != MessagePassingQueue.UNBOUNDED_CAPACITY,
                         "Cannot create a bounded wrapper for an unbounded queue");
 
                 final String name = delegate.getClass().getSimpleName();

@@ -6,6 +6,8 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassErr
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.QueueWrapper.AccessMode;
 import com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 
 final class MetadataValidator {
     @ExcludeFromGeneratedCoverage
@@ -15,7 +17,7 @@ final class MetadataValidator {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         // Ensure that all queues in the group have the same boundedness:
-        final Boundedness firstBoundedness = wrappedQueues.get(0).boundedness();
+        final Boundedness firstBoundedness = wrappedQueues.getFirst().boundedness();
         for (int i = 1; i < wrappedQueues.size(); i++) {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final Boundedness currentBoundedness = currentQueue.boundedness();
@@ -30,7 +32,7 @@ final class MetadataValidator {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
 
         // Ensure that all queues in the group have the same access mode:
-        final AccessMode firstAccessMode = wrappedQueues.get(0).accessMode();
+        final AccessMode firstAccessMode = wrappedQueues.getFirst().accessMode();
         for (int i = 1; i < wrappedQueues.size(); i++) {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final AccessMode currentAccessMode = currentQueue.accessMode();
@@ -60,8 +62,9 @@ final class MetadataValidator {
         }
     }
 
-    private static void fail(QueueGroup<?> group, int queueIndex, String reasonTemplate,
-            Object... reasonArgs) {
+    @FormatMethod
+    private static void fail(QueueGroup<?> group, int queueIndex,
+            @FormatString String reasonTemplate, Object... reasonArgs) {
         final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException(
                 "Metadata validation failed for %s: %s at index %d has %s"

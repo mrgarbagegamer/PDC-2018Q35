@@ -3,7 +3,6 @@ package com.github.mrgarbagegamer.queues;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.List;
-import java.util.function.Predicate;
 
 final class SelectorValidationTarget<Q> {
     private final QueueGroup<Q> group;
@@ -46,20 +45,26 @@ final class SelectorValidationTarget<Q> {
     boolean isSingleAccess(QueueWrapper<?> wrapper) { return role.isSingleAccess(wrapper); }
 
     private enum ValidationRole {
-        PRODUCER("producer", (wrapper) -> wrapper.accessMode().isSingleProducer()),
-        CONSUMER("consumer", (wrapper) -> wrapper.accessMode().isSingleConsumer());
+        PRODUCER("producer") {
+            @Override
+            boolean isSingleAccess(QueueWrapper<?> wrapper) {
+                return wrapper.accessMode().isSingleProducer();
+            }
+        },
+        CONSUMER("consumer") {
+            @Override
+            boolean isSingleAccess(QueueWrapper<?> wrapper) {
+                return wrapper.accessMode().isSingleConsumer();
+            }
+        };
 
         private final String name;
-        private final Predicate<QueueWrapper<?>> singleAccess;
 
-        private ValidationRole(String name, Predicate<QueueWrapper<?>> singleAccess) {
-            this.name = name;
-            this.singleAccess = singleAccess;
-        }
+        private ValidationRole(String name) { this.name = name; }
 
         final String getName() { return name; }
 
-        final boolean isSingleAccess(QueueWrapper<?> wrapper) { return singleAccess.test(wrapper); }
+        abstract boolean isSingleAccess(QueueWrapper<?> wrapper);
 
         final boolean isProducer() { return this == PRODUCER; }
     }

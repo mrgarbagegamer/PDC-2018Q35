@@ -4,10 +4,13 @@ import java.util.List;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BooleanSupplier;
 
+import org.jspecify.annotations.Nullable;
+
 import com.github.mrgarbagegamer.WorkBatch;
 
 interface QueueSelector<Q> {
 
+    @Nullable
     WorkBatch poll(int threadId, List<? extends Q> queues, BackoffStrategy backoff,
             BooleanSupplier shouldContinue);
 
@@ -39,7 +42,7 @@ interface QueueSelector<Q> {
 
         static BackoffStrategy noOp() { return () -> {}; }
 
-        static BackoffStrategy yield() { return Thread::yield; }
+        static BackoffStrategy yieldThread() { return Thread::yield; }
 
         static BackoffStrategy parkNanos(long nanos) { return () -> LockSupport.parkNanos(nanos); }
 

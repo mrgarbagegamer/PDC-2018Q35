@@ -1,8 +1,14 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.google.common.base.Preconditions.checkArgument;
+
 import java.util.Arrays;
 
+import org.jspecify.annotations.Nullable;
+
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
+import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
@@ -235,9 +241,8 @@ public abstract class Grid {
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
      */
-    public static final short[] ROW_OFFSETS = {0, 16, 31, 47, 62, 78, 93}; // TODO: Replace with a
-                                                                           // ShortImmutableList to
-                                                                           // ensure immutability
+    public static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
+            (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
     /**
      * The total number of cells in the grid.
      *
@@ -435,6 +440,11 @@ public abstract class Grid {
     // We don't necessarily need to worry too much about how optimized this block
     // is, since it's only run once at startup.
     static {
+        // 1. Populate the packed-to-index lookup cache first:
+        for (short cell = 0; cell < NUM_CELLS; cell++) {
+            PACKED_TO_INDEX_CACHE[indexToPacked(cell)] = cell;
+        }
+
         for (short cell = 0; cell < NUM_CELLS; cell++) {
             ShortList adjSet = computeAdjacents(cell, ValueFormat.Index, ValueFormat.Index);
             short[] adjArr = new short[adjSet.size()];
@@ -458,7 +468,6 @@ public abstract class Grid {
 
             adjacencyArray[cell] = adjArr;
             ADJACENCY_MASKS[cell] = mask;
-            PACKED_TO_INDEX_CACHE[computePackedToIndex(cell)] = cell;
         }
     }
 
@@ -525,17 +534,11 @@ public abstract class Grid {
 
         // We need to handle different formats for adjacency
         switch (inputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Convert the cell to packed int format
-                cell = indexToPacked((short) cell);
-            case PackedInt:
-                // If the cell is in packed int format, we can directly compute adjacents
-                break;
-            case null:
-                throw new NullPointerException("Input format cannot be null.");
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> cell = indexToPacked((short) cell);
+            case PackedInt -> {} // Already in PackedInt format, no conversion needed
+            case null -> throw new NullPointerException("Input format cannot be null.");
         }
 
         int row = cell / 100;
@@ -566,18 +569,11 @@ public abstract class Grid {
         });
 
         switch (outputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Convert packed int to index
-                affectedPieces.replaceAll(Grid::packedToIndex);
-                break;
-            case PackedInt:
-                // Already in packed int format, no conversion needed
-                break;
-            case null:
-                throw new NullPointerException("Output format cannot be null.");
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> affectedPieces.replaceAll(Grid::packedToIndex);
+            case PackedInt -> {} // Already in PackedInt format, no conversion needed
+            case null -> throw new NullPointerException("Output format cannot be null.");
         }
 
         return affectedPieces;
@@ -664,42 +660,32 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result only if format conversion is
      *         necessary.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public static short[] findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
-        short[] result;
-        switch (inputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                // Convert packed int to index
-                cell = packedToIndex(cell);
-            case Index:
-                // Already in index format, no conversion needed.
-                result = adjacencyArray[cell];
-                break;
-            case null:
-                throw new NullPointerException("Input format cannot be null.");
-        }
-        switch (outputFormat) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
-                // Convert index to packed int format
-                short[] packedResult = new short[result.length];
-                for (short i = 0; i < result.length; i++) {
-                    packedResult[i] = indexToPacked(result[i]);
-                }
-                return packedResult;
-            case null:
-                throw new NullPointerException("Output format cannot be null.");
-        }
+        final short index = switch (inputFormat) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case PackedInt -> packedToIndex(cell);
+            case Index -> cell;
+            case null -> throw new NullPointerException("Input format cannot be null.");
+        };
 
-        return result;
+        final short[] result = adjacencyArray[index].clone();
+
+        return switch (outputFormat) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> result;
+            case PackedInt -> {
+                // Convert index to packed int format
+                for (short i = 0; i < result.length; i++) {
+                    result[i] = indexToPacked(result[i]);
+                }
+                yield result;
+            }
+            case null -> throw new NullPointerException("Output format cannot be null.");
+        };
     }
 
     /**
@@ -719,6 +705,7 @@ public abstract class Grid {
      * @memory Allocates a new {@code short[]} for the result only if format conversion is
      *         necessary.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public static short[] findAdjacents(short cell, ValueFormat format) {
         return findAdjacents(cell, format, format);
     }
@@ -737,38 +724,9 @@ public abstract class Grid {
      *            method}.
      * @memory Does not allocate; returns a reference to an existing {@code short[]}.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public static short[] findAdjacents(short cell) {
         return findAdjacents(cell, ValueFormat.Index);
-    }
-
-    /**
-     * Computes the {@link #packedToIndex(short) conversion} from {@link ValueFormat#PackedInt} to
-     * {@link ValueFormat#Index} format.
-     *
-     * <p>
-     * This method performs the necessary arithmetic to determine the correct {@code Index} for a
-     * given {@code PackedInt} value, taking into account the varying row lengths of the hexagonal
-     * grid. It extracts the row and column from the {@code PackedInt} and uses the
-     * {@link #ROW_OFFSETS} array to calculate the flattened index.
-     * </p>
-     *
-     * <p>
-     * This method is primarily used during {@code static} initialization to populate the
-     * {@link #PACKED_TO_INDEX_CACHE}. It does not perform bounds checking, assuming valid input
-     * during its intended use.
-     * </p>
-     *
-     * @param packed The cell in {@link ValueFormat#PackedInt} format.
-     * @return The cell in {@link ValueFormat#Index} format.
-     * @since 2025.06 - {@link ValueFormat#PackedInt} to {@link ValueFormat#Index} Precomputation
-     * @performance {@code O(1)} complexity due to direct arithmetic and a single array lookup.
-     * @threading Thread-safe; does not modify instance state.
-     * @memory Does not allocate.
-     */
-    private static short computePackedToIndex(short packed) {
-        short row = (short) (packed / 100);
-        short col = (short) (packed % 100);
-        return (short) (ROW_OFFSETS[row] + col);
     }
 
     /**
@@ -776,9 +734,7 @@ public abstract class Grid {
      * a pre-computed cache.
      *
      * <p>
-     * This method leverages the {@link #PACKED_TO_INDEX_CACHE} for {@code O(1)} lookups. If a value
-     * is not found in the cache (which should only happen for {@code packed = 0} during initial
-     * {@code static} setup), it is computed on-the-fly using {@link #computePackedToIndex(short)}.
+     * This method leverages the {@link #PACKED_TO_INDEX_CACHE} for {@code O(1)} lookups.
      * </p>
      *
      * <h3>Optimization Rationale</h3>
@@ -800,16 +756,10 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     public final static short packedToIndex(short packed) {
-        if (packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length) {
-            // TODO: Explicitly pre-compute the entire cache in the static block to avoid on-the-fly
-            // calculations.
-            if (PACKED_TO_INDEX_CACHE[packed] == 0 && packed != 0) {
-                // If the cache is not initialized, compute it
-                PACKED_TO_INDEX_CACHE[packed] = computePackedToIndex(packed);
-            }
-            return PACKED_TO_INDEX_CACHE[packed];
-        }
-        throw new IllegalArgumentException("Invalid packed int: " + packed);
+        checkArgument(packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length,
+                "packed must be in range [0, %s], but was %s", PACKED_TO_INDEX_CACHE.length - 1,
+                packed);
+        return PACKED_TO_INDEX_CACHE[packed];
     }
 
     /**
@@ -843,20 +793,20 @@ public abstract class Grid {
             throw new IllegalArgumentException("Invalid index: " + index);
         }
 
-        if (index < 16)
+        if (index < ROW_OFFSETS.getShort(1))
             return (short) (0 * 100 + index);
-        if (index < 31)
-            return (short) (1 * 100 + (index - 16));
-        if (index < 47)
-            return (short) (2 * 100 + (index - 31));
-        if (index < 62)
-            return (short) (3 * 100 + (index - 47));
-        if (index < 78)
-            return (short) (4 * 100 + (index - 62));
-        if (index < 93)
-            return (short) (5 * 100 + (index - 78));
+        if (index < ROW_OFFSETS.getShort(2))
+            return (short) (1 * 100 + (index - ROW_OFFSETS.getShort(1)));
+        if (index < ROW_OFFSETS.getShort(3))
+            return (short) (2 * 100 + (index - ROW_OFFSETS.getShort(2)));
+        if (index < ROW_OFFSETS.getShort(4))
+            return (short) (3 * 100 + (index - ROW_OFFSETS.getShort(3)));
+        if (index < ROW_OFFSETS.getShort(5))
+            return (short) (4 * 100 + (index - ROW_OFFSETS.getShort(4)));
+        if (index < ROW_OFFSETS.getShort(6))
+            return (short) (5 * 100 + (index - ROW_OFFSETS.getShort(5)));
         else
-            return (short) (6 * 100 + (index - 93));
+            return (short) (6 * 100 + (index - ROW_OFFSETS.getShort(6)));
     }
 
     /**
@@ -915,11 +865,11 @@ public abstract class Grid {
      * </p>
      * 
      * <p>
-     * Just calling {@link #Grid() new Grid()} to create a new instance would not work either, as
-     * {@code Grid} is {@code abstract} and cannot be instantiated directly. The only other
-     * alternatives involve using reflection (which is inefficient and still not type-safe) or
-     * requiring each subclass to implement its own {@code clone()} method (violating the DRY
-     * principle and risking inconsistent behavior).
+     * Just calling {@link #Grid(long, long) new Grid(long, long)} to create a new instance would
+     * not work either, as {@code Grid} is {@code abstract} and cannot be instantiated directly. The
+     * only other alternatives involve using reflection (which is inefficient and still not
+     * type-safe) or requiring each subclass to implement its own {@code clone()} method (violating
+     * the DRY principle and risking inconsistent behavior).
      * </p>
      * 
      * <p>
@@ -973,24 +923,8 @@ public abstract class Grid {
      */
     public abstract Grid copy();
 
-    /**
-     * Initializes the {@code Grid} instance to a specific starting state.
-     *
-     * <p>
-     * This {@code abstract} method must be implemented by concrete subclasses to define their
-     * unique initial puzzle configurations. It is called by the {@link #Grid() constructor} during
-     * instance creation, ensuring the {@link #gridState grid state} is properly set up from the
-     * outset.
-     * </p>
-     *
-     * @see Grid13
-     * @see Grid22
-     * @see Grid35
-     * @since 2025.03 - Abstract {@code Grid} Introduction
-     * @performance Implementation-dependent.
-     * @threading Not thread-safe; this method modifies the instance's {@link #gridState}.
-     */
-    public void initialize() {
+    // TODO: Update Javadocs
+    public final void initialize() {
         setGridState(initialState0, initialState1, initialTrueCellsCount, initialFirstTrueCell);
     }
 
@@ -1187,24 +1121,19 @@ public abstract class Grid {
                 trueCellsArray[idx++] = i;
         }
 
-        switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing true cells (since that's just the Grid).");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
+        return switch (format) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing true cells (since that's just the Grid).");
+            case Index -> trueCellsArray;
+            case PackedInt -> {
                 // Convert index to packed int format
                 for (int i = 0; i < trueCellsCount; i++) {
-                    trueCellsArray[i] = (short) indexToPacked(trueCellsArray[i]);
+                    trueCellsArray[i] = indexToPacked(trueCellsArray[i]);
                 }
-                break;
-            case null:
-                throw new NullPointerException("Format cannot be null.");
-        }
-
-        return trueCellsArray;
+                yield trueCellsArray;
+            }
+            case null -> throw new NullPointerException("Format cannot be null.");
+        };
     }
 
     /**
@@ -1299,23 +1228,17 @@ public abstract class Grid {
 
             recalculationNeeded = false;
         }
+
         if (firstTrueCell == -1)
             return -1;
-        // Convert the result to the desired format
-        switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case PackedInt:
-                // Convert index to packed int format
-                return indexToPacked(firstTrueCell);
-            case null:
-                throw new NullPointerException("Format cannot be null.");
-        }
-        return firstTrueCell;
+
+        return switch (format) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case Index -> firstTrueCell;
+            case PackedInt -> indexToPacked(firstTrueCell);
+            case null -> throw new NullPointerException("Format cannot be null.");
+        };
     }
 
     /**
@@ -1346,7 +1269,7 @@ public abstract class Grid {
         if (recalculationNeeded) {
             // Find first true cell using bit operations
             if (gridState[0] != 0L) {
-                firstTrueCell = (short) (Long.numberOfTrailingZeros(gridState[0]));
+                firstTrueCell = (short) Long.numberOfTrailingZeros(gridState[0]);
             } else if (gridState[1] != 0L) {
                 firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(gridState[1]));
             } else {
@@ -1403,23 +1326,11 @@ public abstract class Grid {
     @Deprecated
     public void click(short cell, ValueFormat format) {
         switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Unsupported format: Bitmask must be a long[] of length 1 or 2.");
-            case PackedInt:
-                // Convert packed int to index format
-                cell = packedToIndex(cell);
-            case Index:
-                // If the cell is in index format, we can directly use it
-                // XOR the grid state with the pre-computed adjacency mask
-                gridState[0] ^= ADJACENCY_MASKS[cell][0];
-                gridState[1] ^= ADJACENCY_MASKS[cell][1];
-
-                // Mark for recalculation of first true cell
-                recalculationNeeded = true;
-                break;
-            case null:
-                throw new NullPointerException("Format cannot be null.");
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Unsupported format: Bitmask must be a long[] of length 1 or 2.");
+            case PackedInt -> click(packedToIndex(cell));
+            case Index -> click(cell);
+            case null -> throw new NullPointerException("Format cannot be null.");
         }
     }
 
@@ -1563,7 +1474,7 @@ public abstract class Grid {
      * </p>
      *
      * @param cells An array of cells (in {@link ValueFormat#Index} format) to click.
-     * @throws ArrayIndexOutOfBoundsException if any {@code cell} in the array is out of bounds.
+     * @throws ArrayIndexOutOfBoundsException if any cell in the array is out of bounds.
      * @throws NullPointerException           if the {@code cells} array is {@code null}.
      * @see #click(short)
      * @since 2025.07 - Bulk Clicks
@@ -1668,21 +1579,16 @@ public abstract class Grid {
      * @threading Not thread-safe; depends on the result of non-thread-safe methods.
      * @memory Allocates a new {@code short[]} for the result.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public short[] findFirstTrueAdjacents(ValueFormat format) {
-        if (format == ValueFormat.Bitmask) {
-            throw new IllegalArgumentException(
-                    "Bitmask format is not supported for this operation.");
-        } else if (format == null) {
-            throw new NullPointerException("Format cannot be null.");
-        }
+        mustNotBeNull(format, "format");
+        checkArgument(format != ValueFormat.Bitmask,
+                "Bitmask format is not supported for this operation.");
 
         short firstTrueCell = findFirstTrueCell(format);
         if (firstTrueCell == -1)
-            return null;
+            return new short[0];
         short[] trueAdjacents = findAdjacents(firstTrueCell, format);
-
-        if (trueAdjacents == null || trueAdjacents.length == 0)
-            return null;
 
         return trueAdjacents;
     }
@@ -1699,6 +1605,7 @@ public abstract class Grid {
      * @threading Not thread-safe.
      * @memory Allocates a new {@code short[]} for the result.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public short[] findFirstTrueAdjacents() { return findFirstTrueAdjacents(ValueFormat.Index); }
 
     /**
@@ -1747,17 +1654,19 @@ public abstract class Grid {
      * @threading Not thread-safe; relies on non-thread-safe methods.
      * @memory Allocates a new {@code short[]} for the result.
      */
+    // TODO: Consider returning a ShortList instead of a short[]
     public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
-        if (inputFormat == ValueFormat.Bitmask || outputFormat == ValueFormat.Bitmask) {
-            throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
-        } else if (inputFormat == null || outputFormat == null) {
-            throw new NullPointerException("Formats cannot be null.");
-        }
+        mustNotBeNull(inputFormat, "inputFormat");
+        mustNotBeNull(outputFormat, "outputFormat");
+        checkArgument(inputFormat != ValueFormat.Bitmask,
+                "Bitmask is not a supported input format");
+        checkArgument(outputFormat != ValueFormat.Bitmask,
+                "Bitmask is not a supported output format");
+
         short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
-        if (firstTrueAdjacents == null)
-            return null; // TODO: Consider replacing this with an empty array for consistency.
+        if (firstTrueAdjacents.length == 0)
+            return new short[0];
 
         // Binary search to find the index of the first adjacent cell greater than 'cell'
         int index = -1;
@@ -1774,7 +1683,7 @@ public abstract class Grid {
 
         // If no adjacent cell greater than 'cell' is found, return null
         if (index == -1)
-            return null;
+            return new short[0];
 
         // If the index is found, return the subarray starting from that index
         short[] result = new short[firstTrueAdjacents.length - index];
@@ -1877,12 +1786,9 @@ public abstract class Grid {
      */
     public static boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell,
             ValueFormat format) {
-        if (format == ValueFormat.Bitmask) {
-            throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
-        } else if (format == null) {
-            throw new NullPointerException("Format cannot be null.");
-        }
+        mustNotBeNull(format, "format");
+        checkArgument(format != ValueFormat.Bitmask,
+                "Bitmask format is not supported for this operation.");
 
         if (firstTrueCell == -1)
             return true; // No true cells, any click can create one
@@ -1926,20 +1832,13 @@ public abstract class Grid {
      */
     public static boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         // Convert both cells to index format if necessary
-        switch (format) {
-            case Bitmask:
-                throw new IllegalArgumentException(
-                        "Bitmask format is not supported for representing a single cell.");
-            case PackedInt:
-                cellA = packedToIndex(cellA);
-                cellB = packedToIndex(cellB);
-            case Index:
-                // Already in index format, no conversion needed
-                break;
-            case null:
-                throw new NullPointerException("Format cannot be null.");
-        }
-        return ADJACENCY_CACHE[cellA][cellB];
+        return switch (format) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for representing a single cell.");
+            case PackedInt -> ADJACENCY_CACHE[packedToIndex(cellA)][packedToIndex(cellB)];
+            case Index -> ADJACENCY_CACHE[cellA][cellB];
+            case null -> throw new NullPointerException("Format cannot be null.");
+        };
     }
 
     /**
@@ -1986,7 +1885,7 @@ public abstract class Grid {
             }
         }
 
-        return inverted;
+        return new ShortImmutableList(inverted); // Make an immutable copy.
     }
 
     /**
@@ -2003,7 +1902,7 @@ public abstract class Grid {
      * @memory Allocates a new {@link ShortArrayList} and resulting {@code short[]} array.
      */
     public static short[] invertCombination(short[] clicks) {
-        return invertCombination(ShortList.of(clicks)).toShortArray();
+        return invertCombination(new ShortImmutableList(clicks)).toShortArray();
     }
 
     /**
@@ -2065,19 +1964,10 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         // Following the Effective Java recipe for equals
-
-        if (obj == this)
-            return true;
-        if (!(obj instanceof Grid))
-            return false;
-        Grid other = (Grid) obj;
-
-        // Since firstTrueCell and trueCellsCount are lazily evaluated and derived from gridState,
-        // we only
-        // need to compare gridState arrays.
-        return Arrays.equals(other.gridState, this.gridState);
+        return obj == this
+                || (obj instanceof Grid other && Arrays.equals(this.gridState, other.gridState));
     }
 
     /**
@@ -2100,6 +1990,11 @@ public abstract class Grid {
     @Override
     public final int hashCode() { return Arrays.hashCode(gridState); }
 
+    private static void checkIndex(short index) {
+        checkArgument(index >= 0 && index < Grid.NUM_CELLS, "index %s is out of bounds [0, %s]",
+                index, Grid.NUM_CELLS - 1);
+    }
+
     private static final class CustomGrid extends Grid {
         private CustomGrid(Builder builder) { super(builder.initialState0, builder.initialState1); }
 
@@ -2115,171 +2010,101 @@ public abstract class Grid {
         private long initialState0 = 0L;
         private long initialState1 = 0L;
 
-        protected Builder self() { return this; }
+        private Builder() {}
 
         public Builder setInitialState(long state0, long state1) {
+            checkArgument(((state1 >>> 45) == 0L),
+                    "state1 mask %s has bits set at or above index 45",
+                    Long.toBinaryString(state1));
+
             this.initialState0 = state0;
             this.initialState1 = state1;
-            return self();
+            return this;
         }
 
         public Builder click(short cell) {
-            initialState0 ^= ADJACENCY_MASKS[cell][0];
-            initialState1 ^= ADJACENCY_MASKS[cell][1];
-            return self();
+            checkIndex(cell);
+            this.initialState0 ^= ADJACENCY_MASKS[cell][0];
+            this.initialState1 ^= ADJACENCY_MASKS[cell][1];
+            return this;
         }
 
         public Builder click(short cell1, short cell2) {
             click(cell1);
             click(cell2);
-            return self();
+            return this;
         }
 
         public Builder click(short cell1, short cell2, short cell3) {
             click(cell1);
             click(cell2);
             click(cell3);
-            return self();
+            return this;
         }
 
-        public Builder click(short cell1, short cell2, short cell3, short cell4) {
+        public Builder click(short cell1, short cell2, short cell3, short... cells) {
             click(cell1);
             click(cell2);
             click(cell3);
-            click(cell4);
-            return self();
-        }
 
-        public Builder click(short cell1, short cell2, short cell3, short cell4, short cell5) {
-            click(cell1);
-            click(cell2);
-            click(cell3);
-            click(cell4);
-            click(cell5);
-            return self();
-        }
-
-        public Builder click(short... cells) {
             for (short cell : cells) {
                 click(cell);
             }
-            return self();
-        }
-
-        public Builder click(int cell) { return click((short) cell); }
-
-        public Builder click(int cell1, int cell2) { return click((short) cell1, (short) cell2); }
-
-        public Builder click(int cell1, int cell2, int cell3) {
-            return click((short) cell1, (short) cell2, (short) cell3);
-        }
-
-        public Builder click(int cell1, int cell2, int cell3, int cell4) {
-            return click((short) cell1, (short) cell2, (short) cell3, (short) cell4);
-        }
-
-        public Builder click(int cell1, int cell2, int cell3, int cell4, int cell5) {
-            return click((short) cell1, (short) cell2, (short) cell3, (short) cell4, (short) cell5);
-        }
-
-        public Builder click(int... cells) {
-            for (int cell : cells) {
-                click((short) cell);
-            }
-            return self();
+            return this;
         }
 
         public Builder from(Grid other) {
-            this.initialState0 = other.gridState[0];
-            this.initialState1 = other.gridState[1];
-            return self();
+            mustNotBeNull(other, "other");
+
+            return setInitialState(other.gridState[0], other.gridState[1]);
         }
 
         public Builder from(long[] bitmask) {
-            if (bitmask.length != 2) {
-                throw new IllegalArgumentException("Bitmask must be of length 2.");
-            }
-            this.initialState0 = bitmask[0];
-            this.initialState1 = bitmask[1];
-            return self();
+            mustNotBeNull(bitmask, "bitmask");
+            checkArgument(bitmask.length == 2, "bitmask must be of length 2, was %s",
+                    bitmask.length);
+
+            return setInitialState(bitmask[0], bitmask[1]);
         }
 
         public Builder toggle(short cell) {
+            checkIndex(cell);
+
             if (cell < 64) {
                 initialState0 ^= (1L << cell);
             } else {
                 initialState1 ^= (1L << (cell - 64));
             }
 
-            return self();
+            return this;
         }
 
         public Builder toggle(short cell1, short cell2) {
             toggle(cell1);
             toggle(cell2);
-            return self();
+            return this;
         }
 
         public Builder toggle(short cell1, short cell2, short cell3) {
             toggle(cell1);
             toggle(cell2);
             toggle(cell3);
-            return self();
+            return this;
         }
 
-        public Builder toggle(short cell1, short cell2, short cell3, short cell4) {
+        public Builder toggle(short cell1, short cell2, short cell3, short... cells) {
             toggle(cell1);
             toggle(cell2);
             toggle(cell3);
-            toggle(cell4);
-            return self();
-        }
 
-        public Builder toggle(short cell1, short cell2, short cell3, short cell4, short cell5) {
-            toggle(cell1);
-            toggle(cell2);
-            toggle(cell3);
-            toggle(cell4);
-            toggle(cell5);
-            return self();
-        }
-
-        public Builder toggle(short... cells) {
             for (short cell : cells) {
                 toggle(cell);
             }
-            return self();
+            return this;
         }
 
-        public Builder toggle(int cell) { return toggle((short) cell); }
+        public Builder clear() { return setInitialState(0L, 0L); }
 
-        public Builder toggle(int cell1, int cell2) { return toggle((short) cell1, (short) cell2); }
-
-        public Builder toggle(int cell1, int cell2, int cell3) {
-            return toggle((short) cell1, (short) cell2, (short) cell3);
-        }
-
-        public Builder toggle(int cell1, int cell2, int cell3, int cell4) {
-            return toggle((short) cell1, (short) cell2, (short) cell3, (short) cell4);
-        }
-
-        public Builder toggle(int cell1, int cell2, int cell3, int cell4, int cell5) {
-            return toggle((short) cell1, (short) cell2, (short) cell3, (short) cell4,
-                    (short) cell5);
-        }
-
-        public Builder toggle(int... cells) {
-            for (int cell : cells) {
-                toggle((short) cell);
-            }
-            return self();
-        }
-
-        public Builder clear() {
-            setInitialState(0L, 0L);
-            return self();
-        }
-
-        public Grid build() { return new CustomGrid(self()); }
+        public Grid build() { return new CustomGrid(this); }
     }
 }

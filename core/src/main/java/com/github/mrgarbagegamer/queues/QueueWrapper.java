@@ -1,6 +1,6 @@
 package com.github.mrgarbagegamer.queues;
 
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.List;
@@ -11,7 +11,7 @@ interface QueueWrapper<Q> {
     Q unwrap();
 
     static <Q> List<Q> unwrapList(List<? extends QueueWrapper<Q>> wrappers) {
-        return mustNotBeNull(wrappers, "wrappers").stream().map(QueueWrapper::unwrap)
+        return copyOfNonNullList(wrappers, "wrappers").stream().map(QueueWrapper::unwrap)
                 .collect(toUnmodifiableList());
     }
 

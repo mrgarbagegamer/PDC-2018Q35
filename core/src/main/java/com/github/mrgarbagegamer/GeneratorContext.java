@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import org.jspecify.annotations.Nullable;
+
 // Add Javadocs
 public interface GeneratorContext {
 
@@ -30,21 +32,17 @@ public interface GeneratorContext {
      * @threading Must be thread-safe.
      * @memory Should not allocate.
      */
+    @Nullable
     WorkBatch getCurrentBatch();
 
-    /**
-     * Replaces the {@link #getCurrentBatch() current batch} for this context with a new empty
-     * {@link WorkBatch}. This method should only be called after the current batch has been fully
-     * processed and {@link #flushCurrentBatch() flushed}.
-     * 
-     * @return a new empty {@link WorkBatch} for this context
-     * @see QueueStrategy#generatorPoll(int)
-     * @since 2026.01 - Generator DI Refactor
-     * @threading Must be thread-safe.
-     */
-    WorkBatch resetBatch();
-
-    default int getCurrentBatchSize() { return hasBatch() ? getCurrentBatch().size() : 0; }
+    default int getCurrentBatchSize() {
+        if (this.hasBatch()) {
+            WorkBatch currentBatch = this.getCurrentBatch();
+            // Check if the returned batch is null (should be impossible)
+            return currentBatch != null ? currentBatch.size() : 0;
+        }
+        return 0;
+    }
 
     ArrayPool getArrayPool();
 
@@ -56,8 +54,7 @@ public interface GeneratorContext {
      * Flushes the {@link #getCurrentBatch() current batch} for this context, sending it to the
      * {@link QueueStrategy#generatorOffer(WorkBatch, int) queue(s)} for processing by the
      * {@link TestClickCombination monkeys}. This method should be called after the current batch
-     * has been filled with work, and before {@link #resetBatch() resetting} the batch for the next
-     * round of work.
+     * has been filled with work and before calling getCurrentBatch() again.
      * 
      * <p>
      * Though general use of this method operates on a full batch, it is also called during the

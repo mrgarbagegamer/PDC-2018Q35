@@ -1,11 +1,13 @@
 package com.github.mrgarbagegamer.queues;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullList;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBeSet;
 
 import java.util.List;
+
+import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 
@@ -15,10 +17,16 @@ class QueueValidationContext<G, M> {
 
     private QueueValidationContext(Builder<G, M> builder) {
         // Let's construct the QueueGroups:
-        this.gtmGroup = QueueGroup.newGtmGroup(builder.gtmQueues, builder.generatorOfferSelector,
-                builder.monkeyPollSelector, builder.solverConfig);
-        this.mtgGroup = QueueGroup.newMtgGroup(builder.mtgQueues, builder.monkeyOfferSelector,
-                builder.generatorPollSelector, builder.solverConfig);
+        QueueSelector<M> genPoll = mustBeSet(builder.generatorPollSelector,
+                "generatorPollSelector");
+        QueueSelector<G> genOffer = mustBeSet(builder.generatorOfferSelector,
+                "generatorOfferSelector");
+        QueueSelector<G> monPoll = mustBeSet(builder.monkeyPollSelector, "monkeyPollSelector");
+        QueueSelector<M> monOffer = mustBeSet(builder.monkeyOfferSelector, "monkeyOfferSelector");
+        SolverConfiguration nonNullConfig = mustBeSet(builder.solverConfig, "solverConfig");
+
+        this.gtmGroup = QueueGroup.newGtmGroup(builder.gtmQueues, genOffer, monPoll, nonNullConfig);
+        this.mtgGroup = QueueGroup.newMtgGroup(builder.mtgQueues, monOffer, genPoll, nonNullConfig);
     }
 
     // Builder method:
@@ -73,11 +81,11 @@ class QueueValidationContext<G, M> {
     static class Builder<G, M> {
         private final List<QueueWrapper<G>> gtmQueues;
         private final List<QueueWrapper<M>> mtgQueues;
-        private QueueSelector<M> generatorPollSelector;
-        private QueueSelector<G> generatorOfferSelector;
-        private QueueSelector<G> monkeyPollSelector;
-        private QueueSelector<M> monkeyOfferSelector;
-        private SolverConfiguration solverConfig;
+        private @Nullable QueueSelector<M> generatorPollSelector;
+        private @Nullable QueueSelector<G> generatorOfferSelector;
+        private @Nullable QueueSelector<G> monkeyPollSelector;
+        private @Nullable QueueSelector<M> monkeyOfferSelector;
+        private @Nullable SolverConfiguration solverConfig;
 
         private Builder(List<? extends QueueWrapper<G>> gtmQueues,
                 List<? extends QueueWrapper<M>> mtgQueues) {

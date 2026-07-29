@@ -1,11 +1,13 @@
 package com.github.mrgarbagegamer;
 
-import static java.util.Objects.requireNonNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.Logger;
+import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadoc
 /**
@@ -24,7 +26,7 @@ import org.apache.logging.log4j.Logger;
  * performance penalty of multiple {@code ThreadLocal} lookups in the hot path. The context is then
  * passed as a parameter to downstream methods, providing fast, contention-free access to:
  * <ul>
- * <li>An {@link #prefixArrayPool} for recycling {@code short[]} arrays.</li>
+ * <li>An {@link #arrayPool} for recycling {@code short[]} arrays.</li>
  * <li>A {@link #taskPool} for recycling {@code CombinationGeneratorTask} objects.</li>
  * <li>The {@link #currentBatch} being filled by the thread.</li>
  * </ul>
@@ -58,37 +60,35 @@ class DefaultGeneratorContext implements GeneratorContext {
     private final SolverConfiguration config;
 
     /**
-     * Initializes a new {@link DefaultGeneratorContext} and registers it in the
-     * {@link #ALL_CONTEXTS global context list}.
+     * Initializes a new {@link DefaultGeneratorContext} and registers it in the provided
+     * {@code registry}.
      * 
      * <p>
-     * This constructor is meant to be called only by the {@link GeneratorWorkerThread}'s
-     * {@link GeneratorWorkerThread#GeneratorWorkerThread(ForkJoinPool) initializer}, and
+     * This constructor is meant to be called only by the {@link GeneratorThread}'s
+     * {@link GeneratorThread#GeneratorThread(String, ForkJoinPool) initializer}, and
      * {@link ConcurrentLinkedQueue#add(Object) adds} the context to the global list for the
      * {@link ContextRegistry#flushAllPendingBatches() final flush}.
      * </p>
      * 
      * @since 2025.10 - Final Flush Refactor
      * @performance {@code O(1)} amortized insertion time into the global context list.
-     * @threading Thread-safe by nature of construction and use of a {@link ConcurrentLinkedQueue
-     *            thread-safe queue}.
+     * @threading Thread-safe by nature of construction.
      * @memory Does not allocate, apart from the instance itself.
      */
     public DefaultGeneratorContext(String name, int generatorId, QueueStrategy queueStrategy,
             ContextRegistry registry, SolverConfiguration config) {
-        // TODO: Consider importing Guava's Preconditions for null checks
         // Perform the config null check first, as it's needed for logging and we want to fail fast
         // if it's missing
-        this.config = requireNonNull(config, "config cannot be null");
+        this.config = mustNotBeNull(config, "config");
 
-        this.logger = config.getLogger(DefaultGeneratorContext.class);
-        this.name = requireNonNull(name, "name cannot be null");
+        this.logger = this.config.getLogger(DefaultGeneratorContext.class);
+        this.name = mustNotBeNull(name, "name");
         this.generatorId = generatorId;
-        this.arrayPool = new ArrayPool(config);
+        this.arrayPool = new ArrayPool(this.config);
 
-        this.taskPool = new TaskPool(config);
-        this.queueStrategy = requireNonNull(queueStrategy, "queueStrategy cannot be null");
-        registry.registerContext(this);
+        this.taskPool = new TaskPool(this.config);
+        this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
+        mustNotBeNull(registry, "registry").registerContext(this);
     }
 
     public static DefaultGeneratorContext of(String name, int generatorId,
@@ -136,7 +136,7 @@ class DefaultGeneratorContext implements GeneratorContext {
      * @threading Not thread-safe. References to this batch should not be kept after flushing.
      * @memory Fixed footprint of ~4 bytes as a reference.
      */
-    private WorkBatch currentBatch = null;
+    private @Nullable WorkBatch currentBatch = null;
 
     private final QueueStrategy queueStrategy;
 
@@ -144,8 +144,11 @@ class DefaultGeneratorContext implements GeneratorContext {
     public boolean hasBatch() { return this.currentBatch != null; }
 
     @Override
-    public WorkBatch getCurrentBatch() {
-        return this.currentBatch == null ? this.currentBatch = pollBatch() : this.currentBatch;
+    public @Nullable WorkBatch getCurrentBatch() {
+        if (this.currentBatch == null) {
+            this.currentBatch = pollBatch();
+        }
+        return this.currentBatch;
     }
 
     /**
@@ -163,7 +166,7 @@ class DefaultGeneratorContext implements GeneratorContext {
      * @threading Thread-safe queue interactions and termination handling.
      * @memory Does not allocate.
      */
-    private WorkBatch pollBatch() {
+    private @Nullable WorkBatch pollBatch() {
         final WorkBatch batch = this.queueStrategy.generatorPoll(this.generatorId);
         if (batch == null) {
             // Delegate to the extracted method to handle termination logging.
@@ -189,9 +192,6 @@ class DefaultGeneratorContext implements GeneratorContext {
     }
 
     @Override
-    public WorkBatch resetBatch() { return this.currentBatch = pollBatch(); }
-
-    @Override
     public ArrayPool getArrayPool() { return this.arrayPool; }
 
     @Override
@@ -205,6 +205,9 @@ class DefaultGeneratorContext implements GeneratorContext {
 
     @Override
     public boolean flushCurrentBatch() {
+        checkState(this.currentBatch != null,
+                "A new batch must be acquired before calling this method");
+
         final boolean success = this.queueStrategy.generatorOffer(this.currentBatch,
                 this.generatorId);
         this.currentBatch = null;

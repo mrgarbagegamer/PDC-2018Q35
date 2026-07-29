@@ -10,10 +10,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 import org.jctools.queues.MessagePassingQueue;
+import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 import com.github.mrgarbagegamer.queues.SelectorRules.SelectorRule;
+import com.google.common.collect.ImmutableList;
 
 final class QueueSelectors {
 
@@ -25,14 +27,15 @@ final class QueueSelectors {
     }
 
     private interface BaseSelector<Q> extends QueueSelector<Q> {
+        @Nullable
         WorkBatch tryPoll(int threadId, List<? extends Q> queues) throws InterruptedException;
 
         boolean tryOffer(WorkBatch batch, int threadId, List<? extends Q> queues)
                 throws InterruptedException;
 
         @Override
-        default WorkBatch poll(int threadId, List<? extends Q> queues, BackoffStrategy backoff,
-                BooleanSupplier shouldContinue) {
+        default @Nullable WorkBatch poll(int threadId, List<? extends Q> queues,
+                BackoffStrategy backoff, BooleanSupplier shouldContinue) {
             mustNotBeNull(queues, "queues");
             mustNotBeNull(backoff, "backoff");
             mustNotBeNull(shouldContinue, "shouldContinue");
@@ -111,7 +114,7 @@ final class QueueSelectors {
 
         RANDOM_SEQUENTIAL(SelectorRules.SEQUENTIAL) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 final int start = ThreadLocalRandom.current().nextInt(queues.size());
                 for (int i = 0; i < queues.size(); i++) {
@@ -136,7 +139,7 @@ final class QueueSelectors {
 
         LINEAR_SEQUENTIAL(SelectorRules.SEQUENTIAL) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 for (int i = 0; i < queues.size(); i++) {
                     final WorkBatch batch = queues.get(i).relaxedPoll();
@@ -159,7 +162,7 @@ final class QueueSelectors {
 
         BIASED_SEQUENTIAL(SelectorRules.SEQUENTIAL, SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 // Preferred queue first
                 final WorkBatch preferredBatch = queues.get(threadId).relaxedPoll();
@@ -195,7 +198,7 @@ final class QueueSelectors {
 
         PREFERRED(SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues) {
                 return queues.get(threadId).relaxedPoll();
             }
@@ -209,7 +212,7 @@ final class QueueSelectors {
 
         EXCLUSIVE(SelectorRules.EXCLUSIVE) {
             @Override
-            public WorkBatch tryPoll(int threadId,
+            public @Nullable WorkBatch tryPoll(int threadId,
                     List<? extends MessagePassingQueue<WorkBatch>> queues)
                     throws InterruptedException {
                 return PREFERRED.tryPoll(0, queues);
@@ -223,9 +226,9 @@ final class QueueSelectors {
             }
         };
 
-        private final List<SelectorRule> rules;
+        private final ImmutableList<SelectorRule> rules;
 
-        JCToolsSelector(SelectorRule... rules) { this.rules = List.of(rules); }
+        JCToolsSelector(SelectorRule... rules) { this.rules = ImmutableList.copyOf(rules); }
 
         @Override
         public void validate(SelectorValidationTarget<?> target) {
@@ -240,8 +243,8 @@ final class QueueSelectors {
 
         PREFERRED(SelectorRules.COUNT_EQUALS_SIZE) {
             @Override
-            public WorkBatch tryPoll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues)
-                    throws InterruptedException {
+            public @Nullable WorkBatch tryPoll(int threadId,
+                    List<? extends BlockingQueue<WorkBatch>> queues) throws InterruptedException {
                 return queues.get(threadId).poll(100, TimeUnit.MILLISECONDS);
             }
 
@@ -254,8 +257,8 @@ final class QueueSelectors {
 
         EXCLUSIVE(SelectorRules.EXCLUSIVE) {
             @Override
-            public WorkBatch tryPoll(int threadId, List<? extends BlockingQueue<WorkBatch>> queues)
-                    throws InterruptedException {
+            public @Nullable WorkBatch tryPoll(int threadId,
+                    List<? extends BlockingQueue<WorkBatch>> queues) throws InterruptedException {
                 return PREFERRED.tryPoll(0, queues);
             }
 
@@ -266,9 +269,9 @@ final class QueueSelectors {
             }
         };
 
-        private final List<SelectorRule> rules;
+        private final ImmutableList<SelectorRule> rules;
 
-        BlockingQueueSelector(SelectorRule... rules) { this.rules = List.of(rules); }
+        BlockingQueueSelector(SelectorRule... rules) { this.rules = ImmutableList.copyOf(rules); }
 
         @Override
         public void validate(SelectorValidationTarget<?> target) {

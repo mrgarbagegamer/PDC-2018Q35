@@ -58,7 +58,7 @@ class BlockingQueueStrategyTest {
 
     @Nested
     class StaticFactoryTests {
-        private record StaticFactoryTestCase(
+        record StaticFactoryTestCase(
                 BiFunction<SolverConfiguration, SolverState, BlockingQueueStrategy<?, ?>> factory) {
             static Named<StaticFactoryTestCase> of(String name,
                     BiFunction<SolverConfiguration, SolverState, BlockingQueueStrategy<?, ?>> factory) {
@@ -448,9 +448,8 @@ class BlockingQueueStrategyTest {
                 final var builder = BlockingQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
 
-                assertThatIllegalStateException().isThrownBy(builder::build)
-                        .withMessageContaining(
-                                "gtmQueue at index 1 is the same as gtmQueue at index 2");
+                assertThatIllegalStateException().isThrownBy(builder::build).withMessageContaining(
+                        "gtmQueue at index 1 is the same as gtmQueue at index 2");
             }
 
             // MetadataValidator wiring:

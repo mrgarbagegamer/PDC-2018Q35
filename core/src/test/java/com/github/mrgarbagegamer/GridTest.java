@@ -6,19 +6,20 @@ import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomCombinat
 import static com.github.mrgarbagegamer.util.TestingUtils.generateRandomCombinationPackedInt;
 import static com.github.mrgarbagegamer.util.TestingUtils.shuffleArray;
 import static com.github.mrgarbagegamer.util.TestingUtils.validPackedInts;
-
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
+
+import com.google.common.base.Splitter;
 
 import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
@@ -26,6 +27,7 @@ import it.unimi.dsi.fastutil.shorts.ShortBidirectionalIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortSortedSet;
 
+// TODO: Refactor these tests to use AssertJ and follow testing best practices.
 /**
  * Unit tests for the {@link Grid} class and its concrete implementations. This class focuses on
  * testing the core logic of grid state manipulation, including clicking cells and checking for a
@@ -91,7 +93,7 @@ class GridTest {
             Grid.indexToPacked((short) -1);
         }, "Expected IllegalArgumentException for index -1");
         assertThrows(IllegalArgumentException.class, () -> {
-            Grid.indexToPacked((short) (Grid.NUM_CELLS));
+            Grid.indexToPacked((short) Grid.NUM_CELLS);
         }, "Expected IllegalArgumentException for index equal to NUM_CELLS");
     }
 
@@ -943,11 +945,11 @@ class GridTest {
                     Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt);
 
             if (expectedAdjacentsIndexOutput.length == 0) {
-                assertNull(actualAdjacentsIndexOutput, "First true adjacents after " + cell
-                        + " for Index input & Index output should be null when no adjacents exist after the cell (Combination: "
+                assertEquals(0, actualAdjacentsIndexOutput.length, "First true adjacents after " + cell
+                        + " for Index input & Index output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
-                assertNull(actualAdjacentsPackedIntOutput, "First true adjacents after " + cell
-                        + " for Index input & PackedInt output should be null when no adjacents exist after the cell (Combination: "
+                assertEquals(0, actualAdjacentsPackedIntOutput.length, "First true adjacents after " + cell
+                        + " for Index input & PackedInt output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
                 break; // No further cells will have adjacents
             } else {
@@ -1003,12 +1005,12 @@ class GridTest {
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
 
             if (expectedAdjacentsIndexOutput.length == 0) {
-                assertNull(actualAdjacentsIndexOutput, "First true adjacents after " + cellPackedInt
-                        + " for PackedInt input & Index output should be null when no adjacents exist after the cell (Combination: "
+                assertEquals(0, actualAdjacentsIndexOutput.length, "First true adjacents after " + cellPackedInt
+                        + " for PackedInt input & Index output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
-                assertNull(actualAdjacentsPackedIntOutput, "First true adjacents after "
+                assertEquals(0, actualAdjacentsPackedIntOutput.length, "First true adjacents after "
                         + cellPackedInt
-                        + " for PackedInt input & PackedInt output should be null when no adjacents exist after the cell (Combination: "
+                        + " for PackedInt input & PackedInt output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
                 break; // No further cells will have adjacents
             } else {
@@ -1081,7 +1083,8 @@ class GridTest {
         Grid clone = original.copy();
 
         // Verify that the clone has the same state as the original
-        assertTrue(clone instanceof Grid13, "Cloned grid should be of the same type as the original");
+        assertTrue(clone instanceof Grid13,
+                "Cloned grid should be of the same type as the original");
         assertArrayEquals(original.getGridState(), clone.getGridState(),
                 "Cloned grid state should match the original's state");
         assertEquals(original.getTrueCount(), clone.getTrueCount(),
@@ -1340,16 +1343,16 @@ class GridTest {
         short[] clicks = generateRandomCombination(15);
         grid.click(clicks);
 
-        String gridString = grid.toString();
-        String[] rows = gridString.split(System.lineSeparator());
-        assertEquals(Grid.NUM_ROWS, rows.length,
+        List<String> rows = Splitter.on(System.lineSeparator()).splitToList(grid.toString());
+        assertEquals(Grid.NUM_ROWS, rows.size(),
                 "Grid string representation should have correct number of rows");
 
         // Ensure that each row has the correct number of columns
         for (int row = 0; row < Grid.NUM_ROWS; row++) {
-            String[] cols = rows[row].trim().split(" ");
+            List<String> cols = Splitter.on(" ").omitEmptyStrings().trimResults()
+                    .splitToList(rows.get(row));
             int expectedCols = (row % 2 == 0) ? Grid.EVEN_NUM_COLS : Grid.ODD_NUM_COLS;
-            assertEquals(expectedCols, cols.length, "Row " + row
+            assertEquals(expectedCols, cols.size(), "Row " + row
                     + " should have correct number of columns in string representation");
         }
 
@@ -1358,7 +1361,8 @@ class GridTest {
         long[] rebuiltState = new long[2];
         int cellIndex = 0;
         for (String row : rows) {
-            String[] cells = row.trim().split(" ");
+            List<String> cells = Splitter.on(" ").omitEmptyStrings().trimResults()
+                    .splitToList(row.trim());
             for (String cell : cells) {
                 if ("1".equals(cell)) {
                     int longIndex = cellIndex / 64;
@@ -1437,9 +1441,9 @@ class GridTest {
     // =================================================================================
 
     /**
-     * Tests the {@link Grid#click(int)} and {@link Grid#isSolved()} methods on the {@link Grid13}
-     * implementation. This test simulates a known minimal solution for the default Grid13 puzzle
-     * and asserts that the grid is reported as solved.
+     * Tests the {@link Grid#click(short[])} and {@link Grid#isSolved()} methods on the
+     * {@link Grid13} implementation. This test simulates a known minimal solution for the default
+     * Grid13 puzzle and asserts that the grid is reported as solved.
      */
     @Test
     void test13IsSolved() {
@@ -1526,7 +1530,7 @@ class GridTest {
     // =================================================================================
 
     /**
-     * Tests the {@link Grid#click(int)} and {@link Grid#isSolved()} methods on the {@link Grid22}
+     * Tests the {@link Grid#click(short[])} and {@link Grid#isSolved()} methods on the {@link Grid22}
      * implementation. This test simulates a known minimal solution for the default Grid22 puzzle
      * and asserts that the grid is reported as solved.
      */

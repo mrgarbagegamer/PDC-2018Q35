@@ -30,11 +30,11 @@ final class QueueWrappers {
     private QueueWrappers() { utilityClassError("QueueWrappers"); }
 
     private static abstract class AbstractWrapper<Q> implements QueueWrapper<Q> {
-        protected final Q delegate;
+        final Q delegate;
         private final AccessMode accessMode;
         private final Boundedness boundedness;
 
-        protected AbstractWrapper(Q delegate, AccessMode accessMode, Boundedness boundedness) {
+        AbstractWrapper(Q delegate, AccessMode accessMode, Boundedness boundedness) {
             this.delegate = mustNotBeNull(delegate, "delegate");
             this.accessMode = mustNotBeNull(accessMode, "accessMode");
             this.boundedness = mustNotBeNull(boundedness, "boundedness");
@@ -63,8 +63,7 @@ final class QueueWrappers {
 
         private static abstract class AbstractBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
                 extends AbstractWrapper<Q> {
-            protected AbstractBlockingWrapper(Q delegate, AccessMode accessMode,
-                    Boundedness boundedness) {
+            AbstractBlockingWrapper(Q delegate, AccessMode accessMode, Boundedness boundedness) {
                 super(delegate, accessMode, boundedness);
             }
 

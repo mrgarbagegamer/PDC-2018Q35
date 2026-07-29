@@ -6,6 +6,8 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.utilityClassErr
 import java.util.List;
 
 import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -73,7 +75,9 @@ final class QueueListValidator {
         }
     }
 
-    private static void fail(String groupName, String reasonTemplate, Object... reasonArgs) {
+    @FormatMethod
+    private static void fail(String groupName, @FormatString String reasonTemplate,
+            Object... reasonArgs) {
         final String reason = reasonTemplate.formatted(reasonArgs);
         throw new IllegalArgumentException(
                 "Validation failed for %s: %s".formatted(groupName, reason));

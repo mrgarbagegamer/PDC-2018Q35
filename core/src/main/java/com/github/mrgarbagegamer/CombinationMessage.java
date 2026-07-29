@@ -1,8 +1,11 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+
 import org.apache.logging.log4j.message.AsynchronouslyFormattable;
 import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
+import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadoc
 // TODO: Investigate reuse strategies to avoid allocating a new CombinationMessage for each log
@@ -112,8 +115,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
                     "Cannot create CombinationMessage with Bitmask format at the moment. Use Index or PackedInt instead.");
         }
         this.list = list;
-        this.format = format;
-
+        this.format = mustNotBeNull(format, "format");
     }
 
     public CombinationMessage(short[] list) {
@@ -143,31 +145,25 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
     public void convertTo(Grid.ValueFormat outputFormat) {
         if (format == outputFormat) {
             return; // No conversion needed
-        } else if (outputFormat == Grid.ValueFormat.Bitmask) {
-            throw new IllegalArgumentException("Cannot convert to Bitmask format at the moment.");
         }
 
         switch (outputFormat) {
-            case Index:
+            case Index -> {
                 if (format == Grid.ValueFormat.PackedInt) {
-                    for (int i = 0; i < list.length; i++) {
-                        list[i] = Grid.packedToIndex(list[i]); // Convert packed int to index format
-                    }
+                    for (int i = 0; i < list.length; i++)
+                        list[i] = Grid.packedToIndex(list[i]);
                     format = Grid.ValueFormat.Index; // Update format to index
                 }
-                break;
-            case PackedInt:
+            }
+            case PackedInt -> {
                 if (format == Grid.ValueFormat.Index) {
-                    for (int i = 0; i < list.length; i++) {
-                        list[i] = (short) Grid.indexToPacked(list[i]); // Convert index to packed
-                                                                       // int
-                                                                       // format
-                    }
+                    for (int i = 0; i < list.length; i++)
+                        list[i] = Grid.indexToPacked(list[i]);
                     format = Grid.ValueFormat.PackedInt; // Update format to packed int
                 }
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported output format: " + outputFormat);
+            }
+            default -> throw new IllegalArgumentException(
+                    "Unsupported output format: " + outputFormat);
         }
     }
 
@@ -190,26 +186,28 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * @memory Does not allocate; appends directly to the provided {@code StringBuilder}.
      */
     @Override
-    public void formatTo(StringBuilder buffer) {
+    public void formatTo(@Nullable StringBuilder buffer) {
+        StringBuilder checkedBuffer = mustNotBeNull(buffer, "buffer");
+
         if (format != Grid.ValueFormat.PackedInt) {
             convertTo(Grid.ValueFormat.PackedInt); // Ensure the format is PackedInt for
                                                    // human-readable output
         }
-        buffer.append('[');
+        checkedBuffer.append('[');
         for (int i = 0, size = list.length; i < size; i++) {
             if (i > 0) {
-                buffer.append(',');
-                buffer.append(' ');
+                checkedBuffer.append(',');
+                checkedBuffer.append(' ');
             }
             if (list[i] < 10) { // Leading zeros for better alignment
-                buffer.append('0');
-                buffer.append('0');
+                checkedBuffer.append('0');
+                checkedBuffer.append('0');
             } else if (list[i] < 100) { // Leading zero for better alignment
-                buffer.append('0');
+                checkedBuffer.append('0');
             }
-            buffer.append(list[i]);
+            checkedBuffer.append(list[i]);
         }
-        buffer.append(']');
+        checkedBuffer.append(']');
     }
 
     /**
@@ -278,7 +276,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * @memory Does not allocate.
      */
     @Override
-    public String getFormat() { return null; }
+    public @Nullable String getFormat() { return null; }
 
     /**
      * {@inheritDoc}
@@ -292,7 +290,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * @memory Does not allocate.
      */
     @Override
-    public Object[] getParameters() { return null; }
+    public Object @Nullable [] getParameters() { return null; }
 
     /**
      * {@inheritDoc}
@@ -306,5 +304,5 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * @memory Does not allocate.
      */
     @Override
-    public Throwable getThrowable() { return null; }
+    public @Nullable Throwable getThrowable() { return null; }
 }

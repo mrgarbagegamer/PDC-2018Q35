@@ -1,5 +1,7 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 
@@ -7,8 +9,8 @@ import java.util.concurrent.ForkJoinWorkerThread;
 public abstract class GeneratorThread extends ForkJoinWorkerThread {
 
     protected GeneratorThread(String name, ForkJoinPool pool) {
-        super(pool);
-        this.setName(name);
+        super(mustNotBeNull(pool, "pool"));
+        this.setName(mustNotBeNull(name, "name"));
     }
 
     public abstract GeneratorContext getContext();

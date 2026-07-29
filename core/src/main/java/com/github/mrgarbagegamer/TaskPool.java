@@ -1,6 +1,8 @@
 package com.github.mrgarbagegamer;
 
-import static java.util.Objects.requireNonNull;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+
+import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadocs.
 /**
@@ -23,7 +25,7 @@ import static java.util.Objects.requireNonNull;
  *
  * <h2>Implementation Details</h2>
  * <p>
- * The pool is implemented as a simple, {@link #arrays array-backed} circular buffer, which provides
+ * The pool is implemented as a simple, {@link #array array-backed} circular buffer, which provides
  * {@code O(1)} time complexity for both {@link #get()} and {@link #put(CombinationGeneratorTask)}
  * operations.
  * </p>
@@ -58,11 +60,11 @@ public class TaskPool {
      * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
      * @memory Fixed memory footprint of ~{@code capacity × 4} bytes as an array of references.
      */
-    private final CombinationGeneratorTask[] arrays;
+    private final @Nullable CombinationGeneratorTask[] array;
     /**
      * The maximum number of tasks the pool can hold.
      * 
-     * @see #arrays
+     * @see #array
      * @see #head
      * @see #size
      * @see #tail
@@ -77,7 +79,7 @@ public class TaskPool {
      * The index of the next task to be retrieved from the pool.
      * 
      * <p>
-     * The head index tracks where the next available task is located in the circular {@link #arrays
+     * The head index tracks where the next available task is located in the circular {@link #array
      * buffer}. It is incremented each time a task is obtained from the pool, wrapping around to the
      * start of the buffer when it reaches the end, implementing a circular buffer mechanism.
      * </p>
@@ -111,9 +113,9 @@ public class TaskPool {
      * 
      * <p>
      * The tail index tracks where the next returned array should be placed in the circular
-     * {@link #arrays buffer}. It is incremented each time an array is returned to the pool,
-     * wrapping around to the start of the buffer when it reaches the end, implementing a circular
-     * buffer mechanism.
+     * {@link #array buffer}. It is incremented each time an array is returned to the pool, wrapping
+     * around to the start of the buffer when it reaches the end, implementing a circular buffer
+     * mechanism.
      * </p>
      * 
      * <h3>Performance Considerations</h3>
@@ -176,58 +178,30 @@ public class TaskPool {
      */
     private int size = 0;
 
-    // Used for the allocation fallback in get()
-    private final SolverConfiguration config;
-
     public TaskPool(SolverConfiguration config) {
-        this.config = requireNonNull(config, "config cannot be null");
+        mustNotBeNull(config, "config");
 
         this.capacity = config.taskPoolSize();
-        this.arrays = new CombinationGeneratorTask[capacity];
+        this.array = new CombinationGeneratorTask[capacity];
 
         // Pre-allocate all tasks
         for (int i = 0; i < capacity; i++) {
-            this.arrays[i] = new CombinationGeneratorTask(config);
+            this.array[i] = new CombinationGeneratorTask(config);
         }
+        this.size = this.capacity;
     }
 
-    /**
-     * Retrieves a task from the pool.
-     * 
-     * <p>
-     * If the pool is empty, a new {@link CombinationGeneratorTask} is created to prevent stalls
-     * rather than returning {@code null}. This fallback allocation is a performance anti-pattern
-     * and indicates that the pool may be undersized for the current workload.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This operation is on the hot path of combination generation and must be extremely fast. The
-     * implementation uses a circular buffer for {@code O(1)} complexity. A {@code null} check on
-     * the retrieved task is avoided, as the pool should never contain {@code null}s if used
-     * correctly. The initial {@code size} check provides a fast path for the empty-pool case.
-     * Removing it could risk {@code size} becoming negative and returning a {@code null} task, so
-     * it is kept as a safety measure.
-     * </p>
-     *
-     * @return A recycled or newly created {@link CombinationGeneratorTask}.
-     * @see #isEmpty()
-     * @see #put(CombinationGeneratorTask)
-     * @since 2025.07 - {@code TaskPool} Introduction
-     * @performance {@code O(1)} time complexity.
-     * @threading Not thread-safe; intended for use in a {@link ThreadLocal} context.
-     * @memory Only allocates if the pool is empty, otherwise reuses existing tasks.
-     */
-    public CombinationGeneratorTask get() {
-        // The allocation fallback:
-        if (size == 0) {
-            return new CombinationGeneratorTask(config);
+    // TODO: Add Javadocs.
+    public @Nullable CombinationGeneratorTask get() {
+        if (this.size == 0) {
+            return null;
         }
 
-        CombinationGeneratorTask task = arrays[head];
-        arrays[head] = null; // Help GC
-        head = (head + 1) % capacity;
-        size--;
+        CombinationGeneratorTask task = this.array[this.head];
+
+        this.array[this.head] = null; // Help GC
+        this.head = (this.head + 1) % this.capacity;
+        this.size--;
         return task;
     }
 
@@ -255,12 +229,13 @@ public class TaskPool {
      * @performance {@code O(1)} array access and update.
      * @memory Does not allocate.
      */
+    // TODO: Make this return a boolean.
     public void put(CombinationGeneratorTask task) {
-        if (task == null || size >= capacity) {
+        if (size >= capacity) {
             return;
         }
 
-        arrays[tail] = task;
+        array[tail] = mustNotBeNull(task, "task");
         tail = (tail + 1) % capacity;
         size++;
     }

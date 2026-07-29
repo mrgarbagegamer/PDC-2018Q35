@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
-import java.util.Objects;
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -14,9 +15,8 @@ public final class ContextRegistry {
     private final Queue<GeneratorContext> contexts;
 
     public ContextRegistry(Logger logger, Queue<GeneratorContext> contexts) {
-        // TODO: Consider importing Guava's Preconditions for null checks
-        this.logger = Objects.requireNonNull(logger, "logger cannot be null");
-        this.contexts = Objects.requireNonNull(contexts, "contexts cannot be null");
+        this.logger = mustNotBeNull(logger, "logger");
+        this.contexts = mustNotBeNull(contexts, "contexts");
     }
 
     public ContextRegistry(Logger logger) { this(logger, new ConcurrentLinkedQueue<>()); }
@@ -30,17 +30,16 @@ public final class ContextRegistry {
     }
 
     public static ContextRegistry newRegistry(SolverConfiguration config) {
+        mustNotBeNull(config, "config");
         return new ContextRegistry(config.getLogger(ContextRegistry.class), config.registryQueue());
     }
 
     public boolean registerContext(GeneratorContext context) {
-        Objects.requireNonNull(context, "context cannot be null");
-        return contexts.offer(context);
+        return contexts.offer(mustNotBeNull(context, "context"));
     }
 
     public boolean unregisterContext(GeneratorContext context) {
-        Objects.requireNonNull(context, "context cannot be null");
-        return contexts.remove(context);
+        return contexts.remove(mustNotBeNull(context, "context"));
     }
 
     public synchronized void flushAllPendingBatches() {

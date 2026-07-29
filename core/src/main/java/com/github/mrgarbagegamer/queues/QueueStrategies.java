@@ -21,6 +21,7 @@ import java.util.function.BooleanSupplier;
 
 import org.jctools.queues.MessagePassingQueue;
 import org.jctools.queues.MpmcArrayQueue;
+import org.jspecify.annotations.Nullable;
 
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
@@ -83,7 +84,7 @@ public final class QueueStrategies {
         private final BooleanSupplier generatorShouldContinue;
         private final BooleanSupplier monkeyShouldContinue;
 
-        protected AbstractQueueStrategy(Builder<G, M, ?> builder) {
+        AbstractQueueStrategy(Builder<G, M, ?> builder) {
             // We ensure that the lists are immutable in the builder, so we can directly assign them
             // here without copying.
             this.gtmQueues = mustBeSet(builder.gtmQueues, "gtmQueues");
@@ -111,21 +112,21 @@ public final class QueueStrategies {
             private final SolverConfiguration config;
 
             // 2. Selectors (with overridable defaults from the asXyz() methods)
-            private QueueSelector<M> generatorPollSelector;
-            private QueueSelector<G> generatorOfferSelector;
-            private QueueSelector<G> monkeyPollSelector;
-            private QueueSelector<M> monkeyOfferSelector;
+            private @Nullable QueueSelector<M> generatorPollSelector;
+            private @Nullable QueueSelector<G> generatorOfferSelector;
+            private @Nullable QueueSelector<G> monkeyPollSelector;
+            private @Nullable QueueSelector<M> monkeyOfferSelector;
 
             // 3: Execution state (with overridable defaults)
-            private BackoffStrategy generatorBackoff;
-            private BackoffStrategy monkeyBackoff;
-            private BooleanSupplier generatorShouldContinue;
-            private BooleanSupplier monkeyShouldContinue;
+            private @Nullable BackoffStrategy generatorBackoff;
+            private @Nullable BackoffStrategy monkeyBackoff;
+            private @Nullable BooleanSupplier generatorShouldContinue;
+            private @Nullable BooleanSupplier monkeyShouldContinue;
 
             // 4. Preallocation value (with overridable default of 0, which means no preallocation):
             private int batchesPerQueue = 0;
 
-            protected Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
+            Builder(List<? extends G> gtmQueues, List<? extends M> mtgQueues,
                     SolverConfiguration config, SolverState state) {
                 this.gtmQueues = copyOfNonNullList(gtmQueues, "gtmQueues");
                 this.mtgQueues = copyOfNonNullList(mtgQueues, "mtgQueues");
@@ -198,6 +199,7 @@ public final class QueueStrategies {
              * @return this builder instance for method chaining
              * @throws IllegalArgumentException if {@code batchesPerQueue} is not positive.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public final B preallocateQueues(int batchesPerQueue) {
                 this.batchesPerQueue = mustBePositive(batchesPerQueue, "batchesPerQueue");
                 return self();
@@ -211,6 +213,7 @@ public final class QueueStrategies {
              * @throws IllegalStateException if the generator-to-monkey or monkey-to-generator queue
              *                               lists do not contain exactly one queue each.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asSingleSingle();
 
             /**
@@ -222,6 +225,7 @@ public final class QueueStrategies {
              *                               exactly one queue or if the monkey-to-generator queue
              *                               list does not contain more than one queue.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asSingleMulti();
 
             /**
@@ -233,6 +237,7 @@ public final class QueueStrategies {
              *                               more than one queue or if the monkey-to-generator queue
              *                               list does not contain exactly one queue.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asMultiSingle();
 
             /**
@@ -243,11 +248,12 @@ public final class QueueStrategies {
              * @throws IllegalStateException if the generator-to-monkey or monkey-to-generator queue
              *                               lists do not contain more than one queue each.
              */
+            @SuppressWarnings("EffectivelyPrivate") // Public here for proper Javadoc inheritance
             public abstract B asMultiMulti();
 
-            protected abstract B self();
+            abstract B self();
 
-            public abstract QueueStrategy build();
+            abstract QueueStrategy build();
 
             private static void failTopology(String listName, String expected, String configName) {
                 throw new IllegalStateException("%s must contain %s for %s configuration"
@@ -323,7 +329,7 @@ public final class QueueStrategies {
         }
 
         @Override
-        public final WorkBatch generatorPoll(int generatorId) {
+        public final @Nullable WorkBatch generatorPoll(int generatorId) {
             return this.generatorPollSelector.poll(generatorId, this.mtgQueues,
                     this.generatorBackoff, this.generatorShouldContinue);
         }
@@ -341,7 +347,7 @@ public final class QueueStrategies {
         }
 
         @Override
-        public final WorkBatch monkeyPoll(int monkeyId) {
+        public final @Nullable WorkBatch monkeyPoll(int monkeyId) {
             return this.monkeyPollSelector.poll(monkeyId, this.gtmQueues, this.monkeyBackoff,
                     this.monkeyShouldContinue);
         }
@@ -359,6 +365,8 @@ public final class QueueStrategies {
      * @param <M> the type of the monkey-to-generator queues
      * @since 2026.02 - Queue Injection Refactor
      */
+    @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy class exists to minimize
+                                            // duplication.
     public static class BlockingQueueStrategy<G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>>
             extends AbstractQueueStrategy<G, M> {
         private static final BackoffStrategy DEFAULT_BACKOFF = BackoffStrategy.noOp();
@@ -494,6 +502,9 @@ public final class QueueStrategies {
          * @param <M> the type of the monkey-to-generator queues
          * @since 2026.06 - Builder Pattern for Queue Strategies
          */
+        @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy.Builder class exists to
+                                                // minimize duplication and cannot be fully exposed
+                                                // without exposing internal components.
         public static final class Builder<G extends BlockingQueue<WorkBatch>, M extends BlockingQueue<WorkBatch>>
                 extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 
@@ -617,6 +628,8 @@ public final class QueueStrategies {
      * @param <M> the type of the monkey-to-generator queues
      * @since 2026.02 - Queue Injection Refactor
      */
+    @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy class exists to minimize
+                                            // duplication.
     public static class JCToolsQueueStrategy<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
             extends AbstractQueueStrategy<G, M> {
 
@@ -740,6 +753,9 @@ public final class QueueStrategies {
          * @param <M> the type of the monkey-to-generator queues
          * @since 2026.06 - Builder Pattern for Queue Strategies
          */
+        @SuppressWarnings("ExposedPrivateType") // The AbstractQueueStrategy.Builder class exists to
+                                                // minimize duplication and cannot be fully exposed
+                                                // without exposing internal components.
         public static final class Builder<G extends MessagePassingQueue<WorkBatch>, M extends MessagePassingQueue<WorkBatch>>
                 extends AbstractQueueStrategy.Builder<G, M, Builder<G, M>> {
 

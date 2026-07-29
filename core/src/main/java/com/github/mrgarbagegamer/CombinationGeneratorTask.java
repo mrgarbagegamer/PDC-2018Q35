@@ -6,6 +6,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
 
 import it.unimi.dsi.fastutil.longs.LongList;
+import it.unimi.dsi.fastutil.shorts.ShortList;
 
 // TODO: Update Javadoc
 // TODO: Consider a polymorphic approach to distinguish between root, intermediate, and leaf tasks
@@ -74,10 +75,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     private final short[] prefix;
     private final int numClicks;
-    private final int maxFirstClickIndex; // TODO: Consider removing this field and calculating the
-                                          // value in computeRootSubtasks()
 
-    // Cached data between tasks
     private int prefixLength;
     private long currentAdjacenciesLower = 0L;
     private long currentAdjacenciesUpper = 0L;
@@ -106,8 +104,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
         this.solverConfig = mustNotBeNull(solverConfig, "config");
         this.numClicks = solverConfig.numClicks();
         this.prefix = new short[this.numClicks - 1];
-        this.maxFirstClickIndex = solverConfig.getEvenClickIndices()
-                .getShort(solverConfig.getEvenClickIndices().size() - 1);
         this.trueCellMasksLower = solverConfig.getTrueCellMasksLower();
         this.trueCellMasksUpper = solverConfig.getTrueCellMasksUpper();
         this.expectedMaskLower = solverConfig.getExpectedMaskLower();
@@ -177,11 +173,12 @@ public class CombinationGeneratorTask extends RecursiveAction {
     }
 
     private void computeRootSubtasks(GeneratorContext ctx) {
-        final short start = 0;
-        final short max = (short) (Math.min(Grid.NUM_CELLS - this.numClicks,
-                this.maxFirstClickIndex) + 1);
+        // Calculate the max.
+        final ShortList evenClickIndices = this.solverConfig.getEvenClickIndices();
+        final short lastEvenClick = evenClickIndices.getShort(evenClickIndices.size() - 1);
+        final short max = (short) (Math.min(Grid.NUM_CELLS - this.numClicks, lastEvenClick) + 1);
 
-        for (short i = start; i < max; i++)
+        for (short i = 0; i < max; i++)
             getAndForkSubtask(ctx, i);
 
         helpQuiesce(); // Wait for all subtasks to complete before returning

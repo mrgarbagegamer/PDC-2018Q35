@@ -176,7 +176,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // Calculate the max.
         final ShortList evenClickIndices = this.solverConfig.getEvenClickIndices();
         final short lastEvenClick = evenClickIndices.getShort(evenClickIndices.size() - 1);
-        final short max = (short) (Math.min(Grid.NUM_CELLS - this.numClicks, lastEvenClick) + 1);
+        final short max = (short) Math.min(getMaxClick(), lastEvenClick + 1);
 
         for (short i = 0; i < max; i++)
             getAndForkSubtask(ctx, i);
@@ -220,8 +220,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
     // LEAF TASK PATH:
     private final void computeLeafCombinations(GeneratorContext ctx) {
-        // TODO: Add a lastPrefixClick helper method to reduce duplication.
-        final short lastPrefixClick = (short) (this.prefix[this.prefixLength - 1] + 1);
+        final short lastPrefixClick = getStartClick();
 
         // 1. Add the work range to the batch.
         WorkBatch batch = ctx.getCurrentBatch();
@@ -244,14 +243,20 @@ public class CombinationGeneratorTask extends RecursiveAction {
     }
 
     private void computeIntermediateSubtasks(GeneratorContext ctx) {
-        final short start = (short) (this.prefix[this.prefixLength - 1] + 1);
-        final short max = (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);
+        final short start = getStartClick();
+        final short max = getMaxClick();
 
         if (!this.skipConstraintsCheck && this.prefixLength >= 2 && !constraintCheck(start))
             return;
 
         for (short i = start; i < max; i++)
             getAndForkSubtask(ctx, i);
+    }
+
+    private short getStartClick() { return (short) (this.prefix[this.prefixLength - 1] + 1); }
+
+    private short getMaxClick() {
+        return (short) (Grid.NUM_CELLS - (this.numClicks - this.prefixLength) + 1);
     }
 
     private boolean getNewPrefixParity(short newValue) {

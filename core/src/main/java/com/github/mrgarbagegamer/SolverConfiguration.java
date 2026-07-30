@@ -710,33 +710,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             return queueStrategyFactory((config, solverState) -> queueStrategy);
         }
 
-        public Builder reset() {
-            // Reset all fields of this builder to their default values.
-            this.numClicks = 17;
-            this.numThreads = Runtime.getRuntime().availableProcessors();
-            this.baseGrid = new Grid35();
-            this.batchSize = 256;
-            this.taskPoolSize = 128;
-            this.queueSize = 16;
-            this.useDualMasks = null;
-            this.trueCellMasksLower = null;
-            this.trueCellMasksUpper = null;
-            this.expectedMaskLower = null;
-            this.expectedMaskUpper = null;
-            this.oddClickIndices = null;
-            this.evenClickIndices = null;
-            this.suffixMasksLower = null;
-            this.suffixMasksUpper = null;
-            this.oddStartIndices = null;
-            this.evenStartIndices = null;
-            this.solutionHandler = null;
-            this.loggerFunction = null;
-            this.generatorFactoryProvider = null;
-            this.registryQueue = null;
-            this.queueStrategyFactory = null;
-            return this;
-        }
-
         public SolverConfiguration build() { return new SolverConfiguration(this); }
     }
 

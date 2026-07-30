@@ -176,39 +176,35 @@ public class StartYourMonkeys {
 
             // Create the context registry and generator pool
             final ContextRegistry registry = ContextRegistry.newRegistry(this.config);
-            // TODO: Consider setting asyncMode to true and benchmarking performance impact
-            final ForkJoinPool generatorPool = new ForkJoinPool(numGenerators,
+            try (ForkJoinPool generatorPool = new ForkJoinPool(numGenerators,
                     GeneratorFactory.ofDefault(this.config, this.queueStrategy, registry), null,
-                    false);
-
-            // Create the monkeys
-            final TestClickCombination[] monkeys = new TestClickCombination[numMonkeys];
-            for (int i = 0; i < monkeys.length; i++) {
-                // Use the large constructor:
-                final String monkeyName = "Monkey-" + i;
-                monkeys[i] = new TestClickCombination(monkeyName, i, this.config,
-                        this.queueStrategy, this.solverState, generatorPool);
-                monkeys[i].start();
-            }
-
-            try {
-                generatorPool.invoke(CombinationGeneratorTask.createRootTask(this.config));
-            } finally {
-                // Flush any remaining batches only if no solution found
-                if (!this.solverState.solutionFound()) {
-                    registry.flushAllPendingBatches();
+                    false)) {
+                // Create the monkeys
+                final TestClickCombination[] monkeys = new TestClickCombination[numMonkeys];
+                for (int i = 0; i < monkeys.length; i++) {
+                    // Use the large constructor:
+                    final String monkeyName = "Monkey-" + i;
+                    monkeys[i] = new TestClickCombination(monkeyName, i, this.config,
+                            this.queueStrategy, this.solverState, generatorPool);
+                    monkeys[i].start();
                 }
 
-                // Mark generation complete
-                this.solverState.markGenerationComplete();
+                try {
+                    generatorPool.invoke(CombinationGeneratorTask.createRootTask(this.config));
+                } finally {
+                    // Flush any remaining batches only if no solution found
+                    if (!this.solverState.solutionFound()) {
+                        registry.flushAllPendingBatches();
+                    }
 
-                // Wait for worker threads to finish
-                for (TestClickCombination worker : monkeys)
-                    if (worker != null) // Should always be true, but adding a check just in case.
-                        Uninterruptibles.joinUninterruptibly(worker);
+                    // Mark generation complete
+                    this.solverState.markGenerationComplete();
 
-                // Shutdown generator pool immediately, if not already
-                generatorPool.shutdownNow();
+                    // Wait for worker threads to finish
+                    for (TestClickCombination worker : monkeys)
+                        if (worker != null) // Should always be true, but adding a check.
+                            Uninterruptibles.joinUninterruptibly(worker);
+                }
             }
         }
 

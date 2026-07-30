@@ -5,6 +5,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import org.jspecify.annotations.Nullable;
 
 // TODO: Update Javadocs.
+// TODO: Consider removing preallocation and performing it in the context instead.
 /**
  * A non-thread-safe, high-performance object pool for recycling {@link CombinationGeneratorTask}
  * instances.
@@ -204,39 +205,15 @@ public class TaskPool {
         return task;
     }
 
-    /**
-     * Returns a task to the pool for recycling.
-     * 
-     * <p>
-     * If the pool is full, the task is discarded and will be garbage collected. This indicates that
-     * the pool may be oversized.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This operation is also on the hot path. A {@code null} check is performed as a safeguard
-     * against programming errors, though it could be removed in trusted-caller scenarios for a
-     * marginal speed gain. The check against {@code capacity} is essential to prevent overwriting
-     * tasks in the circular buffer, which could lead to corruption.
-     * </p>
-     *
-     * @param task The {@link CombinationGeneratorTask} to return to the pool.
-     * @see #size
-     * @see #TaskPool(int)
-     * @see #get()
-     * @since 2025.07 - {@code TaskPool} Introduction
-     * @performance {@code O(1)} array access and update.
-     * @memory Does not allocate.
-     */
-    // TODO: Make this return a boolean.
-    public void put(CombinationGeneratorTask task) {
-        if (size >= capacity) {
-            return;
-        }
+    // TODO: Add Javadocs
+    public boolean put(CombinationGeneratorTask task) {
+        if (this.size >= this.capacity)
+            return false;
 
-        array[tail] = mustNotBeNull(task, "task");
-        tail = (tail + 1) % capacity;
-        size++;
+        this.array[this.tail] = mustNotBeNull(task, "task");
+        this.tail = (this.tail + 1) % this.capacity;
+        this.size++;
+        return true;
     }
 
     /**

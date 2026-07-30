@@ -4,7 +4,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullIn
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullLongList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullShortList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
-import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeEmpty;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNullElse;
@@ -35,7 +34,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 // potentially performing eager initialization of some fields.
 // TODO: Add class-level Javadoc
 public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int taskPoolSize,
-        int queueSize, Grid baseGrid, Supplier<ShortList> trueCells, Supplier<Boolean> useDualMasks,
+        int queueSize, Grid baseGrid, Supplier<Boolean> useDualMasks,
         Supplier<LongList> trueCellMasksLower, Supplier<LongList> trueCellMasksUpper,
         Supplier<Long> expectedMaskLower, Supplier<Long> expectedMaskUpper,
         Supplier<ShortList> oddClickIndices, Supplier<ShortList> evenClickIndices,
@@ -114,14 +113,13 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     }
 
     public SolverConfiguration(int numClicks, int numThreads, int batchSize, int taskPoolSize,
-            int queueSize, Grid baseGrid, Supplier<ShortList> trueCells,
-            Supplier<Boolean> useDualMasks, Supplier<LongList> trueCellMasksLower,
-            Supplier<LongList> trueCellMasksUpper, Supplier<Long> expectedMaskLower,
-            Supplier<Long> expectedMaskUpper, Supplier<ShortList> oddClickIndices,
-            Supplier<ShortList> evenClickIndices, Supplier<LongList> suffixMasksLower,
-            Supplier<LongList> suffixMasksUpper, Supplier<IntList> oddStartIndices,
-            Supplier<IntList> evenStartIndices, SolutionHandler solutionHandler,
-            Function<Class<?>, Logger> loggerFunction,
+            int queueSize, Grid baseGrid, Supplier<Boolean> useDualMasks,
+            Supplier<LongList> trueCellMasksLower, Supplier<LongList> trueCellMasksUpper,
+            Supplier<Long> expectedMaskLower, Supplier<Long> expectedMaskUpper,
+            Supplier<ShortList> oddClickIndices, Supplier<ShortList> evenClickIndices,
+            Supplier<LongList> suffixMasksLower, Supplier<LongList> suffixMasksUpper,
+            Supplier<IntList> oddStartIndices, Supplier<IntList> evenStartIndices,
+            SolutionHandler solutionHandler, Function<Class<?>, Logger> loggerFunction,
             GeneratorFactoryProvider generatorFactoryProvider, // Changed type
             Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
         checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
@@ -141,7 +139,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
         this.queueSize = mustBePositive(queueSize, "queueSize");
         this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
-        this.trueCells = LazyConstant.of(trueCells);
         this.useDualMasks = LazyConstant.of(useDualMasks);
         this.trueCellMasksLower = LazyConstant.of(trueCellMasksLower);
         this.trueCellMasksUpper = LazyConstant.of(trueCellMasksUpper);
@@ -171,18 +168,18 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final int taskPoolSize = builder.taskPoolSize;
         final int queueSize = builder.queueSize;
         final Grid baseGrid = builder.baseGrid;
-        final Supplier<ShortList> trueCells = requireNonNullElse(builder.trueCells,
-                trustedSupplier(baseGrid.findTrueCells()));
         final Supplier<Boolean> useDualMasks = requireNonNullElse(builder.useDualMasks,
                 () -> baseGrid.getTrueCount() > 64);
         final Supplier<LongList> trueCellMasksLower = requireNonNullElse(builder.trueCellMasksLower,
-                () -> computeTrueCellMasksLower(trueCells.get()));
+                () -> computeTrueCellMasksLower(ShortList.of(baseGrid.findTrueCells())));
         final Supplier<LongList> trueCellMasksUpper = requireNonNullElse(builder.trueCellMasksUpper,
-                () -> computeTrueCellMasksUpper(trueCells.get(), useDualMasks.get()));
+                () -> computeTrueCellMasksUpper(ShortList.of(baseGrid.findTrueCells()),
+                        useDualMasks.get()));
         final Supplier<Long> expectedMaskLower = requireNonNullElse(builder.expectedMaskLower,
-                () -> computeExpectedMaskLower(trueCells.get()));
+                () -> computeExpectedMaskLower(ShortList.of(baseGrid.findTrueCells())));
         final Supplier<Long> expectedMaskUpper = requireNonNullElse(builder.expectedMaskUpper,
-                () -> computeExpectedMaskUpper(trueCells.get(), useDualMasks.get()));
+                () -> computeExpectedMaskUpper(ShortList.of(baseGrid.findTrueCells()),
+                        useDualMasks.get()));
         final Supplier<ShortList> oddClickIndices = requireNonNullElse(builder.oddClickIndices,
                 trustedSupplier(baseGrid.findFirstTrueAdjacents()));
         final Supplier<ShortList> evenClickIndices = requireNonNullElse(builder.evenClickIndices,
@@ -206,11 +203,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         final QueueStrategyFactory queueStrategyFactory = requireNonNullElse(
                 builder.queueStrategyFactory, JCToolsQueueStrategy::multiSingle);
 
-        this(numClicks, numThreads, batchSize, taskPoolSize, queueSize, baseGrid, trueCells,
-                useDualMasks, trueCellMasksLower, trueCellMasksUpper, expectedMaskLower,
-                expectedMaskUpper, oddClickIndices, evenClickIndices, suffixMasksLower,
-                suffixMasksUpper, oddStartIndices, evenStartIndices, solutionHandler,
-                loggerFunction, generatorFactoryProvider, registryQueue, queueStrategyFactory);
+        this(numClicks, numThreads, batchSize, taskPoolSize, queueSize, baseGrid, useDualMasks,
+                trueCellMasksLower, trueCellMasksUpper, expectedMaskLower, expectedMaskUpper,
+                oddClickIndices, evenClickIndices, suffixMasksLower, suffixMasksUpper,
+                oddStartIndices, evenStartIndices, solutionHandler, loggerFunction,
+                generatorFactoryProvider, registryQueue, queueStrategyFactory);
     }
 
     public static Builder builder() { return new Builder(); }
@@ -242,8 +239,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
     public Grid baseGrid() {
         return baseGrid.copy(); // Defensive copy to maintain immutability
     }
-
-    public ShortList getTrueCells() { return trueCells.get(); }
 
     public boolean getUseDualMasks() { return useDualMasks.get(); }
 
@@ -331,7 +326,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private int queueSize = 16;
 
         // Derived (yet overridable at build-time) fields
-        private @Nullable Supplier<ShortList> trueCells;
         private @Nullable Supplier<Boolean> useDualMasks;
         private @Nullable Supplier<LongList> trueCellMasksLower;
         private @Nullable Supplier<LongList> trueCellMasksUpper;
@@ -385,36 +379,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             // an abstract method.
             this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
             return this;
-        }
-
-        public Builder trueCells(List<Short> trueCells) {
-            ShortList copy = copyOfNonNullShortList(trueCells, "trueCells");
-
-            mustNotBeEmpty(copy, "trueCells");
-            checkArgument(copy.size() <= Grid.NUM_CELLS,
-                    "trueCells cannot contain more than %s elements, but contains %s",
-                    Grid.NUM_CELLS, copy.size());
-
-            // Indexed for-loop to avoid implicit boxing/unboxing overhead
-            for (int i = 0; i < copy.size(); i++) {
-                ensureValidIndex(copy.getShort(i));
-            }
-
-            // Validate that elements are unique and in ascending order
-            ensureUniqueAndAscending(copy);
-
-            // Delegate to the supplier overload with a trusted supplier
-            return trueCells(() -> copy);
-        }
-
-        public Builder trueCells(Supplier<ShortList> trueCells) {
-            this.trueCells = mustNotBeNull(trueCells, "trueCells");
-            return this;
-        }
-
-        public Builder trueCells(short[] trueCells) {
-            // Delegate to the ShortList overload for validation
-            return trueCells(arrayToFastList(trueCells));
         }
 
         public Builder useDualMasks(boolean useDualMasks) {
@@ -754,7 +718,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             this.batchSize = 256;
             this.taskPoolSize = 128;
             this.queueSize = 16;
-            this.trueCells = null;
             this.useDualMasks = null;
             this.trueCellMasksLower = null;
             this.trueCellMasksUpper = null;

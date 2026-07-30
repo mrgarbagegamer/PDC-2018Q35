@@ -192,16 +192,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 () -> computeStartIndices(oddClickIndices.get()));
         final Supplier<IntList> evenStartIndices = requireNonNullElse(builder.evenStartIndices,
                 () -> computeStartIndices(evenClickIndices.get()));
-        final SolutionHandler solutionHandler = requireNonNullElse(builder.solutionHandler,
-                SolverConfiguration::defaultSolutionHandling);
-        final Function<Class<?>, Logger> loggerFunction = requireNonNullElse(builder.loggerFunction,
-                LogManager::getLogger);
-        final GeneratorFactoryProvider generatorFactoryProvider = requireNonNullElse(
-                builder.generatorFactoryProvider, GeneratorFactory::ofDefault);
-        final Queue<GeneratorContext> registryQueue = requireNonNullElse(builder.registryQueue,
-                new ConcurrentLinkedQueue<>());
-        final QueueStrategyFactory queueStrategyFactory = requireNonNullElse(
-                builder.queueStrategyFactory, JCToolsQueueStrategy::multiSingle);
+        final SolutionHandler solutionHandler = builder.solutionHandler;
+        final Function<Class<?>, Logger> loggerFunction = builder.loggerFunction;
+        final GeneratorFactoryProvider generatorFactoryProvider = builder.generatorFactoryProvider;
+        final Queue<GeneratorContext> registryQueue = builder.registryQueue;
+        final QueueStrategyFactory queueStrategyFactory = builder.queueStrategyFactory;
 
         this(numClicks, numThreads, batchSize, taskPoolSize, queueSize, baseGrid, useDualMasks,
                 trueCellMasksLower, trueCellMasksUpper, expectedMaskLower, expectedMaskUpper,
@@ -337,11 +332,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private @Nullable Supplier<LongList> suffixMasksUpper;
         private @Nullable Supplier<IntList> oddStartIndices;
         private @Nullable Supplier<IntList> evenStartIndices;
-        private @Nullable SolutionHandler solutionHandler;
-        private @Nullable Function<Class<?>, Logger> loggerFunction;
-        private @Nullable GeneratorFactoryProvider generatorFactoryProvider;
-        private @Nullable Queue<GeneratorContext> registryQueue;
-        private @Nullable QueueStrategyFactory queueStrategyFactory;
+        private @Nullable SolutionHandler solutionHandler = SolverConfiguration::defaultSolutionHandling;
+        private @Nullable Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
+        private @Nullable GeneratorFactoryProvider generatorFactoryProvider = GeneratorFactory::ofDefault;
+        private @Nullable Queue<GeneratorContext> registryQueue = new ConcurrentLinkedQueue<>();
+        private QueueStrategyFactory queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
 
         public Builder numClicks(int numClicks) {
             checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,

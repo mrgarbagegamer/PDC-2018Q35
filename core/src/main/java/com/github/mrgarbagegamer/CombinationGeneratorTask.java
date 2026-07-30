@@ -12,7 +12,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 // TODO: Consider a polymorphic approach to distinguish between root, intermediate, and leaf tasks
 // TODO: Look at using getSurplusQueuedTaskCount() to determine if we should fork or compute
 // directly
-// TODO: Consider using a CountDownLatch instead of helpQuiesce() to park the main thread.
 /**
  * A {@link RecursiveAction} that generates combinations of clicks for the Lights Out puzzle solver.
  *
@@ -180,10 +179,6 @@ public class CombinationGeneratorTask extends RecursiveAction {
 
         for (short i = 0; i < max; i++)
             getAndForkSubtask(ctx, i);
-
-        helpQuiesce(); // Wait for all subtasks to complete before returning
-        // This will ensure that the root task does not exit prematurely, keeping the main thread
-        // parked
     }
 
     private void getAndForkSubtask(GeneratorContext ctx, short newValue) {

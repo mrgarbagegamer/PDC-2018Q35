@@ -2,7 +2,9 @@ package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -189,17 +191,39 @@ public class StartYourMonkeys {
                     monkeys[i].start();
                 }
 
-                try {
-                    generatorPool.invoke(CombinationGeneratorTask.createRootTask(this.config));
-                } finally {
-                    // Flush any remaining batches only if no solution found
-                    if (!this.solverState.solutionFound()) {
-                        registry.flushAllPendingBatches();
+                // TODO: Consider moving the CountDownLatch into the SolverState to replace the
+                // generationComplete flag.
+                final CountDownLatch generationCompleteLatch = new CountDownLatch(1);
+
+                generatorPool.execute(() -> {
+                    try {
+                        // Create and execute the root task within the pool context.
+                        CombinationGeneratorTask.createRootTask(this.config).invoke();
+
+                        // Help the other threads in the pool until the generation tree is
+                        // exhausted.
+                        ForkJoinTask.helpQuiesce();
+                    } finally {
+                        // Flush any remaining batches only if no solution has been found yet.
+                        if (!this.solverState.solutionFound()) {
+                            registry.flushAllPendingBatches();
+                        }
+
+                        // Mark generation as complete for the monkeys.
+                        this.solverState.markGenerationComplete();
+
+                        // Count down the latch to signal that generation is complete.
+                        generationCompleteLatch.countDown();
                     }
+                });
 
-                    // Mark generation complete
-                    this.solverState.markGenerationComplete();
-
+                try {
+                    // Park the main thread to avoid context switching.
+                    generationCompleteLatch.await();
+                } catch (InterruptedException e) {
+                    this.logger.error("Main thread interrupted during generation", e);
+                    Thread.currentThread().interrupt(); // Restore interrupt status
+                } finally {
                     // Wait for worker threads to finish
                     for (TestClickCombination worker : monkeys)
                         if (worker != null) // Should always be true, but adding a check.

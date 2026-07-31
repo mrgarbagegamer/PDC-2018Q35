@@ -235,27 +235,45 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         return this.baseGrid.copy(); // Defensive copy to maintain immutability
     }
 
-    public boolean getUseDualMasks() { return this.useDualMasks.get(); }
+    public boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
 
-    public LongList getTrueCellMasksLower() { return this.trueCellMasksLower.get(); }
+    public LongList getTrueCellMasksLower() {
+        return computeTrueCellMasksLower(ShortList.of(this.baseGrid().findTrueCells()));
+    }
 
-    public LongList getTrueCellMasksUpper() { return this.trueCellMasksUpper.get(); }
+    public LongList getTrueCellMasksUpper() {
+        return computeTrueCellMasksUpper(ShortList.of(this.baseGrid().findTrueCells()),
+                this.getUseDualMasks());
+    }
 
-    public long getExpectedMaskLower() { return this.expectedMaskLower.get(); }
+    public long getExpectedMaskLower() {
+        return computeExpectedMaskLower(ShortList.of(this.baseGrid().findTrueCells()));
+    }
 
-    public long getExpectedMaskUpper() { return this.expectedMaskUpper.get(); }
+    public long getExpectedMaskUpper() {
+        return computeExpectedMaskUpper(ShortList.of(this.baseGrid().findTrueCells()),
+                this.getUseDualMasks());
+    }
 
-    public ShortList getOddClickIndices() { return this.oddClickIndices.get(); }
+    public ShortList getOddClickIndices() {
+        return ShortList.of(this.baseGrid().findFirstTrueAdjacents());
+    }
 
-    public ShortList getEvenClickIndices() { return this.evenClickIndices.get(); }
+    public ShortList getEvenClickIndices() {
+        return Grid.invertCombination(this.getOddClickIndices());
+    }
 
-    public LongList getSuffixMasksLower() { return this.suffixMasksLower.get(); }
+    public LongList getSuffixMasksLower() {
+        return computeSuffixMasksLower(this.getTrueCellMasksLower());
+    }
 
-    public LongList getSuffixMasksUpper() { return this.suffixMasksUpper.get(); }
+    public LongList getSuffixMasksUpper() {
+        return computeSuffixMasksUpper(this.getTrueCellMasksUpper(), this.getUseDualMasks());
+    }
 
-    public IntList getOddStartIndices() { return this.oddStartIndices.get(); }
+    public IntList getOddStartIndices() { return computeStartIndices(this.getOddClickIndices()); }
 
-    public IntList getEvenStartIndices() { return this.evenStartIndices.get(); }
+    public IntList getEvenStartIndices() { return computeStartIndices(this.getEvenClickIndices()); }
 
     public Logger getLogger(Class<?> clazz) { return this.loggerFunction.apply(clazz); }
 

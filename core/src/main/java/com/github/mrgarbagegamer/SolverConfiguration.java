@@ -232,40 +232,40 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
     @Override
     public Grid baseGrid() {
-        return baseGrid.copy(); // Defensive copy to maintain immutability
+        return this.baseGrid.copy(); // Defensive copy to maintain immutability
     }
 
-    public boolean getUseDualMasks() { return useDualMasks.get(); }
+    public boolean getUseDualMasks() { return this.useDualMasks.get(); }
 
-    public LongList getTrueCellMasksLower() { return trueCellMasksLower.get(); }
+    public LongList getTrueCellMasksLower() { return this.trueCellMasksLower.get(); }
 
-    public LongList getTrueCellMasksUpper() { return trueCellMasksUpper.get(); }
+    public LongList getTrueCellMasksUpper() { return this.trueCellMasksUpper.get(); }
 
-    public long getExpectedMaskLower() { return expectedMaskLower.get(); }
+    public long getExpectedMaskLower() { return this.expectedMaskLower.get(); }
 
-    public long getExpectedMaskUpper() { return expectedMaskUpper.get(); }
+    public long getExpectedMaskUpper() { return this.expectedMaskUpper.get(); }
 
-    public ShortList getOddClickIndices() { return oddClickIndices.get(); }
+    public ShortList getOddClickIndices() { return this.oddClickIndices.get(); }
 
-    public ShortList getEvenClickIndices() { return evenClickIndices.get(); }
+    public ShortList getEvenClickIndices() { return this.evenClickIndices.get(); }
 
-    public LongList getSuffixMasksLower() { return suffixMasksLower.get(); }
+    public LongList getSuffixMasksLower() { return this.suffixMasksLower.get(); }
 
-    public LongList getSuffixMasksUpper() { return suffixMasksUpper.get(); }
+    public LongList getSuffixMasksUpper() { return this.suffixMasksUpper.get(); }
 
-    public IntList getOddStartIndices() { return oddStartIndices.get(); }
+    public IntList getOddStartIndices() { return this.oddStartIndices.get(); }
 
-    public IntList getEvenStartIndices() { return evenStartIndices.get(); }
+    public IntList getEvenStartIndices() { return this.evenStartIndices.get(); }
 
-    public Logger getLogger(Class<?> clazz) { return loggerFunction.apply(clazz); }
+    public Logger getLogger(Class<?> clazz) { return this.loggerFunction.apply(clazz); }
 
     public GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy,
             SolverState solverState, ContextRegistry registry) {
-        return generatorFactoryProvider.create(this, queueStrategy, registry); // Pass 'this' here
+        return this.generatorFactoryProvider.create(this, queueStrategy, registry);
     }
 
     public QueueStrategy getQueueStrategy(SolverState solverState) {
-        return queueStrategyFactory.create(this, solverState); // Pass 'this' here
+        return this.queueStrategyFactory.create(this, solverState);
     }
 
     @FunctionalInterface

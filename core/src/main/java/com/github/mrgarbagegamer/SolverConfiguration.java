@@ -319,6 +319,11 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private int batchSize = 256;
         private int taskPoolSize = 128;
         private int queueSize = 16;
+        private SolutionHandler solutionHandler = SolverConfiguration::defaultSolutionHandling;
+        private Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
+        private GeneratorFactoryProvider generatorFactoryProvider = GeneratorFactory::ofDefault;
+        private Queue<GeneratorContext> registryQueue = new ConcurrentLinkedQueue<>();
+        private QueueStrategyFactory queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
 
         // Derived (yet overridable at build-time) fields
         private @Nullable Supplier<Boolean> useDualMasks;
@@ -332,11 +337,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private @Nullable Supplier<LongList> suffixMasksUpper;
         private @Nullable Supplier<IntList> oddStartIndices;
         private @Nullable Supplier<IntList> evenStartIndices;
-        private @Nullable SolutionHandler solutionHandler = SolverConfiguration::defaultSolutionHandling;
-        private @Nullable Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
-        private @Nullable GeneratorFactoryProvider generatorFactoryProvider = GeneratorFactory::ofDefault;
-        private @Nullable Queue<GeneratorContext> registryQueue = new ConcurrentLinkedQueue<>();
-        private QueueStrategyFactory queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
 
         public Builder numClicks(int numClicks) {
             checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,

@@ -8,7 +8,9 @@ import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,8 +26,7 @@ import it.unimi.dsi.fastutil.longs.LongImmutableList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
-// TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
-// potentially performing eager initialization of some fields.
+// TODO: Disable preview features in the Java build, since they're no longer needed.
 // TODO: Add class-level Javadoc
 public final class SolverConfiguration {
     private final int numClicks;
@@ -86,6 +87,10 @@ public final class SolverConfiguration {
 
     public int numThreads() { return this.numThreads; }
 
+    public int numGenerators() { return this.numThreads / 2; }
+
+    public int numMonkeys() { return this.numThreads / 2; }
+
     public int batchSize() { return this.batchSize; }
 
     public int taskPoolSize() { return this.taskPoolSize; }
@@ -97,27 +102,27 @@ public final class SolverConfiguration {
     SolutionHandler solutionHandler() { return this.solutionHandler; }
 
     Queue<GeneratorContext> getRegistryQueue() {
-        return this.registryQueueFunction.apply(this.numThreads() / 2);
+        return this.registryQueueFunction.apply(this.numGenerators());
     }
 
     boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
 
     LongList getTrueCellMasksLower() {
-        return computeTrueCellMasksLower(ShortList.of(this.baseGrid().findTrueCells()));
+        ShortList trueCells = ShortList.of(this.baseGrid().findTrueCells());
+        return generateTrueCellMasks(trueCells.size() > 64 ? trueCells.subList(0, 64) : trueCells);
     }
 
     LongList getTrueCellMasksUpper() {
-        return computeTrueCellMasksUpper(ShortList.of(this.baseGrid().findTrueCells()),
-                this.getUseDualMasks());
+        ShortList trueCells = ShortList.of(this.baseGrid().findTrueCells());
+        return trueCells.size() > 64
+                ? generateTrueCellMasks(trueCells.subList(64, trueCells.size()))
+                : LongList.of();
     }
 
-    long getExpectedMaskLower() {
-        return computeExpectedMaskLower(ShortList.of(this.baseGrid().findTrueCells()));
-    }
+    long getExpectedMaskLower() { return (1L << this.baseGrid().getTrueCount()) - 1; }
 
     long getExpectedMaskUpper() {
-        return computeExpectedMaskUpper(ShortList.of(this.baseGrid().findTrueCells()),
-                this.getUseDualMasks());
+        return (1L << (Math.max(this.baseGrid().getTrueCount(), 64) - 64)) - 1;
     }
 
     ShortList getOddClickIndices() {
@@ -126,11 +131,9 @@ public final class SolverConfiguration {
 
     ShortList getEvenClickIndices() { return Grid.invertCombination(this.getOddClickIndices()); }
 
-    LongList getSuffixMasksLower() { return computeSuffixMasksLower(this.getTrueCellMasksLower()); }
+    LongList getSuffixMasksLower() { return computeSuffixMasks(this.getTrueCellMasksLower()); }
 
-    LongList getSuffixMasksUpper() {
-        return computeSuffixMasksUpper(this.getTrueCellMasksUpper(), this.getUseDualMasks());
-    }
+    LongList getSuffixMasksUpper() { return computeSuffixMasks(this.getTrueCellMasksUpper()); }
 
     IntList getOddStartIndices() { return computeStartIndices(this.getOddClickIndices()); }
 
@@ -138,8 +141,7 @@ public final class SolverConfiguration {
 
     Logger getLogger(Class<?> clazz) { return this.loggerFunction.apply(clazz); }
 
-    GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy, SolverState solverState,
-            ContextRegistry registry) {
+    GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy, ContextRegistry registry) {
         return this.generatorFactoryProvider.create(this, queueStrategy, registry);
     }
 
@@ -284,15 +286,6 @@ public final class SolverConfiguration {
         public SolverConfiguration build() { return new SolverConfiguration(this); }
     }
 
-    private static LongList computeTrueCellMasksLower(ShortList trueCells) {
-        // Trim this array to only the lower 64 bits, then generate masks
-        return generateTrueCellMasks(sublist(trueCells, 0, 64));
-    }
-
-    private static ShortList sublist(ShortList list, int fromIndex, int toIndex) {
-        return list.subList(fromIndex, Math.min(toIndex, list.size()));
-    }
-
     private static LongList generateTrueCellMasks(ShortList trimmedTrueCells) {
         // Create a list with an initial capacity of Grid.NUM_CELLS
         final LongList masks = new LongArrayList(Grid.NUM_CELLS);
@@ -311,31 +304,10 @@ public final class SolverConfiguration {
         return new LongImmutableList(masks); // Return an immutable list
     }
 
-    private static LongList computeTrueCellMasksUpper(ShortList trueCells, boolean useDualMasks) {
-        // Let this method short-circuit if not using dual masks
-        return useDualMasks ? generateTrueCellMasks(sublist(trueCells, 64, trueCells.size()))
-                : new LongImmutableList(new long[Grid.NUM_CELLS]);
-    }
-
-    private static long computeExpectedMaskLower(ShortList trueCells) {
-        return (1L << trueCells.size()) - 1;
-    }
-
-    private static long computeExpectedMaskUpper(ShortList trueCells, boolean useDualMasks) {
-        return useDualMasks ? (1L << (trueCells.size() - 64)) - 1 : 0L;
-    }
-
-    private static LongList computeSuffixMasksLower(LongList trueCellMasksLower) {
-        return computeSuffixMasks(trueCellMasksLower);
-    }
-
-    private static LongList computeSuffixMasksUpper(LongList trueCellMasksUpper,
-            boolean useDualMasks) {
-        return useDualMasks ? computeSuffixMasks(trueCellMasksUpper)
-                : new LongImmutableList(new long[Grid.NUM_CELLS]);
-    }
-
     private static LongList computeSuffixMasks(LongList trueCellMasks) {
+        if (trueCellMasks.isEmpty())
+            return LongList.of(); // Short-circuit for upper lists when a single-mask is used.
+
         // Create a list with an initial capacity of Grid.NUM_CELLS
         final LongList suffixMasks = new LongArrayList(new long[Grid.NUM_CELLS]);
 

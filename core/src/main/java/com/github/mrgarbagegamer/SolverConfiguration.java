@@ -37,8 +37,7 @@ public final class SolverConfiguration {
     private final SolutionHandler solutionHandler;
     private final Function<Class<?>, Logger> loggerFunction;
     private final GeneratorFactoryProvider generatorFactoryProvider;
-    private final Queue<GeneratorContext> registryQueue; // TODO: Make this a
-                                                         // Supplier<Queue<GeneratorContext>>.
+    private final IntFunction<Queue<GeneratorContext>> registryQueueFunction;
     private final QueueStrategyFactory queueStrategyFactory;
 
     private SolverConfiguration(Builder builder) {
@@ -52,7 +51,8 @@ public final class SolverConfiguration {
         this.loggerFunction = mustNotBeNull(builder.loggerFunction, "loggerFunction");
         this.generatorFactoryProvider = mustNotBeNull(builder.generatorFactoryProvider,
                 "generatorFactoryProvider");
-        this.registryQueue = mustNotBeNull(builder.registryQueue, "registryQueue");
+        this.registryQueueFunction = mustNotBeNull(builder.registryQueueFunction,
+                "registryQueueFunction");
         this.queueStrategyFactory = mustNotBeNull(builder.queueStrategyFactory,
                 "queueStrategyFactory");
     }
@@ -96,7 +96,9 @@ public final class SolverConfiguration {
 
     SolutionHandler solutionHandler() { return this.solutionHandler; }
 
-    Queue<GeneratorContext> registryQueue() { return this.registryQueue; }
+    Queue<GeneratorContext> getRegistryQueue() {
+        return this.registryQueueFunction.apply(this.numThreads() / 2);
+    }
 
     boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
 
@@ -156,7 +158,7 @@ public final class SolverConfiguration {
                     && this.solutionHandler.equals(other.solutionHandler)
                     && this.loggerFunction.equals(other.loggerFunction)
                     && this.generatorFactoryProvider.equals(other.generatorFactoryProvider)
-                    && this.registryQueue.equals(other.registryQueue)
+                    && this.registryQueueFunction.equals(other.registryQueueFunction)
                     && this.queueStrategyFactory.equals(other.queueStrategyFactory);
         return false;
     }
@@ -172,7 +174,7 @@ public final class SolverConfiguration {
         result = 31 * result + this.solutionHandler.hashCode();
         result = 31 * result + this.loggerFunction.hashCode();
         result = 31 * result + this.generatorFactoryProvider.hashCode();
-        result = 31 * result + this.registryQueue.hashCode();
+        result = 31 * result + this.registryQueueFunction.hashCode();
         result = 31 * result + this.queueStrategyFactory.hashCode();
         return result;
     }
@@ -240,7 +242,7 @@ public final class SolverConfiguration {
         private SolutionHandler solutionHandler = SolverConfiguration::defaultSolutionHandling;
         private Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
         private GeneratorFactoryProvider generatorFactoryProvider = GeneratorFactory::ofDefault;
-        private Queue<GeneratorContext> registryQueue = new ConcurrentLinkedQueue<>();
+        private IntFunction<Queue<GeneratorContext>> registryQueueFunction = _ -> new ConcurrentLinkedQueue<>();
         private QueueStrategyFactory queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
 
         public Builder numClicks(int numClicks) {
@@ -307,8 +309,10 @@ public final class SolverConfiguration {
             return generatorFactoryProvider((config, queueStrategy, registry) -> generatorFactory);
         }
 
-        public Builder registryQueue(Queue<GeneratorContext> registryQueue) {
-            this.registryQueue = mustNotBeNull(registryQueue, "registryQueue");
+        public Builder registryQueueFunction(
+                IntFunction<Queue<GeneratorContext>> registryQueueFunction) {
+            this.registryQueueFunction = mustNotBeNull(registryQueueFunction,
+                    "registryQueueFunction");
             return this;
         }
 

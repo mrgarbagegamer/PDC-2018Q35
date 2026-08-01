@@ -31,7 +31,7 @@ public final class ContextRegistry {
 
     public static ContextRegistry newRegistry(SolverConfiguration config) {
         mustNotBeNull(config, "config");
-        return new ContextRegistry(config.getLogger(ContextRegistry.class), config.registryQueue());
+        return new ContextRegistry(config.getLogger(ContextRegistry.class), config.getRegistryQueue());
     }
 
     public boolean registerContext(GeneratorContext context) {

@@ -38,7 +38,7 @@ public final class SolverConfiguration {
     private final Function<Class<?>, Logger> loggerFunction;
     private final GeneratorFactoryProvider generatorFactoryProvider;
     private final IntFunction<Queue<GeneratorContext>> registryQueueFunction;
-    private final QueueStrategyFactory queueStrategyFactory;
+    private final BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory;
 
     private SolverConfiguration(Builder builder) {
         this.numClicks = builder.numClicks;
@@ -144,7 +144,7 @@ public final class SolverConfiguration {
     }
 
     QueueStrategy getQueueStrategy(SolverState solverState) {
-        return this.queueStrategyFactory.create(this, solverState);
+        return this.queueStrategyFactory.apply(this, solverState);
     }
 
     @Override
@@ -199,37 +199,6 @@ public final class SolverConfiguration {
                 ContextRegistry registry);
     }
 
-    // TODO: Consider just using a BiFunction
-    /**
-     * A factory interface for {@link #create(SolverConfiguration, SolverState) creating}
-     * {@link QueueStrategy} instances based on the provided {@link SolverConfiguration} and
-     * {@link SolverState}. This allows for flexible instantiation of different queue strategies
-     * that may require access to the configuration and state at creation time.
-     * 
-     * @see SolverConfiguration#getQueueStrategy(SolverState)
-     * @see SolverConfiguration.Builder#queueStrategyFactory(QueueStrategyFactory)
-     * @since 2026.02 - Queue Injection Refactor
-     * @threading Thread-safe (since it should be stateless and only used for instantiation).
-     */
-    @FunctionalInterface
-    public interface QueueStrategyFactory {
-        /**
-         * Creates a new {@link QueueStrategy} instance based on the provided
-         * {@link SolverConfiguration} and {@link SolverState}.
-         * 
-         * @param config      the solver configuration to use for creating the queue strategy
-         * @param solverState the solver state to use for creating the queue strategy
-         * @return a new instance of {@link QueueStrategy} configured according to the provided
-         *         configuration and state
-         * @see SolverConfiguration#getQueueStrategy(SolverState)
-         * @see SolverConfiguration.Builder#queueStrategyFactory(QueueStrategyFactory)
-         * @since 2026.02 - Queue Injection Refactor
-         * @threading Thread-safe (since it should be stateless and only used for instantiation).
-         * @memory Allocates a new {@link QueueStrategy} instance.
-         */
-        QueueStrategy create(SolverConfiguration config, SolverState solverState);
-    }
-
     public static class Builder {
         private int numClicks = 17;
         // TODO: Update the unit tests that manually specified the numThreads to 2 to use the
@@ -243,7 +212,7 @@ public final class SolverConfiguration {
         private Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
         private GeneratorFactoryProvider generatorFactoryProvider = GeneratorFactory::ofDefault;
         private IntFunction<Queue<GeneratorContext>> registryQueueFunction = _ -> new ConcurrentLinkedQueue<>();
-        private QueueStrategyFactory queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
+        private BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
 
         public Builder numClicks(int numClicks) {
             checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
@@ -306,7 +275,8 @@ public final class SolverConfiguration {
             return this;
         }
 
-        public Builder queueStrategyFactory(QueueStrategyFactory queueStrategyFactory) {
+        public Builder queueStrategyFactory(
+                BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory) {
             this.queueStrategyFactory = mustNotBeNull(queueStrategyFactory, "queueStrategyFactory");
             return this;
         }

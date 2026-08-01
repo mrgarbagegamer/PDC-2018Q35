@@ -14,6 +14,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
+import com.google.common.base.MoreObjects;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntImmutableList;
@@ -26,54 +27,34 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 // TODO: Refactor this class to simplify the design and reduce the number of parameters, as well as
 // potentially performing eager initialization of some fields.
 // TODO: Add class-level Javadoc
-public record SolverConfiguration(int numClicks, int numThreads, int batchSize, int taskPoolSize,
-        int queueSize, Grid baseGrid, SolutionHandler solutionHandler,
-        Function<Class<?>, Logger> loggerFunction,
-        GeneratorFactoryProvider generatorFactoryProvider, // Changed type
-        Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
-
-    public SolverConfiguration(int numClicks, int numThreads, int batchSize, int taskPoolSize,
-            int queueSize, Grid baseGrid, SolutionHandler solutionHandler,
-            Function<Class<?>, Logger> loggerFunction,
-            GeneratorFactoryProvider generatorFactoryProvider, // Changed type
-            Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
-        checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
-                "numClicks must be in range [1, %s], was %s", Grid.NUM_CELLS, numClicks);
-        checkArgument(numThreads > 1, "numThreads must be greater than 1, was %s", numThreads);
-
-        this.numClicks = numClicks;
-        this.numThreads = numThreads;
-        this.batchSize = mustBePositive(batchSize, "batchSize");
-        this.taskPoolSize = mustBePositive(taskPoolSize, "taskPoolSize");
-        this.queueSize = mustBePositive(queueSize, "queueSize");
-        this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
-        this.solutionHandler = mustNotBeNull(solutionHandler, "solutionHandler");
-        this.loggerFunction = mustNotBeNull(loggerFunction, "loggerFunction");
-        this.generatorFactoryProvider = mustNotBeNull(generatorFactoryProvider,
-                "generatorFactoryProvider");
-        this.registryQueue = mustNotBeNull(registryQueue, "registryQueue");
-        this.queueStrategyFactory = mustNotBeNull(queueStrategyFactory, "queueStrategyFactory");
-    }
+public final class SolverConfiguration {
+    private final int numClicks;
+    private final int numThreads;
+    private final int batchSize;
+    private final int taskPoolSize;
+    private final int queueSize;
+    private final Grid baseGrid;
+    private final SolutionHandler solutionHandler;
+    private final Function<Class<?>, Logger> loggerFunction;
+    private final GeneratorFactoryProvider generatorFactoryProvider;
+    private final Queue<GeneratorContext> registryQueue; // TODO: Make this a
+                                                         // Supplier<Queue<GeneratorContext>>.
+    private final QueueStrategyFactory queueStrategyFactory;
 
     private SolverConfiguration(Builder builder) {
-        // One big constructor call (making sure to use requireNonNullElse for the derived fields)
-
-        // Define the fields to be used:
-        final int numClicks = builder.numClicks;
-        final int numThreads = builder.numThreads;
-        final int batchSize = builder.batchSize;
-        final int taskPoolSize = builder.taskPoolSize;
-        final int queueSize = builder.queueSize;
-        final Grid baseGrid = builder.baseGrid;
-        final SolutionHandler solutionHandler = builder.solutionHandler;
-        final Function<Class<?>, Logger> loggerFunction = builder.loggerFunction;
-        final GeneratorFactoryProvider generatorFactoryProvider = builder.generatorFactoryProvider;
-        final Queue<GeneratorContext> registryQueue = builder.registryQueue;
-        final QueueStrategyFactory queueStrategyFactory = builder.queueStrategyFactory;
-
-        this(numClicks, numThreads, batchSize, taskPoolSize, queueSize, baseGrid,
-                solutionHandler, loggerFunction, generatorFactoryProvider, registryQueue,
-                queueStrategyFactory);
+        this.numClicks = builder.numClicks;
+        this.numThreads = builder.numThreads;
+        this.batchSize = mustBePositive(builder.batchSize, "batchSize");
+        this.taskPoolSize = mustBePositive(builder.taskPoolSize, "taskPoolSize");
+        this.queueSize = mustBePositive(builder.queueSize, "queueSize");
+        this.baseGrid = mustNotBeNull(builder.baseGrid, "baseGrid").copy();
+        this.solutionHandler = mustNotBeNull(builder.solutionHandler, "solutionHandler");
+        this.loggerFunction = mustNotBeNull(builder.loggerFunction, "loggerFunction");
+        this.generatorFactoryProvider = mustNotBeNull(builder.generatorFactoryProvider,
+                "generatorFactoryProvider");
+        this.registryQueue = mustNotBeNull(builder.registryQueue, "registryQueue");
+        this.queueStrategyFactory = mustNotBeNull(builder.queueStrategyFactory,
+                "queueStrategyFactory");
     }
 
     public static Builder builder() { return new Builder(); }
@@ -101,60 +82,107 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         };
     }
 
-    @Override
-    public Grid baseGrid() {
-        return this.baseGrid.copy(); // Defensive copy to maintain immutability
-    }
+    public int numClicks() { return this.numClicks; }
 
-    public boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
+    public int numThreads() { return this.numThreads; }
 
-    public LongList getTrueCellMasksLower() {
+    public int batchSize() { return this.batchSize; }
+
+    public int taskPoolSize() { return this.taskPoolSize; }
+
+    public int queueSize() { return this.queueSize; }
+
+    public Grid baseGrid() { return this.baseGrid.copy(); }
+
+    SolutionHandler solutionHandler() { return this.solutionHandler; }
+
+    Queue<GeneratorContext> registryQueue() { return this.registryQueue; }
+
+    boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
+
+    LongList getTrueCellMasksLower() {
         return computeTrueCellMasksLower(ShortList.of(this.baseGrid().findTrueCells()));
     }
 
-    public LongList getTrueCellMasksUpper() {
+    LongList getTrueCellMasksUpper() {
         return computeTrueCellMasksUpper(ShortList.of(this.baseGrid().findTrueCells()),
                 this.getUseDualMasks());
     }
 
-    public long getExpectedMaskLower() {
+    long getExpectedMaskLower() {
         return computeExpectedMaskLower(ShortList.of(this.baseGrid().findTrueCells()));
     }
 
-    public long getExpectedMaskUpper() {
+    long getExpectedMaskUpper() {
         return computeExpectedMaskUpper(ShortList.of(this.baseGrid().findTrueCells()),
                 this.getUseDualMasks());
     }
 
-    public ShortList getOddClickIndices() {
+    ShortList getOddClickIndices() {
         return ShortList.of(this.baseGrid().findFirstTrueAdjacents());
     }
 
-    public ShortList getEvenClickIndices() {
-        return Grid.invertCombination(this.getOddClickIndices());
-    }
+    ShortList getEvenClickIndices() { return Grid.invertCombination(this.getOddClickIndices()); }
 
-    public LongList getSuffixMasksLower() {
-        return computeSuffixMasksLower(this.getTrueCellMasksLower());
-    }
+    LongList getSuffixMasksLower() { return computeSuffixMasksLower(this.getTrueCellMasksLower()); }
 
-    public LongList getSuffixMasksUpper() {
+    LongList getSuffixMasksUpper() {
         return computeSuffixMasksUpper(this.getTrueCellMasksUpper(), this.getUseDualMasks());
     }
 
-    public IntList getOddStartIndices() { return computeStartIndices(this.getOddClickIndices()); }
+    IntList getOddStartIndices() { return computeStartIndices(this.getOddClickIndices()); }
 
-    public IntList getEvenStartIndices() { return computeStartIndices(this.getEvenClickIndices()); }
+    IntList getEvenStartIndices() { return computeStartIndices(this.getEvenClickIndices()); }
 
-    public Logger getLogger(Class<?> clazz) { return this.loggerFunction.apply(clazz); }
+    Logger getLogger(Class<?> clazz) { return this.loggerFunction.apply(clazz); }
 
-    public GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy,
-            SolverState solverState, ContextRegistry registry) {
+    GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy, SolverState solverState,
+            ContextRegistry registry) {
         return this.generatorFactoryProvider.create(this, queueStrategy, registry);
     }
 
-    public QueueStrategy getQueueStrategy(SolverState solverState) {
+    QueueStrategy getQueueStrategy(SolverState solverState) {
         return this.queueStrategyFactory.create(this, solverState);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this)
+            return true;
+        if (obj instanceof SolverConfiguration other)
+            return this.numClicks == other.numClicks && this.numThreads == other.numThreads
+                    && this.batchSize == other.batchSize && this.taskPoolSize == other.taskPoolSize
+                    && this.queueSize == other.queueSize && this.baseGrid.equals(other.baseGrid)
+                    && this.solutionHandler.equals(other.solutionHandler)
+                    && this.loggerFunction.equals(other.loggerFunction)
+                    && this.generatorFactoryProvider.equals(other.generatorFactoryProvider)
+                    && this.registryQueue.equals(other.registryQueue)
+                    && this.queueStrategyFactory.equals(other.queueStrategyFactory);
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = this.numClicks;
+        result = 31 * result + this.numThreads;
+        result = 31 * result + this.batchSize;
+        result = 31 * result + this.taskPoolSize;
+        result = 31 * result + this.queueSize;
+        result = 31 * result + this.baseGrid.hashCode();
+        result = 31 * result + this.solutionHandler.hashCode();
+        result = 31 * result + this.loggerFunction.hashCode();
+        result = 31 * result + this.generatorFactoryProvider.hashCode();
+        result = 31 * result + this.registryQueue.hashCode();
+        result = 31 * result + this.queueStrategyFactory.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this).add("numClicks", numClicks)
+                .add("numThreads", numThreads).add("batchSize", batchSize)
+                .add("taskPoolSize", taskPoolSize).add("queueSize", queueSize)
+                .add("baseGrid", baseGrid).toString();
     }
 
     @FunctionalInterface
@@ -163,7 +191,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
                 ForkJoinPool generatorPool, Logger logger);
     }
 
-    // Replace BiFunction with a TriFunction-style interface
     @FunctionalInterface
     public interface GeneratorFactoryProvider {
         GeneratorFactory create(SolverConfiguration config, QueueStrategy queueStrategy,
@@ -203,7 +230,9 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
 
     public static class Builder {
         private int numClicks = 17;
-        private int numThreads = Runtime.getRuntime().availableProcessors();
+        // TODO: Update the unit tests that manually specified the numThreads to 2 to use the
+        // default.
+        private int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), 2);
         private Grid baseGrid = new Grid35();
         private int batchSize = 256;
         private int taskPoolSize = 128;

@@ -172,17 +172,13 @@ public class StartYourMonkeys {
                     Unbox.box(this.config.numClicks()), Unbox.box(this.config.numThreads()));
             logGrid(this.config.baseGrid(), this.logger);
 
-            final int numGenerators = this.config.numThreads() / 2; // Rounds down in the case of
-                                                                    // odd numbers
-            final int numMonkeys = this.config.numThreads() - numGenerators; // Rounds up if odd
-
             // Create the context registry and generator pool
             final ContextRegistry registry = ContextRegistry.newRegistry(this.config);
-            try (ForkJoinPool generatorPool = new ForkJoinPool(numGenerators,
+            try (ForkJoinPool generatorPool = new ForkJoinPool(this.config.numGenerators(),
                     GeneratorFactory.ofDefault(this.config, this.queueStrategy, registry), null,
                     false)) {
                 // Create the monkeys
-                final TestClickCombination[] monkeys = new TestClickCombination[numMonkeys];
+                final TestClickCombination[] monkeys = new TestClickCombination[this.config.numMonkeys()];
                 for (int i = 0; i < monkeys.length; i++) {
                     // Use the large constructor:
                     final String monkeyName = "Monkey-" + i;

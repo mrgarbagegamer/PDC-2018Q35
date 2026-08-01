@@ -26,10 +26,14 @@ class QueueGroup<Q> {
         this.offerSelector = mustNotBeNull(offerSelector, "offerSelector").asType();
         this.pollSelector = mustNotBeNull(pollSelector, "pollSelector").asType();
 
-        // Get the thread counts from the config:
-        final int threadCount = mustNotBeNull(solverConfig, "solverConfig").numThreads();
-        this.producerCount = threadCount / 2;
-        this.consumerCount = threadCount / 2;
+        mustNotBeNull(solverConfig, "solverConfig");
+
+        this.producerCount = direction == QueueDirection.GENERATOR_TO_MONKEY
+                ? solverConfig.numGenerators()
+                : solverConfig.numMonkeys();
+        this.consumerCount = direction == QueueDirection.GENERATOR_TO_MONKEY
+                ? solverConfig.numMonkeys()
+                : solverConfig.numGenerators();
 
         // Verify that the list isn't empty.
         mustNotBeEmpty(this.wrappedQueues, direction.listName());

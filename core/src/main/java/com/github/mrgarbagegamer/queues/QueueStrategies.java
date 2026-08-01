@@ -408,7 +408,7 @@ public final class QueueStrategies {
         public static BlockingQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
-            final int numGenerators = config.numThreads() / 2;
+            final int numGenerators = config.numGenerators();
 
             // Create queues (defined as vars to allow easier switching of implementations later)
             final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
@@ -430,7 +430,7 @@ public final class QueueStrategies {
         public static BlockingQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
-            final int numMonkeys = config.numThreads() / 2;
+            final int numMonkeys = config.numMonkeys();
 
             // Create queues (defined as vars to allow easier switching of implementations later)
             final var gtmQueues = newBoundedSpscList(numMonkeys, queueSize);
@@ -452,8 +452,8 @@ public final class QueueStrategies {
         public static BlockingQueueStrategy<?, ?> multiMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
-            final int numGenerators = config.numThreads() / 2;
-            final int numMonkeys = config.numThreads() / 2;
+            final int numGenerators = config.numGenerators();
+            final int numMonkeys = config.numMonkeys();
 
             // Create queues (defined as vars to allow easier switching of implementations later)
             final var gtmQueues = newBoundedSpscList(numMonkeys, queueSize);
@@ -675,7 +675,7 @@ public final class QueueStrategies {
         public static JCToolsQueueStrategy<?, ?> singleMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
-            final int numGenerators = config.numThreads() / 2;
+            final int numGenerators = config.numGenerators();
 
             // Create queues (defined as vars to allow easier switching of implementations later)
             final var gtmQueues = newBoundedMpmcList(1, queueSize * numGenerators);
@@ -697,7 +697,7 @@ public final class QueueStrategies {
         public static JCToolsQueueStrategy<?, ?> multiSingle(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
-            final int numMonkeys = config.numThreads() / 2;
+            final int numMonkeys = config.numMonkeys();
 
             // Create queues (defined as vars to allow easier switching of implementations later)
             final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);
@@ -719,8 +719,8 @@ public final class QueueStrategies {
         public static JCToolsQueueStrategy<?, ?> multiMulti(SolverConfiguration config,
                 SolverState solverState) {
             final int queueSize = mustNotBeNull(config, "config").queueSize();
-            final int numGenerators = config.numThreads() / 2;
-            final int numMonkeys = config.numThreads() / 2;
+            final int numGenerators = config.numGenerators();
+            final int numMonkeys = config.numMonkeys();
 
             // Create queues (defined as vars to allow easier switching of implementations later)
             final var gtmQueues = newBoundedMpmcList(numMonkeys, queueSize);

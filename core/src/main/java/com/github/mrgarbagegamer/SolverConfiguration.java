@@ -1,23 +1,17 @@
 package com.github.mrgarbagegamer;
 
-import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullIntList;
-import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullLongList;
-import static com.github.mrgarbagegamer.internal.ValidationUtils.copyOfNonNullShortList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
-import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.jspecify.annotations.Nullable;
 
 import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 
@@ -38,68 +32,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         GeneratorFactoryProvider generatorFactoryProvider, // Changed type
         Queue<GeneratorContext> registryQueue, QueueStrategyFactory queueStrategyFactory) {
 
-    // Internal static predicates and consumers for validation
-    private static void ensureValidIndex(short cell) {
-        // TODO: Debate whether an IndexOutOfBoundsException is more appropriate:
-        checkArgument(cell >= 0 && cell < Grid.NUM_CELLS, "Index %s is out of bounds [0, %s)", cell,
-                Grid.NUM_CELLS);
-    }
-
-    private static void ensureUniqueAndAscending(ShortList list) {
-        // A list of size 0 or 1 is trivially valid
-        if (list.size() <= 1) {
-            return;
-        }
-        short previous = list.getShort(0);
-        for (int i = 1; i < list.size(); i++) {
-            short current = list.getShort(i);
-            if (current <= previous) {
-                if (current == previous) {
-                    throw new IllegalArgumentException(
-                            "List contains duplicate element: " + current);
-                } else {
-                    throw new IllegalArgumentException(
-                            "List is not in ascending order: " + current + " < " + previous);
-                }
-            }
-            previous = current;
-        }
-    }
-
-    private static void ensureUpperMaskValid(long mask) {
-        // Check that no bits from 45 onwards (zero-indexed) are toggled on, since
-        // the total number of cells can't be greater than 109.
-        checkArgument((mask >>> 45) == 0L, "Upper mask %s has bits set at or above index 45",
-                Long.toBinaryString(mask));
-    }
-
-    private static ShortList arrayToFastList(short[] array) {
-        mustNotBeNull(array, "array");
-        return switch (array.length) {
-            case 0 -> ShortList.of();
-            case 1 -> ShortList.of(array[0]);
-            default -> ShortList.of(array.clone());
-        };
-    }
-
-    private static LongList arrayToFastList(long[] array) {
-        mustNotBeNull(array, "array");
-        return switch (array.length) {
-            case 0 -> LongList.of();
-            case 1 -> LongList.of(array[0]);
-            default -> LongList.of(array.clone());
-        };
-    }
-
-    private static IntList arrayToFastList(int[] array) {
-        mustNotBeNull(array, "array");
-        return switch (array.length) {
-            case 0 -> IntList.of();
-            case 1 -> IntList.of(array[0]);
-            default -> IntList.of(array.clone());
-        };
-    }
-
     public SolverConfiguration(int numClicks, int numThreads, int batchSize, int taskPoolSize,
             int queueSize, Grid baseGrid, SolutionHandler solutionHandler,
             Function<Class<?>, Logger> loggerFunction,
@@ -108,13 +40,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
                 "numClicks must be in range [1, %s], was %s", Grid.NUM_CELLS, numClicks);
         checkArgument(numThreads > 1, "numThreads must be greater than 1, was %s", numThreads);
-
-        // We can't validate the values of the Supplier parameters here, else we'd be forcing
-        // their evaluation at construction time. Instead, we rely on the Builder to perform
-        // validation at build-time.
-
-        // Note that null checks are not performed on Supplier parameters, since
-        // LazyConstant.of() will handle that for us.
 
         this.numClicks = numClicks;
         this.numThreads = numThreads;
@@ -289,19 +214,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
         private Queue<GeneratorContext> registryQueue = new ConcurrentLinkedQueue<>();
         private QueueStrategyFactory queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
 
-        // Derived (yet overridable at build-time) fields
-        private @Nullable Supplier<Boolean> useDualMasks;
-        private @Nullable Supplier<LongList> trueCellMasksLower;
-        private @Nullable Supplier<LongList> trueCellMasksUpper;
-        private @Nullable Supplier<Long> expectedMaskLower;
-        private @Nullable Supplier<Long> expectedMaskUpper;
-        private @Nullable Supplier<ShortList> oddClickIndices;
-        private @Nullable Supplier<ShortList> evenClickIndices;
-        private @Nullable Supplier<LongList> suffixMasksLower;
-        private @Nullable Supplier<LongList> suffixMasksUpper;
-        private @Nullable Supplier<IntList> oddStartIndices;
-        private @Nullable Supplier<IntList> evenStartIndices;
-
         public Builder numClicks(int numClicks) {
             checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
                     "numClicks must be in the range [1, %s], was %s", Grid.NUM_CELLS, numClicks);
@@ -338,294 +250,6 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             // an abstract method.
             this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
             return this;
-        }
-
-        public Builder useDualMasks(boolean useDualMasks) {
-            this.useDualMasks = () -> useDualMasks;
-            return this;
-        }
-
-        public Builder useDualMasks(Supplier<Boolean> useDualMasks) {
-            this.useDualMasks = mustNotBeNull(useDualMasks, "useDualMasks");
-            return this;
-        }
-
-        public Builder trueCellMasksLower(List<Long> trueCellMasksLower) {
-            LongList copy = copyOfNonNullLongList(trueCellMasksLower, "trueCellMasksLower");
-
-            // The list must have exactly Grid.NUM_CELLS elements
-            checkArgument(copy.size() == Grid.NUM_CELLS,
-                    "trueCellMasksLower must have exactly %s elements, but contains %s",
-                    Grid.NUM_CELLS, copy.size());
-
-            // Delegate to the supplier overload with a trusted supplier
-            return trueCellMasksLower(() -> copy);
-        }
-
-        public Builder trueCellMasksLower(Supplier<LongList> trueCellMasksLower) {
-            this.trueCellMasksLower = mustNotBeNull(trueCellMasksLower, "trueCellMasksLower");
-            return this;
-        }
-
-        public Builder trueCellMasksLower(long[] trueCellMasksLower) {
-            // Delegate to the LongList overload for validation
-            return trueCellMasksLower(arrayToFastList(trueCellMasksLower));
-        }
-
-        public Builder trueCellMasksUpper(List<Long> trueCellMasksUpper) {
-            LongList copy = copyOfNonNullLongList(trueCellMasksUpper, "trueCellMasksUpper");
-
-            // Two conditions must be met:
-            // - The list must have exactly Grid.NUM_CELLS elements
-            checkArgument(copy.size() == Grid.NUM_CELLS,
-                    "trueCellMasksUpper must have exactly %s elements, but contains %s",
-                    Grid.NUM_CELLS, copy.size());
-
-            // - The list's bitcount must be no greater than 45 (since there are at most 109 true
-            // cells, and the upper mask can only have bits for true cells 65 to 109)
-            for (int i = 0; i < copy.size(); i++) {
-                ensureUpperMaskValid(copy.getLong(i));
-            }
-
-            // Delegate to the supplier overload with a trusted supplier
-            return trueCellMasksUpper(() -> copy);
-        }
-
-        public Builder trueCellMasksUpper(Supplier<LongList> trueCellMasksUpper) {
-            this.trueCellMasksUpper = mustNotBeNull(trueCellMasksUpper, "trueCellMasksUpper");
-            return this;
-        }
-
-        public Builder trueCellMasksUpper(long[] trueCellMasksUpper) {
-            // Delegate to the LongList overload for validation
-            return trueCellMasksUpper(arrayToFastList(trueCellMasksUpper));
-        }
-
-        public Builder expectedMaskLower(long expectedMaskLower) {
-            this.expectedMaskLower = () -> expectedMaskLower;
-            return this;
-        }
-
-        public Builder expectedMaskLower(Supplier<Long> expectedMaskLower) {
-            this.expectedMaskLower = mustNotBeNull(expectedMaskLower, "expectedMaskLower");
-            return this;
-        }
-
-        public Builder expectedMaskUpper(long expectedMaskUpper) {
-            ensureUpperMaskValid(expectedMaskUpper);
-            return expectedMaskUpper(() -> expectedMaskUpper);
-        }
-
-        public Builder expectedMaskUpper(Supplier<Long> expectedMaskUpper) {
-            this.expectedMaskUpper = mustNotBeNull(expectedMaskUpper, "expectedMaskUpper");
-            return this;
-        }
-
-        public Builder oddClickIndices(List<Short> oddClickIndices) {
-            ShortList copy = copyOfNonNullShortList(oddClickIndices, "oddClickIndices");
-
-            // Confirm that the size is valid
-            if (copy.size() < 2 || copy.size() > 6) {
-                throw new IllegalArgumentException(
-                        "oddClickIndices must contain between 2 and 6 elements");
-            }
-
-            // Indexed for-loop to avoid implicit boxing/unboxing overhead
-            for (int i = 0; i < copy.size(); i++) {
-                ensureValidIndex(copy.getShort(i));
-            }
-
-            // Validate that elements are unique and in ascending order
-            ensureUniqueAndAscending(copy);
-
-            // Delegate to the supplier overload with a trusted supplier
-            return oddClickIndices(() -> copy);
-        }
-
-        public Builder oddClickIndices(Supplier<ShortList> oddClickIndices) {
-            this.oddClickIndices = mustNotBeNull(oddClickIndices, "oddClickIndices");
-            return this;
-        }
-
-        public Builder oddClickIndices(short[] oddClickIndices) {
-            // Delegate to the ShortList overload for validation
-            return oddClickIndices(arrayToFastList(oddClickIndices));
-        }
-
-        public Builder evenClickIndices(List<Short> evenClickIndices) {
-            ShortList copy = copyOfNonNullShortList(evenClickIndices, "evenClickIndices");
-
-            // Confirm that the size is valid
-            if (copy.size() < (Grid.NUM_CELLS - 6) || copy.size() > (Grid.NUM_CELLS - 2)) {
-                throw new IllegalArgumentException("evenClickIndices must contain between "
-                        + (Grid.NUM_CELLS - 6) + " and " + (Grid.NUM_CELLS - 2) + " elements");
-            }
-
-            // Ensure that all indices are valid
-            for (int i = 0; i < copy.size(); i++) {
-                ensureValidIndex(copy.getShort(i));
-            }
-
-            // Validate that elements are unique and in ascending order
-            ensureUniqueAndAscending(copy);
-
-            // Delegate to the supplier overload with a trusted supplier
-            return evenClickIndices(() -> copy);
-        }
-
-        public Builder evenClickIndices(Supplier<ShortList> evenClickIndices) {
-            this.evenClickIndices = mustNotBeNull(evenClickIndices, "evenClickIndices");
-            return this;
-        }
-
-        public Builder evenClickIndices(short[] evenClickIndices) {
-            // Delegate to the ShortList overload for validation
-            return evenClickIndices(arrayToFastList(evenClickIndices));
-        }
-
-        public Builder suffixMasksLower(List<Long> suffixMasksLower) {
-            LongList copy = copyOfNonNullLongList(suffixMasksLower, "suffixMasksLower");
-
-            // The list must satisfy two conditions;
-            // - It must have exactly Grid.NUM_CELLS elements
-            checkArgument(copy.size() == Grid.NUM_CELLS,
-                    "suffixMasksLower must have exactly %s elements", Grid.NUM_CELLS);
-
-            // - Each element of the list must have a bitcount that is less than or equal to that
-            // of the preceding mask (to ensure proper suffix mask behavior)
-            for (int i = 1; i < copy.size(); i++) {
-                long previousMask = copy.getLong(i - 1);
-                long currentMask = copy.getLong(i);
-                checkArgument(Long.bitCount(currentMask) <= Long.bitCount(previousMask),
-                        "Lower suffix mask at index %s has a bitcount (%s) greater than that of the previous mask (%s)",
-                        i, Long.bitCount(currentMask), Long.bitCount(previousMask));
-            }
-
-            // Delegate to the supplier overload with a trusted supplier
-            return suffixMasksLower(() -> copy);
-        }
-
-        public Builder suffixMasksLower(Supplier<LongList> suffixMasksLower) {
-            this.suffixMasksLower = mustNotBeNull(suffixMasksLower, "suffixMasksLower");
-            return this;
-        }
-
-        public Builder suffixMasksLower(long[] suffixMasksLower) {
-            // Delegate to the LongList overload for validation
-            return suffixMasksLower(arrayToFastList(suffixMasksLower));
-        }
-
-        public Builder suffixMasksUpper(List<Long> suffixMasksUpper) {
-            LongList copy = copyOfNonNullLongList(suffixMasksUpper, "suffixMasksUpper");
-
-            // The list must satisfy three conditions:
-            // - The list must have exactly Grid.NUM_CELLS elements
-            checkArgument(copy.size() == Grid.NUM_CELLS,
-                    "suffixMasksUpper must have exactly %s elements", Grid.NUM_CELLS);
-
-            // - Each element of the list must have a bitcount that is less than or equal to that
-            // of the preceding mask (to ensure proper suffix mask behavior)
-            for (int i = 1; i < copy.size(); i++) {
-                long previousMask = copy.getLong(i - 1);
-                long currentMask = copy.getLong(i);
-                checkArgument(Long.bitCount(currentMask) <= Long.bitCount(previousMask),
-                        "Upper suffix mask at index %s has a bitcount (%s) greater than that of the previous mask (%s)",
-                        i, Long.bitCount(currentMask), Long.bitCount(previousMask));
-            }
-
-            // - Each element of the list must have a bitcount no greater than 45
-            for (int i = 0; i < copy.size(); i++) {
-                ensureUpperMaskValid(copy.getLong(i));
-            }
-
-            // Delegate to the supplier overload with a trusted supplier
-            return suffixMasksUpper(() -> copy);
-        }
-
-        public Builder suffixMasksUpper(Supplier<LongList> suffixMasksUpper) {
-            this.suffixMasksUpper = mustNotBeNull(suffixMasksUpper, "suffixMasksUpper");
-            return this;
-        }
-
-        public Builder suffixMasksUpper(long[] suffixMasksUpper) {
-            // Delegate to the LongList overload for validation
-            return suffixMasksUpper(arrayToFastList(suffixMasksUpper));
-        }
-
-        public Builder oddStartIndices(List<Integer> oddStartIndices) {
-            IntList copy = copyOfNonNullIntList(oddStartIndices, "oddStartIndices");
-
-            // The list must satisfy 3 conditions:
-            // - It must have exactly Grid.NUM_CELLS elements
-            checkArgument(copy.size() == Grid.NUM_CELLS,
-                    "oddStartIndices must have exactly %s elements", Grid.NUM_CELLS);
-
-            // - Each element must be in the range from 0 to oddClickIndices.size() (which is at
-            // most 6).
-            for (int i = 0; i < copy.size(); i++) {
-                int index = copy.getInt(i);
-                checkArgument(index >= 0 && index <= 6,
-                        "oddStartIndex at index %s is out of range: %s (must be between 0 and 6)",
-                        i, index);
-            }
-
-            // - Each element must be non-decreasing:
-            for (int i = 1; i < copy.size(); i++) {
-                checkArgument(copy.getInt(i) >= copy.getInt(i - 1),
-                        "oddStartIndex at index %s (%s) is less than the previous index (%s)", i,
-                        copy.getInt(i), copy.getInt(i - 1));
-            }
-
-            // Delegate to the supplier overload with a trusted supplier
-            return oddStartIndices(() -> copy);
-        }
-
-        public Builder oddStartIndices(Supplier<IntList> oddStartIndices) {
-            this.oddStartIndices = mustNotBeNull(oddStartIndices, "oddStartIndices");
-            return this;
-        }
-
-        public Builder oddStartIndices(int[] oddStartIndices) {
-            // Delegate to the IntList overload for validation
-            return oddStartIndices(arrayToFastList(oddStartIndices));
-        }
-
-        public Builder evenStartIndices(List<Integer> evenStartIndices) {
-            IntList copy = copyOfNonNullIntList(evenStartIndices, "evenStartIndices");
-
-            // The list must satisfy 3 conditions:
-            // - It must have exactly Grid.NUM_CELLS elements
-            checkArgument(copy.size() == Grid.NUM_CELLS,
-                    "evenStartIndices must have exactly %s elements", Grid.NUM_CELLS);
-
-            // - Each element must be in the range from 0 to evenClickIndices.size() (which is at
-            // most 103).
-            for (int i = 0; i < copy.size(); i++) {
-                int index = copy.getInt(i);
-                checkArgument(index >= 0 && index <= 103,
-                        "evenStartIndex at index %s is out of range: %s (must be between 0 and 103)",
-                        i, index);
-            }
-
-            // - Each element must be non-decreasing:
-            for (int i = 1; i < copy.size(); i++) {
-                checkArgument(copy.getInt(i) >= copy.getInt(i - 1),
-                        "evenStartIndex at index %s (%s) is less than the previous index (%s)", i,
-                        copy.getInt(i), copy.getInt(i - 1));
-            }
-
-            // Delegate to the supplier overload with a trusted supplier
-            return evenStartIndices(() -> copy);
-        }
-
-        public Builder evenStartIndices(Supplier<IntList> evenStartIndices) {
-            this.evenStartIndices = mustNotBeNull(evenStartIndices, "evenStartIndices");
-            return this;
-        }
-
-        public Builder evenStartIndices(int[] evenStartIndices) {
-            // Delegate to the IntList overload for validation
-            return evenStartIndices(arrayToFastList(evenStartIndices));
         }
 
         public Builder solutionHandler(SolutionHandler solutionHandler) {
@@ -773,7 +397,4 @@ public record SolverConfiguration(int numClicks, int numThreads, int batchSize, 
             generatorPool.shutdownNow(); // Immediate shutdown without waiting
         }
     }
-
-    // TODO: Consider deprecating the auto-generated getters for the Suppliers in favor of their
-    // get__() counterparts.
 }

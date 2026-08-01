@@ -79,11 +79,11 @@
 // @OutputTimeUnit(TimeUnit.NANOSECONDS)
 // @Warmup(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
 // @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
-// @Fork(value = 3, jvmArgsAppend = {"--enable-preview", "-XX:+UseG1GC", "-Xms2g", "-Xmx8g",
-//         "-XX:GCTimeRatio=19", "-XX:MaxInlineSize=70", "-XX:FreqInlineSize=650",
-//         "-XX:InlineSmallCode=5000", "-XX:MaxInlineLevel=20", "-XX:CompileThreshold=5000",
-//         "-XX:Tier3CompileThreshold=1000", "-XX:Tier4CompileThreshold=7500",
-//         "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableVectorSupport", "-XX:+EnableVectorReboxing",
+// @Fork(value = 3, jvmArgsAppend = {"-XX:+UseG1GC", "-Xms2g", "-Xmx8g", "-XX:GCTimeRatio=19",
+//         "-XX:MaxInlineSize=70", "-XX:FreqInlineSize=650", "-XX:InlineSmallCode=5000",
+//         "-XX:MaxInlineLevel=20", "-XX:CompileThreshold=5000", "-XX:Tier3CompileThreshold=1000",
+//         "-XX:Tier4CompileThreshold=7500", "-XX:+UnlockExperimentalVMOptions",
+//         "-XX:+EnableVectorSupport", "-XX:+EnableVectorReboxing",
 //         "-XX:+EnableVectorAggressiveReboxing", "-XX:MaxVectorSize=32", "-XX:+AlignVector",
 //         "-XX:+UseTLAB", "-XX:TLABSize=512k", "-XX:+ResizeTLAB", "-XX:TLABWasteTargetPercent=5",
 //         "-XX:+AlwaysPreTouch", "-XX:+EliminateAllocations", "-XX:+EliminateAutoBox",

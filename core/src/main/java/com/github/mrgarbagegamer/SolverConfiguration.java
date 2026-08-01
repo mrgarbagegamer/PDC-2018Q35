@@ -26,7 +26,6 @@ import it.unimi.dsi.fastutil.longs.LongImmutableList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
-// TODO: Disable preview features in the Java build, since they're no longer needed.
 // TODO: Add class-level Javadoc
 public final class SolverConfiguration {
     private final int numClicks;

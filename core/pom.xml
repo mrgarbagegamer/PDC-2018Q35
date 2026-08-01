@@ -163,7 +163,8 @@
                     <release>${maven.compiler.release}</release>
                     <encoding>UTF-8</encoding>
                     <doclint>none</doclint>
-                    <additionalOptions>-Xdoclint:none --enable-preview</additionalOptions>
+                    <!-- TODO: Consider removing this option. -->
+                    <additionalOptions>-Xdoclint:none</additionalOptions>
                     <show>private</show>
                     <nohelp>true</nohelp>
                     <windowtitle>PDC-2018Q35 Lights Out Solver - Internal Documentation</windowtitle>

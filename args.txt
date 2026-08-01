@@ -1,5 +1,4 @@
 # Existing JVM arguments
---enable-preview
 -XX:+UseG1GC
 
 # GC arguments

@@ -2,7 +2,6 @@
 -cp "core/target/classes;core/target/lib/*"
 
 # Existing JVM arguments
---enable-preview
 -XX:+UseG1GC
 
 # GC arguments

@@ -293,20 +293,10 @@ public final class SolverConfiguration {
             return this;
         }
 
-        public Builder loggerFunction(Logger logger) {
-            mustNotBeNull(logger, "logger");
-            return loggerFunction(clazz -> logger);
-        }
-
         public Builder generatorFactoryProvider(GeneratorFactoryProvider generatorFactoryProvider) {
             this.generatorFactoryProvider = mustNotBeNull(generatorFactoryProvider,
                     "generatorFactoryProvider");
             return this;
-        }
-
-        public Builder generatorFactoryProvider(GeneratorFactory generatorFactory) {
-            mustNotBeNull(generatorFactory, "generatorFactory");
-            return generatorFactoryProvider((config, queueStrategy, registry) -> generatorFactory);
         }
 
         public Builder registryQueueFunction(
@@ -319,11 +309,6 @@ public final class SolverConfiguration {
         public Builder queueStrategyFactory(QueueStrategyFactory queueStrategyFactory) {
             this.queueStrategyFactory = mustNotBeNull(queueStrategyFactory, "queueStrategyFactory");
             return this;
-        }
-
-        public Builder queueStrategyFactory(QueueStrategy queueStrategy) {
-            mustNotBeNull(queueStrategy, "queueStrategy");
-            return queueStrategyFactory((config, solverState) -> queueStrategy);
         }
 
         public SolverConfiguration build() { return new SolverConfiguration(this); }

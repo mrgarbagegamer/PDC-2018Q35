@@ -21,11 +21,9 @@ import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueBuilder;
 @ExtendWith(MockitoExtension.class)
 public class MetadataValidatorTest {
 
-    private static final int DEFAULT_NUM_THREADS = 4;
-
     private static <Q> QueueGroup<Q> createGroupWithQueues(List<? extends QueueWrapper<Q>> queues) {
         return QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
-                SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
+                SolverConfiguration.builder().build());
     }
 
     private static <Q> QueueGroup<Q> createGroupWithUniformQueues(MockQueueBuilder<Q> builder,
@@ -138,8 +136,8 @@ public class MetadataValidatorTest {
 
             final var wrappedQueues = createListWithPoisonPill(
                     MockQueueBuilder.create().capacity(expectedCapacity),
-                    MockQueueBuilder.create().capacity(unacceptableCapacity),
-                    queueCount, poisonIndex);
+                    MockQueueBuilder.create().capacity(unacceptableCapacity), queueCount,
+                    poisonIndex);
             final var group = createGroupWithQueues(wrappedQueues);
 
             assertThatIllegalArgumentException()

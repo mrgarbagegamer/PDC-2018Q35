@@ -13,10 +13,9 @@ import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueBuilder;
 
 class QueuePreallocatorTest {
-    private static final int DEFAULT_NUM_THREADS = 4;
 
     private static SolverConfiguration createValidConfig() {
-        return SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build();
+        return SolverConfiguration.builder().build();
     }
 
     @Test

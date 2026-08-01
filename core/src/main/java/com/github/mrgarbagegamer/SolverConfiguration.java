@@ -203,8 +203,6 @@ public final class SolverConfiguration {
 
     public static class Builder {
         private int numClicks = 17;
-        // TODO: Update the unit tests that manually specified the numThreads to 2 to use the
-        // default.
         private int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), 2);
         private Grid baseGrid = new Grid35();
         private int batchSize = 256;

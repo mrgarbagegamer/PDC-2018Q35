@@ -20,18 +20,16 @@ import com.github.mrgarbagegamer.queues.QueueTestFixtures.MockQueueWrapper;
 @ExtendWith(MockitoExtension.class)
 public class QueueListValidatorTest {
 
-    private static final int DEFAULT_NUM_THREADS = 4;
-
     private static <Q> QueueGroup<Q> createGtmGroupWithQueues(
             List<? extends QueueWrapper<Q>> queues) {
         return QueueGroup.newGtmGroup(queues, dummySelector(), dummySelector(),
-                SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
+                SolverConfiguration.builder().build());
     }
 
     private static <Q> QueueGroup<Q> createMtgGroupWithQueues(
             List<? extends QueueWrapper<Q>> queues) {
         return QueueGroup.newMtgGroup(queues, dummySelector(), dummySelector(),
-                SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
+                SolverConfiguration.builder().build());
     }
 
     private static <Q> QueueGroup<Q> createGtmGroupWithUniformQueues(MockQueueBuilder<Q> builder,

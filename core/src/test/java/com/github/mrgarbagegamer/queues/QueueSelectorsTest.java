@@ -34,12 +34,11 @@ import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
 class QueueSelectorsTest {
 
     private static final int DEFAULT_QUEUE_CAPACITY = 2;
-    private static final int DEFAULT_NUM_THREADS = 4;
 
     private final TrackingBackoff trackingBackoff = new TrackingBackoff();
 
     private static WorkBatch createBatch() {
-        return new WorkBatch(SolverConfiguration.builder().numThreads(DEFAULT_NUM_THREADS).build());
+        return new WorkBatch(SolverConfiguration.builder().build());
     }
 
     private static BooleanSupplier oneShotSupplier() {

@@ -25,13 +25,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.WorkBatch;
 
 @ExtendWith(MockitoExtension.class)
 public class ContinuationPredicatesTest {
     private static SolverState createState(boolean solutionFound, boolean generationComplete) {
-        SolverState state = new SolverState();
+        SolverState state = new SolverState(SolverConfiguration.builder().build());
         if (solutionFound) {
             state.markSolutionFound(new short[2]);
         }
@@ -195,8 +196,7 @@ public class ContinuationPredicatesTest {
 
         @ParameterizedTest
         @MethodSource("provideNoSolutionGenNotCompleteCases")
-        void givenNoSolutionAndGenerationNotComplete_thenReturnTrue(
-                ReturnValueTestCase testCase) {
+        void givenNoSolutionAndGenerationNotComplete_thenReturnTrue(ReturnValueTestCase testCase) {
             SolverState state = createState(false, false);
 
             BooleanSupplier predicate = ContinuationPredicates.forMonkey(state, testCase.queues());
@@ -216,8 +216,7 @@ public class ContinuationPredicatesTest {
 
         @ParameterizedTest
         @MethodSource("provideSolutionFoundCases")
-        void givenSolutionFound_thenDoNotCheckGenerationComplete(
-                ReturnValueTestCase testCase) {
+        void givenSolutionFound_thenDoNotCheckGenerationComplete(ReturnValueTestCase testCase) {
             // Mocked so we can verify that generationComplete() isn't called
             SolverState mockState = mock();
             when(mockState.solutionFound()).thenReturn(true);

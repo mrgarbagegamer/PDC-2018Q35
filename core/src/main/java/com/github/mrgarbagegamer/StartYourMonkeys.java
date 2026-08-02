@@ -2,6 +2,7 @@ package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
@@ -150,6 +151,7 @@ public class StartYourMonkeys {
         return configBuilder.build();
     }
 
+    // TODO: Look at encapsulating the Solver.
     public static record Solver(SolverConfiguration config, Logger logger, SolverState solverState,
             QueueStrategy queueStrategy) {
 
@@ -161,7 +163,7 @@ public class StartYourMonkeys {
         }
 
         public static Solver ofConfig(SolverConfiguration config) {
-            final SolverState solverState = new SolverState();
+            final SolverState solverState = new SolverState(config);
             return new Solver(config, config.getLogger(Solver.class), solverState,
                     config.getQueueStrategy(solverState));
         }
@@ -178,7 +180,8 @@ public class StartYourMonkeys {
                     GeneratorFactory.ofDefault(this.config, this.queueStrategy, registry), null,
                     false)) {
                 // Create the monkeys
-                final TestClickCombination[] monkeys = new TestClickCombination[this.config.numMonkeys()];
+                final TestClickCombination[] monkeys = new TestClickCombination[this.config
+                        .numMonkeys()];
                 for (int i = 0; i < monkeys.length; i++) {
                     // Use the large constructor:
                     final String monkeyName = "Monkey-" + i;
@@ -229,14 +232,13 @@ public class StartYourMonkeys {
         }
 
         public void reportResults() {
-            final long runtimeMillis = this.solverState.getEndTime()
-                    - this.solverState.getStartTime();
-            if (runtimeMillis <= 0) {
-                throw new IllegalStateException(
-                        "Program marked as complete but recorded non-positive runtime.");
+            final Duration runtime = this.solverState.getDuration().orElseThrow(
+                    () -> new IllegalStateException("Solver has not completed reporting"));
+            if (runtime.isNegative() || runtime.isZero()) {
+                throw new IllegalStateException("Solver recorded non-positive runtime");
             }
 
-            final String elapsedFormatted = formatElapsedTime(runtimeMillis);
+            final String elapsedFormatted = formatDuration(runtime);
 
             // Sleep for logger flush
             try {
@@ -277,39 +279,22 @@ public class StartYourMonkeys {
                     lineSeparator);
         }
 
-        /**
-         * {@link String#format(String, Object...) Formats} a millisecond duration into a
-         * human-readable "Elapsed time: Xh Ym Zs Wms" {@link String string}.
-         *
-         * @param millis The elapsed time in milliseconds.
-         * @return A formatted {@link String} representing the duration.
-         * @see System#currentTimeMillis()
-         * @see StringBuilder
-         * @see StringBuilder#toString()
-         * @since 2025.06 - Millisecond Precision to Elapsed Time Formatting
-         * @performance {@code O(1)} operations and string formatting.
-         * @threading Thread-safe; does not modify shared state.
-         * @memory Allocates a small, fixed-size {@link StringBuilder} for formatting and returns a
-         *         new {@link String}.
-         */
-        private static String formatElapsedTime(long millis) {
-            long seconds = millis / 1000;
-            long minutes = seconds / 60;
-            long hours = minutes / 60;
-
-            // Calculate remainder values
-            long remainingMillis = millis % 1000;
-            seconds = seconds % 60;
-            minutes = minutes % 60;
+        private static String formatDuration(Duration duration) {
+            long hours = duration.toHours();
+            int minutes = duration.toMinutesPart();
+            int seconds = duration.toSecondsPart();
+            int millis = duration.toMillisPart();
 
             StringBuilder sb = new StringBuilder();
             sb.append("Elapsed time: ");
-            if (hours > 0)
+            if (hours > 0) {
                 sb.append(hours).append("h ");
-            if (minutes > 0 || hours > 0)
                 sb.append(minutes).append("m ");
+            } else if (minutes > 0) {
+                sb.append(minutes).append("m ");
+            }
             sb.append(seconds).append("s ");
-            sb.append(String.format("%03d", remainingMillis)).append("ms");
+            sb.append(String.format("%03d", millis)).append("ms");
 
             return sb.toString();
         }

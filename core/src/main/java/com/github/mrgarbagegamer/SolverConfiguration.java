@@ -4,6 +4,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.time.InstantSource;
 import java.util.Arrays;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -39,6 +40,7 @@ public final class SolverConfiguration {
     private final GeneratorFactoryProvider generatorFactoryProvider;
     private final IntFunction<Queue<GeneratorContext>> registryQueueFunction;
     private final BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory;
+    private final InstantSource instantSource;
 
     private SolverConfiguration(Builder builder) {
         this.numClicks = builder.numClicks;
@@ -55,6 +57,7 @@ public final class SolverConfiguration {
                 "registryQueueFunction");
         this.queueStrategyFactory = mustNotBeNull(builder.queueStrategyFactory,
                 "queueStrategyFactory");
+        this.instantSource = mustNotBeNull(builder.instantSource, "instantSource");
     }
 
     public static Builder builder() { return new Builder(); }
@@ -99,6 +102,8 @@ public final class SolverConfiguration {
     public Grid baseGrid() { return this.baseGrid.copy(); }
 
     SolutionHandler solutionHandler() { return this.solutionHandler; }
+
+    InstantSource instantSource() { return this.instantSource; }
 
     Queue<GeneratorContext> getRegistryQueue() {
         return this.registryQueueFunction.apply(this.numGenerators());
@@ -212,6 +217,7 @@ public final class SolverConfiguration {
         private GeneratorFactoryProvider generatorFactoryProvider = GeneratorFactory::ofDefault;
         private IntFunction<Queue<GeneratorContext>> registryQueueFunction = _ -> new ConcurrentLinkedQueue<>();
         private BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
+        private InstantSource instantSource = InstantSource.system();
 
         public Builder numClicks(int numClicks) {
             checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
@@ -277,6 +283,11 @@ public final class SolverConfiguration {
         public Builder queueStrategyFactory(
                 BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory) {
             this.queueStrategyFactory = mustNotBeNull(queueStrategyFactory, "queueStrategyFactory");
+            return this;
+        }
+
+        public Builder instantSource(InstantSource instantSource) {
+            this.instantSource = mustNotBeNull(instantSource, "instantSource");
             return this;
         }
 

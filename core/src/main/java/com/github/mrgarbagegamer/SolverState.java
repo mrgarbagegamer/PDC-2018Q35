@@ -2,105 +2,20 @@ package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.InstantSource;
 import java.util.Optional;
 
 import org.jspecify.annotations.Nullable;
 
-// TODO: Consider allowing injectability of a Clock or similar for easier testing and potential
-// future features.
 // TODO: Consider using a CountDownLatch or similar to replace the generationComplete flag.
-/**
- * A class representing the state of the solver, handling timing, {@link #generationComplete()
- * generation completion}, and {@link #solutionFound() solution found} status.
- * 
- * <h2>Architectural Role</h2>
- * <p>
- * In the previous queue design for this codebase, solver state was encapsulated in the
- * {@code CombinationQueueArray} class, which was responsible for managing the state of the solver
- * in addition to its primary responsibility of orchestrating communication betwen
- * {@link CombinationGeneratorTask generators} and {@link TestClickCombination monkeys}. This design
- * led to a tight coupling between the solver state and the queue implementation, making it
- * difficult to manage the solver state independently of the queue. Extracting the solver state into
- * its own class allows for better separation of concerns, making the codebase more modular and
- * easier to maintain.
- * </p>
- * 
- * <p>
- * Currently, this class uses two {@code long} fields to track the {@link #getStartTime() start
- * time} and {@link #getEndTime() end time} of the solver, using {@link System#currentTimeMillis()}
- * to capture these times. This allows for somewhat accurate timing of the solver's execution,
- * though it limits mocking and testing capabilities. In the future, we may want to consider
- * allowing injectability of a {@link java.time.Clock Clock} (or {@link java.time.InstantSource
- * InstantSource}, for maximum flexibility) and taking the start and end times as
- * {@link java.time.Instant Instant} objects instead of raw milliseconds, which would allow for more
- * accurate timing and easier testing.
- * </p>
- * 
- * <h2>Thread Safety</h2>
- * <p>
- * This class is designed to be thread-safe, as it will be accessed and modified by multiple threads
- * in the solver. The flags for {@code solutionFound} and {@code generationComplete} are marked as
- * {@code volatile} to ensure visibility across threads, and the methods that modify these flags use
- * double-checked locking to ensure that only one thread can {@link #markSolutionFound(short[]) mark
- * a solution as found} or {@link #markGenerationComplete() generation as complete} at a time,
- * preventing race conditions.
- * </p>
- * 
- * @see StartYourMonkeys.Solver
- * @since 2026.02 - Queue Injection Refactor
- * @performance {@code O(1)} for all operations.
- * @threading Thread-safe.
- * @memory Does not allocate after construction.
- */
+// TODO: Update Javadocs
 public final class SolverState {
-    /**
-     * The timestamp indicating when the solver started. This is initialized during
-     * {@link #SolverState() construction} and is fixed for the lifetime of the solver state.
-     *
-     * @see #endTime
-     * @see #getStartTime()
-     * @see StartYourMonkeys.Solver#reportResults()
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} field access.
-     * @threading Thread-safe by nature of being {@code final}.
-     * @memory Fixed memory footprint of {@code 8} bytes as a primitive {@code long}.
-     */
-    private final long startTime;
+    private final InstantSource instantSource;
 
-    /**
-     * The timestamp indicating when the solver finished.
-     *
-     * <p>
-     * This is initialized to {@code -1L} to indicate that the solver is still running, and is
-     * updated when either a {@link #markSolutionFound(short[]) solution is found} or the generation
-     * phase is {@link #markGenerationComplete() complete}. This allows for tracking the total
-     * execution time of the solver from start to finish, regardless of how it ends. A
-     * {@code volatile long} is used instead of an {@link java.util.concurrent.atomic.AtomicLong
-     * AtomicLong} for simplicity and to minimize overhead, as updates to this field are
-     * {@code synchronized} and based on the {@link #solutionFound} and {@link #generationComplete}
-     * flags, which are also {@code volatile}.
-     * </p>
-     * 
-     * <p>
-     * Technically, this field could have its {@code volatile} modifier removed, piggybacking on the
-     * {@code volatile} flags for visibility guarantees. However, marking it as {@code volatile}
-     * provides a clear signal to readers that this field is accessed and modified across threads,
-     * and it ensures that updates to this field are immediately visible to all threads without
-     * needing to rely on the synchronization of the flags. Given that reads and writes to this
-     * field are relatively infrequent (only when a solution is found or generation completes), the
-     * performance impact of marking it as {@code volatile} is negligible, and the clarity benefits
-     * outweigh the minimal overhead.
-     * </p>
-     *
-     * @see #startTime
-     * @see #getEndTime()
-     * @see StartYourMonkeys.Solver#reportResults()
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} field access.
-     * @threading Thread-safe as a {@code volatile long}.
-     * @memory Fixed memory footprint of {@code 8} bytes as a primitive {@code long}.
-     */
-    private volatile long endTime = -1L;
+    private final Instant start;
+    private volatile @Nullable Instant end;
 
     /**
      * The thread that successfully found the solution.
@@ -188,16 +103,11 @@ public final class SolverState {
      */
     private volatile boolean generationComplete;
 
-    /**
-     * Constructs a new {@code SolverState} and initializes the {@link #getStartTime() start time}
-     * to the {@link System#currentTimeMillis() current system time in milliseconds}.
-     *
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} field initialization.
-     * @threading Thread-safe by nature of construction.
-     * @memory Does not allocate other than the object itself.
-     */
-    public SolverState() { this.startTime = System.currentTimeMillis(); }
+    public SolverState(SolverConfiguration config) {
+        mustNotBeNull(config, "config");
+        this.instantSource = config.instantSource();
+        this.start = this.instantSource.instant();
+    }
 
     /**
      * Marks that a solution has been found by the {@link Thread#currentThread() current thread} and
@@ -214,7 +124,6 @@ public final class SolverState {
      *
      * @param combination the combination that solved the puzzle, in {@link Grid.ValueFormat#Index}
      *                    format
-     * @see #getEndTime()
      * @see #getWinningThread()
      * @see #getWinningCombination()
      * @see #solutionFound()
@@ -229,7 +138,7 @@ public final class SolverState {
             synchronized (this) {
                 if (!this.solutionFound) {
                     // Set the time first to ensure accurate timing
-                    this.endTime = System.currentTimeMillis();
+                    this.end = this.instantSource.instant();
                     this.winningCombination = combination.clone();
                     this.winningThread = Thread.currentThread();
                     this.solutionFound = true;
@@ -255,7 +164,6 @@ public final class SolverState {
      * solver's execution from start to finish. We leave this as a todo for now.
      * </p>
      *
-     * @see #endTime
      * @see #generationComplete
      * @see #markSolutionFound(short[])
      * @since 2026.02 - Queue Injection Refactor
@@ -269,39 +177,21 @@ public final class SolverState {
                 if (!this.generationComplete) {
                     // TODO: Since the monkeys still have to test the final batches, maybe we should
                     // use a CountDownLatch or something to track when all monkeys are done?
-                    this.endTime = System.currentTimeMillis();
+                    this.end = this.instantSource.instant();
                     this.generationComplete = true;
                 }
             }
         }
     }
 
-    /**
-     * {@return the time the solver started, in milliseconds}
-     *
-     * @see #SolverState()
-     * @see #getEndTime()
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} field access.
-     * @threading Thread-safe by nature of immutability.
-     * @memory Does not allocate.
-     */
-    public long getStartTime() { return this.startTime; }
+    public Optional<Duration> getDuration() {
+        return Optional.ofNullable(this.end).map(it -> Duration.between(this.start, it));
+    }
 
-    /**
-     * {@return the time the solver ended, in milliseconds, or {@code -1L} if the solver is still
-     * running}
-     * 
-     * @see #SolverState()
-     * @see #getStartTime()
-     * @see #markGenerationComplete()
-     * @see #markSolutionFound(short[])
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} field access.
-     * @threading Thread-safe read of a {@code volatile long}.
-     * @memory Does not allocate.
-     */
-    public long getEndTime() { return this.endTime; }
+    public Duration getElapsedDuration() {
+        return Duration.between(this.start,
+                this.end != null ? this.end : this.instantSource.instant());
+    }
 
     /**
      * {@return the {@link Thread} that found the solution, or {@code null} if no solution has been

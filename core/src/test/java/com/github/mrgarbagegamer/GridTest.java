@@ -9,6 +9,7 @@ import static com.github.mrgarbagegamer.util.TestingUtils.validPackedInts;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -933,31 +934,34 @@ class GridTest {
             final short cellPackedInt = Grid.indexToPacked(cell);
 
             adjacencyListIndexOutput.removeIf(adjacent -> adjacent <= cellIndex);
-            short[] expectedAdjacentsIndexOutput = adjacencyListIndexOutput.toShortArray();
+            ShortList expectedAdjacentsIndexOutput = adjacencyListIndexOutput;
 
             adjacencyListPackedIntOutput.removeIf(adjacent -> adjacent <= cellPackedInt);
-            short[] expectedAdjacentsPackedIntOutput = adjacencyListPackedIntOutput.toShortArray();
+            ShortList expectedAdjacentsPackedIntOutput = adjacencyListPackedIntOutput;
 
-            short[] actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cell,
+            ShortList actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cell,
                     Grid.ValueFormat.Index, Grid.ValueFormat.Index);
 
-            short[] actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(cell,
+            ShortList actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(cell,
                     Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt);
 
-            if (expectedAdjacentsIndexOutput.length == 0) {
-                assertEquals(0, actualAdjacentsIndexOutput.length, "First true adjacents after " + cell
+            if (expectedAdjacentsIndexOutput.isEmpty()) {
+                assertEquals(0, actualAdjacentsIndexOutput.size(), "First true adjacents after "
+                        + cell
                         + " for Index input & Index output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
-                assertEquals(0, actualAdjacentsPackedIntOutput.length, "First true adjacents after " + cell
+                assertEquals(0, actualAdjacentsPackedIntOutput.size(), "First true adjacents after "
+                        + cell
                         + " for Index input & PackedInt output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
                 break; // No further cells will have adjacents
             } else {
-                assertArrayEquals(expectedAdjacentsIndexOutput, actualAdjacentsIndexOutput,
+                assertIterableEquals(expectedAdjacentsIndexOutput, actualAdjacentsIndexOutput,
                         "First true adjacents after " + cell
                                 + " for Index input & Index output should match expected values after random clicks (Combination: "
                                 + Arrays.toString(clicks) + ")");
-                assertArrayEquals(expectedAdjacentsPackedIntOutput, actualAdjacentsPackedIntOutput,
+                assertIterableEquals(expectedAdjacentsPackedIntOutput,
+                        actualAdjacentsPackedIntOutput,
                         "First true adjacents after " + cell
                                 + " for Index input & PackedInt output should match expected values after random clicks (Combination: "
                                 + Arrays.toString(clicks) + ")");
@@ -994,31 +998,33 @@ class GridTest {
             final short cellIndex = Grid.packedToIndex(cell);
 
             adjacencyListIndexOutput.removeIf(adjacent -> adjacent <= cellIndex);
-            short[] expectedAdjacentsIndexOutput = adjacencyListIndexOutput.toShortArray();
+            ShortList expectedAdjacentsIndexOutput = adjacencyListIndexOutput;
 
             adjacencyListPackedIntOutput.removeIf(adjacent -> adjacent <= cellPackedInt);
-            short[] expectedAdjacentsPackedIntOutput = adjacencyListPackedIntOutput.toShortArray();
+            ShortList expectedAdjacentsPackedIntOutput = adjacencyListPackedIntOutput;
 
-            short[] actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cellPackedInt,
+            ShortList actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cellPackedInt,
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
-            short[] actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(cellPackedInt,
-                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
+            ShortList actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(
+                    cellPackedInt, Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
 
-            if (expectedAdjacentsIndexOutput.length == 0) {
-                assertEquals(0, actualAdjacentsIndexOutput.length, "First true adjacents after " + cellPackedInt
+            if (expectedAdjacentsIndexOutput.isEmpty()) {
+                assertEquals(0, actualAdjacentsIndexOutput.size(), "First true adjacents after "
+                        + cellPackedInt
                         + " for PackedInt input & Index output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
-                assertEquals(0, actualAdjacentsPackedIntOutput.length, "First true adjacents after "
+                assertEquals(0, actualAdjacentsPackedIntOutput.size(), "First true adjacents after "
                         + cellPackedInt
                         + " for PackedInt input & PackedInt output should be empty when no adjacents exist after the cell (Combination: "
                         + Arrays.toString(clicks) + ")");
                 break; // No further cells will have adjacents
             } else {
-                assertArrayEquals(expectedAdjacentsIndexOutput, actualAdjacentsIndexOutput,
+                assertIterableEquals(expectedAdjacentsIndexOutput, actualAdjacentsIndexOutput,
                         "First true adjacents after " + cellPackedInt
                                 + " for PackedInt input & Index output should match expected values after random clicks (Combination: "
                                 + Arrays.toString(clicks) + ")");
-                assertArrayEquals(expectedAdjacentsPackedIntOutput, actualAdjacentsPackedIntOutput,
+                assertIterableEquals(expectedAdjacentsPackedIntOutput,
+                        actualAdjacentsPackedIntOutput,
                         "First true adjacents after " + cellPackedInt
                                 + " for PackedInt input & PackedInt output should match expected values after random clicks (Combination: "
                                 + Arrays.toString(clicks) + ")");
@@ -1530,9 +1536,9 @@ class GridTest {
     // =================================================================================
 
     /**
-     * Tests the {@link Grid#click(short[])} and {@link Grid#isSolved()} methods on the {@link Grid22}
-     * implementation. This test simulates a known minimal solution for the default Grid22 puzzle
-     * and asserts that the grid is reported as solved.
+     * Tests the {@link Grid#click(short[])} and {@link Grid#isSolved()} methods on the
+     * {@link Grid22} implementation. This test simulates a known minimal solution for the default
+     * Grid22 puzzle and asserts that the grid is reported as solved.
      */
     @Test
     void test22IsSolved() {

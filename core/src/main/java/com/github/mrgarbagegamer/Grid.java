@@ -1608,54 +1608,7 @@ public abstract class Grid {
     // TODO: Consider returning a ShortList instead of a short[]
     public short[] findFirstTrueAdjacents() { return findFirstTrueAdjacents(ValueFormat.Index); }
 
-    /**
-     * Returns an array of adjacent cells to the {@link #findFirstTrueCell() first true cell} that
-     * have an index greater than the specified {@code cell}.
-     *
-     * <p>
-     * This method is a specialized pruning helper for the generator. It identifies potential
-     * subsequent clicks by filtering the adjacents of the first {@code true} cell, considering only
-     * those that appear after a given {@code cell} in the flattened grid order. This helps to
-     * establish bounds for combination generation.
-     * </p>
-     *
-     * <h3>Algorithm Details</h3>
-     * <p>
-     * The method first retrieves all adjacents of the first {@code true} cell using
-     * {@link #findFirstTrueAdjacents(ValueFormat)}. It then performs a binary search on this sorted
-     * list to find the first adjacent cell whose index is greater than the provided {@code cell}. A
-     * subarray containing only these subsequent adjacents is then returned, with optional format
-     * conversion.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The complexity is dominated by the binary search and array copy, resulting in an effectively
-     * constant time operation {@code O(log(k) + m)}, where {@code k} is the number of adjacents
-     * (max 6) and {@code m} is the number of remaining adjacents to copy. Given the small size of
-     * {@code k}, this method is highly efficient. Caching the result is generally not beneficial
-     * due to the dynamic nature of the {@code cell} parameter and the small performance gains from
-     * avoiding an array copy.
-     * </p>
-     *
-     * @param cell         The reference cell (in {@code inputFormat}) after which to find
-     *                     adjacents.
-     * @param inputFormat  The {@link ValueFormat} of the input {@code cell}.
-     * @param outputFormat The {@link ValueFormat} of the output adjacent cells.
-     * @return An array of adjacent cells that appear after the specified {@code cell}, or
-     *         {@code null} if no {@code true} cell exists or no such adjacents are found.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for any format.
-     * @throws NullPointerException     if {@code format} is {@code null}.
-     * @see #findAdjacents(short)
-     * @see #findFirstTrueAdjacents(ValueFormat)
-     * @see #findFirstTrueCell()
-     * @since 2025.07 - Format Support
-     * @performance {@code O(1)} effectively, due to small, fixed-size lists.
-     * @threading Not thread-safe; relies on non-thread-safe methods.
-     * @memory Allocates a new {@code short[]} for the result.
-     */
-    // TODO: Consider returning a ShortList instead of a short[]
-    public short[] findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
+    public ShortList findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         mustNotBeNull(inputFormat, "inputFormat");
         mustNotBeNull(outputFormat, "outputFormat");
@@ -1666,7 +1619,7 @@ public abstract class Grid {
 
         short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
         if (firstTrueAdjacents.length == 0)
-            return new short[0];
+            return ShortList.of();
 
         // Binary search to find the index of the first adjacent cell greater than 'cell'
         int index = -1;
@@ -1683,7 +1636,7 @@ public abstract class Grid {
 
         // If no adjacent cell greater than 'cell' is found, return null
         if (index == -1)
-            return new short[0];
+            return ShortList.of();
 
         // If the index is found, return the subarray starting from that index
         short[] result = new short[firstTrueAdjacents.length - index];
@@ -1691,7 +1644,7 @@ public abstract class Grid {
 
         // Convert the result to the desired output format
         if (outputFormat == inputFormat) {
-            return result; // No conversion needed
+            return ShortList.of(result); // No conversion needed
         } else if (outputFormat == ValueFormat.PackedInt && inputFormat == ValueFormat.Index) {
             for (int i = 0; i < result.length; i++) {
                 result[i] = indexToPacked(result[i]);
@@ -1702,7 +1655,7 @@ public abstract class Grid {
             }
         }
 
-        return result;
+        return ShortList.of(result);
     }
 
     /**

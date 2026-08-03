@@ -782,7 +782,7 @@ class GridTest {
             assertArrayEquals(expectedAdjacents, actualAdjacentsIndex,
                     "First true adjacents in Index format should match expected values for first true cell "
                             + firstTrueCell);
-            short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents();
+            short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents().toShortArray();
             assertArrayEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
                     "The no format overload should match Index format for first true cell "
                             + firstTrueCell);
@@ -834,7 +834,7 @@ class GridTest {
             assertArrayEquals(expectedAdjacents, actualAdjacentsIndex,
                     "First true adjacents in Index format should match expected values for first true packed cell "
                             + firstTrueCell);
-            short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents();
+            short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents().toShortArray();
             assertArrayEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
                     "The no format overload should match Index format for first true packed cell "
                             + firstTrueCell);

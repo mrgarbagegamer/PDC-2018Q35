@@ -1593,20 +1593,9 @@ public abstract class Grid {
         return trueAdjacents;
     }
 
-    /**
-     * Convenience overload for {@link #findFirstTrueAdjacents(ValueFormat)} that assumes
-     * {@link ValueFormat#Index} for the output format.
-     *
-     * @return A {@code short[]} of adjacent cells to the first {@code true} cell in
-     *         {@link ValueFormat#Index} format, or {@code null} if no {@code true} cell exists.
-     * @see #findFirstTrueAdjacents(ValueFormat)
-     * @since 2025.07 - Format Support
-     * @performance Delegates to the main implementation; {@code O(1)} complexity.
-     * @threading Not thread-safe.
-     * @memory Allocates a new {@code short[]} for the result.
-     */
-    // TODO: Consider returning a ShortList instead of a short[]
-    public short[] findFirstTrueAdjacents() { return findFirstTrueAdjacents(ValueFormat.Index); }
+    public ShortList findFirstTrueAdjacents() {
+        return ShortList.of(findFirstTrueAdjacents(ValueFormat.Index));
+    }
 
     public ShortList findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {

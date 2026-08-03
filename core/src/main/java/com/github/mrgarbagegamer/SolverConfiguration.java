@@ -129,9 +129,7 @@ public final class SolverConfiguration {
         return (1L << (Math.max(this.baseGrid().getTrueCount(), 64) - 64)) - 1;
     }
 
-    ShortList getOddClickIndices() {
-        return ShortList.of(this.baseGrid().findFirstTrueAdjacents());
-    }
+    ShortList getOddClickIndices() { return this.baseGrid().findFirstTrueAdjacents(); }
 
     ShortList getEvenClickIndices() { return Grid.invertCombination(this.getOddClickIndices()); }
 

@@ -112,12 +112,12 @@ public final class SolverConfiguration {
     boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
 
     LongList getTrueCellMasksLower() {
-        ShortList trueCells = ShortList.of(this.baseGrid().findTrueCells());
+        ShortList trueCells = this.baseGrid().findTrueCells();
         return generateTrueCellMasks(trueCells.size() > 64 ? trueCells.subList(0, 64) : trueCells);
     }
 
     LongList getTrueCellMasksUpper() {
-        ShortList trueCells = ShortList.of(this.baseGrid().findTrueCells());
+        ShortList trueCells = this.baseGrid().findTrueCells();
         return trueCells.size() > 64
                 ? generateTrueCellMasks(trueCells.subList(64, trueCells.size()))
                 : LongList.of();

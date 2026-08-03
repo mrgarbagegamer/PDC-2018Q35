@@ -637,8 +637,9 @@ public abstract class Grid {
             case Index -> {}
             case PackedInt -> mutableList.replaceAll(Grid::indexToPacked);
             case null -> throw new NullPointerException("Output format cannot be null");
-        };
-        
+        }
+        ;
+
         return new ShortImmutableList(mutableList);
     }
 
@@ -991,101 +992,25 @@ public abstract class Grid {
         this.recalculationNeeded = true; // Mark for recalculation
     }
 
-    /**
-     * Scans the {@link #gridState grid bitmask} and returns an array of all {@code true} cells in
-     * the requested {@link ValueFormat format}.
-     *
-     * <p>
-     * This method is used by {@link CombinationGeneratorTask generators} and
-     * {@link TestClickCombination monkeys} to extract the current state of the grid for pruning or
-     * processing. It iterates through the grid's bits and collects the indices of all set bits.
-     * </p>
-     *
-     * <h3>Algorithm Details</h3>
-     * <p>
-     * The method iterates from {@code 0} to {@value #NUM_CELLS}-1, checking each bit's state using
-     * {@link #getBit(int)}. It populates a {@code short[]} which is pre-sized based on
-     * {@link #trueCellsCount} to avoid dynamic resizing. The iteration stops early once all
-     * expected {@code true} cells are found.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method has a worst-case complexity of {@code O(NUM_CELLS)}. While a more optimized
-     * approach could use {@link Long#numberOfTrailingZeros(long)} to find set bits directly, this
-     * method is not on a critical performance path (as it's mainly used for initial state
-     * extraction or debugging) and the current implementation is clear and sufficient. The
-     * {@link #trueCellsCount} is assumed to be accurately maintained by {@link #setBit(int)} and
-     * {@link #clearBit(int)}.
-     * </p>
-     *
-     * @param format The desired output format ({@link ValueFormat#Index} or
-     *               {@link ValueFormat#PackedInt}).
-     * @return A {@code short[]} of {@code true} cells in the specified format.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is provided, as it is not
-     *                                  suitable for representing individual cells.
-     * @throws NullPointerException     if {@code format} is {@code null}.
-     * @see #findFirstTrueCell(ValueFormat)
-     * @see #getGridState()
-     * @since 2025.07 - Format Support
-     * @performance {@code O(NUM_CELLS)} in the worst case.
-     * @threading Not thread-safe; reads the mutable {@link #gridState}.
-     * @memory Allocates a new {@code short[]} for the result.
-     */
-    public short[] findTrueCells(ValueFormat format) {
-        short[] trueCellsArray = new short[getTrueCount()];
-        int idx = 0;
+    public ShortList findTrueCells(ValueFormat format) {
+        ShortList trueCellsList = new ShortArrayList(this.getTrueCount());
 
-        // Internally, we iterate over bit indices (0-108)
-        for (short i = 0; i < NUM_CELLS && idx < trueCellsCount; i++) {
+        for (short i = 0; i < NUM_CELLS; i++)
             if (getBit(i))
-                trueCellsArray[idx++] = i;
-        }
+                trueCellsList.add(i);
 
-        return switch (format) {
+        switch (format) {
             case Bitmask -> throw new IllegalArgumentException(
                     "Bitmask format is not supported for representing true cells (since that's just the Grid).");
-            case Index -> trueCellsArray;
-            case PackedInt -> {
-                // Convert index to packed int format
-                for (int i = 0; i < trueCellsCount; i++) {
-                    trueCellsArray[i] = indexToPacked(trueCellsArray[i]);
-                }
-                yield trueCellsArray;
-            }
+            case Index -> {}
+            case PackedInt -> trueCellsList.replaceAll(Grid::indexToPacked);
             case null -> throw new NullPointerException("Format cannot be null.");
-        };
-    }
-
-    /**
-     * Scans the {@link #gridState grid bitmask} and returns an array of all {@code true} cells in
-     * {@link ValueFormat#Index Index} format.
-     *
-     * <p>
-     * This is a convenience overload of {@link #findTrueCells(ValueFormat)} that defaults to the
-     * {@link ValueFormat#Index} format, providing a simpler API for the most common use case.
-     * </p>
-     *
-     * @return A {@code short[]} of {@code true} cells in {@link ValueFormat#Index} format.
-     * @see #findTrueCells(ValueFormat)
-     * @see #getTrueCount()
-     * @since 2025.04 - Adjacency Optimizations
-     * @performance {@code O(NUM_CELLS)} in the worst case.
-     * @threading Not thread-safe; reads mutable state.
-     * @memory Allocates a new {@code short[]} for the result.
-     */
-    public final short[] findTrueCells() {
-        short[] trueCellsArray = new short[getTrueCount()];
-        int idx = 0;
-
-        // Internally, we iterate over bit indices (0-108)
-        for (short i = 0; i < NUM_CELLS && idx < trueCellsCount; i++) {
-            if (getBit(i))
-                trueCellsArray[idx++] = i;
         }
 
-        return trueCellsArray;
+        return new ShortImmutableList(trueCellsList);
     }
+
+    public final ShortList findTrueCells() { return this.findTrueCells(ValueFormat.Index); }
 
     /**
      * Scans the {@link #gridState grid} and returns the first {@code true} cell in the requested

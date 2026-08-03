@@ -452,31 +452,31 @@ class GridTest {
             return; // Ensure that an incorrect solution13 doesn't break the test.
 
         // Test for solved state
-        short[] expectedTrueCellsSolved = new short[0];
-        short[] actualTrueCellsSolvedIndex = grid.findTrueCells(Grid.ValueFormat.Index);
-        short[] actualTrueCellsSolvedNoFormat = grid.findTrueCells();
+        ShortList expectedTrueCellsSolved = ShortList.of();
+        ShortList actualTrueCellsSolvedIndex = grid.findTrueCells(Grid.ValueFormat.Index);
+        ShortList actualTrueCellsSolvedNoFormat = grid.findTrueCells();
 
-        assertArrayEquals(expectedTrueCellsSolved, actualTrueCellsSolvedIndex,
+        assertIterableEquals(expectedTrueCellsSolved, actualTrueCellsSolvedIndex,
                 "The list of true cells should be empty in Index format for a solved grid");
-        assertArrayEquals(expectedTrueCellsSolved, actualTrueCellsSolvedNoFormat,
+        assertIterableEquals(expectedTrueCellsSolved, actualTrueCellsSolvedNoFormat,
                 "The list of true cells should be empty in no format overload for a solved grid");
 
         // Iterate for each possible true cell count
         for (int trueCellsCount = 1; trueCellsCount <= Grid.NUM_CELLS; trueCellsCount++) {
             // Generate unique random clicks
-            short[] expectedTrueCells = generateRandomCombination(trueCellsCount);
-            long[] toggleBitmask = convertToBitmask(expectedTrueCells);
+            ShortList expectedTrueCells = ShortList.of(generateRandomCombination(trueCellsCount));
+            long[] toggleBitmask = convertToBitmask(expectedTrueCells.toShortArray());
 
             grid.click(toggleBitmask);
 
             // Now, we can verify that the true cells found match the expected set
-            short[] actualTrueCellsIndex = grid.findTrueCells(Grid.ValueFormat.Index);
-            short[] actualTrueCellsNoFormat = grid.findTrueCells();
+            ShortList actualTrueCellsIndex = grid.findTrueCells(Grid.ValueFormat.Index);
+            ShortList actualTrueCellsNoFormat = grid.findTrueCells();
 
-            assertArrayEquals(expectedTrueCells, actualTrueCellsIndex,
+            assertIterableEquals(expectedTrueCells, actualTrueCellsIndex,
                     "The list of true cells should match expected values in Index format for true cell count "
                             + trueCellsCount);
-            assertArrayEquals(expectedTrueCells, actualTrueCellsNoFormat,
+            assertIterableEquals(expectedTrueCells, actualTrueCellsNoFormat,
                     "The list of true cells should match expected values in no format overload for true cell count "
                             + trueCellsCount);
 
@@ -503,22 +503,23 @@ class GridTest {
             return; // Ensure that an incorrect solution13 doesn't break the test.
 
         // Test for solved state
-        short[] expectedTrueCellsSolved = new short[0];
-        short[] actualTrueCellsSolvedPacked = grid.findTrueCells(Grid.ValueFormat.PackedInt);
-        assertArrayEquals(expectedTrueCellsSolved, actualTrueCellsSolvedPacked,
+        ShortList expectedTrueCellsSolved = ShortList.of();
+        ShortList actualTrueCellsSolvedPacked = grid.findTrueCells(Grid.ValueFormat.PackedInt);
+        assertIterableEquals(expectedTrueCellsSolved, actualTrueCellsSolvedPacked,
                 "The list of true cells should be empty in PackedInt format for a solved grid");
 
         // Iterate for each possible true cell count
         for (int trueCellsCount = 1; trueCellsCount <= Grid.NUM_CELLS; trueCellsCount++) {
-            short[] expectedTrueCells = generateRandomCombinationPackedInt(trueCellsCount);
+            ShortList expectedTrueCells = ShortList
+                    .of(generateRandomCombinationPackedInt(trueCellsCount));
 
-            long[] toggleBitmask = convertToBitmaskPackedInt(expectedTrueCells);
+            long[] toggleBitmask = convertToBitmaskPackedInt(expectedTrueCells.toShortArray());
 
             grid.click(toggleBitmask);
 
-            short[] actualTrueCellsPacked = grid.findTrueCells(Grid.ValueFormat.PackedInt);
+            ShortList actualTrueCellsPacked = grid.findTrueCells(Grid.ValueFormat.PackedInt);
 
-            assertArrayEquals(expectedTrueCells, actualTrueCellsPacked,
+            assertIterableEquals(expectedTrueCells, actualTrueCellsPacked,
                     "The list of true cells should match expected values in PackedInt format for true cell count "
                             + trueCellsCount);
 
@@ -1045,8 +1046,8 @@ class GridTest {
         // Verify initial consistency between getTrueCount() and findTrueCells()
         Grid grid = new Grid13();
         int initialCount = grid.getTrueCount();
-        short[] initialTrueCells = grid.findTrueCells();
-        assertEquals(initialTrueCells.length, initialCount,
+        ShortList initialTrueCells = grid.findTrueCells();
+        assertEquals(initialTrueCells.size(), initialCount,
                 "Initial getTrueCount should match findTrueCells length");
 
         // Apply random clicks and verify getTrueCount matches bit-count of getGridState()
@@ -1059,8 +1060,8 @@ class GridTest {
                 "getTrueCount should equal bit count of grid state after clicks");
 
         // Ensure findTrueCells() reflects the same count
-        short[] actualTrueCells = grid.findTrueCells();
-        assertEquals(actualTrueCells.length, grid.getTrueCount(),
+        ShortList actualTrueCells = grid.findTrueCells();
+        assertEquals(actualTrueCells.size(), grid.getTrueCount(),
                 "findTrueCells length should match getTrueCount");
 
         // Verify solved case results in zero true count and no first true cell

@@ -350,8 +350,8 @@ class GridTest {
                     "Adjacents mismatch for cell index " + cellIndex
                             + " using single format overload with Index");
 
-            short[] noFormatAdjacents = Grid.findAdjacents(cellIndex);
-            assertArrayEquals(adjacentsArray, noFormatAdjacents,
+            ShortList noFormatAdjacents = Grid.findAdjacents(cellIndex);
+            assertArrayEquals(adjacentsArray, noFormatAdjacents.toShortArray(),
                     "Adjacents mismatch for cell index " + cellIndex + " using no format overload");
         }
         // PackedInt output format
@@ -681,8 +681,8 @@ class GridTest {
         long[] expectedState = initialState.clone();
         for (short click : clicks) {
             // Manually compute expected state after each click
-            short[] affectedCells = Grid.findAdjacents(click);
-            long[] clickBitmask = convertToBitmask(affectedCells);
+            ShortList affectedCells = Grid.findAdjacents(click);
+            long[] clickBitmask = convertToBitmask(affectedCells.toShortArray());
             expectedState[0] ^= clickBitmask[0];
             expectedState[1] ^= clickBitmask[1];
         }
@@ -708,14 +708,14 @@ class GridTest {
         long[] expectedState = initialState.clone();
         for (short click : prefixClicks) {
             // Manually compute expected state after each prefix click
-            short[] affectedCells = Grid.findAdjacents(click);
-            long[] clickBitmask = convertToBitmask(affectedCells);
+            ShortList affectedCells = Grid.findAdjacents(click);
+            long[] clickBitmask = convertToBitmask(affectedCells.toShortArray());
             expectedState[0] ^= clickBitmask[0];
             expectedState[1] ^= clickBitmask[1];
         }
         // Final click
-        short[] affectedCellsFinal = Grid.findAdjacents(finalClick);
-        long[] clickBitmaskFinal = convertToBitmask(affectedCellsFinal);
+        ShortList affectedCellsFinal = Grid.findAdjacents(finalClick);
+        long[] clickBitmaskFinal = convertToBitmask(affectedCellsFinal.toShortArray());
         expectedState[0] ^= clickBitmaskFinal[0];
         expectedState[1] ^= clickBitmaskFinal[1];
 
@@ -775,7 +775,7 @@ class GridTest {
             long[] gridState = convertToBitmask(firstTrueCell);
             grid.click(gridState);
 
-            ShortList expectedAdjacents = ShortList.of(Grid.findAdjacents(firstTrueCell));
+            ShortList expectedAdjacents = Grid.findAdjacents(firstTrueCell);
 
             // Test Index output format
             ShortList actualAdjacentsIndexList = grid

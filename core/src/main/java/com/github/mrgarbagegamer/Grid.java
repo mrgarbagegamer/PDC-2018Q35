@@ -710,23 +710,8 @@ public abstract class Grid {
         return findAdjacents(cell, format, format);
     }
 
-    /**
-     * Convenience overload for {@link #findAdjacents(short, ValueFormat)} that assumes
-     * {@link ValueFormat#Index} for both input and output.
-     *
-     * @param cell The cell for which to find adjacents, in {@link ValueFormat#Index} format.
-     * @return A {@code short[]} of adjacent cells in {@link ValueFormat#Index} format.
-     * @see #findAdjacents(short, ValueFormat, ValueFormat)
-     * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity as it directly returns a reference to a pre-computed
-     *              array.
-     * @threading Thread-safe; delegates to a {@link #findAdjacents(short, ValueFormat) thread-safe
-     *            method}.
-     * @memory Does not allocate; returns a reference to an existing {@code short[]}.
-     */
-    // TODO: Consider returning a ShortList instead of a short[]
-    public static short[] findAdjacents(short cell) {
-        return findAdjacents(cell, ValueFormat.Index);
+    public static ShortList findAdjacents(short cell) {
+        return ShortList.of(findAdjacents(cell, ValueFormat.Index));
     }
 
     /**

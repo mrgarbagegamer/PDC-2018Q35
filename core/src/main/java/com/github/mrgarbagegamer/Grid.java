@@ -1539,63 +1539,19 @@ public abstract class Grid {
         recalculationNeeded = true;
     }
 
-    /**
-     * Returns an array of adjacent cells to the {@link #findFirstTrueCell() first true cell} in the
-     * requested {@link ValueFormat format}.
-     *
-     * <p>
-     * This method leverages the puzzle property that any solution must interact with the first
-     * {@code true} cell. It provides the generator with the adjacent cells of this critical point,
-     * enabling focused exploration of the search space.
-     * </p>
-     * 
-     * <p>
-     * {@link ValueFormat#Bitmask Bitmask} formats are not supported for this method. While it's
-     * technically possible to represent small sets of values as bitmasks (e.g., a {@code long[2]}
-     * or a {@code short[7]}), the overhead of conversion and potential for wasted space makes it
-     * impractical for this context.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The operation is {@code O(1)} because it involves a simple lookup of the first {@code true}
-     * cell and then retrieving its pre-computed adjacents. While caching the result could be
-     * considered, the small, fixed size of the adjacency list (at most 6 elements) makes the
-     * current approach efficient enough without the overhead of cache management and defensive
-     * copying.
-     * </p>
-     *
-     * @param format The desired output format ({@link ValueFormat#Index} or
-     *               {@link ValueFormat#PackedInt}).
-     * @return A {@code short[]} of adjacent cells to the first {@code true} cell, or {@code null}
-     *         if no {@code true} cell exists.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not
-     *                                  suitable for representing individual cells.
-     * @throws NullPointerException     if {@code format} is {@code null}.
-     * @see #findAdjacents(short, ValueFormat)
-     * @see #findFirstTrueCell()
-     * @since 2025.04 - First True Adjacents Method Creation
-     * @performance {@code O(1)} operations and conversion due to fixed-size adjacency lists.
-     * @threading Not thread-safe; depends on the result of non-thread-safe methods.
-     * @memory Allocates a new {@code short[]} for the result.
-     */
-    // TODO: Consider returning a ShortList instead of a short[]
-    public short[] findFirstTrueAdjacents(ValueFormat format) {
+    public ShortList findFirstTrueAdjacents(ValueFormat format) {
         mustNotBeNull(format, "format");
         checkArgument(format != ValueFormat.Bitmask,
                 "Bitmask format is not supported for this operation.");
 
         short firstTrueCell = findFirstTrueCell(format);
         if (firstTrueCell == -1)
-            return new short[0];
-        short[] trueAdjacents = findAdjacents(firstTrueCell, format);
+            return ShortList.of();
 
-        return trueAdjacents;
+        return ShortList.of(findAdjacents(firstTrueCell, format));
     }
 
-    public ShortList findFirstTrueAdjacents() {
-        return ShortList.of(findFirstTrueAdjacents(ValueFormat.Index));
-    }
+    public ShortList findFirstTrueAdjacents() { return findFirstTrueAdjacents(ValueFormat.Index); }
 
     public ShortList findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
@@ -1606,16 +1562,16 @@ public abstract class Grid {
         checkArgument(outputFormat != ValueFormat.Bitmask,
                 "Bitmask is not a supported output format");
 
-        short[] firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
-        if (firstTrueAdjacents.length == 0)
+        ShortList firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
+        if (firstTrueAdjacents.isEmpty())
             return ShortList.of();
 
         // Binary search to find the index of the first adjacent cell greater than 'cell'
         int index = -1;
-        int low = 0, high = firstTrueAdjacents.length - 1;
+        int low = 0, high = firstTrueAdjacents.size() - 1;
         while (low <= high) {
             int mid = (low + high) / 2;
-            if (firstTrueAdjacents[mid] > cell) {
+            if (firstTrueAdjacents.getShort(mid) > cell) {
                 index = mid; // Found a candidate, but keep searching left for the first one
                 high = mid - 1;
             } else {
@@ -1627,24 +1583,20 @@ public abstract class Grid {
         if (index == -1)
             return ShortList.of();
 
-        // If the index is found, return the subarray starting from that index
-        short[] result = new short[firstTrueAdjacents.length - index];
-        System.arraycopy(firstTrueAdjacents, index, result, 0, result.length);
+        // If the index is found, return the sublist starting from that index
+        ShortList subList = firstTrueAdjacents.subList(index, firstTrueAdjacents.size());
 
         // Convert the result to the desired output format
         if (outputFormat == inputFormat) {
-            return ShortList.of(result); // No conversion needed
-        } else if (outputFormat == ValueFormat.PackedInt && inputFormat == ValueFormat.Index) {
-            for (int i = 0; i < result.length; i++) {
-                result[i] = indexToPacked(result[i]);
-            }
-        } else if (outputFormat == ValueFormat.Index && inputFormat == ValueFormat.PackedInt) {
-            for (int i = 0; i < result.length; i++) {
-                result[i] = packedToIndex(result[i]);
-            }
+            return subList; // No conversion or re-wrapping needed
+        } else {
+            ShortList result = new ShortArrayList(subList);
+            if (outputFormat == ValueFormat.PackedInt && inputFormat == ValueFormat.Index)
+                result.replaceAll(Grid::indexToPacked);
+            else if (outputFormat == ValueFormat.Index && inputFormat == ValueFormat.PackedInt)
+                result.replaceAll(Grid::packedToIndex);
+            return result;
         }
-
-        return ShortList.of(result);
     }
 
     /**

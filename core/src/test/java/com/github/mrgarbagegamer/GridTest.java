@@ -775,26 +775,25 @@ class GridTest {
             long[] gridState = convertToBitmask(firstTrueCell);
             grid.click(gridState);
 
-            short[] expectedAdjacents = Grid.findAdjacents(firstTrueCell);
+            ShortList expectedAdjacents = ShortList.of(Grid.findAdjacents(firstTrueCell));
 
             // Test Index output format
-            short[] actualAdjacentsIndex = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
-            assertArrayEquals(expectedAdjacents, actualAdjacentsIndex,
+            ShortList actualAdjacentsIndexList = grid
+                    .findFirstTrueAdjacents(Grid.ValueFormat.Index);
+            assertIterableEquals(expectedAdjacents, actualAdjacentsIndexList,
                     "First true adjacents in Index format should match expected values for first true cell "
                             + firstTrueCell);
-            short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents().toShortArray();
-            assertArrayEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
+            ShortList actualAdjacentsNoFormatList = grid.findFirstTrueAdjacents();
+            assertIterableEquals(actualAdjacentsIndexList, actualAdjacentsNoFormatList,
                     "The no format overload should match Index format for first true cell "
                             + firstTrueCell);
 
             // Test PackedInt output format
-            short[] expectedPackedAdjacents = new short[expectedAdjacents.length];
-            for (int i = 0; i < expectedAdjacents.length; i++) {
-                expectedPackedAdjacents[i] = Grid.indexToPacked(expectedAdjacents[i]);
-            }
-            short[] actualAdjacentsPackedInt = grid
+            ShortList expectedPackedAdjacents = new ShortArrayList(expectedAdjacents);
+            expectedPackedAdjacents.replaceAll(Grid::indexToPacked);
+            ShortList actualAdjacentsPackedInt = grid
                     .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
-            assertArrayEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
+            assertIterableEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
                     "First true adjacents in PackedInt format should match expected values for first true cell "
                             + firstTrueCell);
 
@@ -826,27 +825,25 @@ class GridTest {
             long[] gridState = convertToBitmaskPackedInt(firstTrueCell);
             grid.click(gridState);
 
-            short[] expectedAdjacents = Grid.findAdjacents(firstTrueCell,
-                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
+            ShortList expectedAdjacents = ShortList.of(Grid.findAdjacents(firstTrueCell,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index));
 
             // Test Index output format
-            short[] actualAdjacentsIndex = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
-            assertArrayEquals(expectedAdjacents, actualAdjacentsIndex,
+            ShortList actualAdjacentsIndex = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
+            assertIterableEquals(expectedAdjacents, actualAdjacentsIndex,
                     "First true adjacents in Index format should match expected values for first true packed cell "
                             + firstTrueCell);
-            short[] actualAdjacentsNoFormat = grid.findFirstTrueAdjacents().toShortArray();
-            assertArrayEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
+            ShortList actualAdjacentsNoFormat = grid.findFirstTrueAdjacents();
+            assertIterableEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
                     "The no format overload should match Index format for first true packed cell "
                             + firstTrueCell);
 
             // Test PackedInt output format
-            short[] expectedPackedAdjacents = new short[expectedAdjacents.length];
-            for (int i = 0; i < expectedAdjacents.length; i++) {
-                expectedPackedAdjacents[i] = Grid.indexToPacked(expectedAdjacents[i]);
-            }
-            short[] actualAdjacentsPackedInt = grid
+            ShortList expectedPackedAdjacents = new ShortArrayList(expectedAdjacents);
+            expectedPackedAdjacents.replaceAll(Grid::indexToPacked);
+            ShortList actualAdjacentsPackedInt = grid
                     .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
-            assertArrayEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
+            assertIterableEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
                     "First true adjacents in PackedInt format should match expected values for first true packed cell "
                             + firstTrueCell);
 
@@ -920,8 +917,9 @@ class GridTest {
         Grid grid = new Grid13();
         short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
-        short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
-        short[] firstTrueAdjacentsPackedIntOutput = grid
+        ShortList firstTrueAdjacentsIndexOutput = grid
+                .findFirstTrueAdjacents(Grid.ValueFormat.Index);
+        ShortList firstTrueAdjacentsPackedIntOutput = grid
                 .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
 
         ShortList adjacencyListIndexOutput = new ShortArrayList(firstTrueAdjacentsIndexOutput);
@@ -984,8 +982,9 @@ class GridTest {
         Grid grid = new Grid13();
         short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
-        short[] firstTrueAdjacentsIndexOutput = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
-        short[] firstTrueAdjacentsPackedIntOutput = grid
+        ShortList firstTrueAdjacentsIndexOutput = grid
+                .findFirstTrueAdjacents(Grid.ValueFormat.Index);
+        ShortList firstTrueAdjacentsPackedIntOutput = grid
                 .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
 
         ShortList adjacencyListIndexOutput = new ShortArrayList(firstTrueAdjacentsIndexOutput);

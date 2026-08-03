@@ -345,8 +345,8 @@ class GridTest {
                     "Adjacents mismatch for cell index " + cellIndex
                             + " using dual format overload with Index and Index");
 
-            short[] singleFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index);
-            assertArrayEquals(adjacentsArray, singleFormatAdjacents,
+            ShortList singleFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index);
+            assertArrayEquals(adjacentsArray, singleFormatAdjacents.toShortArray(),
                     "Adjacents mismatch for cell index " + cellIndex
                             + " using single format overload with Index");
 
@@ -397,8 +397,8 @@ class GridTest {
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt).toShortArray();
             short[] dualFormatAdjacentsPacked = Grid.findAdjacents(packedInput,
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
-            short[] singleFormatAdjacentsPacked = Grid.findAdjacents(packedInput,
-                    Grid.ValueFormat.PackedInt);
+            short[] singleFormatAdjacentsPacked = Grid
+                    .findAdjacents(packedInput, Grid.ValueFormat.PackedInt).toShortArray();
 
             assertArrayEquals(adjacentsArrayPacked, dualFormatAdjacentsPacked,
                     "Adjacents mismatch for packed input " + packedInput
@@ -1158,8 +1158,9 @@ class GridTest {
 
         // If the click is adjacent to the firstTrueCell, it is capable of affecting it.
         for (short firstTrueCell = 0; firstTrueCell < Grid.NUM_CELLS; firstTrueCell++) {
-            short[] adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.Index);
-            for (short adjacent : adjacents) {
+            ShortList adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.Index);
+            for (int i = 0; i < adjacents.size(); i++) {
+                short adjacent = adjacents.getShort(i);
                 assertTrue(
                         Grid.canAffectFirstTrueCell(firstTrueCell, adjacent,
                                 Grid.ValueFormat.Index),
@@ -1179,10 +1180,9 @@ class GridTest {
             allClicksSet.removeIf(click -> click <= ftc);
 
             // Remove clicks that can affect the firstTrueCell
-            short[] adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.Index);
-            ShortList adjacentsList = ShortArrayList.of(adjacents);
+            ShortList adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.Index);
             ShortSortedSet nonAffectingClicksSet = new ShortAVLTreeSet(allClicksSet);
-            nonAffectingClicksSet.removeAll(adjacentsList);
+            nonAffectingClicksSet.removeAll(adjacents);
 
             // Iterate over remaining clicks and verify they cannot affect the firstTrueCell
             ShortBidirectionalIterator iterator = nonAffectingClicksSet.iterator();
@@ -1230,8 +1230,9 @@ class GridTest {
 
         // If the click is adjacent to the firstTrueCell, it is capable of affecting it.
         for (short firstTrueCell : validPackedInts) {
-            short[] adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.PackedInt);
-            for (short adjacent : adjacents) {
+            ShortList adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.PackedInt);
+            for (int i = 0; i < adjacents.size(); i++) {
+                short adjacent = adjacents.getShort(i);
                 assertTrue(
                         Grid.canAffectFirstTrueCell(firstTrueCell, adjacent,
                                 Grid.ValueFormat.PackedInt),
@@ -1249,10 +1250,9 @@ class GridTest {
             allClicksSet.removeIf(click -> click <= ftc);
 
             // Remove clicks that can affect the firstTrueCell
-            short[] adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.PackedInt);
-            ShortList adjacentsList = ShortArrayList.of(adjacents);
+            ShortList adjacents = Grid.findAdjacents(firstTrueCell, Grid.ValueFormat.PackedInt);
             ShortSortedSet nonAffectingClicksSet = new ShortAVLTreeSet(allClicksSet);
-            nonAffectingClicksSet.removeAll(adjacentsList);
+            nonAffectingClicksSet.removeAll(adjacents);
 
             // Iterate over remaining clicks and verify they cannot affect the firstTrueCell
             ShortBidirectionalIterator iterator = nonAffectingClicksSet.iterator();

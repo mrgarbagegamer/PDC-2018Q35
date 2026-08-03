@@ -688,30 +688,12 @@ public abstract class Grid {
         };
     }
 
-    /**
-     * Convenience overload for {@link #findAdjacents(short, ValueFormat, ValueFormat)} that assumes
-     * the input and output formats are the same.
-     *
-     * @param cell   The cell for which to find adjacents.
-     * @param format The {@link ValueFormat} for both the input cell and the output adjacent cells.
-     * @return A {@code short[]} of adjacent cells in the specified {@code format}.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
-     * @see #findAdjacents(short, ValueFormat, ValueFormat)
-     * @since 2025.07 - Format Support
-     * @performance Delegates to the main implementation; {@code O(k)} complexity where {@code k} is
-     *              the number of adjacent cells.
-     * @threading Thread-safe; delegates to a {@link #findAdjacents(short, ValueFormat, ValueFormat)
-     *            thread-safe method}.
-     * @memory Allocates a new {@code short[]} for the result only if format conversion is
-     *         necessary.
-     */
-    // TODO: Consider returning a ShortList instead of a short[]
-    public static short[] findAdjacents(short cell, ValueFormat format) {
-        return findAdjacents(cell, format, format);
+    public static ShortList findAdjacents(short cell, ValueFormat format) {
+        return ShortList.of(findAdjacents(cell, format, format));
     }
 
     public static ShortList findAdjacents(short cell) {
-        return ShortList.of(findAdjacents(cell, ValueFormat.Index));
+        return findAdjacents(cell, ValueFormat.Index);
     }
 
     /**
@@ -1533,7 +1515,7 @@ public abstract class Grid {
         if (firstTrueCell == -1)
             return ShortList.of();
 
-        return ShortList.of(findAdjacents(firstTrueCell, format));
+        return findAdjacents(firstTrueCell, format);
     }
 
     public ShortList findFirstTrueAdjacents() { return findFirstTrueAdjacents(ValueFormat.Index); }

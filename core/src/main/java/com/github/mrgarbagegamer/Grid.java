@@ -381,6 +381,8 @@ public abstract class Grid {
      * @memory Fixed memory footprint of ~{@code NUM_CELLS × 2 × 8} bytes as a {@code long[][]}.
      */
     private static final long[][] ADJACENCY_MASKS = new long[NUM_CELLS][2];
+    // TODO: Consider preventing mutability of adjacencyArray through a structure like a
+    // List<ShortImmutableList>
     /**
      * A pre-computed table storing the adjacent cells for each cell as an array of indices.
      *
@@ -617,79 +619,31 @@ public abstract class Grid {
         return computeAdjacents(cell, ValueFormat.Index);
     }
 
-    /**
-     * Finds the hexagonally adjacent cells for a given cell, supporting flexible input and output
-     * formats.
-     *
-     * <p>
-     * This method retrieves {@link #computeAdjacents(short, ValueFormat, ValueFormat) pre-computed}
-     * adjacency data from the {@link #adjacencyArray}. It handles format conversions as needed,
-     * making it versatile for different use cases, such as debugging, logging, or specific
-     * algorithmic checks.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The core lookup from {@code adjacencyArray} is an {@code O(1)} operation. However, if the
-     * {@code outputFormat} is not {@link ValueFormat#Index}, the method incurs additional overhead
-     * for converting each adjacent cell's format. This makes the method's complexity {@code O(k)}
-     * where {@code k} is the number of adjacent cells (at most 6). The presence of {@code switch}
-     * statements also limits JIT inlining opportunities.
-     * </p>
-     * <p>
-     * Though specialized caches for each format could solve these problems, since this method is
-     * not on the critical performance path, the overhead of format conversion and branching is
-     * deemed acceptable. For hot paths requiring adjacency information, direct access to
-     * {@link #ADJACENCY_MASKS} or {@code adjacencyArray} in {@link ValueFormat#Index} is preferred.
-     * </p>
-     *
-     * @param cell         The cell for which to find adjacents.
-     * @param inputFormat  The {@link ValueFormat} of the input {@code cell}.
-     * @param outputFormat The {@link ValueFormat} in which the adjacent cells should be returned.
-     * @return A {@code short[]} of adjacent cells in the specified {@code outputFormat}.
-     * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for
-     *                                        {@code inputFormat} or {@code outputFormat}.
-     * @throws NullPointerException           if {@code inputFormat} or {@code outputFormat} is
-     *                                        {@code null}.
-     * @throws ArrayIndexOutOfBoundsException if the input {@code cell} is out of bounds for the
-     *                                        specified {@code inputFormat}.
-     * @since 2025.07 - Format Support
-     * @performance {@code O(1)} for {@link ValueFormat#Index} output, otherwise {@code O(k)} where
-     *              {@code k} is the number of adjacent cells (max 6).
-     * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
-     * @memory Allocates a new {@code short[]} for the result only if format conversion is
-     *         necessary.
-     */
-    // TODO: Consider returning a ShortList instead of a short[]
-    public static short[] findAdjacents(short cell, ValueFormat inputFormat,
+    public static ShortList findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         final short index = switch (inputFormat) {
             case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
+                    "Bitmask format is not supported for representing a single cell");
             case PackedInt -> packedToIndex(cell);
             case Index -> cell;
-            case null -> throw new NullPointerException("Input format cannot be null.");
+            case null -> throw new NullPointerException("Input format cannot be null");
         };
 
-        final short[] result = adjacencyArray[index].clone();
+        final ShortList mutableList = new ShortArrayList(adjacencyArray[index]);
 
-        return switch (outputFormat) {
+        switch (outputFormat) {
             case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
-            case Index -> result;
-            case PackedInt -> {
-                // Convert index to packed int format
-                for (short i = 0; i < result.length; i++) {
-                    result[i] = indexToPacked(result[i]);
-                }
-                yield result;
-            }
-            case null -> throw new NullPointerException("Output format cannot be null.");
+                    "Bitmask format is not supported for representing a single cell");
+            case Index -> {}
+            case PackedInt -> mutableList.replaceAll(Grid::indexToPacked);
+            case null -> throw new NullPointerException("Output format cannot be null");
         };
+        
+        return new ShortImmutableList(mutableList);
     }
 
     public static ShortList findAdjacents(short cell, ValueFormat format) {
-        return ShortList.of(findAdjacents(cell, format, format));
+        return findAdjacents(cell, format, format);
     }
 
     public static ShortList findAdjacents(short cell) {

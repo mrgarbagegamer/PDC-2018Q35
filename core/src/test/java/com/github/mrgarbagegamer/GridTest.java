@@ -337,32 +337,30 @@ class GridTest {
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
             ShortList adjacentsList = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index,
                     Grid.ValueFormat.Index);
-            short[] adjacentsArray = adjacentsList.toShortArray();
 
-            short[] dualFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index,
+            ShortList dualFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index,
                     Grid.ValueFormat.Index);
-            assertArrayEquals(adjacentsArray, dualFormatAdjacents,
+            assertIterableEquals(adjacentsList, dualFormatAdjacents,
                     "Adjacents mismatch for cell index " + cellIndex
                             + " using dual format overload with Index and Index");
 
             ShortList singleFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index);
-            assertArrayEquals(adjacentsArray, singleFormatAdjacents.toShortArray(),
+            assertIterableEquals(adjacentsList, singleFormatAdjacents,
                     "Adjacents mismatch for cell index " + cellIndex
                             + " using single format overload with Index");
 
             ShortList noFormatAdjacents = Grid.findAdjacents(cellIndex);
-            assertArrayEquals(adjacentsArray, noFormatAdjacents.toShortArray(),
+            assertIterableEquals(adjacentsList, noFormatAdjacents,
                     "Adjacents mismatch for cell index " + cellIndex + " using no format overload");
         }
         // PackedInt output format
         for (short cellIndex = 0; cellIndex < Grid.NUM_CELLS; cellIndex++) {
-            short[] adjacentsArray = Grid
-                    .computeAdjacents(cellIndex, Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt)
-                    .toShortArray();
-
-            short[] dualFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index,
+            ShortList adjacentsArray = Grid.computeAdjacents(cellIndex, Grid.ValueFormat.Index,
                     Grid.ValueFormat.PackedInt);
-            assertArrayEquals(adjacentsArray, dualFormatAdjacents,
+
+            ShortList dualFormatAdjacents = Grid.findAdjacents(cellIndex, Grid.ValueFormat.Index,
+                    Grid.ValueFormat.PackedInt);
+            assertIterableEquals(adjacentsArray, dualFormatAdjacents,
                     "Adjacents mismatch for cell index " + cellIndex
                             + " using dual format overload with Index and PackedInt");
         }
@@ -381,29 +379,29 @@ class GridTest {
     void testFindAdjacentsPackedInt() {
         // Index output format
         for (short packedInput : validPackedInts) {
-            short[] adjacentsArrayIndex = Grid.computeAdjacents(packedInput,
-                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index).toShortArray();
-            short[] dualFormatAdjacentsIndex = Grid.findAdjacents(packedInput,
+            ShortList adjacentsArrayIndex = Grid.computeAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
+            ShortList dualFormatAdjacentsIndex = Grid.findAdjacents(packedInput,
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
 
-            assertArrayEquals(adjacentsArrayIndex, dualFormatAdjacentsIndex,
+            assertIterableEquals(adjacentsArrayIndex, dualFormatAdjacentsIndex,
                     "Adjacents mismatch for packed input " + packedInput
                             + " using dual format overload with PackedInt and Index");
         }
 
         // PackedInt output format
         for (short packedInput : validPackedInts) {
-            short[] adjacentsArrayPacked = Grid.computeAdjacents(packedInput,
-                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt).toShortArray();
-            short[] dualFormatAdjacentsPacked = Grid.findAdjacents(packedInput,
+            ShortList adjacentsArrayPacked = Grid.computeAdjacents(packedInput,
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
-            short[] singleFormatAdjacentsPacked = Grid
-                    .findAdjacents(packedInput, Grid.ValueFormat.PackedInt).toShortArray();
+            ShortList dualFormatAdjacentsPacked = Grid.findAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
+            ShortList singleFormatAdjacentsPacked = Grid.findAdjacents(packedInput,
+                    Grid.ValueFormat.PackedInt);
 
-            assertArrayEquals(adjacentsArrayPacked, dualFormatAdjacentsPacked,
+            assertIterableEquals(adjacentsArrayPacked, dualFormatAdjacentsPacked,
                     "Adjacents mismatch for packed input " + packedInput
                             + " using dual format overload with PackedInt and PackedInt");
-            assertArrayEquals(adjacentsArrayPacked, singleFormatAdjacentsPacked,
+            assertIterableEquals(adjacentsArrayPacked, singleFormatAdjacentsPacked,
                     "Adjacents mismatch for packed input " + packedInput
                             + " using single format overload with PackedInt");
         }
@@ -825,8 +823,8 @@ class GridTest {
             long[] gridState = convertToBitmaskPackedInt(firstTrueCell);
             grid.click(gridState);
 
-            ShortList expectedAdjacents = ShortList.of(Grid.findAdjacents(firstTrueCell,
-                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index));
+            ShortList expectedAdjacents = Grid.findAdjacents(firstTrueCell,
+                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
 
             // Test Index output format
             ShortList actualAdjacentsIndex = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);

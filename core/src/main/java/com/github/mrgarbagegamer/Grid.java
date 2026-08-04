@@ -13,6 +13,12 @@ import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
 // TODO: Add documentation to the new methods and modify existing Javadoc accordingly
+// TODO: Use byte collections instead of short collections for Index format
+/*
+ * TODO: Consider creating a record (or immutable class) named GridState and moving all state-based
+ * operations to that class to remove the need for defensive copying. Use of said class inside the
+ * Grid to replace the long[] could be nice but would most likely reduce performance.
+ */
 /**
  * A structure that represents the core hexagonal grid for a "Lights Out" style puzzle.
  *
@@ -104,6 +110,10 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  *            format conversions are accelerated by statically initialized caches.
  */
 public abstract class Grid {
+    /*
+     * TODO: Enhance the ValueFormat enum to make it more usable for data conversions and to avoid
+     * the need for switch statements on an enum.
+     */
     /**
      * Defines the different formats used to represent a cell's location on the grid.
      *
@@ -157,6 +167,10 @@ public abstract class Grid {
          * @memory Minimal memory overhead as a singleton per enum constant.
          */
         Index,
+        /*
+         * TODO: Consider removing Bitmask entirely, as it only leads to an exception for
+         * unsupported format.
+         */
         /**
          * A format representing the entire grid state as a bitmask. This format is not used to
          * identify individual cells but is included for completeness.

@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.concurrent.ForkJoinPool;
 
@@ -117,14 +118,18 @@ public class TestClickCombination extends Thread {
     private final ForkJoinPool generatorPool;
     private final SolutionHandler solutionHandler;
 
-    public TestClickCombination(String name, int monkeyId, SolverConfiguration config,
+    public TestClickCombination(int monkeyId, SolverConfiguration config,
             QueueStrategy queueStrategy, SolverState solverState, ForkJoinPool generatorPool) {
-        super(name); // The constructor for Thread handles null checks for the name
+        // Check the ID to ensure it works as a list index:
+        checkArgument(monkeyId >= 0, "monkeyId must not be negative, was %s", monkeyId);
+        super("Monkey-" + monkeyId);
+        this.monkeyId = monkeyId;
+
+        mustNotBeNull(config, "config");
         this.logger = config.getLogger(TestClickCombination.class);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
-        this.monkeyId = monkeyId;
         this.solverState = mustNotBeNull(solverState, "solverState");
-        this.puzzleGrid = config.baseGrid().copy(); // Copy of the base grid
+        this.puzzleGrid = config.baseGrid();
         this.masksLower = config.getTrueCellMasksLower();
         this.masksUpper = config.getTrueCellMasksUpper();
         this.expectedLower = config.getExpectedMaskLower();

@@ -183,10 +183,8 @@ public class StartYourMonkeys {
                 final TestClickCombination[] monkeys = new TestClickCombination[this.config
                         .numMonkeys()];
                 for (int i = 0; i < monkeys.length; i++) {
-                    // Use the large constructor:
-                    final String monkeyName = "Monkey-" + i;
-                    monkeys[i] = new TestClickCombination(monkeyName, i, this.config,
-                            this.queueStrategy, this.solverState, generatorPool);
+                    monkeys[i] = new TestClickCombination(i, this.config, this.queueStrategy,
+                            this.solverState, generatorPool);
                     monkeys[i].start();
                 }
 

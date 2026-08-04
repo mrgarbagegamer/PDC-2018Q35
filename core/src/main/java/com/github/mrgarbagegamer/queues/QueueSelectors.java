@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 final class QueueSelectors {
 
     @ExcludeFromGeneratedCoverage
-    private QueueSelectors() { utilityClassError("QueueSelectors"); }
+    private QueueSelectors() { throw utilityClassError("QueueSelectors"); }
 
     interface SelectorValidator {
         void validate(SelectorValidationTarget<?> target);

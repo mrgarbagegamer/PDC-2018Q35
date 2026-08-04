@@ -8,8 +8,6 @@ import java.util.List;
 
 import org.jspecify.annotations.Nullable;
 
-import com.google.errorprone.annotations.RestrictedApi;
-
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntLists;
 import it.unimi.dsi.fastutil.longs.LongList;
@@ -20,7 +18,7 @@ import it.unimi.dsi.fastutil.shorts.ShortLists;
 // TODO: Write Javadocs
 @ExcludeFromGeneratedCoverage
 public final class ValidationUtils {
-    private ValidationUtils() { utilityClassError("ValidationUtils"); }
+    private ValidationUtils() { throw utilityClassError("ValidationUtils"); }
 
     public static <T> T mustNotBeNull(@Nullable T obj, String fieldName) {
         return checkNotNull(obj, "%s must not be null", fieldName);
@@ -112,11 +110,8 @@ public final class ValidationUtils {
         return LongList.of(array);
     }
 
-    // TODO: Broadly implement this method in the codebase.
-    @RestrictedApi(explanation = "This method is intended for internal use only, and should not be called by external code.", allowedOnPath = ".*/src/(main|test)/java/com/github/mrgarbagegamer/(internal|queues)/.*\\.java")
-    @SuppressWarnings("DoNotCallSuggester")
-    public static void utilityClassError(String className) {
-        throw new AssertionError(className + " is a utility class and cannot be instantiated");
+    public static AssertionError utilityClassError(String className) {
+        return new AssertionError(className + " is a utility class and cannot be instantiated");
     }
 
     public static <T> T mustBeSet(@Nullable T parameter, String parameterName) {

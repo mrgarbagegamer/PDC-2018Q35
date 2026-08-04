@@ -27,7 +27,7 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 final class QueueWrappers {
 
     @ExcludeFromGeneratedCoverage
-    private QueueWrappers() { utilityClassError("QueueWrappers"); }
+    private QueueWrappers() { throw utilityClassError("QueueWrappers"); }
 
     private static abstract class AbstractWrapper<Q> implements QueueWrapper<Q> {
         final Q delegate;
@@ -59,7 +59,7 @@ final class QueueWrappers {
     private static final class BlockingQueueWrappers {
 
         @ExcludeFromGeneratedCoverage
-        private BlockingQueueWrappers() { utilityClassError("BlockingQueueWrappers"); }
+        private BlockingQueueWrappers() { throw utilityClassError("BlockingQueueWrappers"); }
 
         private static abstract class AbstractBlockingWrapper<Q extends BlockingQueue<WorkBatch>>
                 extends AbstractWrapper<Q> {
@@ -143,7 +143,7 @@ final class QueueWrappers {
     private static final class JCToolsWrappers {
 
         @ExcludeFromGeneratedCoverage
-        private JCToolsWrappers() { utilityClassError("JCToolsWrappers"); }
+        private JCToolsWrappers() { throw utilityClassError("JCToolsWrappers"); }
 
         private static final class BoundedJCWrapper<Q extends MessagePassingQueue<WorkBatch>>
                 extends AbstractWrapper<Q> {

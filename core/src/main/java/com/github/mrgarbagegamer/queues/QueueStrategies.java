@@ -67,7 +67,7 @@ import com.github.mrgarbagegamer.queues.QueueSelector.BackoffStrategy;
  */
 public final class QueueStrategies {
     @ExcludeFromGeneratedCoverage
-    private QueueStrategies() { utilityClassError("QueueStrategies"); }
+    private QueueStrategies() { throw utilityClassError("QueueStrategies"); }
 
     private static abstract class AbstractQueueStrategy<G, M> implements QueueStrategy {
         private final List<G> gtmQueues;

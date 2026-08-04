@@ -15,7 +15,7 @@ import com.github.mrgarbagegamer.queues.QueueWrapper.Boundedness;
 
 public final class QueueTestFixtures {
 
-    private QueueTestFixtures() { utilityClassError("QueueTestFixtures"); }
+    private QueueTestFixtures() { throw utilityClassError("QueueTestFixtures"); }
 
     /**
      * A lightweight fake queue used purely for testing validation and preallocation.

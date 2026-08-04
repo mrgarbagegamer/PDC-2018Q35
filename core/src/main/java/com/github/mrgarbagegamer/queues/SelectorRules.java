@@ -11,7 +11,7 @@ import com.google.errorprone.annotations.Immutable;
 final class SelectorRules {
 
     @ExcludeFromGeneratedCoverage
-    private SelectorRules() { utilityClassError("SelectorRules"); }
+    private SelectorRules() { throw utilityClassError("SelectorRules"); }
 
     @FunctionalInterface
     @Immutable
@@ -29,7 +29,8 @@ final class SelectorRules {
             for (int i = 0; i < wrappedQueues.size(); i++) {
                 final var queue = wrappedQueues.get(i);
                 if (target.isSingleAccess(queue)) {
-                    fail(target, selector, "%s at index %d is single-%s, but %d %ss will access it",
+                    throw fail(target, selector,
+                            "%s at index %d is single-%s, but %d %ss will access it",
                             target.elementName(), i, target.roleName(), threadCount,
                             target.actorName());
                 }
@@ -44,11 +45,11 @@ final class SelectorRules {
         mustNotBeNull(selector, "selector");
 
         if (threadCount < listSize) {
-            fail(target, selector, "%s count (%d) is less than %s size (%d)", target.actorName(),
-                    threadCount, target.listName(), listSize);
+            throw fail(target, selector, "%s count (%d) is less than %s size (%d)",
+                    target.actorName(), threadCount, target.listName(), listSize);
         } else if (threadCount > listSize) {
-            fail(target, selector, "%s count (%d) is greater than %s size (%d)", target.actorName(),
-                    threadCount, target.listName(), listSize);
+            throw fail(target, selector, "%s count (%d) is greater than %s size (%d)",
+                    target.actorName(), threadCount, target.listName(), listSize);
         }
     };
 
@@ -59,7 +60,7 @@ final class SelectorRules {
         mustNotBeNull(selector, "selector");
 
         if (size != 1) {
-            fail(target, selector, "%s must contain exactly one queue, but contains %d",
+            throw fail(target, selector, "%s must contain exactly one queue, but contains %d",
                     target.listName(), size);
         }
 
@@ -68,16 +69,16 @@ final class SelectorRules {
         final var queue = wrappedQueues.getFirst();
         final int threadCount = target.threadCount();
         if (threadCount > 1 && target.isSingleAccess(queue)) {
-            fail(target, selector, "%s is single-%s, but %d %ss will access it",
+            throw fail(target, selector, "%s is single-%s, but %d %ss will access it",
                     target.elementName(), target.roleName(), threadCount, target.actorName());
         }
     };
 
     @FormatMethod
-    private static void fail(SelectorValidationTarget<?> target, QueueSelector<?> selector,
-            @FormatString String reasonTemplate, Object... reasonArgs) {
+    private static IllegalArgumentException fail(SelectorValidationTarget<?> target,
+            QueueSelector<?> selector, @FormatString String reasonTemplate, Object... reasonArgs) {
         final String reason = reasonTemplate.formatted(reasonArgs);
-        throw new IllegalArgumentException("Validation failed for %s as %s: %s"
+        return new IllegalArgumentException("Validation failed for %s as %s: %s"
                 .formatted(selector.toString(), target.selectorPlacement(), reason));
     }
 }

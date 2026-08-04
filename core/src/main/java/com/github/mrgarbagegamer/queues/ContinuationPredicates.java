@@ -18,7 +18,7 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 final class ContinuationPredicates {
 
     @ExcludeFromGeneratedCoverage
-    private ContinuationPredicates() { utilityClassError("ContinuationPredicates"); }
+    private ContinuationPredicates() { throw utilityClassError("ContinuationPredicates"); }
 
     static BooleanSupplier neverTerminate() { return () -> true; }
 

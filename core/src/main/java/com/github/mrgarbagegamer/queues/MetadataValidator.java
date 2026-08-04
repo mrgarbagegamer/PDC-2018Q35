@@ -11,7 +11,7 @@ import com.google.errorprone.annotations.FormatString;
 
 final class MetadataValidator {
     @ExcludeFromGeneratedCoverage
-    private MetadataValidator() { utilityClassError("MetadataValidator"); }
+    private MetadataValidator() { throw utilityClassError("MetadataValidator"); }
 
     static void validateConsistentBoundedness(QueueGroup<?> group) {
         final var wrappedQueues = mustNotBeNull(group, "group").wrappedQueues();
@@ -22,7 +22,7 @@ final class MetadataValidator {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final Boundedness currentBoundedness = currentQueue.boundedness();
             if (currentBoundedness != firstBoundedness) {
-                fail(group, i, "different boundedness (%s) than the first queue (%s)",
+                throw fail(group, i, "different boundedness (%s) than the first queue (%s)",
                         currentBoundedness, firstBoundedness);
             }
         }
@@ -37,7 +37,7 @@ final class MetadataValidator {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             final AccessMode currentAccessMode = currentQueue.accessMode();
             if (currentAccessMode != firstAccessMode) {
-                fail(group, i, "different access mode (%s) than the first queue (%s)",
+                throw fail(group, i, "different access mode (%s) than the first queue (%s)",
                         currentAccessMode, firstAccessMode);
             }
         }
@@ -56,17 +56,17 @@ final class MetadataValidator {
         for (int i = 1; i < wrappedQueues.size(); i++) {
             final QueueWrapper<?> currentQueue = wrappedQueues.get(i);
             if (currentQueue.capacity() != firstCapacity) {
-                fail(group, i, "a different capacity (%d) than the first queue (%d)",
+                throw fail(group, i, "a different capacity (%d) than the first queue (%d)",
                         currentQueue.capacity(), firstCapacity);
             }
         }
     }
 
     @FormatMethod
-    private static void fail(QueueGroup<?> group, int queueIndex,
+    private static IllegalArgumentException fail(QueueGroup<?> group, int queueIndex,
             @FormatString String reasonTemplate, Object... reasonArgs) {
         final String reason = reasonTemplate.formatted(reasonArgs);
-        throw new IllegalArgumentException(
+        return new IllegalArgumentException(
                 "Metadata validation failed for %s: %s at index %d has %s"
                         .formatted(group.listName(), group.elementName(), queueIndex, reason));
     }

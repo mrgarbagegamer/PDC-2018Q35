@@ -14,7 +14,7 @@ import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 
 final class QueueListValidator {
     @ExcludeFromGeneratedCoverage
-    private QueueListValidator() { utilityClassError("QueueListValidator"); }
+    private QueueListValidator() { throw utilityClassError("QueueListValidator"); }
 
     static void validateNoDuplicates(QueueGroup<?> group) {
         final var unwrappedQueues = mustNotBeNull(group, "group").queues();
@@ -27,7 +27,7 @@ final class QueueListValidator {
             Object queue = unwrappedQueues.get(queueIndex);
             if (seenQueues.containsKey(queue)) {
                 int firstIndex = seenQueues.getInt(queue);
-                fail(group.listName(), "%s at index %d is the same as %s at index %d",
+                throw fail(group.listName(), "%s at index %d is the same as %s at index %d",
                         group.elementName(), firstIndex, group.elementName(), queueIndex);
             } else {
                 seenQueues.put(queue, queueIndex);
@@ -67,19 +67,19 @@ final class QueueListValidator {
                 final String reasonTemplate = "gtmQueue at index %d is the same as mtgQueue at index %d";
 
                 if (smaller.listName().startsWith("gtm")) {
-                    fail("gtmGroup and mtgGroup", reasonTemplate, seenIndex, largerIndex);
+                    throw fail("gtmGroup and mtgGroup", reasonTemplate, seenIndex, largerIndex);
                 } else {
-                    fail("gtmGroup and mtgGroup", reasonTemplate, largerIndex, seenIndex);
+                    throw fail("gtmGroup and mtgGroup", reasonTemplate, largerIndex, seenIndex);
                 }
             }
         }
     }
 
     @FormatMethod
-    private static void fail(String groupName, @FormatString String reasonTemplate,
-            Object... reasonArgs) {
+    private static IllegalArgumentException fail(String groupName,
+            @FormatString String reasonTemplate, Object... reasonArgs) {
         final String reason = reasonTemplate.formatted(reasonArgs);
-        throw new IllegalArgumentException(
+        return new IllegalArgumentException(
                 "Validation failed for %s: %s".formatted(groupName, reason));
     }
 }

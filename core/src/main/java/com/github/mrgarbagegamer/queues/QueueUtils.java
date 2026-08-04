@@ -13,7 +13,7 @@ import com.github.mrgarbagegamer.internal.ExcludeFromGeneratedCoverage;
 final class QueueUtils {
 
     @ExcludeFromGeneratedCoverage
-    private QueueUtils() { utilityClassError("QueueUtils"); }
+    private QueueUtils() { throw utilityClassError("QueueUtils"); }
 
     // List creation utility methods:
 

@@ -22,10 +22,6 @@
  * config.
  */
 /*
- * TODO: Update the void always-throwing utility methods to return created exceptions instead of
- * throwing them directly.
- */
-/*
  * TODO: Move logging from monkeys to generators, using a fractional search space heuristic and two
  * LongAdders to provide progress estimates within the logs. A progress percentage for my generators
  * is roughly equal to the tasks completed divided by the tasks forked (multiplied by 100). Since we

@@ -25,6 +25,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
+import com.github.mrgarbagegamer.SolverStateBridge;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 
@@ -45,7 +46,7 @@ class JCToolsQueueStrategyTest {
     }
 
     private static SolverState createValidState(SolverConfiguration config) {
-        return new SolverState(config);
+        return SolverStateBridge.createInstance(config);
     }
 
     private static List<MpmcArrayQueue<WorkBatch>> createValidQueueList(int numQueues,

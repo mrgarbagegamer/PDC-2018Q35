@@ -11,6 +11,8 @@ import java.util.concurrent.CountDownLatch;
 
 import org.jspecify.annotations.Nullable;
 
+import com.google.common.annotations.VisibleForTesting;
+
 // TODO: Update Javadocs
 public final class SolverState {
     private final InstantSource instantSource;
@@ -77,7 +79,8 @@ public final class SolverState {
 
     private final CountDownLatch generationCompleteLatch = new CountDownLatch(1);
 
-    public SolverState(SolverConfiguration config) {
+    @VisibleForTesting
+    SolverState(SolverConfiguration config) {
         mustNotBeNull(config, "config");
         this.instantSource = config.instantSource();
         this.start = this.instantSource.instant();

@@ -27,12 +27,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
+import com.github.mrgarbagegamer.SolverStateBridge;
 import com.github.mrgarbagegamer.WorkBatch;
 
 @ExtendWith(MockitoExtension.class)
 public class ContinuationPredicatesTest {
     private static SolverState createState(boolean solutionFound, boolean generationComplete) {
-        SolverState state = new SolverState(SolverConfiguration.builder().build());
+        SolverState state = SolverStateBridge.createInstance(SolverConfiguration.builder().build());
         if (solutionFound) {
             state.markSolutionFound(new short[2]);
         }

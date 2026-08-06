@@ -26,6 +26,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import com.conversantmedia.util.concurrent.PushPullBlockingQueue;
 import com.github.mrgarbagegamer.SolverConfiguration;
 import com.github.mrgarbagegamer.SolverState;
+import com.github.mrgarbagegamer.SolverStateBridge;
 import com.github.mrgarbagegamer.WorkBatch;
 import com.github.mrgarbagegamer.queues.QueueStrategies.BlockingQueueStrategy;
 
@@ -46,7 +47,7 @@ class BlockingQueueStrategyTest {
     }
 
     private static SolverState createValidState(SolverConfiguration config) {
-        return new SolverState(config);
+        return SolverStateBridge.createInstance(config);
     }
 
     private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues,

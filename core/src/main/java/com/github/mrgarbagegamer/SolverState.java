@@ -7,9 +7,10 @@ import java.time.Instant;
 import java.time.InstantSource;
 import java.util.Optional;
 
+import java.util.concurrent.CountDownLatch;
+
 import org.jspecify.annotations.Nullable;
 
-// TODO: Consider using a CountDownLatch or similar to replace the generationComplete flag.
 // TODO: Update Javadocs
 public final class SolverState {
     private final InstantSource instantSource;
@@ -74,34 +75,7 @@ public final class SolverState {
      */
     private volatile boolean solutionFound;
 
-    /**
-     * A flag indicating whether the {@link CombinationGeneratorTask generators} have finished
-     * generating all combinations.
-     * 
-     * <p>
-     * This flag is set to {@code true} by the first thread to call
-     * {@link #markGenerationComplete()}, and is used to signal to the {@link TestClickCombination
-     * monkeys} that no more combinations will be generated, allowing them to exit once they have
-     * processed all remaining combinations in the queue(s). Similar to {@code solutionFound}, a
-     * {@code volatile boolean} is used for simplicity and to minimize overhead, as updates to this
-     * flag are {@code synchronized} and based on the first thread to mark generation as complete.
-     * </p>
-     * 
-     * <p>
-     * A potential future improvement for this flag would be to replace it with a more robust
-     * synchronization mechanism, such as a {@link java.util.concurrent.CountDownLatch
-     * CountDownLatch} or similar, to track when all generators have completed their work. This
-     * would allow for more precise coordination between generators and monkeys and simplify the
-     * logic for blocking the main solver thread. We leave this as a todo for now.
-     * </p>
-     *
-     * @see #generationComplete()
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} field access.
-     * @threading Thread-safe as a {@code volatile boolean}.
-     * @memory Fixed memory footprint of {@code 1} byte as a primitive {@code boolean}.
-     */
-    private volatile boolean generationComplete;
+    private final CountDownLatch generationCompleteLatch = new CountDownLatch(1);
 
     public SolverState(SolverConfiguration config) {
         mustNotBeNull(config, "config");
@@ -147,41 +121,29 @@ public final class SolverState {
         }
     }
 
-    /**
-     * Marks that the generation phase is complete, indicating that no more combinations will be
-     * produced by the {@link CombinationGeneratorTask generators}. This method uses double-checked
-     * locking to ensure that only the first thread to mark generation as complete can set the
-     * {@code generationComplete} flag and update the {@code endTime}, preventing race conditions.
-     * 
-     * <p>
-     * Note that this method immediately sets the {@code endTime} when marking generation as
-     * complete, irrespective of the emptiness of the queues or the state of the
-     * {@link TestClickCombination monkeys}. This is a current limitation of the design, as it does
-     * not account for the time taken by monkeys to process the final batches of combinations after
-     * generation completes. A potential future improvement would be to implement a more robust
-     * synchronization mechanism (e.g. a {@link java.util.concurrent.CountDownLatch CountDownLatch})
-     * to track when all monkeys have finished processing, allowing for more accurate timing of the
-     * solver's execution from start to finish. We leave this as a todo for now.
-     * </p>
-     *
-     * @see #generationComplete
-     * @see #markSolutionFound(short[])
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} for checking the flag, acquiring the lock, and setting fields.
-     * @threading Thread-safe. Uses double-checked locking on {@code volatile} fields.
-     * @memory Does not allocate.
-     */
     public void markGenerationComplete() {
-        if (!this.generationComplete) {
+        if (this.generationCompleteLatch.getCount() > 0) {
             synchronized (this) {
-                if (!this.generationComplete) {
+                if (this.generationCompleteLatch.getCount() > 0) {
                     // TODO: Since the monkeys still have to test the final batches, maybe we should
                     // use a CountDownLatch or something to track when all monkeys are done?
                     this.end = this.instantSource.instant();
-                    this.generationComplete = true;
+                    this.generationCompleteLatch.countDown();
                 }
             }
         }
+    }
+
+    /**
+     * Blocks until the generation phase is complete.
+     * 
+     * @throws InterruptedException if the current thread is interrupted while waiting
+     * @see #generationComplete()
+     * @see #markGenerationComplete()
+     * @since 2026.08 - Solver Encapsulation Refactor
+     */
+    public void awaitGenerationComplete() throws InterruptedException {
+        this.generationCompleteLatch.await();
     }
 
     public Optional<Duration> getDuration() {
@@ -250,5 +212,5 @@ public final class SolverState {
      * @threading Thread-safe read of a {@code volatile boolean}.
      * @memory Does not allocate.
      */
-    public boolean generationComplete() { return this.generationComplete; }
+    public boolean generationComplete() { return this.generationCompleteLatch.getCount() == 0; }
 }

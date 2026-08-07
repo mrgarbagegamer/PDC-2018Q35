@@ -8,7 +8,7 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.Logger;
 import org.jspecify.annotations.Nullable;
 
-import com.github.mrgarbagegamer.SolverConfiguration.SolutionHandler;
+import com.github.mrgarbagegamer.SolverServices.SolutionHandler;
 
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
@@ -118,7 +118,7 @@ public class TestClickCombination extends Thread {
     private final ForkJoinPool generatorPool;
     private final SolutionHandler solutionHandler;
 
-    public TestClickCombination(int monkeyId, SolverConfiguration config,
+    public TestClickCombination(int monkeyId, SolverConfiguration config, SolverServices services,
             QueueStrategy queueStrategy, SolverState solverState, ForkJoinPool generatorPool) {
         // Check the ID to ensure it works as a list index:
         checkArgument(monkeyId >= 0, "monkeyId must not be negative, was %s", monkeyId);
@@ -126,7 +126,8 @@ public class TestClickCombination extends Thread {
         this.monkeyId = monkeyId;
 
         mustNotBeNull(config, "config");
-        this.logger = config.getLogger(TestClickCombination.class);
+        mustNotBeNull(services, "services");
+        this.logger = services.getLogger(TestClickCombination.class);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         this.solverState = mustNotBeNull(solverState, "solverState");
         this.puzzleGrid = config.baseGrid();
@@ -136,7 +137,7 @@ public class TestClickCombination extends Thread {
         this.expectedUpper = config.getExpectedMaskUpper();
         this.useDualMasks = config.getUseDualMasks();
         this.generatorPool = mustNotBeNull(generatorPool, "generatorPool");
-        this.solutionHandler = config.solutionHandler();
+        this.solutionHandler = services.solutionHandler();
     }
 
     /**

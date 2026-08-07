@@ -10,6 +10,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
 // TODO: Add Javadocs
+// TODO: Consider encapsulating.
 public final class ContextRegistry {
     private final Logger logger;
     private final Queue<GeneratorContext> contexts;
@@ -29,9 +30,15 @@ public final class ContextRegistry {
         this(LogManager.getLogger(ContextRegistry.class), new ConcurrentLinkedQueue<>());
     }
 
-    public static ContextRegistry newRegistry(SolverConfiguration config) {
+    public static ContextRegistry newRegistry(SolverConfiguration config, SolverServices services) {
         mustNotBeNull(config, "config");
-        return new ContextRegistry(config.getLogger(ContextRegistry.class), config.getRegistryQueue());
+        mustNotBeNull(services, "services");
+        return new ContextRegistry(services.getLogger(ContextRegistry.class),
+                services.getRegistryQueue(config.numGenerators()));
+    }
+
+    public static ContextRegistry newRegistry(SolverConfiguration config) {
+        return newRegistry(config, SolverServices.defaultServices());
     }
 
     public boolean registerContext(GeneratorContext context) {

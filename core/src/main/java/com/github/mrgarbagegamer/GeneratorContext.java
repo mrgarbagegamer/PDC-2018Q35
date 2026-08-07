@@ -71,8 +71,11 @@ public interface GeneratorContext {
 
     SolverConfiguration getConfiguration();
 
+    SolverServices getServices();
+
     static GeneratorContext ofDefault(String name, int generatorId, QueueStrategy queueStrategy,
-            ContextRegistry registry, SolverConfiguration config) {
-        return DefaultGeneratorContext.of(name, generatorId, queueStrategy, registry, config);
+            ContextRegistry registry, SolverConfiguration config, SolverServices services) {
+        return DefaultGeneratorContext.of(name, generatorId, queueStrategy, registry, config,
+                services);
     }
 }

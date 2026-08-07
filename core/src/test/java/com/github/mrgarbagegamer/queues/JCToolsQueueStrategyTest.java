@@ -45,8 +45,8 @@ class JCToolsQueueStrategyTest {
         return createValidConfig(DEFAULT_NUM_THREADS);
     }
 
-    private static SolverState createValidState(SolverConfiguration config) {
-        return SolverStateBridge.createInstance(config);
+    private static SolverState createValidState() {
+        return SolverStateBridge.createDefaultInstance();
     }
 
     private static List<MpmcArrayQueue<WorkBatch>> createValidQueueList(int numQueues,
@@ -83,8 +83,7 @@ class JCToolsQueueStrategyTest {
         @ParameterizedTest
         @MethodSource("provideStaticFactoryTestCases")
         void givenNullConfig_thenThrowNullPointerException(StaticFactoryTestCase testCase) {
-            final var config = createValidConfig();
-            final var state = createValidState(config);
+            final var state = createValidState();
 
             assertThatNullPointerException().isThrownBy(() -> testCase.apply(null, state));
         }
@@ -101,7 +100,7 @@ class JCToolsQueueStrategyTest {
         @MethodSource("provideStaticFactoryTestCases")
         void givenValidConfigAndState_thenCreateStrategy(StaticFactoryTestCase testCase) {
             final var config = createValidConfig();
-            final var state = createValidState(config);
+            final var state = createValidState();
 
             final var strategy = testCase.apply(config, state);
             assertThat(strategy).isNotNull();
@@ -114,7 +113,7 @@ class JCToolsQueueStrategyTest {
         private static JCToolsQueueStrategy.Builder<MpmcArrayQueue<WorkBatch>, MpmcArrayQueue<WorkBatch>> createValidBuilder(
                 int numGtmQueues, int numMtgQueues, int numThreads) {
             final SolverConfiguration config = createValidConfig(numThreads);
-            final SolverState state = createValidState(config);
+            final SolverState state = createValidState();
             final var gtmQueues = createValidQueueList(numGtmQueues);
             final var mtgQueues = createValidQueueList(numMtgQueues);
 
@@ -144,7 +143,7 @@ class JCToolsQueueStrategyTest {
             void givenNullGtmQueues_thenThrowNullPointerException() {
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> JCToolsQueueStrategy.builder(null, mtgQueues, config, state));
@@ -155,7 +154,7 @@ class JCToolsQueueStrategyTest {
                 final var gtmQueues = createEmptyQueueList();
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatIllegalArgumentException().isThrownBy(
                         () -> JCToolsQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -166,7 +165,7 @@ class JCToolsQueueStrategyTest {
                 final var gtmQueues = createQueueListWithNull();
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> JCToolsQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -176,7 +175,7 @@ class JCToolsQueueStrategyTest {
             void givenNullMtgQueues_thenThrowNullPointerException() {
                 final var gtmQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> JCToolsQueueStrategy.builder(gtmQueues, null, config, state));
@@ -187,7 +186,7 @@ class JCToolsQueueStrategyTest {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createEmptyQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatIllegalArgumentException().isThrownBy(
                         () -> JCToolsQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -198,7 +197,7 @@ class JCToolsQueueStrategyTest {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createQueueListWithNull();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> JCToolsQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -208,8 +207,7 @@ class JCToolsQueueStrategyTest {
             void givenNullConfig_thenThrowNullPointerException() {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createValidQueueList();
-                final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> JCToolsQueueStrategy.builder(gtmQueues, mtgQueues, null, state));
@@ -230,7 +228,7 @@ class JCToolsQueueStrategyTest {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = JCToolsQueueStrategy.builder(gtmQueues, mtgQueues, config,
                         state);
@@ -422,7 +420,7 @@ class JCToolsQueueStrategyTest {
                         queue, queue);
                 final var mtgQueues = createValidQueueList(2);
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = JCToolsQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
@@ -442,7 +440,7 @@ class JCToolsQueueStrategyTest {
                         unboundedQueue);
                 final var mtgQueues = createValidQueueList(2);
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = JCToolsQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
@@ -458,7 +456,7 @@ class JCToolsQueueStrategyTest {
                 final List<SpscArrayQueue<WorkBatch>> mtgQueues = List
                         .of(new SpscArrayQueue<>(DEFAULT_QUEUE_CAPACITY));
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = JCToolsQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiSingle();
@@ -473,7 +471,7 @@ class JCToolsQueueStrategyTest {
                 final List<MpmcArrayQueue<WorkBatch>> gtmQueues = createValidQueueList(2);
                 final List<MpmcArrayQueue<WorkBatch>> mtgQueues = createValidQueueList(2);
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 // Add a batch to one of the mtgQueues to make it non-empty:
                 mtgQueues.getLast().add(new WorkBatch(config));
@@ -495,7 +493,7 @@ class JCToolsQueueStrategyTest {
             @BeforeEach
             void setup() {
                 final SolverConfiguration config = createValidConfig();
-                final SolverState state = createValidState(config);
+                final SolverState state = createValidState();
 
                 // Create a strategy with the builder and without preallocation so the generatorPoll
                 // test doesn't hang on strategy.monkeyOffer()

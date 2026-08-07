@@ -11,8 +11,8 @@ public interface GeneratorFactory extends ForkJoinWorkerThreadFactory {
     @Override
     GeneratorThread newThread(ForkJoinPool pool);
 
-    static GeneratorFactory ofDefault(SolverConfiguration config, QueueStrategy queueStrategy,
-            ContextRegistry registry) {
+    static GeneratorFactory ofDefault(SolverConfiguration config, SolverServices services,
+            QueueStrategy queueStrategy, ContextRegistry registry) {
         final AtomicInteger threadCounter = new AtomicInteger(0);
 
         return pool -> {
@@ -22,7 +22,7 @@ public interface GeneratorFactory extends ForkJoinWorkerThreadFactory {
             // Anonymous class extending GeneratorThread
             return new GeneratorThread(threadName, pool) {
                 private final DefaultGeneratorContext context = new DefaultGeneratorContext(
-                        threadName, generatorId, queueStrategy, registry, config);
+                        threadName, generatorId, queueStrategy, registry, config, services);
 
                 @Override
                 public DefaultGeneratorContext getContext() { return context; }

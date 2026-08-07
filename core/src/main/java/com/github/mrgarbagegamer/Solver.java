@@ -14,24 +14,39 @@ import com.google.common.util.concurrent.Uninterruptibles;
 // TODO: Add Javadoc
 public class Solver {
     private final SolverConfiguration config;
+    private final SolverServices services;
     private final Logger logger;
     private final SolverState solverState;
     private final QueueStrategy queueStrategy;
 
-    private Solver(SolverConfiguration config) {
+    private Solver(SolverConfiguration config, SolverServices services) {
         this.config = mustNotBeNull(config, "config");
-        this.logger = config.getLogger(Solver.class);
-        this.solverState = new SolverState(config);
-        this.queueStrategy = config.getQueueStrategy(this.solverState);
+        this.services = mustNotBeNull(services, "services");
+        this.logger = this.services.getLogger(Solver.class);
+        this.solverState = new SolverState(this.services.instantSource());
+        this.queueStrategy = this.services.getQueueStrategy(this.config, this.solverState);
     }
 
     /**
-     * Creates a new {@link Solver} instance from the given configuration.
+     * Creates a new {@link Solver} instance from the given configuration and default services.
      *
      * @param config the {@link SolverConfiguration} to initialize the solver
      * @return a new {@code Solver} instance
      */
-    public static Solver ofConfig(SolverConfiguration config) { return new Solver(config); }
+    public static Solver ofConfig(SolverConfiguration config) {
+        return ofConfig(config, SolverServices.defaultServices());
+    }
+
+    /**
+     * Creates a new {@link Solver} instance from the given configuration and services.
+     *
+     * @param config   the {@link SolverConfiguration} to initialize the solver
+     * @param services the {@link SolverServices} providing injected strategies and dependencies
+     * @return a new {@code Solver} instance
+     */
+    public static Solver ofConfig(SolverConfiguration config, SolverServices services) {
+        return new Solver(config, services);
+    }
 
     /**
      * Executes the puzzle solving strategy using configured generators and monkey threads.
@@ -43,16 +58,16 @@ public class Solver {
         logGrid(this.config.baseGrid(), this.logger);
 
         // Create the context registry and generator pool
-        final ContextRegistry registry = ContextRegistry.newRegistry(this.config);
+        final ContextRegistry registry = ContextRegistry.newRegistry(this.config, this.services);
         try (ForkJoinPool generatorPool = new ForkJoinPool(this.config.numGenerators(),
-                GeneratorFactory.ofDefault(this.config, this.queueStrategy, registry), null,
+                this.services.getGeneratorFactory(this.config, this.queueStrategy, registry), null,
                 false)) {
             // Create the monkeys
             final TestClickCombination[] monkeys = new TestClickCombination[this.config
                     .numMonkeys()];
             for (int i = 0; i < monkeys.length; i++) {
-                monkeys[i] = new TestClickCombination(i, this.config, this.queueStrategy,
-                        this.solverState, generatorPool);
+                monkeys[i] = new TestClickCombination(i, this.config, this.services,
+                        this.queueStrategy, this.solverState, generatorPool);
                 monkeys[i].start();
             }
 

@@ -46,8 +46,8 @@ class BlockingQueueStrategyTest {
         return createValidConfig(DEFAULT_NUM_THREADS);
     }
 
-    private static SolverState createValidState(SolverConfiguration config) {
-        return SolverStateBridge.createInstance(config);
+    private static SolverState createValidState() {
+        return SolverStateBridge.createDefaultInstance();
     }
 
     private static List<ArrayBlockingQueue<WorkBatch>> createValidQueueList(int numQueues,
@@ -84,8 +84,7 @@ class BlockingQueueStrategyTest {
         @ParameterizedTest
         @MethodSource("provideStaticFactoryTestCases")
         void givenNullConfig_thenThrowNullPointerException(StaticFactoryTestCase testCase) {
-            final var config = createValidConfig();
-            final var state = createValidState(config);
+            final var state = createValidState();
 
             assertThatNullPointerException().isThrownBy(() -> testCase.apply(null, state));
         }
@@ -102,7 +101,7 @@ class BlockingQueueStrategyTest {
         @MethodSource("provideStaticFactoryTestCases")
         void givenValidConfigAndState_thenCreateStrategy(StaticFactoryTestCase testCase) {
             final var config = createValidConfig();
-            final var state = createValidState(config);
+            final var state = createValidState();
 
             final var strategy = testCase.apply(config, state);
             assertThat(strategy).isNotNull();
@@ -115,7 +114,7 @@ class BlockingQueueStrategyTest {
         private static BlockingQueueStrategy.Builder<ArrayBlockingQueue<WorkBatch>, ArrayBlockingQueue<WorkBatch>> createValidBuilder(
                 int numGtmQueues, int numMtgQueues, int numThreads) {
             final var config = createValidConfig(numThreads);
-            final var state = createValidState(config);
+            final var state = createValidState();
             final var gtmQueues = createValidQueueList(numGtmQueues);
             final var mtgQueues = createValidQueueList(numMtgQueues);
 
@@ -145,7 +144,7 @@ class BlockingQueueStrategyTest {
             void givenNullGtmQueues_thenThrowNullPointerException() {
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(null, mtgQueues, config, state));
@@ -156,7 +155,7 @@ class BlockingQueueStrategyTest {
                 final var gtmQueues = createEmptyQueueList();
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatIllegalArgumentException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -167,7 +166,7 @@ class BlockingQueueStrategyTest {
                 final var gtmQueues = createQueueListWithNull();
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -177,7 +176,7 @@ class BlockingQueueStrategyTest {
             void givenNullMtgQueues_thenThrowNullPointerException() {
                 final var gtmQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, null, config, state));
@@ -188,7 +187,7 @@ class BlockingQueueStrategyTest {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createEmptyQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatIllegalArgumentException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -199,7 +198,7 @@ class BlockingQueueStrategyTest {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createQueueListWithNull();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config, state));
@@ -209,8 +208,7 @@ class BlockingQueueStrategyTest {
             void givenNullConfig_thenThrowNullPointerException() {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createValidQueueList();
-                final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 assertThatNullPointerException().isThrownBy(
                         () -> BlockingQueueStrategy.builder(gtmQueues, mtgQueues, null, state));
@@ -231,7 +229,7 @@ class BlockingQueueStrategyTest {
                 final var gtmQueues = createValidQueueList();
                 final var mtgQueues = createValidQueueList();
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = BlockingQueueStrategy.builder(gtmQueues, mtgQueues, config,
                         state);
@@ -448,7 +446,7 @@ class BlockingQueueStrategyTest {
                 final var gtmQueues = List.of(new ArrayBlockingQueue<WorkBatch>(16), queue, queue);
                 final var mtgQueues = createValidQueueList(2);
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = BlockingQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
@@ -466,7 +464,7 @@ class BlockingQueueStrategyTest {
                         unboundedQueue);
                 final var mtgQueues = createValidQueueList(2);
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = BlockingQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiMulti();
@@ -482,7 +480,7 @@ class BlockingQueueStrategyTest {
                 final List<PushPullBlockingQueue<WorkBatch>> mtgQueues = List
                         .of(new PushPullBlockingQueue<>(16));
                 final var config = createValidConfig(4);
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 final var builder = BlockingQueueStrategy
                         .builder(gtmQueues, mtgQueues, config, state).asMultiSingle();
@@ -497,7 +495,7 @@ class BlockingQueueStrategyTest {
                 final List<ArrayBlockingQueue<WorkBatch>> gtmQueues = createValidQueueList(2);
                 final List<ArrayBlockingQueue<WorkBatch>> mtgQueues = createValidQueueList(2);
                 final var config = createValidConfig();
-                final var state = createValidState(config);
+                final var state = createValidState();
 
                 // Add a batch to one of the mtgQueues to make it non-empty:
                 mtgQueues.getLast().add(new WorkBatch(config));
@@ -521,7 +519,7 @@ class BlockingQueueStrategyTest {
         @BeforeEach
         void setup() {
             final SolverConfiguration config = createValidConfig();
-            final SolverState state = createValidState(config);
+            final SolverState state = createValidState();
 
             // Create a strategy with the builder and without preallocation so the generatorPoll
             // test doesn't hang on strategy.monkeyOffer()

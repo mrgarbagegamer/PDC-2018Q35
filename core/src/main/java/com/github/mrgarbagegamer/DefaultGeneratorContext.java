@@ -3,7 +3,6 @@ package com.github.mrgarbagegamer;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 
 import org.apache.logging.log4j.Logger;
@@ -57,30 +56,14 @@ class DefaultGeneratorContext implements GeneratorContext {
     public String getName() { return this.name; }
 
     private final SolverConfiguration config;
+    private final SolverServices services;
 
-    /**
-     * Initializes a new {@link DefaultGeneratorContext} and registers it in the provided
-     * {@code registry}.
-     * 
-     * <p>
-     * This constructor is meant to be called only by the {@link GeneratorThread}'s
-     * {@link GeneratorThread#GeneratorThread(String, ForkJoinPool) initializer}, and
-     * {@link ConcurrentLinkedQueue#add(Object) adds} the context to the global list for the
-     * {@link ContextRegistry#flushAllPendingBatches() final flush}.
-     * </p>
-     * 
-     * @since 2025.10 - Final Flush Refactor
-     * @performance {@code O(1)} amortized insertion time into the global context list.
-     * @threading Thread-safe by nature of construction.
-     * @memory Does not allocate, apart from the instance itself.
-     */
     public DefaultGeneratorContext(String name, int generatorId, QueueStrategy queueStrategy,
-            ContextRegistry registry, SolverConfiguration config) {
-        // Perform the config null check first, as it's needed for logging and we want to fail fast
-        // if it's missing
+            ContextRegistry registry, SolverConfiguration config, SolverServices services) {
         this.config = mustNotBeNull(config, "config");
+        this.services = mustNotBeNull(services, "services");
 
-        this.logger = this.config.getLogger(DefaultGeneratorContext.class);
+        this.logger = this.services.getLogger(DefaultGeneratorContext.class);
         this.name = mustNotBeNull(name, "name");
         this.generatorId = generatorId;
 
@@ -89,9 +72,16 @@ class DefaultGeneratorContext implements GeneratorContext {
         mustNotBeNull(registry, "registry").registerContext(this);
     }
 
+    public DefaultGeneratorContext(String name, int generatorId, QueueStrategy queueStrategy,
+            ContextRegistry registry, SolverConfiguration config) {
+        this(name, generatorId, queueStrategy, registry, config, SolverServices.defaultServices());
+    }
+
     public static DefaultGeneratorContext of(String name, int generatorId,
-            QueueStrategy queueStrategy, ContextRegistry registry, SolverConfiguration config) {
-        return new DefaultGeneratorContext(name, generatorId, queueStrategy, registry, config);
+            QueueStrategy queueStrategy, ContextRegistry registry, SolverConfiguration config,
+            SolverServices services) {
+        return new DefaultGeneratorContext(name, generatorId, queueStrategy, registry, config,
+                services);
     }
 
     /**
@@ -182,6 +172,9 @@ class DefaultGeneratorContext implements GeneratorContext {
 
     @Override
     public SolverConfiguration getConfiguration() { return this.config; }
+
+    @Override
+    public SolverServices getServices() { return this.services; }
 
     @Override
     public QueueStrategy getQueueStrategy() { return this.queueStrategy; }

@@ -80,9 +80,8 @@ public final class SolverState {
     private final CountDownLatch generationCompleteLatch = new CountDownLatch(1);
 
     @VisibleForTesting
-    SolverState(SolverConfiguration config) {
-        mustNotBeNull(config, "config");
-        this.instantSource = config.instantSource();
+    SolverState(InstantSource instantSource) {
+        this.instantSource = mustNotBeNull(instantSource, "instantSource");
         this.start = this.instantSource.instant();
     }
 

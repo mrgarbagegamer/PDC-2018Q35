@@ -4,19 +4,6 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import java.time.InstantSource;
-import java.util.Arrays;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ForkJoinPool;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.function.IntFunction;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.github.mrgarbagegamer.queues.QueueStrategies.JCToolsQueueStrategy;
 import com.google.common.base.MoreObjects;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -35,12 +22,6 @@ public final class SolverConfiguration {
     private final int taskPoolSize;
     private final int queueSize;
     private final Grid baseGrid;
-    private final SolutionHandler solutionHandler;
-    private final Function<Class<?>, Logger> loggerFunction;
-    private final GeneratorFactoryProvider generatorFactoryProvider;
-    private final IntFunction<Queue<GeneratorContext>> registryQueueFunction;
-    private final BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory;
-    private final InstantSource instantSource;
 
     private SolverConfiguration(Builder builder) {
         this.numClicks = builder.numClicks;
@@ -49,15 +30,6 @@ public final class SolverConfiguration {
         this.taskPoolSize = mustBePositive(builder.taskPoolSize, "taskPoolSize");
         this.queueSize = mustBePositive(builder.queueSize, "queueSize");
         this.baseGrid = mustNotBeNull(builder.baseGrid, "baseGrid").copy();
-        this.solutionHandler = mustNotBeNull(builder.solutionHandler, "solutionHandler");
-        this.loggerFunction = mustNotBeNull(builder.loggerFunction, "loggerFunction");
-        this.generatorFactoryProvider = mustNotBeNull(builder.generatorFactoryProvider,
-                "generatorFactoryProvider");
-        this.registryQueueFunction = mustNotBeNull(builder.registryQueueFunction,
-                "registryQueueFunction");
-        this.queueStrategyFactory = mustNotBeNull(builder.queueStrategyFactory,
-                "queueStrategyFactory");
-        this.instantSource = mustNotBeNull(builder.instantSource, "instantSource");
     }
 
     public static Builder builder() { return new Builder(); }
@@ -101,14 +73,6 @@ public final class SolverConfiguration {
 
     public Grid baseGrid() { return this.baseGrid.copy(); }
 
-    SolutionHandler solutionHandler() { return this.solutionHandler; }
-
-    InstantSource instantSource() { return this.instantSource; }
-
-    Queue<GeneratorContext> getRegistryQueue() {
-        return this.registryQueueFunction.apply(this.numGenerators());
-    }
-
     boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
 
     LongList getTrueCellMasksLower() {
@@ -141,16 +105,6 @@ public final class SolverConfiguration {
 
     IntList getEvenStartIndices() { return computeStartIndices(this.getEvenClickIndices()); }
 
-    Logger getLogger(Class<?> clazz) { return this.loggerFunction.apply(clazz); }
-
-    GeneratorFactory getGeneratorFactory(QueueStrategy queueStrategy, ContextRegistry registry) {
-        return this.generatorFactoryProvider.create(this, queueStrategy, registry);
-    }
-
-    QueueStrategy getQueueStrategy(SolverState solverState) {
-        return this.queueStrategyFactory.apply(this, solverState);
-    }
-
     @Override
     public boolean equals(Object obj) {
         if (obj == this)
@@ -158,12 +112,7 @@ public final class SolverConfiguration {
         if (obj instanceof SolverConfiguration other)
             return this.numClicks == other.numClicks && this.numThreads == other.numThreads
                     && this.batchSize == other.batchSize && this.taskPoolSize == other.taskPoolSize
-                    && this.queueSize == other.queueSize && this.baseGrid.equals(other.baseGrid)
-                    && this.solutionHandler.equals(other.solutionHandler)
-                    && this.loggerFunction.equals(other.loggerFunction)
-                    && this.generatorFactoryProvider.equals(other.generatorFactoryProvider)
-                    && this.registryQueueFunction.equals(other.registryQueueFunction)
-                    && this.queueStrategyFactory.equals(other.queueStrategyFactory);
+                    && this.queueSize == other.queueSize && this.baseGrid.equals(other.baseGrid);
         return false;
     }
 
@@ -175,11 +124,6 @@ public final class SolverConfiguration {
         result = 31 * result + this.taskPoolSize;
         result = 31 * result + this.queueSize;
         result = 31 * result + this.baseGrid.hashCode();
-        result = 31 * result + this.solutionHandler.hashCode();
-        result = 31 * result + this.loggerFunction.hashCode();
-        result = 31 * result + this.generatorFactoryProvider.hashCode();
-        result = 31 * result + this.registryQueueFunction.hashCode();
-        result = 31 * result + this.queueStrategyFactory.hashCode();
         return result;
     }
 
@@ -191,18 +135,6 @@ public final class SolverConfiguration {
                 .add("baseGrid", baseGrid).toString();
     }
 
-    @FunctionalInterface
-    public interface SolutionHandler {
-        void handleSolution(short[] prefix, short finalClick, SolverState solverState,
-                ForkJoinPool generatorPool, Logger logger);
-    }
-
-    @FunctionalInterface
-    public interface GeneratorFactoryProvider {
-        GeneratorFactory create(SolverConfiguration config, QueueStrategy queueStrategy,
-                ContextRegistry registry);
-    }
-
     public static class Builder {
         private int numClicks = 17;
         private int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), 2);
@@ -210,12 +142,6 @@ public final class SolverConfiguration {
         private int batchSize = 256;
         private int taskPoolSize = 128;
         private int queueSize = 16;
-        private SolutionHandler solutionHandler = SolverConfiguration::defaultSolutionHandling;
-        private Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
-        private GeneratorFactoryProvider generatorFactoryProvider = GeneratorFactory::ofDefault;
-        private IntFunction<Queue<GeneratorContext>> registryQueueFunction = _ -> new ConcurrentLinkedQueue<>();
-        private BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
-        private InstantSource instantSource = InstantSource.system();
 
         public Builder numClicks(int numClicks) {
             checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
@@ -252,40 +178,6 @@ public final class SolverConfiguration {
             // TODO: Look at using another mechanism for copying the base grid to avoid reliance on
             // an abstract method.
             this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
-            return this;
-        }
-
-        public Builder solutionHandler(SolutionHandler solutionHandler) {
-            this.solutionHandler = mustNotBeNull(solutionHandler, "solutionHandler");
-            return this;
-        }
-
-        public Builder loggerFunction(Function<Class<?>, Logger> loggerFunction) {
-            this.loggerFunction = mustNotBeNull(loggerFunction, "loggerFunction");
-            return this;
-        }
-
-        public Builder generatorFactoryProvider(GeneratorFactoryProvider generatorFactoryProvider) {
-            this.generatorFactoryProvider = mustNotBeNull(generatorFactoryProvider,
-                    "generatorFactoryProvider");
-            return this;
-        }
-
-        public Builder registryQueueFunction(
-                IntFunction<Queue<GeneratorContext>> registryQueueFunction) {
-            this.registryQueueFunction = mustNotBeNull(registryQueueFunction,
-                    "registryQueueFunction");
-            return this;
-        }
-
-        public Builder queueStrategyFactory(
-                BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory) {
-            this.queueStrategyFactory = mustNotBeNull(queueStrategyFactory, "queueStrategyFactory");
-            return this;
-        }
-
-        public Builder instantSource(InstantSource instantSource) {
-            this.instantSource = mustNotBeNull(instantSource, "instantSource");
             return this;
         }
 
@@ -346,21 +238,5 @@ public final class SolverConfiguration {
         }
 
         return new IntImmutableList(startIndices);
-    }
-
-    private static void defaultSolutionHandling(short[] prefix, short finalClick,
-            SolverState solverState, ForkJoinPool generatorPool, Logger logger) {
-        // Default implementation: log the solution
-        final short[] winningCombination = Arrays.copyOf(prefix, prefix.length + 1);
-        winningCombination[prefix.length] = finalClick;
-        solverState.markSolutionFound(winningCombination);
-        logger.info("Found the solution as the following click combination: {}",
-                new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
-
-        // Trigger the generator shutdown:
-        if (generatorPool != null && !generatorPool.isShutdown()) {
-            logger.debug("Triggering generator pool shutdown...");
-            generatorPool.shutdownNow(); // Immediate shutdown without waiting
-        }
     }
 }

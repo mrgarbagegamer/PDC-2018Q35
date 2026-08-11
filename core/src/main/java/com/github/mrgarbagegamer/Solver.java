@@ -106,11 +106,10 @@ public class Solver {
 
     private ForkJoinPool createGeneratorPool(ContextRegistry registry) {
         final AtomicInteger threadCounter = new AtomicInteger(0);
-        return new ForkJoinPool(this.config.numGenerators(), pool -> {
-            final int generatorId = threadCounter.getAndIncrement();
-            return new GeneratorThread(pool, this.config, this.services, this.queueStrategy,
-                    registry, generatorId);
-        }, null, false);
+        return new ForkJoinPool(this.config.numGenerators(),
+                pool -> new GeneratorThread(pool, this.config, this.services, this.queueStrategy,
+                        registry, threadCounter.getAndIncrement()),
+                null, false);
     }
 
     /**

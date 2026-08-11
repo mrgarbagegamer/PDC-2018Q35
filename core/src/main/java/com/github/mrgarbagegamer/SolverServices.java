@@ -44,8 +44,10 @@ public final class SolverServices {
 
     public static Builder builder() { return new Builder(); }
 
-    // TODO: Encapsulate the exact SolutionHandler by making a method that calls it
-    SolutionHandler solutionHandler() { return this.solutionHandler; }
+    void handleSolution(short[] winningCombination, Logger logger) {
+        this.solutionHandler.handleSolution(mustNotBeNull(winningCombination, "winningCombination"),
+                mustNotBeNull(logger, "logger"));
+    }
 
     Logger getLogger(Class<?> clazz) {
         return this.loggerFunction.apply(mustNotBeNull(clazz, "clazz"));

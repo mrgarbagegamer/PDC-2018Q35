@@ -8,8 +8,6 @@ import java.util.concurrent.ForkJoinPool;
 import org.apache.logging.log4j.Logger;
 import org.jspecify.annotations.Nullable;
 
-import com.github.mrgarbagegamer.SolverServices.SolutionHandler;
-
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
@@ -116,7 +114,7 @@ public class TestClickCombination extends Thread {
     private final long expectedUpper;
     private final boolean useDualMasks;
     private final ForkJoinPool generatorPool;
-    private final SolutionHandler solutionHandler;
+    private final SolverServices services;
 
     public TestClickCombination(int monkeyId, SolverConfiguration config, SolverServices services,
             QueueStrategy queueStrategy, SolverState solverState, ForkJoinPool generatorPool) {
@@ -126,7 +124,7 @@ public class TestClickCombination extends Thread {
         this.monkeyId = monkeyId;
 
         mustNotBeNull(config, "config");
-        mustNotBeNull(services, "services");
+        this.services = mustNotBeNull(services, "services");
         this.logger = services.getLogger(TestClickCombination.class);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         this.solverState = mustNotBeNull(solverState, "solverState");
@@ -137,7 +135,6 @@ public class TestClickCombination extends Thread {
         this.expectedUpper = config.getExpectedMaskUpper();
         this.useDualMasks = config.getUseDualMasks();
         this.generatorPool = mustNotBeNull(generatorPool, "generatorPool");
-        this.solutionHandler = services.solutionHandler();
     }
 
     /**
@@ -248,7 +245,7 @@ public class TestClickCombination extends Thread {
         final short[] winningCombination = buildCombination(prefix, finalClick);
         this.solverState.markSolutionFound(winningCombination.clone());
 
-        this.solutionHandler.handleSolution(winningCombination, this.logger);
+        this.services.handleSolution(winningCombination, this.logger);
 
         this.logger.debug("Triggering generator pool shutdown...");
         this.generatorPool.shutdownNow();

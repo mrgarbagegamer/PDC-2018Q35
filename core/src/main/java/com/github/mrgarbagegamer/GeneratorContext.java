@@ -21,19 +21,13 @@ class GeneratorContext {
     private final QueueStrategy queueStrategy;
     private @Nullable WorkBatch currentBatch = null;
 
-    /*
-     * TODO: Consider computing the name by just calling Thread.currentThread().getName() and
-     * removing the name and generatorId parameters.
-     */
-    GeneratorContext(String name, int generatorId, QueueStrategy queueStrategy,
-            ContextRegistry registry, SolverConfiguration config, SolverServices services) {
+    GeneratorContext(int generatorId, QueueStrategy queueStrategy, ContextRegistry registry,
+            SolverConfiguration config, SolverServices services) {
         this.config = mustNotBeNull(config, "config");
         this.services = mustNotBeNull(services, "services");
-
-        this.logger = this.services.getLogger(GeneratorContext.class);
-        this.name = mustNotBeNull(name, "name");
         this.generatorId = generatorId;
-
+        this.name = "Generator-" + generatorId;
+        this.logger = this.services.getLogger(GeneratorContext.class);
         this.taskPool = new TaskPool(this.config);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         mustNotBeNull(registry, "registry").registerContext(this);

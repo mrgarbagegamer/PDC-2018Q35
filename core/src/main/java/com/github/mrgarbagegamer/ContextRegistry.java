@@ -3,9 +3,7 @@ package com.github.mrgarbagegamer;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
@@ -19,29 +17,11 @@ final class ContextRegistry {
         this.contexts = mustNotBeNull(contexts, "contexts");
     }
 
-    // TODO: Delete this constructor overload
-    ContextRegistry(Logger logger) { this(logger, new ConcurrentLinkedQueue<>()); }
-
-    // TODO: Delete this constructor overload
-    ContextRegistry(Queue<GeneratorContext> contexts) {
-        this(LogManager.getLogger(ContextRegistry.class), contexts);
-    }
-
-    // TODO: Delete this constructor overload
-    ContextRegistry() {
-        this(LogManager.getLogger(ContextRegistry.class), new ConcurrentLinkedQueue<>());
-    }
-
     static ContextRegistry newRegistry(SolverConfiguration config, SolverServices services) {
         mustNotBeNull(config, "config");
         mustNotBeNull(services, "services");
         return new ContextRegistry(services.getLogger(ContextRegistry.class),
                 services.getRegistryQueue(config.numGenerators()));
-    }
-
-    // TODO: Delete this newRegistry() overload
-    static ContextRegistry newRegistry(SolverConfiguration config) {
-        return newRegistry(config, SolverServices.defaultServices());
     }
 
     boolean registerContext(GeneratorContext context) {

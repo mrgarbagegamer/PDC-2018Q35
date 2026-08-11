@@ -5,6 +5,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import java.time.InstantSource;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -18,13 +19,7 @@ import com.google.common.base.MoreObjects;
 // TODO: Add Javadocs
 public final class SolverServices {
 
-    // TODO: Consider reducing this to a BiConsumer<short[], Logger>
-    @FunctionalInterface
-    public interface SolutionHandler {
-        void handleSolution(short[] winningCombination, Logger logger);
-    }
-
-    private final SolutionHandler solutionHandler;
+    private final BiConsumer<short[], Logger> solutionHandler;
     private final Function<Class<?>, Logger> loggerFunction;
     private final IntFunction<Queue<GeneratorContext>> registryQueueFunction;
     private final BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory;
@@ -45,7 +40,7 @@ public final class SolverServices {
     public static Builder builder() { return new Builder(); }
 
     void handleSolution(short[] winningCombination, Logger logger) {
-        this.solutionHandler.handleSolution(mustNotBeNull(winningCombination, "winningCombination"),
+        this.solutionHandler.accept(mustNotBeNull(winningCombination, "winningCombination"),
                 mustNotBeNull(logger, "logger"));
     }
 
@@ -96,13 +91,13 @@ public final class SolverServices {
     }
 
     public static class Builder {
-        private SolutionHandler solutionHandler = SolverServices::defaultSolutionHandling;
+        private BiConsumer<short[], Logger> solutionHandler = SolverServices::defaultSolutionHandling;
         private Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
         private IntFunction<Queue<GeneratorContext>> registryQueueFunction = _ -> new ConcurrentLinkedQueue<>();
         private BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
         private InstantSource instantSource = InstantSource.system();
 
-        public Builder solutionHandler(SolutionHandler solutionHandler) {
+        public Builder solutionHandler(BiConsumer<short[], Logger> solutionHandler) {
             this.solutionHandler = mustNotBeNull(solutionHandler, "solutionHandler");
             return this;
         }

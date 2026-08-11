@@ -137,7 +137,7 @@ public final class SolverConfiguration {
 
     public static class Builder {
         private int numClicks = 17;
-        private int numThreads = Math.min(Runtime.getRuntime().availableProcessors(), 2);
+        private int numThreads = Math.max(Runtime.getRuntime().availableProcessors(), 2);
         private Grid baseGrid = new Grid35();
         private int batchSize = 256;
         private int taskPoolSize = 128;

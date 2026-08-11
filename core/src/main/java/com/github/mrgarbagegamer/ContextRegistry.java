@@ -35,7 +35,6 @@ final class ContextRegistry {
     synchronized void flushAllPendingBatches() {
         if (contexts.size() == 0) {
             logger.warn("No contexts registered to flush batches.");
-            return;
         } else {
             logger.info("Starting final flush of all pending batches from {} contexts...",
                     Unbox.box(contexts.size()));
@@ -45,6 +44,8 @@ final class ContextRegistry {
                     logger.debug("Flushing pending batch of size {} from {}.",
                             Unbox.box(ctx.getCurrentBatchSize()), ctx.getName());
                     ctx.flushCurrentBatch();
+                } else {
+                    logger.debug("{} has no pending batch to flush.", ctx.getName());
                 }
             }
         }

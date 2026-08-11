@@ -3,6 +3,7 @@ package com.github.mrgarbagegamer;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustBePositive;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.MoreObjects;
 
@@ -181,7 +182,14 @@ public final class SolverConfiguration {
             return this;
         }
 
-        public SolverConfiguration build() { return new SolverConfiguration(this); }
+        public SolverConfiguration build() {
+            // Ensure that the default (if unmodified) doesn't permit an odd number of threads.
+            final int localNumThreads = this.numThreads;
+            checkState(localNumThreads % 2 == 0,
+                    "numThreads must be even to ensure generators and monkeys are balanced, was %s",
+                    localNumThreads);
+            return new SolverConfiguration(this);
+        }
     }
 
     private static LongList generateTrueCellMasks(ShortList trimmedTrueCells) {

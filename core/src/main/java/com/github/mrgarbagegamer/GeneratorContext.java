@@ -1,81 +1,106 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.google.common.base.Preconditions.checkState;
+
+import org.apache.logging.log4j.Logger;
 import org.jspecify.annotations.Nullable;
 
-// Add Javadocs
-public interface GeneratorContext {
+/**
+ * A container for all thread-local resources used by a generator thread.
+ */
+class GeneratorContext {
+    private final Logger logger;
+    private final String name;
+    private final int generatorId;
+    private volatile boolean terminated = false;
 
-    /**
-     * Gets the name of the thread owning this context. Used for logging purposes.
-     * 
-     * @return The name of the this context's thread.
-     * @see ContextRegistry#flushAllPendingBatches()
-     * @since 2025.10 - Final Flush Refactor
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe, as it returns an immutable field.
-     * @memory Does not allocate; returns a reference to an existing {@code String}.
+    private final SolverConfiguration config;
+    private final SolverServices services;
+    private final TaskPool taskPool;
+    private final QueueStrategy queueStrategy;
+    private @Nullable WorkBatch currentBatch = null;
+
+    /*
+     * TODO: Consider computing the name by just calling Thread.currentThread().getName() and
+     * removing the name and generatorId parameters.
      */
-    String getName();
+    GeneratorContext(String name, int generatorId, QueueStrategy queueStrategy,
+            ContextRegistry registry, SolverConfiguration config, SolverServices services) {
+        this.config = mustNotBeNull(config, "config");
+        this.services = mustNotBeNull(services, "services");
 
-    boolean hasBatch();
+        this.logger = this.services.getLogger(GeneratorContext.class);
+        this.name = mustNotBeNull(name, "name");
+        this.generatorId = generatorId;
 
-    /**
-     * Gets the current {@link WorkBatch} for this context or
-     * {@link QueueStrategy#generatorPoll(int) polls for a new batch} if there is no current batch.
-     * This method should only return {@code null} if a {@link SolverState#solutionFound() solution
-     * has been found}, signalling that the generator should stop processing and exit.
-     * 
-     * @return the current {@link WorkBatch} for this context or {@code null} if a solution has been
-     *         found
-     * @see #hasBatch()
-     * @since 2026.01 - Generator DI Refactor
-     * @threading Must be thread-safe.
-     * @memory Should not allocate.
-     */
+        this.taskPool = new TaskPool(this.config);
+        this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
+        mustNotBeNull(registry, "registry").registerContext(this);
+    }
+
+    String getName() { return this.name; }
+
+    boolean hasBatch() { return this.currentBatch != null; }
+
     @Nullable
-    WorkBatch getCurrentBatch();
+    WorkBatch getCurrentBatch() {
+        if (this.currentBatch == null) {
+            this.currentBatch = this.pollBatch();
+        }
+        return this.currentBatch;
+    }
 
-    default int getCurrentBatchSize() {
+    int getCurrentBatchSize() {
         if (this.hasBatch()) {
             WorkBatch currentBatch = this.getCurrentBatch();
-            // Check if the returned batch is null (should be impossible)
             return currentBatch != null ? currentBatch.size() : 0;
         }
         return 0;
     }
 
-    TaskPool getTaskPool();
+    private @Nullable WorkBatch pollBatch() {
+        final WorkBatch batch = this.queueStrategy.generatorPoll(this.generatorId);
+        if (batch == null) {
+            handleTermination(true);
+            return null;
+        }
+        batch.clear();
+        return batch;
+    }
 
-    QueueStrategy getQueueStrategy();
+    private void handleTermination(boolean onPoll) {
+        if (!this.terminated) {
+            synchronized (this) {
+                if (!this.terminated) {
+                    this.logger.debug(
+                            onPoll ? "Termination condition was met during poll, shutting down"
+                                    : "Termination condition was met during offer, shutting down");
+                    this.terminated = true;
+                }
+            }
+        }
+    }
 
-    /**
-     * Flushes the {@link #getCurrentBatch() current batch} for this context, sending it to the
-     * {@link QueueStrategy#generatorOffer(WorkBatch, int) queue(s)} for processing by the
-     * {@link TestClickCombination monkeys}. This method should be called after the current batch
-     * has been filled with work and before calling getCurrentBatch() again.
-     * 
-     * <p>
-     * Though general use of this method operates on a full batch, it is also called during the
-     * {@link ContextRegistry#flushAllPendingBatches() final flush phase} of the generator shutdown,
-     * where the batch may only be partially filled.
-     * </p>
-     * 
-     * @return {@code true} if the batch was successfully flushed and sent to the queue(s), or
-     *         {@code false} if the batch could not be flushed (e.g. if a
-     *         {@link SolverState#solutionFound() solution has been found} and the generator should
-     *         stop processing)
-     * @since 2026.01 - Generator DI Refactor
-     * @threading Must be thread-safe.
-     */
-    boolean flushCurrentBatch();
+    TaskPool getTaskPool() { return this.taskPool; }
 
-    SolverConfiguration getConfiguration();
+    SolverConfiguration getConfiguration() { return this.config; }
 
-    SolverServices getServices();
+    SolverServices getServices() { return this.services; }
 
-    static GeneratorContext ofDefault(String name, int generatorId, QueueStrategy queueStrategy,
-            ContextRegistry registry, SolverConfiguration config, SolverServices services) {
-        return DefaultGeneratorContext.of(name, generatorId, queueStrategy, registry, config,
-                services);
+    QueueStrategy getQueueStrategy() { return this.queueStrategy; }
+
+    boolean flushCurrentBatch() {
+        checkState(this.currentBatch != null,
+                "A new batch must be acquired before calling this method");
+
+        final boolean success = this.queueStrategy.generatorOffer(this.currentBatch,
+                this.generatorId);
+        this.currentBatch = null;
+
+        if (!success) {
+            handleTermination(false);
+        }
+        return success;
     }
 }

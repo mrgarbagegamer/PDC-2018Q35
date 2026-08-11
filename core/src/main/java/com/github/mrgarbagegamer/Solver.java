@@ -5,6 +5,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import java.time.Duration;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
@@ -59,9 +60,7 @@ public class Solver {
 
         // Create the context registry and generator pool
         final ContextRegistry registry = ContextRegistry.newRegistry(this.config, this.services);
-        try (ForkJoinPool generatorPool = new ForkJoinPool(this.config.numGenerators(),
-                this.services.getGeneratorFactory(this.config, this.queueStrategy, registry), null,
-                false)) {
+        try (ForkJoinPool generatorPool = createGeneratorPool(registry)) {
             // Create the monkeys
             final TestClickCombination[] monkeys = new TestClickCombination[this.config
                     .numMonkeys()];
@@ -103,6 +102,16 @@ public class Solver {
                         Uninterruptibles.joinUninterruptibly(worker);
             }
         }
+    }
+
+    private ForkJoinPool createGeneratorPool(ContextRegistry registry) {
+        final AtomicInteger threadCounter = new AtomicInteger(0);
+        return new ForkJoinPool(this.config.numGenerators(), pool -> {
+            final int generatorId = threadCounter.getAndIncrement();
+            final String threadName = "Generator-" + generatorId;
+            return new GeneratorThread(threadName, pool, this.config, this.services,
+                    this.queueStrategy, registry, generatorId);
+        }, null, false);
     }
 
     /**

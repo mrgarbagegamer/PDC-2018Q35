@@ -10,46 +10,49 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
 // TODO: Add Javadocs
-// TODO: Consider encapsulating.
-public final class ContextRegistry {
+final class ContextRegistry {
     private final Logger logger;
     private final Queue<GeneratorContext> contexts;
 
-    public ContextRegistry(Logger logger, Queue<GeneratorContext> contexts) {
+    ContextRegistry(Logger logger, Queue<GeneratorContext> contexts) {
         this.logger = mustNotBeNull(logger, "logger");
         this.contexts = mustNotBeNull(contexts, "contexts");
     }
 
-    public ContextRegistry(Logger logger) { this(logger, new ConcurrentLinkedQueue<>()); }
+    // TODO: Delete this constructor overload
+    ContextRegistry(Logger logger) { this(logger, new ConcurrentLinkedQueue<>()); }
 
-    public ContextRegistry(Queue<GeneratorContext> contexts) {
+    // TODO: Delete this constructor overload
+    ContextRegistry(Queue<GeneratorContext> contexts) {
         this(LogManager.getLogger(ContextRegistry.class), contexts);
     }
 
-    public ContextRegistry() {
+    // TODO: Delete this constructor overload
+    ContextRegistry() {
         this(LogManager.getLogger(ContextRegistry.class), new ConcurrentLinkedQueue<>());
     }
 
-    public static ContextRegistry newRegistry(SolverConfiguration config, SolverServices services) {
+    static ContextRegistry newRegistry(SolverConfiguration config, SolverServices services) {
         mustNotBeNull(config, "config");
         mustNotBeNull(services, "services");
         return new ContextRegistry(services.getLogger(ContextRegistry.class),
                 services.getRegistryQueue(config.numGenerators()));
     }
 
-    public static ContextRegistry newRegistry(SolverConfiguration config) {
+    // TODO: Delete this newRegistry() overload
+    static ContextRegistry newRegistry(SolverConfiguration config) {
         return newRegistry(config, SolverServices.defaultServices());
     }
 
-    public boolean registerContext(GeneratorContext context) {
+    boolean registerContext(GeneratorContext context) {
         return contexts.offer(mustNotBeNull(context, "context"));
     }
 
-    public boolean unregisterContext(GeneratorContext context) {
+    boolean unregisterContext(GeneratorContext context) {
         return contexts.remove(mustNotBeNull(context, "context"));
     }
 
-    public synchronized void flushAllPendingBatches() {
+    synchronized void flushAllPendingBatches() {
         if (contexts.size() == 0) {
             logger.warn("No contexts registered to flush batches.");
             return;
@@ -67,7 +70,7 @@ public final class ContextRegistry {
         }
     }
 
-    public int size() { return contexts.size(); }
+    int size() { return contexts.size(); }
 
-    public synchronized void clear() { contexts.clear(); }
+    synchronized void clear() { contexts.clear(); }
 }

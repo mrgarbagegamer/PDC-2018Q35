@@ -219,8 +219,7 @@ public class TestClickCombination extends Thread {
                         this.puzzleGrid.click(prefix, finalClick);
 
                         if (this.puzzleGrid.isSolved()) {
-                            solutionHandler.handleSolution(prefix, finalClick, this.solverState,
-                                    this.generatorPool, this.logger);
+                            solutionHook(prefix, finalClick);
                             return;
                         }
                         this.puzzleGrid.initialize(); // Reset for next test
@@ -243,6 +242,16 @@ public class TestClickCombination extends Thread {
                 return;
             }
         }
+    }
+
+    private void solutionHook(final short[] prefix, final short finalClick) {
+        final short[] winningCombination = buildCombination(prefix, finalClick);
+        this.solverState.markSolutionFound(winningCombination.clone());
+
+        this.solutionHandler.handleSolution(winningCombination, this.logger);
+
+        this.logger.debug("Triggering generator pool shutdown...");
+        this.generatorPool.shutdownNow();
     }
 
     private @Nullable WorkBatch getWork() {

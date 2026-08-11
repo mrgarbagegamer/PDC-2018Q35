@@ -5,13 +5,18 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 
-// TODO: Add Javadoc
-public abstract class GeneratorThread extends ForkJoinWorkerThread {
+class GeneratorThread extends ForkJoinWorkerThread {
+    private final GeneratorContext context;
 
-    protected GeneratorThread(String name, ForkJoinPool pool) {
+    // TODO: Remove the name parameter and use concatenation to derive it
+    GeneratorThread(String name, ForkJoinPool pool, SolverConfiguration config,
+            SolverServices services, QueueStrategy queueStrategy, ContextRegistry registry,
+            int generatorId) {
         super(mustNotBeNull(pool, "pool"));
         this.setName(mustNotBeNull(name, "name"));
+        this.context = new GeneratorContext(name, generatorId, queueStrategy, registry, config,
+                services);
     }
 
-    public abstract GeneratorContext getContext();
+    GeneratorContext getContext() { return this.context; }
 }

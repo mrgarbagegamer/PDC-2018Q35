@@ -90,15 +90,6 @@ class GeneratorContext {
         }
     }
 
-    // TODO: Consider removing this method
-    SolverConfiguration getConfiguration() { return this.config; }
-
-    // TODO: Consider removing this method
-    SolverServices getServices() { return this.services; }
-
-    // TODO: Consider removing this method
-    QueueStrategy getQueueStrategy() { return this.queueStrategy; }
-
     boolean flushCurrentBatch() {
         checkState(this.currentBatch != null,
                 "A new batch must be acquired before calling this method");

@@ -28,10 +28,24 @@ class GeneratorContext {
         this.generatorId = generatorId;
         this.name = "Generator-" + generatorId;
         this.logger = this.services.getLogger(GeneratorContext.class);
-        this.taskPool = new TaskPool(this.config);
+        this.taskPool = new TaskPool(this.config.taskPoolSize());
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         mustNotBeNull(registry, "registry").registerContext(this);
+        this.preallocateTaskPool();
     }
+
+    private void preallocateTaskPool() {
+        while (!this.taskPool.isFull())
+            checkState(this.taskPool.put(new CombinationGeneratorTask(this.config)),
+                    "Failed to preallocate task pool");
+    }
+
+    CombinationGeneratorTask getTask() {
+        CombinationGeneratorTask subtask = this.taskPool.get();
+        return subtask != null ? subtask : new CombinationGeneratorTask(this.config);
+    }
+
+    void recycleTask(CombinationGeneratorTask task) { this.taskPool.put(task); }
 
     String getName() { return this.name; }
 
@@ -76,12 +90,13 @@ class GeneratorContext {
         }
     }
 
-    TaskPool getTaskPool() { return this.taskPool; }
-
+    // TODO: Consider removing this method
     SolverConfiguration getConfiguration() { return this.config; }
 
+    // TODO: Consider removing this method
     SolverServices getServices() { return this.services; }
 
+    // TODO: Consider removing this method
     QueueStrategy getQueueStrategy() { return this.queueStrategy; }
 
     boolean flushCurrentBatch() {

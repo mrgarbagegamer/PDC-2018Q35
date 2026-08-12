@@ -167,7 +167,7 @@ public class CombinationGeneratorTask extends RecursiveAction {
             }
         } finally {
             // Self-cleanup: recycle our own resources
-            recycleTask(ctx);
+            ctx.recycleTask(this);
         }
     }
 
@@ -182,13 +182,8 @@ public class CombinationGeneratorTask extends RecursiveAction {
     }
 
     private void getAndForkSubtask(GeneratorContext ctx, short newValue) {
-        CombinationGeneratorTask subtask = ctx.getTaskPool().get();
-        if (subtask == null)
-            subtask = new CombinationGeneratorTask(this.solverConfig);
-
+        CombinationGeneratorTask subtask = ctx.getTask();
         subtask.init(this, newValue);
-
-        // Fork the subtask - it will clean itself up
         subtask.fork();
     }
 
@@ -305,12 +300,5 @@ public class CombinationGeneratorTask extends RecursiveAction {
         // Use the pre-computed suffix OR masks for fast checking
         return (this.suffixMasksLower.getLong(startIdx) & neededLower) == neededLower
                 && (this.suffixMasksUpper.getLong(startIdx) & neededUpper) == neededUpper;
-    }
-
-    private void recycleTask(GeneratorContext ctx) {
-        // No ThreadLocal access needed - use passed context
-
-        // Recycle task to context pool
-        ctx.getTaskPool().put(this);
     }
 }

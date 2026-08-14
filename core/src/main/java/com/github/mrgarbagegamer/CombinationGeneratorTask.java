@@ -10,7 +10,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 // TODO: Update Javadoc
 // TODO: Look at using getSurplusQueuedTaskCount() to determine if we should fork or compute
 // directly
-public abstract class CombinationGeneratorTask extends RecursiveAction {
+public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
 
     final short[] prefix;
     final int numClicks;
@@ -80,7 +80,7 @@ public abstract class CombinationGeneratorTask extends RecursiveAction {
     // Specialized Subclasses
     // =========================================================================
 
-    static class RootTask extends CombinationGeneratorTask {
+    static final class RootTask extends CombinationGeneratorTask {
 
         private final SolverConfiguration solverConfig;
 
@@ -121,7 +121,7 @@ public abstract class CombinationGeneratorTask extends RecursiveAction {
         }
     }
 
-    static class IntermediateTask extends CombinationGeneratorTask {
+    static final class IntermediateTask extends CombinationGeneratorTask {
 
         private long currentAdjacenciesLower = 0L;
         private long currentAdjacenciesUpper = 0L;
@@ -232,7 +232,7 @@ public abstract class CombinationGeneratorTask extends RecursiveAction {
         void recycleSelf(GeneratorContext ctx) { ctx.recycleIntermediateTask(this); }
     }
 
-    static class LeafTask extends CombinationGeneratorTask {
+    static final class LeafTask extends CombinationGeneratorTask {
 
         // TODO: Make this constructor private and use a package-private static factory instead
         LeafTask(SolverConfiguration solverConfig) { super(solverConfig); }

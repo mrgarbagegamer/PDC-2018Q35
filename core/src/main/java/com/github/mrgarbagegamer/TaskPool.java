@@ -5,26 +5,28 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 
 import org.jspecify.annotations.Nullable;
 
-class TaskPool {
+class TaskPool<T extends CombinationGeneratorTask> {
 
-    private final @Nullable CombinationGeneratorTask[] array;
+    private final @Nullable T[] array;
     private final int capacity;
 
     private int head = 0;
     private int tail = 0;
     private int size = 0;
 
+    // Safe, since the array will only contain T instances from put(T).
+    @SuppressWarnings("unchecked")
     TaskPool(int capacity) {
         this.capacity = mustBePositive(capacity, "capacity");
-        this.array = new CombinationGeneratorTask[this.capacity];
+        this.array = (T[]) new CombinationGeneratorTask[this.capacity];
     }
 
     @Nullable
-    CombinationGeneratorTask get() {
+    T get() {
         if (this.size == 0)
             return null;
 
-        CombinationGeneratorTask task = this.array[this.head];
+        T task = this.array[this.head];
 
         this.array[this.head] = null; // Help GC
         this.head = (this.head + 1) % this.capacity;
@@ -32,7 +34,7 @@ class TaskPool {
         return task;
     }
 
-    boolean put(CombinationGeneratorTask task) {
+    boolean put(T task) {
         if (this.size >= this.capacity)
             return false;
 

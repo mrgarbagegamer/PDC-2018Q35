@@ -6,6 +6,9 @@ import static com.google.common.base.Preconditions.checkState;
 import org.apache.logging.log4j.Logger;
 import org.jspecify.annotations.Nullable;
 
+import com.github.mrgarbagegamer.CombinationGeneratorTask.IntermediateTask;
+import com.github.mrgarbagegamer.CombinationGeneratorTask.LeafTask;
+
 /**
  * A container for all thread-local resources used by a generator thread.
  */
@@ -17,7 +20,8 @@ class GeneratorContext {
 
     private final SolverConfiguration config;
     private final SolverServices services;
-    private final TaskPool taskPool;
+    private final TaskPool<IntermediateTask> intermediateTaskPool;
+    private final TaskPool<LeafTask> leafTaskPool;
     private final QueueStrategy queueStrategy;
     private @Nullable WorkBatch currentBatch = null;
 
@@ -28,24 +32,35 @@ class GeneratorContext {
         this.generatorId = generatorId;
         this.name = "Generator-" + generatorId;
         this.logger = this.services.getLogger(GeneratorContext.class);
-        this.taskPool = new TaskPool(this.config.taskPoolSize());
+        this.intermediateTaskPool = new TaskPool<>(this.config.taskPoolSize());
+        this.leafTaskPool = new TaskPool<>(this.config.taskPoolSize());
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         mustNotBeNull(registry, "registry").registerContext(this);
-        this.preallocateTaskPool();
+        this.preallocateTaskPools();
     }
 
-    private void preallocateTaskPool() {
-        while (!this.taskPool.isFull())
-            checkState(this.taskPool.put(new CombinationGeneratorTask(this.config)),
-                    "Failed to preallocate task pool");
+    private void preallocateTaskPools() {
+        while (!this.intermediateTaskPool.isFull())
+            checkState(this.intermediateTaskPool.put(new IntermediateTask(this.config)),
+                    "Failed to preallocate intermediate task pool");
+        while (!this.leafTaskPool.isFull())
+            checkState(this.leafTaskPool.put(new LeafTask(this.config)),
+                    "Failed to preallocate leaf task pool");
     }
 
-    CombinationGeneratorTask getTask() {
-        CombinationGeneratorTask subtask = this.taskPool.get();
-        return subtask != null ? subtask : new CombinationGeneratorTask(this.config);
+    IntermediateTask getIntermediateTask() {
+        IntermediateTask subtask = this.intermediateTaskPool.get();
+        return subtask != null ? subtask : new IntermediateTask(this.config);
     }
 
-    void recycleTask(CombinationGeneratorTask task) { this.taskPool.put(task); }
+    LeafTask getLeafTask() {
+        LeafTask subtask = this.leafTaskPool.get();
+        return subtask != null ? subtask : new LeafTask(this.config);
+    }
+
+    void recycleIntermediateTask(IntermediateTask task) { this.intermediateTaskPool.put(task); }
+
+    void recycleLeafTask(LeafTask task) { this.leafTaskPool.put(task); }
 
     String getName() { return this.name; }
 

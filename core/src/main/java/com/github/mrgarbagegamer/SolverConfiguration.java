@@ -145,8 +145,8 @@ public final class SolverConfiguration {
         private int queueSize = 16;
 
         public Builder numClicks(int numClicks) {
-            checkArgument(numClicks > 0 && numClicks <= Grid.NUM_CELLS,
-                    "numClicks must be in the range [1, %s], was %s", Grid.NUM_CELLS, numClicks);
+            checkArgument(numClicks > 1 && numClicks <= Grid.NUM_CELLS,
+                    "numClicks must be in the range [2, %s], was %s", Grid.NUM_CELLS, numClicks);
             this.numClicks = numClicks;
             return this;
         }

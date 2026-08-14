@@ -41,21 +41,26 @@ class GeneratorContext {
 
     private void preallocateTaskPools() {
         while (!this.intermediateTaskPool.isFull())
-            checkState(this.intermediateTaskPool.put(new IntermediateTask(this.config)),
+            checkState(this.intermediateTaskPool.put(makeIntermediate()),
                     "Failed to preallocate intermediate task pool");
         while (!this.leafTaskPool.isFull())
-            checkState(this.leafTaskPool.put(new LeafTask(this.config)),
-                    "Failed to preallocate leaf task pool");
+            checkState(this.leafTaskPool.put(makeLeaf()), "Failed to preallocate leaf task pool");
     }
+
+    private IntermediateTask makeIntermediate() {
+        return CombinationGeneratorTask.createIntermediateTask(this.config);
+    }
+
+    private LeafTask makeLeaf() { return CombinationGeneratorTask.createLeafTask(this.config); }
 
     IntermediateTask getIntermediateTask() {
         IntermediateTask subtask = this.intermediateTaskPool.get();
-        return subtask != null ? subtask : new IntermediateTask(this.config);
+        return subtask != null ? subtask : makeIntermediate();
     }
 
     LeafTask getLeafTask() {
         LeafTask subtask = this.leafTaskPool.get();
-        return subtask != null ? subtask : new LeafTask(this.config);
+        return subtask != null ? subtask : makeLeaf();
     }
 
     void recycleIntermediateTask(IntermediateTask task) { this.intermediateTaskPool.put(task); }

@@ -18,11 +18,19 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
     int prefixLength;
     boolean isOdd; // TODO: Consider removing isOdd from root tasks
 
-    // TODO: Consider pulling this into IntermediateTask if possible 
+    // TODO: Consider pulling this into IntermediateTask if possible
     final LongList trueCellMasksLower;
 
     public static CombinationGeneratorTask createRootTask(SolverConfiguration solverConfig) {
         return new RootTask(solverConfig);
+    }
+
+    static IntermediateTask createIntermediateTask(SolverConfiguration solverConfig) {
+        return new IntermediateTask(solverConfig);
+    }
+
+    static LeafTask createLeafTask(SolverConfiguration solverConfig) {
+        return new LeafTask(solverConfig);
     }
 
     CombinationGeneratorTask(SolverConfiguration solverConfig) {
@@ -134,8 +142,7 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
         private final LongList suffixMasksUpper;
         private final boolean useDualMasks;
 
-        // TODO: Make this constructor private and use a package-private static factory instead
-        IntermediateTask(SolverConfiguration solverConfig) {
+        private IntermediateTask(SolverConfiguration solverConfig) {
             super(solverConfig);
             this.trueCellMasksUpper = solverConfig.getTrueCellMasksUpper();
             this.expectedMaskLower = solverConfig.getExpectedMaskLower();
@@ -234,8 +241,7 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
 
     static final class LeafTask extends CombinationGeneratorTask {
 
-        // TODO: Make this constructor private and use a package-private static factory instead
-        LeafTask(SolverConfiguration solverConfig) { super(solverConfig); }
+        private LeafTask(SolverConfiguration solverConfig) { super(solverConfig); }
 
         // TODO: Consider adding a check to prevent an init() call with a LeafTask parent
         void init(CombinationGeneratorTask parentTask, short newValue) {

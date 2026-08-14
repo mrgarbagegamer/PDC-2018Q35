@@ -16,9 +16,8 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
     final int numClicks;
 
     int prefixLength;
-    boolean isOdd; // TODO: Consider removing isOdd from root tasks
+    boolean isOdd;
 
-    // TODO: Consider pulling this into IntermediateTask if possible
     final LongList trueCellMasksLower;
 
     public static CombinationGeneratorTask createRootTask(SolverConfiguration solverConfig) {
@@ -42,8 +41,8 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
 
     private void initBaseTask(CombinationGeneratorTask parentTask, short newValue) {
         System.arraycopy(parentTask.prefix, 0, this.prefix, 0, parentTask.prefixLength);
+        this.prefix[parentTask.prefixLength] = newValue;
         this.prefixLength = parentTask.prefixLength + 1;
-        this.prefix[this.prefixLength - 1] = newValue;
         this.isOdd = parentTask.getNewPrefixParity(newValue);
         reinitialize();
     }
@@ -104,7 +103,6 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
             final short lastEvenClick = evenClickIndices.getShort(evenClickIndices.size() - 1);
             final short max = (short) Math.min(getMaxClick(), lastEvenClick + 1);
 
-            // TODO: Test if dispatching to two methods is better than a loop conditional
             if (this.numClicks == 2) {
                 forkLeaves(ctx, max);
             } else {
@@ -152,8 +150,8 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
             this.useDualMasks = solverConfig.getUseDualMasks();
         }
 
-        // TODO: Consider making a unified init() method and extracting the RootTask case separately
         void init(RootTask parentTask, short newValue) {
+            this.skipConstraintsCheck = false;
             this.currentAdjacenciesLower = this.trueCellMasksLower.getLong(newValue);
             if (this.useDualMasks)
                 this.currentAdjacenciesUpper = this.trueCellMasksUpper.getLong(newValue);
@@ -243,7 +241,6 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
 
         private LeafTask(SolverConfiguration solverConfig) { super(solverConfig); }
 
-        // TODO: Consider adding a check to prevent an init() call with a LeafTask parent
         void init(CombinationGeneratorTask parentTask, short newValue) {
             super.initBaseTask(parentTask, newValue);
         }

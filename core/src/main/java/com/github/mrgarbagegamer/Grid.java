@@ -1463,23 +1463,7 @@ public abstract class Grid {
         }
     }
 
-    /**
-     * Checks if the grid is completely solved (i.e., all cells are {@code false}).
-     *
-     * <p>
-     * This method determines if the puzzle is solved by checking if the {@link #getTrueCount()} is
-     * zero. It leverages the lazy evaluation of {@link #trueCellsCount} to ensure efficient and
-     * up-to-date checks without redundant calculations.
-     * </p>
-     *
-     * @return {@code true} if the grid is solved (no {@code true} cells), {@code false} otherwise.
-     * @see #recalculationNeeded
-     * @since 2025.03 - Initial Creation
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe; calls the non-thread-safe {@link #getTrueCount()}.
-     * @memory Does not allocate.
-     */
-    public final boolean isSolved() { return getTrueCount() == 0; }
+    public final boolean isSolved() { return this.gridState[0] == 0 && this.gridState[1] == 0; }
 
     /**
      * Returns the count of {@code true} cells in the grid.

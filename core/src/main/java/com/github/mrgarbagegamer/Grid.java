@@ -544,7 +544,7 @@ public abstract class Grid {
      * @threading Thread-safe; does not modify instance state.
      * @memory Allocates a new {@code ShortArrayList} of capacity 6 for the result.
      */
-    public static ShortList computeAdjacents(short cell, ValueFormat inputFormat,
+    public static final ShortList computeAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         ShortList affectedPieces = new ShortArrayList(6);
 
@@ -610,7 +610,7 @@ public abstract class Grid {
      *            {@link #computeAdjacents(short, ValueFormat, ValueFormat) thread-safe method}.
      * @memory Allocates a new {@code ShortArrayList} with a capacity of 6 for the result.
      */
-    public static ShortList computeAdjacents(short cell, ValueFormat format) {
+    public static final ShortList computeAdjacents(short cell, ValueFormat format) {
         return computeAdjacents(cell, format, format);
     }
 
@@ -629,11 +629,11 @@ public abstract class Grid {
      *            thread-safe method}.
      * @memory Allocates a new {@link ShortArrayList} with a capacity of 6 for the result.
      */
-    public static ShortList computeAdjacents(short cell) {
+    public static final ShortList computeAdjacents(short cell) {
         return computeAdjacents(cell, ValueFormat.Index);
     }
 
-    public static ShortList findAdjacents(short cell, ValueFormat inputFormat,
+    public static final ShortList findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         final short index = switch (inputFormat) {
             case Bitmask -> throw new IllegalArgumentException(
@@ -657,11 +657,11 @@ public abstract class Grid {
         return new ShortImmutableList(mutableList);
     }
 
-    public static ShortList findAdjacents(short cell, ValueFormat format) {
+    public static final ShortList findAdjacents(short cell, ValueFormat format) {
         return findAdjacents(cell, format, format);
     }
 
-    public static ShortList findAdjacents(short cell) {
+    public static final ShortList findAdjacents(short cell) {
         return findAdjacents(cell, ValueFormat.Index);
     }
 
@@ -691,7 +691,7 @@ public abstract class Grid {
      * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
      * @memory Does not allocate.
      */
-    public final static short packedToIndex(short packed) {
+    public static final short packedToIndex(short packed) {
         checkArgument(packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length,
                 "packed must be in range [0, %s], but was %s", PACKED_TO_INDEX_CACHE.length - 1,
                 packed);
@@ -724,7 +724,7 @@ public abstract class Grid {
      * @threading Thread-safe; does not modify instance state.
      * @memory Does not allocate.
      */
-    public final static short indexToPacked(short index) {
+    public static final short indexToPacked(short index) {
         if (index < 0 || index >= NUM_CELLS) {
             throw new IllegalArgumentException("Invalid index: " + index);
         }
@@ -885,7 +885,8 @@ public abstract class Grid {
      * @threading Not thread-safe; modifies {@link #gridState} and {@link #trueCellsCount}.
      * @memory Does not allocate.
      */
-    protected void setBit(int index) {
+    // TODO: Remove this method.
+    protected final void setBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
         if ((gridState[longIndex] & (1L << bitPosition)) == 0) {
@@ -914,7 +915,8 @@ public abstract class Grid {
      * @threading Not thread-safe; modifies {@link #gridState} and {@link #trueCellsCount}.
      * @memory Does not allocate.
      */
-    protected void clearBit(int index) {
+    // TODO: Remove this method
+    protected final void clearBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
         if ((gridState[longIndex] & (1L << bitPosition)) != 0) {
@@ -946,7 +948,7 @@ public abstract class Grid {
      * @threading Not thread-safe; reads potentially mutable {@link #gridState}.
      * @memory Does not allocate.
      */
-    protected boolean getBit(int index) {
+    protected final boolean getBit(int index) { // TODO: Consider removing this method
         int longIndex = index / 64;
         int bitPosition = index % 64;
         return (gridState[longIndex] & (1L << bitPosition)) != 0;
@@ -1006,7 +1008,7 @@ public abstract class Grid {
         this.recalculationNeeded = true; // Mark for recalculation
     }
 
-    public ShortList findTrueCells(ValueFormat format) {
+    public final ShortList findTrueCells(ValueFormat format) {
         ShortList trueCellsList = new ShortArrayList(this.getTrueCount());
 
         for (short i = 0; i < NUM_CELLS; i++)
@@ -1184,7 +1186,7 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     @Deprecated
-    public void click(short cell, ValueFormat format) {
+    public final void click(short cell, ValueFormat format) {
         switch (format) {
             case Bitmask -> throw new IllegalArgumentException(
                     "Unsupported format: Bitmask must be a long[] of length 1 or 2.");
@@ -1298,7 +1300,7 @@ public abstract class Grid {
      * @threading Not thread-safe; modifies the instance's {@link #gridState}.
      * @memory Does not allocate.
      */
-    public void click(long[] bitmask) {
+    public final void click(long[] bitmask) {
         if (bitmask.length != 2) {
             throw new IllegalArgumentException("Bitmask must be of length 2.");
         }
@@ -1399,7 +1401,7 @@ public abstract class Grid {
         recalculationNeeded = true;
     }
 
-    public ShortList findFirstTrueAdjacents(ValueFormat format) {
+    public final ShortList findFirstTrueAdjacents(ValueFormat format) {
         mustNotBeNull(format, "format");
         checkArgument(format != ValueFormat.Bitmask,
                 "Bitmask format is not supported for this operation.");
@@ -1411,9 +1413,11 @@ public abstract class Grid {
         return findAdjacents(firstTrueCell, format);
     }
 
-    public ShortList findFirstTrueAdjacents() { return findFirstTrueAdjacents(ValueFormat.Index); }
+    public final ShortList findFirstTrueAdjacents() {
+        return findFirstTrueAdjacents(ValueFormat.Index);
+    }
 
-    public ShortList findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
+    public final ShortList findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         mustNotBeNull(inputFormat, "inputFormat");
         mustNotBeNull(outputFormat, "outputFormat");
@@ -1475,7 +1479,7 @@ public abstract class Grid {
      * @threading Not thread-safe; calls the non-thread-safe {@link #getTrueCount()}.
      * @memory Does not allocate.
      */
-    public boolean isSolved() { return getTrueCount() == 0; }
+    public final boolean isSolved() { return getTrueCount() == 0; }
 
     /**
      * Returns the count of {@code true} cells in the grid.
@@ -1538,7 +1542,7 @@ public abstract class Grid {
      * @threading Thread-safe; relies only on immutable static data and input parameters.
      * @memory Does not allocate.
      */
-    public static boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell,
+    public static final boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell,
             ValueFormat format) {
         mustNotBeNull(format, "format");
         checkArgument(format != ValueFormat.Bitmask,
@@ -1584,7 +1588,7 @@ public abstract class Grid {
      * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
      * @memory Does not allocate.
      */
-    public static boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
+    public static final boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         // Convert both cells to index format if necessary
         return switch (format) {
             case Bitmask -> throw new IllegalArgumentException(
@@ -1608,7 +1612,7 @@ public abstract class Grid {
      * @threading Thread-safe.
      * @memory Does not allocate.
      */
-    public static boolean areAdjacent(short cellA, short cellB) {
+    public static final boolean areAdjacent(short cellA, short cellB) {
         return areAdjacent(cellA, cellB, ValueFormat.Index);
     }
 
@@ -1629,9 +1633,9 @@ public abstract class Grid {
      * @threading The returned array is thread-safe as it is a new, independent copy.
      * @memory Allocates a new {@code long[2]} array.
      */
-    public long[] getGridState() { return gridState.clone(); }
+    public final long[] getGridState() { return gridState.clone(); }
 
-    public static ShortList invertCombination(ShortList clicks) {
+    public static final ShortList invertCombination(ShortList clicks) {
         final ShortList inverted = new ShortArrayList(NUM_CELLS - clicks.size());
         for (short click = 0; click < NUM_CELLS; click++) {
             if (!clicks.contains(click)) {
@@ -1655,7 +1659,7 @@ public abstract class Grid {
      * @threading Thread-safe; does not modify any instance state.
      * @memory Allocates a new {@link ShortArrayList} and resulting {@code short[]} array.
      */
-    public static short[] invertCombination(short[] clicks) {
+    public static final short[] invertCombination(short[] clicks) {
         return invertCombination(new ShortImmutableList(clicks)).toShortArray();
     }
 
@@ -1686,7 +1690,7 @@ public abstract class Grid {
      * @memory Allocates a new {@link StringBuilder} and {@link String} for the grid representation.
      */
     @Override
-    public String toString() {
+    public final String toString() {
         StringBuilder sb = new StringBuilder();
         for (int row = 0; row < NUM_ROWS; row++) {
             if (row % 2 != 0)
@@ -1718,7 +1722,7 @@ public abstract class Grid {
      * @memory Does not allocate.
      */
     @Override
-    public boolean equals(@Nullable Object obj) {
+    public final boolean equals(@Nullable Object obj) {
         // Following the Effective Java recipe for equals
         return obj == this
                 || (obj instanceof Grid other && Arrays.equals(this.gridState, other.gridState));

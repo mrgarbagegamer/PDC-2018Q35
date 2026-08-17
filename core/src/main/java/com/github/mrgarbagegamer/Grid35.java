@@ -6,8 +6,8 @@ package com.github.mrgarbagegamer;
  *
  * <p>
  * This class defines the starting configuration for the 2018 PDC Q35 puzzle. Its sole purpose is to
- * load a pre-computed bitmask representing the initial layout of {@code true} cells into the
- * {@link #gridState} array. This puzzle is notable as its solution is currently unknown.
+ * load a pre-computed bitmask representing the initial layout of {@code true} cells into the grid
+ * state. This puzzle is notable as its solution is currently unknown.
  * </p>
  *
  * <h2>Architectural Role</h2>

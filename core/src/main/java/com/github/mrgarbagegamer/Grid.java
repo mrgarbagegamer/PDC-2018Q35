@@ -3,8 +3,6 @@ package com.github.mrgarbagegamer;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
-import java.util.Arrays;
-
 import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
@@ -176,11 +174,10 @@ public abstract class Grid {
          * identify individual cells but is included for completeness.
          *
          * <p>
-         * The {@link #gridState grid state} is stored internally as a {@code long[2]} bitmask. This
-         * {@code enum} value signifies operations or data related to this internal representation,
-         * such as the {@link #click(long[])} method. Methods that accept or return a single cell
-         * value will typically throw an {@link IllegalArgumentException} if this format is
-         * specified.
+         * The grid state is stored internally as a bitmask of two longs. This {@code enum} value
+         * signifies operations or data related to this internal representation, such as the
+         * {@link #click(long[])} method. Methods that accept or return a single cell value will
+         * typically throw an {@link IllegalArgumentException} if this format is specified.
          * </p>
          *
          * @see #gridState
@@ -278,42 +275,10 @@ public abstract class Grid {
      */
     public static final int NUM_CELLS = 109;
 
-    /**
-     * The state of the grid, represented as a 109-bit {@link ValueFormat#Bitmask bitmask} split
-     * across two {@code long} values.
-     *
-     * <p>
-     * A {@code 1} at a given bit position indicates the cell is {@code true} while a {@code 0}
-     * indicates it is {@code false} The first {@code long} ({@code gridState[0]}) stores the state
-     * for cells 0-63, and the second ({@code gridState[1]}) stores the state for cells 64-108.
-     * </p>
-     *
-     * <p>
-     * This primitive array representation was chosen over {@link java.util.BitSet} and the Vector
-     * API to eliminate object allocation overhead and ensure cache-friendliness in the hot path.
-     * While Java's lack of a 128-bit primitive adds complexity, this approach provides the highest
-     * performance on the modern JVM for the solver's workload.
-     * </p>
-     *
-     * @see #clearBit(int)
-     * @see #getBit(int)
-     * @see #getGridState()
-     * @see #setBit(int)
-     * @see #setGridState(long, long)
-     * @see #setGridState(long, long, int, short)
-     * @see #toString()
-     * @since 2025.07 - Bitmasked Grid State
-     * @performance {@code O(1)} accesses and modifications using bitwise operations.
-     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads
-     *            without external synchronization.
-     * @memory Fixed memory footprint of 16 bytes (2 {@code long}s) per instance.
-     */
-    private final long[] gridState; // TODO: Consider breaking into two separate longs for clarity
-                                    // and optimization (saving an object header + indirection
-                                    // costs)
+    private long lowerState, upperState;
 
-    private final long initialState0;
-    private final long initialState1;
+    private final long initialLowerState;
+    private final long initialUpperState;
     private final int initialTrueCellsCount;
     private final short initialFirstTrueCell;
     /**
@@ -353,8 +318,7 @@ public abstract class Grid {
      */
     private short firstTrueCell = -1;
     /**
-     * A dirty flag indicating that the {@link #gridState grid state} has been modified and cached
-     * values are stale.
+     * A dirty flag indicating that the grid state has been modified and cached values are stale.
      *
      * <p>
      * This flag is set to {@code true} by any {@code click} operation. It signals to accessor
@@ -745,93 +709,32 @@ public abstract class Grid {
             return (short) (6 * 100 + (index - ROW_OFFSETS.getShort(6)));
     }
 
-    /**
-     * Constructs a new {@code Grid} instance and initializes it to a specific starting state. We
-     * initialize the {@link #gridState grid state} here rather than at declaration to allow the
-     * {@link #Grid(Grid) copy constructor} to create deep copies efficiently, avoiding the need for
-     * a separate cloning method.
-     *
-     * <p>
-     * As {@code Grid} is an {@code abstract} class, this constructor is implicitly called by
-     * concrete subclass constructors (e.g., {@link Grid13}, {@link Grid22}, {@link Grid35}). It
-     * ensures that the grid is properly set up by invoking the abstract {@link #initialize()}
-     * method, which subclasses must implement to define their unique initial puzzle configurations.
-     * </p>
-     *
-     * @see #initialize()
-     * @since 2025.03 - Abstract {@code Grid} Introduction
-     * @performance {@code O(1)} complexity for construction, plus the complexity of
-     *              {@link #initialize()}.
-     * @threading Thread-safe; each instance is independent.
-     * @memory Allocates a new {@code Grid} instance and a new {@code long[2]} array for
-     *         {@link #gridState}.
-     */
-    protected Grid(long initialState0, long initialState1) {
-        this.initialState0 = initialState0;
-        this.initialState1 = initialState1;
-        this.gridState = new long[] {initialState0, initialState1};
+    protected Grid(long initialLowerState, long initialUpperState) {
+        this.initialLowerState = initialLowerState;
+        this.initialUpperState = initialUpperState;
+        this.lowerState = initialLowerState;
+        this.upperState = initialUpperState;
         this.initialFirstTrueCell = findFirstTrueCell();
         this.initialTrueCellsCount = getTrueCount();
     }
 
-    protected Grid(long initialState0, long initialState1, int initialTrueCellsCount,
+    protected Grid(long initialLowerState, long initialUpperState, int initialTrueCellsCount,
             short initialFirstTrueCell) {
-        this.initialState0 = initialState0;
-        this.initialState1 = initialState1;
-        this.gridState = new long[] {initialState0, initialState1};
+        this.initialLowerState = initialLowerState;
+        this.initialUpperState = initialUpperState;
+        this.lowerState = initialLowerState;
+        this.upperState = initialUpperState;
         this.initialFirstTrueCell = initialFirstTrueCell;
         this.initialTrueCellsCount = initialTrueCellsCount;
         this.firstTrueCell = initialFirstTrueCell;
         this.trueCellsCount = initialTrueCellsCount;
     }
 
-    /**
-     * Constructs a new {@code Grid} instance as a deep copy of another {@code Grid}. This copy
-     * constructor duplicates the internal state, ensuring that modifications to the new instance do
-     * not affect the original. As an {@code abstract} class, {@code Grid} cannot be instantiated,
-     * so this constructor is meant to be called by concrete subclass copy constructors.
-     * 
-     * <p>
-     * While a {@link Object#clone() clone()} method could be implemented, it would introduce
-     * complexity with subclassing and type safety. Standard cloning convention requires acquiring
-     * an instance of the exact runtime type by calling {@code super.clone()}, but doing so would
-     * cause the resulting {@link #gridState} to reference the same array as the original, leading
-     * to shared mutable state. Fields declared as {@code final} cannot be mutated within a
-     * {@code clone()} method, so the reference cannot be corrected before returning.
-     * </p>
-     * 
-     * <p>
-     * Just calling {@link #Grid(long, long) new Grid(long, long)} to create a new instance would
-     * not work either, as {@code Grid} is {@code abstract} and cannot be instantiated directly. The
-     * only other alternatives involve using reflection (which is inefficient and still not
-     * type-safe) or requiring each subclass to implement its own {@code clone()} method (violating
-     * the DRY principle and risking inconsistent behavior).
-     * </p>
-     * 
-     * <p>
-     * Our original design used the reflective approach, requiring a
-     * {@code Grid newGrid = this.getClass().getDeclaredConstructor().newInstance()} call. However,
-     * this was inefficient and complicated error handling. A copy constructor like this carries all
-     * of the benefits of cloning without the downsides, providing a clear and efficient way to
-     * duplicate {@code Grid} instances.
-     * </p>
-     * 
-     * @param other The {@code Grid} instance to copy.
-     * @see #copy()
-     * @see Cloneable
-     * @since 2026.01 - Copy Constructor for {@code Grid} Cloning
-     * @performance {@code O(1)} copying of primitive fields and {@code O(n)} cloning of the
-     *              {@code gridState}.
-     * @threading Creates a new independent instance based on the state at the time of copying (not
-     *            subject to concurrent modifications). The resulting instance is thread-safe, but
-     *            the copying process itself is not.
-     * @memory Allocates a new {@code Grid} instance and a new {@code long[2]} array for
-     *         {@link #gridState}.
-     */
     protected Grid(Grid other) {
-        this.gridState = other.gridState.clone();
-        this.initialState0 = other.initialState0;
-        this.initialState1 = other.initialState1;
+        this.lowerState = other.lowerState;
+        this.upperState = other.upperState;
+        this.initialLowerState = other.initialLowerState;
+        this.initialUpperState = other.initialUpperState;
         this.initialFirstTrueCell = other.initialFirstTrueCell;
         this.initialTrueCellsCount = other.initialTrueCellsCount;
         this.trueCellsCount = other.trueCellsCount;
@@ -861,111 +764,62 @@ public abstract class Grid {
 
     // TODO: Update Javadocs
     public final void initialize() {
-        setGridState(initialState0, initialState1, initialTrueCellsCount, initialFirstTrueCell);
+        setGridState(initialLowerState, initialUpperState, initialTrueCellsCount,
+                initialFirstTrueCell);
     }
 
-    /**
-     * Sets the bit at the specified {@link ValueFormat#Index index} in the {@link #gridState grid
-     * state} to {@code true}.
-     *
-     * <p>
-     * This is a low-level helper method primarily used during grid initialization. It updates the
-     * {@link #gridState bitmask} and increments {@link #trueCellsCount} if the bit was previously
-     * {@code false}. For performance-critical click operations, {@link #click(short[])} is used
-     * instead, which leverages pre-computed {@link #ADJACENCY_MASKS}.
-     * </p>
-     *
-     * @param index The {@link ValueFormat#Index index} of the bit to set (0-108).
-     * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
-     *                                   {@code long[]} array.
-     * @see #clearBit(int)
-     * @see #getBit(int)
-     * @since 2025.07 - Bitmasked {@code Grid} State
-     * @performance {@code O(1)} bitwise operation.
-     * @threading Not thread-safe; modifies {@link #gridState} and {@link #trueCellsCount}.
-     * @memory Does not allocate.
-     */
     // TODO: Remove this method.
     protected final void setBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
-        if ((gridState[longIndex] & (1L << bitPosition)) == 0) {
-            gridState[longIndex] |= (1L << bitPosition);
-            trueCellsCount++;
-        }
+
+        if (longIndex == 0)
+            this.lowerState |= (1L << bitPosition);
+        else if (longIndex == 1)
+            this.upperState |= (1L << bitPosition);
+        else
+            throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
+
+        this.trueCellsCount++;
     }
 
-    /**
-     * Clears the bit at the specified {@link ValueFormat#Index index} in the {@link #gridState grid
-     * state} to {@code false}.
-     *
-     * <p>
-     * This is a low-level helper method, analogous to {@link #setBit(int)}. It updates the
-     * {@link #gridState bitmask} and decrements {@link #trueCellsCount} if the bit was previously
-     * {@code true}. It is not used in performance-critical paths, which prefer
-     * {@link #click(short[])}.
-     * </p>
-     *
-     * @param index The {@link ValueFormat#Index index} of the bit to clear (0-108).
-     * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
-     *                                   {@code long[]} array.
-     * @see #getBit(int)
-     * @since 2025.07 - Bitmasked {@code Grid} State
-     * @performance {@code O(1)} bitwise operation.
-     * @threading Not thread-safe; modifies {@link #gridState} and {@link #trueCellsCount}.
-     * @memory Does not allocate.
-     */
     // TODO: Remove this method
     protected final void clearBit(int index) {
         int longIndex = index / 64;
         int bitPosition = index % 64;
-        if ((gridState[longIndex] & (1L << bitPosition)) != 0) {
-            gridState[longIndex] &= ~(1L << bitPosition);
-            trueCellsCount--;
-        }
+
+        if (longIndex == 0)
+            this.lowerState &= ~(1L << bitPosition);
+        else if (longIndex == 1)
+            this.upperState &= ~(1L << bitPosition);
+        else
+            throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
+
+        this.trueCellsCount--;
     }
 
-    /**
-     * Checks the state of the bit at the specified {@link ValueFormat#Index index} in the
-     * {@link #gridState grid state}.
-     *
-     * <p>
-     * This method is used to determine if a specific cell is {@code true} (on) or {@code false}
-     * (off). It is utilized internally for operations like {@link #toString()} or when iterating to
-     * find {@code true} cells.
-     * </p>
-     *
-     * @param index The {@link ValueFormat#Index index} of the bit to check (0-108).
-     * @return {@code true} if the bit is set (cell is "on"), {@code false} otherwise.
-     * @throws IndexOutOfBoundsException (Implicitly) if the index is out of bounds for the
-     *                                   {@code long[]} array.
-     * @see #clearBit(int)
-     * @see #findTrueCells()
-     * @see #findTrueCells(ValueFormat)
-     * @see #setBit(int)
-     * @since 2025.07 - Bitmasked {@code Grid} State
-     * @performance {@code O(1)} bitwise operation.
-     * @threading Not thread-safe; reads potentially mutable {@link #gridState}.
-     * @memory Does not allocate.
-     */
     protected final boolean getBit(int index) { // TODO: Consider removing this method
         int longIndex = index / 64;
         int bitPosition = index % 64;
-        return (gridState[longIndex] & (1L << bitPosition)) != 0;
+        return switch (longIndex) {
+            case 0 -> (lowerState & (1L << bitPosition)) != 0;
+            case 1 -> (upperState & (1L << bitPosition)) != 0;
+            default -> throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
+        };
     }
 
     /**
-     * Sets the entire {@link #gridState grid bitmask} to the specified values. This method can be
-     * used by subclasses to initialize the grid to a specific state, bypassing individual bit
-     * manipulations and ensuring the consistency of related fields.
+     * Sets the entire grid bitmask to the specified values. This method can be used by subclasses
+     * to initialize the grid to a specific state, bypassing individual bit manipulations and
+     * ensuring the consistency of related fields.
      * 
      * <p>
      * This overload allows setting the grid state along with the {@link #trueCellsCount} and
      * {@link #firstTrueCell} in one operation, useful when the complete state is known upfront.
      * </p>
      * 
-     * @param state0         The first {@code long} representing bits 0-63 of the grid.
-     * @param state1         The second {@code long} representing bits 64-108 of the grid.
+     * @param lowerState     The first {@code long} representing bits 0-63 of the grid.
+     * @param upperState     The second {@code long} representing bits 64-108 of the grid.
      * @param trueCellsCount The total number of {@code true} cells in the grid.
      * @param firstTrueCell  The index of the first {@code true} cell in the grid.
      * @see #setGridState(long, long)
@@ -974,37 +828,36 @@ public abstract class Grid {
      * @threading Not thread-safe; modifies instance state.
      * @memory Does not allocate.
      */
-    protected final void setGridState(long state0, long state1, int trueCellsCount,
+    protected final void setGridState(long lowerState, long upperState, int trueCellsCount,
             short firstTrueCell) {
-        this.gridState[0] = state0;
-        this.gridState[1] = state1;
+        this.lowerState = lowerState;
+        this.upperState = upperState;
         this.trueCellsCount = trueCellsCount;
         this.firstTrueCell = firstTrueCell;
         this.recalculationNeeded = false; // State is now consistent
     }
 
     /**
-     * Sets the entire {@link #gridState grid bitmask} to the specified values. This method can be
-     * used by subclasses to initialize the grid to a specific state, bypassing individual bit
-     * manipulations.
+     * Sets the entire grid bitmask to the specified values. This method can be used by subclasses
+     * to initialize the grid to a specific state, bypassing individual bit manipulations.
      * 
      * <p>
-     * This overload only sets the {@link #gridState} and marks the grid as needing recalculation of
+     * This overload only sets the grid state and marks the grid as needing recalculation of
      * {@link #trueCellsCount} and {@link #firstTrueCell}. It is useful when one knows the state
      * they want to set, but doesn't have the derived values readily available.
      * </p>
      * 
-     * @param state0 The first {@code long} representing bits 0-63 of the grid.
-     * @param state1 The second {@code long} representing bits 64-108 of the grid.
+     * @param lowerState The first {@code long} representing bits 0-63 of the grid.
+     * @param upperState The second {@code long} representing bits 64-108 of the grid.
      * @see #setGridState(long, long, int, short)
      * @since 2026.01 - Grid Encapsulation Improvements
      * @performance {@code O(1)} assignment operations.
      * @threading Not thread-safe; modifies instance state.
      * @memory Does not allocate.
      */
-    protected final void setGridState(long state0, long state1) {
-        this.gridState[0] = state0;
-        this.gridState[1] = state1;
+    protected final void setGridState(long lowerState, long upperState) {
+        this.lowerState = lowerState;
+        this.upperState = upperState;
         this.recalculationNeeded = true; // Mark for recalculation
     }
 
@@ -1029,8 +882,8 @@ public abstract class Grid {
     public final ShortList findTrueCells() { return this.findTrueCells(ValueFormat.Index); }
 
     /**
-     * Scans the {@link #gridState grid} and returns the first {@code true} cell in the requested
-     * {@link ValueFormat format}.
+     * Scans the grid and returns the first {@code true} cell in the requested {@link ValueFormat
+     * format}.
      *
      * <p>
      * This method is crucial for optimizing the solution search. A core property of the puzzle is
@@ -1043,7 +896,7 @@ public abstract class Grid {
      * <p>
      * The method employs highly optimized {@link Long#numberOfTrailingZeros(long)} and
      * {@link Long#bitCount(long)} intrinsics to efficiently determine the first {@code true} bit
-     * and the total count of {@code true} bits in the {@code long[2]} {@link #gridState}.
+     * and the total count of {@code true} bits in the grid state.
      * </p>
      *
      * <h3>Performance Considerations</h3>
@@ -1077,16 +930,16 @@ public abstract class Grid {
 
         if (recalculationNeeded) {
             // Find first true cell using bit operations
-            if (gridState[0] != 0L) {
-                firstTrueCell = (short) Long.numberOfTrailingZeros(gridState[0]);
-            } else if (gridState[1] != 0L) {
-                firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(gridState[1]));
+            if (lowerState != 0L) {
+                firstTrueCell = (short) Long.numberOfTrailingZeros(lowerState);
+            } else if (upperState != 0L) {
+                firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(upperState));
             } else {
                 firstTrueCell = -1;
             }
 
             // Recalculate true cells count
-            trueCellsCount = Long.bitCount(gridState[0]) + Long.bitCount(gridState[1]);
+            this.trueCellsCount = Long.bitCount(this.lowerState) + Long.bitCount(this.upperState);
 
             recalculationNeeded = false;
         }
@@ -1104,8 +957,8 @@ public abstract class Grid {
     }
 
     /**
-     * Scans the {@link #gridState grid} and returns the first {@code true} cell in
-     * {@link ValueFormat#Index Index} format.
+     * Scans the grid and returns the first {@code true} cell in {@link ValueFormat#Index Index}
+     * format.
      *
      * <p>
      * This is a convenience overload of {@link #findFirstTrueCell(ValueFormat)} that strips the
@@ -1130,16 +983,16 @@ public abstract class Grid {
 
         if (recalculationNeeded) {
             // Find first true cell using bit operations
-            if (gridState[0] != 0L) {
-                firstTrueCell = (short) Long.numberOfTrailingZeros(gridState[0]);
-            } else if (gridState[1] != 0L) {
-                firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(gridState[1]));
+            if (lowerState != 0L) {
+                firstTrueCell = (short) Long.numberOfTrailingZeros(lowerState);
+            } else if (upperState != 0L) {
+                firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(upperState));
             } else {
                 firstTrueCell = -1;
             }
 
             // Recalculate true cells count
-            trueCellsCount = Long.bitCount(gridState[0]) + Long.bitCount(gridState[1]);
+            trueCellsCount = Long.bitCount(lowerState) + Long.bitCount(upperState);
 
             recalculationNeeded = false;
         }
@@ -1152,8 +1005,8 @@ public abstract class Grid {
      *
      * <p>
      * A click toggles the state of its adjacent cells (excluding itself). This operation is
-     * performed by XORing the {@link #gridState grid state} with a pre-computed
-     * {@link #ADJACENCY_MASKS adjacency mask} corresponding to the clicked cell.
+     * performed by XORing the grid state with a pre-computed {@link #ADJACENCY_MASKS adjacency
+     * mask} corresponding to the clicked cell.
      * </p>
      *
      * <p>
@@ -1166,9 +1019,9 @@ public abstract class Grid {
      * <h3>Performance Considerations</h3>
      * <p>
      * This method achieves {@code O(1)} complexity due to the direct bitwise XOR operations on the
-     * {@code long[2]} {@link #gridState} using pre-computed masks. While the grid spans 109 cells,
-     * requiring two {@code long} values for the bitmask, the implementation avoids conditional
-     * branching based on cell position for simplicity and consistent performance.
+     * grid state using pre-computed masks. While the grid spans 109 cells, requiring two
+     * {@code long} values for the bitmask, the implementation avoids conditional branching based on
+     * cell position for simplicity and consistent performance.
      * </p>
      *
      * @param cell   The cell to click, in the specified {@code format}.
@@ -1182,7 +1035,7 @@ public abstract class Grid {
      * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations.
      *             Single-click operations are no longer on the hot path.
      * @performance {@code O(1)} complexity due to bitwise operations and pre-computed masks.
-     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @threading Not thread-safe; modifies the instance's grid state.
      * @memory Does not allocate.
      */
     @Deprecated
@@ -1202,8 +1055,7 @@ public abstract class Grid {
      *
      * <p>
      * This is a highly optimized, {@code final} method designed for performance-critical paths. It
-     * directly applies the pre-computed adjacency mask to the {@link #gridState grid state} using
-     * bitwise XOR.
+     * directly applies the pre-computed adjacency mask to the grid state using bitwise XOR.
      * </p>
      *
      * <p>
@@ -1230,17 +1082,17 @@ public abstract class Grid {
      * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations.
      *             Single-click operations are no longer on the hot path.
      * @performance {@code O(1)} retrieval and bitwise operations.
-     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @threading Not thread-safe; modifies the instance's grid state.
      * @memory Does not allocate.
      */
     @Deprecated
     public final void click(short cell) {
         // XOR the grid state with the pre-computed adjacency mask
-        gridState[0] ^= ADJACENCY_MASKS[cell][0];
-        gridState[1] ^= ADJACENCY_MASKS[cell][1];
+        this.lowerState ^= ADJACENCY_MASKS[cell][0];
+        this.upperState ^= ADJACENCY_MASKS[cell][1];
 
         // Mark for recalculation of first true cell and count
-        recalculationNeeded = true;
+        this.recalculationNeeded = true;
     }
 
     /**
@@ -1261,7 +1113,7 @@ public abstract class Grid {
      * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations.
      *             Single-click operations are no longer on the hot path.
      * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @threading Not thread-safe; modifies the instance's grid state.
      * @memory Does not allocate.
      */
     @Deprecated
@@ -1270,15 +1122,15 @@ public abstract class Grid {
         short cell = packedToIndex((short) (row * 100 + col));
 
         // XOR the grid state with the pre-computed adjacency mask
-        gridState[0] ^= ADJACENCY_MASKS[cell][0];
-        gridState[1] ^= ADJACENCY_MASKS[cell][1];
+        this.lowerState ^= ADJACENCY_MASKS[cell][0];
+        this.upperState ^= ADJACENCY_MASKS[cell][1];
 
         // Mark for recalculation of first true cell and count
-        recalculationNeeded = true;
+        this.recalculationNeeded = true;
     }
 
     /**
-     * Applies a pre-computed bitmask to the {@link #gridState grid state}.
+     * Applies a pre-computed bitmask to the grid state.
      *
      * <p>
      * This method provides a direct way to modify the grid state by XORing it with an external
@@ -1297,18 +1149,18 @@ public abstract class Grid {
      * @see #click(short[])
      * @since 2025.07 - Click Format Support
      * @performance {@code O(1)} bitwise operations.
-     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @threading Not thread-safe; modifies the instance's grid state.
      * @memory Does not allocate.
      */
     public final void click(long[] bitmask) {
         if (bitmask.length != 2) {
             throw new IllegalArgumentException("Bitmask must be of length 2.");
         }
-        gridState[0] ^= bitmask[0];
-        gridState[1] ^= bitmask[1];
+        this.lowerState ^= bitmask[0];
+        this.upperState ^= bitmask[1];
 
         // Mark for recalculation of first true cell
-        recalculationNeeded = true;
+        this.recalculationNeeded = true;
     }
 
     /**
@@ -1316,9 +1168,9 @@ public abstract class Grid {
      *
      * <p>
      * This method efficiently processes an array of cells (in {@link ValueFormat#Index} format) by
-     * iteratively applying their corresponding {@link #ADJACENCY_MASKS} to the {@link #gridState
-     * grid state} using bitwise XOR operations. This is the primary method for applying click
-     * combinations in bulk, particularly within {@link TestClickCombination monkeys}.
+     * iteratively applying their corresponding {@link #ADJACENCY_MASKS} to the grid state using
+     * bitwise XOR operations. This is the primary method for applying click combinations in bulk,
+     * particularly within {@link TestClickCombination monkeys}.
      * </p>
      *
      * <p>
@@ -1341,15 +1193,15 @@ public abstract class Grid {
      * @see #click(short)
      * @since 2025.07 - Bulk Clicks
      * @performance {@code O(cells.length)} for iterating over {@code cells}.
-     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @threading Not thread-safe; modifies the instance's grid state.
      * @memory Does not allocate.
      */
     public final void click(short[] cells) {
         for (short cell : cells) {
-            gridState[0] ^= ADJACENCY_MASKS[cell][0];
-            gridState[1] ^= ADJACENCY_MASKS[cell][1];
+            this.lowerState ^= ADJACENCY_MASKS[cell][0];
+            this.upperState ^= ADJACENCY_MASKS[cell][1];
         }
-        recalculationNeeded = true;
+        this.recalculationNeeded = true;
     }
 
     /**
@@ -1388,17 +1240,17 @@ public abstract class Grid {
      * @since 2025.11 - Avoid Arraycopy in WorkItem Processing
      * @performance {@code O(prefix.length + 1)} for iterating over {@code prefix} and applying the
      *              final click.
-     * @threading Not thread-safe; modifies the instance's {@link #gridState}.
+     * @threading Not thread-safe; modifies the instance's grid state.
      * @memory Does not allocate.
      */
     public final void click(short[] prefix, short finalClick) {
         for (short cell : prefix) {
-            gridState[0] ^= ADJACENCY_MASKS[cell][0];
-            gridState[1] ^= ADJACENCY_MASKS[cell][1];
+            this.lowerState ^= ADJACENCY_MASKS[cell][0];
+            this.upperState ^= ADJACENCY_MASKS[cell][1];
         }
-        gridState[0] ^= ADJACENCY_MASKS[finalClick][0];
-        gridState[1] ^= ADJACENCY_MASKS[finalClick][1];
-        recalculationNeeded = true;
+        this.lowerState ^= ADJACENCY_MASKS[finalClick][0];
+        this.upperState ^= ADJACENCY_MASKS[finalClick][1];
+        this.recalculationNeeded = true;
     }
 
     public final ShortList findFirstTrueAdjacents(ValueFormat format) {
@@ -1463,7 +1315,7 @@ public abstract class Grid {
         }
     }
 
-    public final boolean isSolved() { return this.gridState[0] == 0 && this.gridState[1] == 0; }
+    public final boolean isSolved() { return this.lowerState == 0 && this.upperState == 0; }
 
     /**
      * Returns the count of {@code true} cells in the grid.
@@ -1483,7 +1335,7 @@ public abstract class Grid {
      */
     public final int getTrueCount() {
         if (recalculationNeeded) {
-            trueCellsCount = Long.bitCount(gridState[0]) + Long.bitCount(gridState[1]);
+            trueCellsCount = Long.bitCount(this.lowerState) + Long.bitCount(this.upperState);
             recalculationNeeded = false;
         }
         return trueCellsCount;
@@ -1601,7 +1453,7 @@ public abstract class Grid {
     }
 
     /**
-     * Returns a copy of the current {@link #gridState grid state} as a {@code long[2]} bitmask.
+     * Returns a copy of the current grid state as a {@code long[2]} bitmask.
      *
      * <p>
      * This method provides direct access to a snapshot of the grid's internal state. While it
@@ -1617,7 +1469,7 @@ public abstract class Grid {
      * @threading The returned array is thread-safe as it is a new, independent copy.
      * @memory Allocates a new {@code long[2]} array.
      */
-    public final long[] getGridState() { return gridState.clone(); }
+    public final long[] getGridState() { return new long[] {this.lowerState, this.upperState}; }
 
     public static final ShortList invertCombination(ShortList clicks) {
         final ShortList inverted = new ShortArrayList(NUM_CELLS - clicks.size());
@@ -1690,47 +1542,17 @@ public abstract class Grid {
         return sb.toString();
     }
 
-    /**
-     * Compares this {@code Grid} instance to another object for equality. As subclasses of Grid
-     * only impact initialization behavior and not the core grid state, this method only compares
-     * the {@link #gridState grid state} arrays of both instances.
-     * 
-     * @param obj The object to compare with this instance.
-     * @return {@code true} if the other object is a {@code Grid} with an identical
-     *         {@link #gridState grid state}; {@code false} otherwise.
-     * @see Arrays#equals(long[], long[])
-     * @see Object#equals(Object)
-     * @since 2025.11 - equals Method Addition
-     * @performance {@code O(1)} complexity due to fixed-size array comparison.
-     * @threading Not thread-safe; reads the mutable {@link #gridState}.
-     * @memory Does not allocate.
-     */
     @Override
     public final boolean equals(@Nullable Object obj) {
         // Following the Effective Java recipe for equals
-        return obj == this
-                || (obj instanceof Grid other && Arrays.equals(this.gridState, other.gridState));
+        return obj == this || (obj instanceof Grid other && this.lowerState == other.lowerState
+                && this.upperState == other.upperState);
     }
 
-    /**
-     * Computes the hash code for this {@code Grid} instance, delegating to the
-     * {@link java.util.Arrays#hashCode(long[])} utility method.
-     * 
-     * <p>
-     * This method generates a hash code based on the {@link #gridState grid state}, ignoring the
-     * concrete class type or other, lazily evaluated fields.
-     * </p>
-     * 
-     * @return The hash code for this {@code Grid} instance.
-     * @see #equals(Object)
-     * @see java.lang.Object#hashCode()
-     * @since 2025.11 - hashCode Method Addition
-     * @performance {@code O(1)} complexity due to fixed-size array hashing.
-     * @threading Not thread-safe; reads the mutable {@link #gridState}.
-     * @memory Does not allocate.
-     */
     @Override
-    public final int hashCode() { return Arrays.hashCode(gridState); }
+    public final int hashCode() {
+        return 31 * Long.hashCode(this.lowerState) + Long.hashCode(this.upperState);
+    }
 
     private static void checkIndex(short index) {
         checkArgument(index >= 0 && index < Grid.NUM_CELLS, "index %s is out of bounds [0, %s]",
@@ -1798,7 +1620,7 @@ public abstract class Grid {
         public Builder from(Grid other) {
             mustNotBeNull(other, "other");
 
-            return setInitialState(other.gridState[0], other.gridState[1]);
+            return setInitialState(other.lowerState, other.upperState);
         }
 
         public Builder from(long[] bitmask) {

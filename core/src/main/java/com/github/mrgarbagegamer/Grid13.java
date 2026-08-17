@@ -6,8 +6,8 @@ package com.github.mrgarbagegamer;
  *
  * <p>
  * This class defines the starting configuration for the 2018 PDC Q13 puzzle. Its sole purpose is to
- * load a pre-computed bitmask representing the initial layout of {@code true} cells into the
- * {@link #gridState} array.
+ * load a pre-computed bitmask representing the initial layout of {@code true} cells into the grid
+ * state.
  * </p>
  *
  * <h2>Architectural Role</h2>

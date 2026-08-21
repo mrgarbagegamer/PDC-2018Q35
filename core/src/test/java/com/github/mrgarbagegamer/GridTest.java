@@ -788,6 +788,7 @@ class GridTest {
         }, "Expected NullPointerException for findFirstTrueAdjacentsAfter with both formats null");
     }
 
+    @Test
     void testFindFirstTrueAdjacentsAfterBitmask() {
         Grid grid = new Grid13();
 

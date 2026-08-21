@@ -9,7 +9,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
 // TODO: Javadoc
-// TODO: Update method implementations to use one simple overload and a formatting overload
 public record GridState(long lowerState, long upperState) {
 
     public GridState {
@@ -71,16 +70,19 @@ public record GridState(long lowerState, long upperState) {
     }
 
     public ShortList findTrueCells() {
-        ShortList trueCellsList = new ShortArrayList(this.getTrueCount());
+        ShortList trueCellsList = new ShortArrayList();
 
-        // TODO: Consider an approach that uses Long.numberOfTrailingZeros() for efficiency and
-        // better readability.
-        for (short i = 0; i < Grid.NUM_CELLS; i++) {
-            int longIndex = i / 64;
-            int bitPosition = i % 64;
-            long val = (longIndex == 0) ? this.lowerState : this.upperState;
-            if ((val & (1L << bitPosition)) != 0)
-                trueCellsList.add(i);
+        long lowerCopy = this.lowerState;
+        long upperCopy = this.upperState;
+
+        while (lowerCopy != 0L) {
+            trueCellsList.add((short) Long.numberOfTrailingZeros(lowerCopy));
+            lowerCopy &= (lowerCopy - 1);
+        }
+
+        while (upperCopy != 0L) {
+            trueCellsList.add((short) (64 + Long.numberOfTrailingZeros(upperCopy)));
+            upperCopy &= (upperCopy - 1);
         }
 
         return new ShortImmutableList(trueCellsList);
@@ -97,63 +99,56 @@ public record GridState(long lowerState, long upperState) {
         }
     }
 
-    public ShortList findFirstTrueAdjacents() {
-        short firstTrueCell = this.findFirstTrueCell();
-        return firstTrueCell == -1 ? ShortList.of() : Grid.findAdjacents(firstTrueCell);
+    public ShortList findFirstTrueAdjacents(Grid.ValueFormat format) {
+        short firstTrueCell = this.findFirstTrueCell(format);
+        return firstTrueCell == -1 ? ShortList.of() : Grid.findAdjacents(firstTrueCell, format);
     }
 
-    public ShortList findFirstTrueAdjacents(Grid.ValueFormat format) {
-        mustNotBeNull(format, "format");
-        if (format == Grid.ValueFormat.Bitmask)
-            throw bitmaskFormatNotSupportedException("findFirstTrueAdjacents");
-
-        ShortList firstTrueAdjacents = this.findFirstTrueAdjacents();
-        return format == Grid.ValueFormat.Index ? firstTrueAdjacents
-                : indexListToPackedList(firstTrueAdjacents);
+    public ShortList findFirstTrueAdjacents() {
+        return this.findFirstTrueAdjacents(Grid.ValueFormat.Index);
     }
 
     public ShortList findFirstTrueAdjacentsAfter(short cell, Grid.ValueFormat inputFormat,
             Grid.ValueFormat outputFormat) {
-        mustNotBeNull(inputFormat, "inputFormat");
         mustNotBeNull(outputFormat, "outputFormat");
-        checkArgument(inputFormat != Grid.ValueFormat.Bitmask,
-                "Bitmask is not a supported input format");
         checkArgument(outputFormat != Grid.ValueFormat.Bitmask,
                 "Bitmask is not a supported output format");
 
-        ShortList firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
+        ShortList firstTrueAdjacents = this.findFirstTrueAdjacents(inputFormat);
+
         if (firstTrueAdjacents.isEmpty())
             return ShortList.of();
 
-        // Binary search to find the index of the first adjacent cell greater than 'cell'
-        // TODO: Use the built-in binary search method if available.
-        int index = -1;
-        int low = 0, high = firstTrueAdjacents.size() - 1;
-        while (low <= high) {
-            int mid = (low + high) / 2;
-            if (firstTrueAdjacents.getShort(mid) > cell) {
-                index = mid; // Found a candidate, but keep searching left for the first one
-                high = mid - 1;
-            } else {
-                low = mid + 1; // Search right
-            }
-        }
+        int index = findIndexOfFirstLargerCell(cell, firstTrueAdjacents);
 
-        // If no adjacent cell greater than 'cell' is found, return empty list
-        if (index == -1)
+        if (index < 0)
             return ShortList.of();
 
-        // If the index is found, return the sublist starting from that index
         ShortList subList = firstTrueAdjacents.subList(index, firstTrueAdjacents.size());
 
-        // Convert the result to the desired output format
         if (outputFormat == inputFormat) {
-            return subList; // No conversion or re-wrapping needed
+            return subList;
         } else {
             if (outputFormat == Grid.ValueFormat.PackedInt && inputFormat == Grid.ValueFormat.Index)
                 return indexListToPackedList(subList);
             else
                 return packedListToIndexList(subList);
         }
+    }
+
+    private static int findIndexOfFirstLargerCell(short cell, ShortList list) {
+        int index = -1;
+        int low = 0;
+        int high = list.size() - 1;
+        while (low <= high) {
+            int mid = (low + high) / 2;
+            if (list.getShort(mid) > cell) {
+                index = mid; // Found a candidate, but keep searching left for the first one
+                high = mid - 1;
+            } else {
+                low = mid + 1; // Search right
+            }
+        }
+        return index;
     }
 }

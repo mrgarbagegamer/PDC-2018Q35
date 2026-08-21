@@ -131,16 +131,13 @@ public class GridBenchmark {
 
     @Benchmark
     public int getTrueCount_Clean() {
-        // Since we don't modify the grid in this benchmark, the dirty flag remains false
-        // (after the first call). This measures the cached path.
-        return grid.getTrueCount();
+        return grid.toGridState().getTrueCount();
     }
 
     @Benchmark
     public int getTrueCount_Dirty() {
-        // This measures the cost of a click PLUS the cost of recalculation.
-        grid.click(combination); // Dirty it
-        int count = grid.getTrueCount(); // Recalculate
+        grid.click(combination);
+        int count = grid.toGridState().getTrueCount();
 
         // Reset state by clicking again (XOR undo)
         grid.click(combination);

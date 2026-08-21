@@ -43,7 +43,7 @@ public class Grid13 extends Grid {
      * @memory Allocates a new {@code Grid13} instance.
      */
     public Grid13() {
-        super(-6917317925703516160L, 8191L, 30, (short) 32);
+        super(-6917317925703516160L, 8191L);
 
         // Initial clicks for Q13 (pre computed in index format to avoid recalculations)
         // this.click((short)48); // row 3, col 0

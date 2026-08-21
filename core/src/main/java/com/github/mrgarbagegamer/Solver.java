@@ -56,7 +56,7 @@ public class Solver {
         // Acquire the logger for an initial message:
         this.logger.info("Starting solver with {} clicks, {} threads, and the following grid:",
                 Unbox.box(this.config.numClicks()), Unbox.box(this.config.numThreads()));
-        logGrid(this.config.baseGrid(), this.logger);
+        logGrid(Grid.withInitial(this.config.baseGridState()), this.logger);
 
         // Create the context registry and generator pool
         final ContextRegistry registry = ContextRegistry.newRegistry(this.config, this.services);
@@ -154,7 +154,7 @@ public class Solver {
             this.logger.info("{} - {}", winningThread.getName(), elapsedFormatted);
 
             // Verify solution
-            final Grid puzzleGrid = this.config.baseGrid(); // baseGrid() performs a copy
+            final Grid puzzleGrid = Grid.withInitial(this.config.baseGridState());
             puzzleGrid.click(winningCombination);
             logGrid(puzzleGrid, this.logger);
         }

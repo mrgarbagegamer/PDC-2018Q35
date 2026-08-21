@@ -128,7 +128,7 @@ public class TestClickCombination extends Thread {
         this.logger = services.getLogger(TestClickCombination.class);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         this.solverState = mustNotBeNull(solverState, "solverState");
-        this.puzzleGrid = config.baseGrid();
+        this.puzzleGrid = Grid.withInitial(config.baseGridState());
         this.masksLower = config.getTrueCellMasksLower();
         this.masksUpper = config.getTrueCellMasksUpper();
         this.expectedLower = config.getExpectedMaskLower();

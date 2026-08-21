@@ -407,41 +407,22 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} method to ensure that it throws a
-     * NullPointerException when provided with a null format.
-     */
     @Test
     void testFindTrueCellsNull() {
         Grid grid = new Grid13();
         assertThrows(NullPointerException.class, () -> {
-            grid.findTrueCells(null);
+            grid.toGridState().findTrueCells(null);
         }, "Expected NullPointerException for findTrueCells with null format");
     }
 
-    /**
-     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} method to ensure that it throws an
-     * IllegalArgumentException when provided with an invalid Bitmask format.
-     */
     @Test
     void testFindTrueCellsBitmask() {
         Grid grid = new Grid13();
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findTrueCells(Grid.ValueFormat.Bitmask);
+            grid.toGridState().findTrueCells(Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findTrueCells with Bitmask format");
     }
 
-    /**
-     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} and {@link Grid#findTrueCells()}
-     * methods with an Index output format to ensure they return correct results after random clicks
-     * on the grid. This test iterates through all possible counts of true cells from 0 to
-     * NUM_CELLS, generating unique random clicks for each count and verifying that the methods
-     * return the expected true cells.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
-     * between different value formats are functioning correctly.
-     */
     @Test
     void testFindTrueCellsIndex() {
         // We need to be able to test the index format specifically, handling true cell counts from
@@ -453,8 +434,9 @@ class GridTest {
 
         // Test for solved state
         ShortList expectedTrueCellsSolved = ShortList.of();
-        ShortList actualTrueCellsSolvedIndex = grid.findTrueCells(Grid.ValueFormat.Index);
-        ShortList actualTrueCellsSolvedNoFormat = grid.findTrueCells();
+        ShortList actualTrueCellsSolvedIndex = grid.toGridState()
+                .findTrueCells(Grid.ValueFormat.Index);
+        ShortList actualTrueCellsSolvedNoFormat = grid.toGridState().findTrueCells();
 
         assertIterableEquals(expectedTrueCellsSolved, actualTrueCellsSolvedIndex,
                 "The list of true cells should be empty in Index format for a solved grid");
@@ -470,8 +452,9 @@ class GridTest {
             grid.click(toggleBitmask);
 
             // Now, we can verify that the true cells found match the expected set
-            ShortList actualTrueCellsIndex = grid.findTrueCells(Grid.ValueFormat.Index);
-            ShortList actualTrueCellsNoFormat = grid.findTrueCells();
+            ShortList actualTrueCellsIndex = grid.toGridState()
+                    .findTrueCells(Grid.ValueFormat.Index);
+            ShortList actualTrueCellsNoFormat = grid.toGridState().findTrueCells();
 
             assertIterableEquals(expectedTrueCells, actualTrueCellsIndex,
                     "The list of true cells should match expected values in Index format for true cell count "
@@ -485,16 +468,6 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#findTrueCells(Grid.ValueFormat)} method with a PackedInt output format
-     * to ensure it returns correct results after random clicks on the grid. This test iterates
-     * through all possible counts of true cells from 0 to NUM_CELLS, generating unique random
-     * clicks for each count and verifying that the method returns the expected true cells.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
-     * between different value formats are functioning correctly.
-     */
     @Test
     void testFindTrueCellsPackedInt() {
         Grid grid = createSolvedGrid13();
@@ -504,7 +477,8 @@ class GridTest {
 
         // Test for solved state
         ShortList expectedTrueCellsSolved = ShortList.of();
-        ShortList actualTrueCellsSolvedPacked = grid.findTrueCells(Grid.ValueFormat.PackedInt);
+        ShortList actualTrueCellsSolvedPacked = grid.toGridState()
+                .findTrueCells(Grid.ValueFormat.PackedInt);
         assertIterableEquals(expectedTrueCellsSolved, actualTrueCellsSolvedPacked,
                 "The list of true cells should be empty in PackedInt format for a solved grid");
 
@@ -517,7 +491,8 @@ class GridTest {
 
             grid.click(toggleBitmask);
 
-            ShortList actualTrueCellsPacked = grid.findTrueCells(Grid.ValueFormat.PackedInt);
+            ShortList actualTrueCellsPacked = grid.toGridState()
+                    .findTrueCells(Grid.ValueFormat.PackedInt);
 
             assertIterableEquals(expectedTrueCells, actualTrueCellsPacked,
                     "The list of true cells should match expected values in PackedInt format for true cell count "
@@ -528,41 +503,22 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} method to ensure that it throws a
-     * NullPointerException when provided with a null format.
-     */
     @Test
     void testFirstTrueCellNull() {
         Grid grid = new Grid13();
         assertThrows(NullPointerException.class, () -> {
-            grid.findFirstTrueCell(null);
+            grid.toGridState().findFirstTrueCell(null);
         }, "Expected NullPointerException for findFirstTrueCell with null format");
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} method to ensure that it throws an
-     * IllegalArgumentException when provided with an invalid Bitmask format.
-     */
     @Test
     void testFirstTrueCellBitmask() {
         Grid grid = new Grid13();
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueCell(Grid.ValueFormat.Bitmask);
+            grid.toGridState().findFirstTrueCell(Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueCell with Bitmask format");
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} and
-     * {@link Grid#findFirstTrueCell()} methods with an Index output format to ensure they return
-     * correct results after random clicks on the grid. This test iterates through all possible
-     * counts of true cells from 0 to NUM_CELLS, generating unique random clicks for each count and
-     * verifying that the methods return the expected first true cell.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
-     * between different value formats are functioning correctly.
-     */
     @Test
     void testFirstTrueCellIndex() {
         Grid grid = createSolvedGrid13();
@@ -570,8 +526,9 @@ class GridTest {
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
 
-        short actualFirstTrueCellSolvedIndex = grid.findFirstTrueCell(Grid.ValueFormat.Index);
-        short actualFirstTrueCellSolvedNoFormat = grid.findFirstTrueCell();
+        short actualFirstTrueCellSolvedIndex = grid.toGridState()
+                .findFirstTrueCell(Grid.ValueFormat.Index);
+        short actualFirstTrueCellSolvedNoFormat = grid.toGridState().findFirstTrueCell();
         assertEquals(-1, actualFirstTrueCellSolvedIndex,
                 "Expected -1 for first true cell in Index format on a solved grid");
         assertEquals(-1, actualFirstTrueCellSolvedNoFormat,
@@ -585,8 +542,9 @@ class GridTest {
             grid.click(toggleBitmask);
 
             short expectedFirstTrueCell = expectedTrueCells[0];
-            short actualFirstTrueCellIndex = grid.findFirstTrueCell(Grid.ValueFormat.Index);
-            short actualFirstTrueCellNoFormat = grid.findFirstTrueCell();
+            short actualFirstTrueCellIndex = grid.toGridState()
+                    .findFirstTrueCell(Grid.ValueFormat.Index);
+            short actualFirstTrueCellNoFormat = grid.toGridState().findFirstTrueCell();
 
             assertEquals(expectedFirstTrueCell, actualFirstTrueCellIndex,
                     "The first true cell should match expected value in Index format for true cell count "
@@ -600,16 +558,6 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueCell(Grid.ValueFormat)} method to ensure it returns
-     * correct results after random clicks on the grid. This test iterates through all possible
-     * counts of true cells from 0 to NUM_CELLS, generating unique random clicks for each count and
-     * verifying that the method returns the expected first true cell in PackedInt format.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the conversions
-     * between different value formats are functioning correctly.
-     */
     @Test
     void testFirstTrueCellPackedInt() {
         Grid grid = createSolvedGrid13();
@@ -617,7 +565,8 @@ class GridTest {
         if (!grid.isSolved())
             return; // Ensure that an incorrect solution13 doesn't break the test.
 
-        short actualFirstTrueCellSolvedPacked = grid.findFirstTrueCell(Grid.ValueFormat.PackedInt);
+        short actualFirstTrueCellSolvedPacked = grid.toGridState()
+                .findFirstTrueCell(Grid.ValueFormat.PackedInt);
         assertEquals(-1, actualFirstTrueCellSolvedPacked,
                 "Expected -1 for first true cell in PackedInt format on a solved grid");
 
@@ -629,7 +578,8 @@ class GridTest {
             grid.click(toggleBitmask);
 
             short expectedFirstTrueCellPacked = expectedTrueCells[0];
-            short actualFirstTrueCellPacked = grid.findFirstTrueCell(Grid.ValueFormat.PackedInt);
+            short actualFirstTrueCellPacked = grid.toGridState()
+                    .findFirstTrueCell(Grid.ValueFormat.PackedInt);
             assertEquals(expectedFirstTrueCellPacked, actualFirstTrueCellPacked,
                     "The first true cell should match expected value in PackedInt format for true cell count "
                             + trueCellsCount);
@@ -657,11 +607,11 @@ class GridTest {
         short[] combination = generateRandomCombination(15);
         long[] clickBitmask = convertToBitmask(combination);
 
-        long[] initialState = grid.getGridState();
+        long[] initialState = grid.toGridState().toLongArray();
         long[] expectedState = {initialState[0] ^ clickBitmask[0],
                 initialState[1] ^ clickBitmask[1]};
         grid.click(clickBitmask);
-        assertArrayEquals(expectedState, grid.getGridState(),
+        assertArrayEquals(expectedState, grid.toGridState().toLongArray(),
                 "Grid state should match expected state after clicks (Bitmask: "
                         + Arrays.toString(clickBitmask) + ")");
     }
@@ -676,7 +626,7 @@ class GridTest {
         Grid grid = new Grid35();
         short[] clicks = generateRandomCombination(15);
 
-        long[] initialState = grid.getGridState();
+        long[] initialState = grid.toGridState().toLongArray();
         long[] expectedState = initialState.clone();
         for (short click : clicks) {
             // Manually compute expected state after each click
@@ -686,7 +636,7 @@ class GridTest {
             expectedState[1] ^= clickBitmask[1];
         }
         grid.click(clicks);
-        assertArrayEquals(expectedState, grid.getGridState(),
+        assertArrayEquals(expectedState, grid.toGridState().toLongArray(),
                 "Grid state should match expected state after clicks (Combination: "
                         + Arrays.toString(clicks) + ")");
     }
@@ -703,7 +653,7 @@ class GridTest {
         short[] prefixClicks = generateRandomCombination(10);
         short finalClick = generateRandomCombination(1)[0];
 
-        long[] initialState = grid.getGridState();
+        long[] initialState = grid.toGridState().toLongArray();
         long[] expectedState = initialState.clone();
         for (short click : prefixClicks) {
             // Manually compute expected state after each prefix click
@@ -719,48 +669,29 @@ class GridTest {
         expectedState[1] ^= clickBitmaskFinal[1];
 
         grid.click(prefixClicks, finalClick);
-        assertArrayEquals(expectedState, grid.getGridState(),
+        assertArrayEquals(expectedState, grid.toGridState().toLongArray(),
                 "Grid state should match expected state after prefix clicks and final click (Prefixes: "
                         + Arrays.toString(prefixClicks) + ", Final: " + finalClick + ")");
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method to ensure that it
-     * throws a NullPointerException when provided with a null format.
-     */
     @Test
     void testFindFirstTrueAdjacentsNull() {
         Grid grid = new Grid13();
 
         assertThrows(NullPointerException.class, () -> {
-            grid.findFirstTrueAdjacents(null);
+            grid.toGridState().findFirstTrueAdjacents(null);
         }, "Expected NullPointerException for findFirstTrueAdjacents with null format");
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method to ensure that it
-     * throws an IllegalArgumentException when provided with an invalid Bitmask format.
-     */
     @Test
     void testFindFirstTrueAdjacentsBitmask() {
         Grid grid = new Grid13();
 
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacents(Grid.ValueFormat.Bitmask);
+            grid.toGridState().findFirstTrueAdjacents(Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacents with Bitmask format");
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacents()} and
-     * {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} methods with an Index output format to
-     * ensure they return correct results after random clicks on the grid.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods and that the
-     * {@link Grid#findFirstTrueCell(Grid.ValueFormat)} and
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods are functioning
-     * correctly.
-     */
     @Test
     void testFindFirstTrueAdjacentsIndex() {
         Grid grid = createSolvedGrid13();
@@ -777,12 +708,12 @@ class GridTest {
             ShortList expectedAdjacents = Grid.findAdjacents(firstTrueCell);
 
             // Test Index output format
-            ShortList actualAdjacentsIndexList = grid
+            ShortList actualAdjacentsIndexList = grid.toGridState()
                     .findFirstTrueAdjacents(Grid.ValueFormat.Index);
             assertIterableEquals(expectedAdjacents, actualAdjacentsIndexList,
                     "First true adjacents in Index format should match expected values for first true cell "
                             + firstTrueCell);
-            ShortList actualAdjacentsNoFormatList = grid.findFirstTrueAdjacents();
+            ShortList actualAdjacentsNoFormatList = grid.toGridState().findFirstTrueAdjacents();
             assertIterableEquals(actualAdjacentsIndexList, actualAdjacentsNoFormatList,
                     "The no format overload should match Index format for first true cell "
                             + firstTrueCell);
@@ -790,7 +721,7 @@ class GridTest {
             // Test PackedInt output format
             ShortList expectedPackedAdjacents = new ShortArrayList(expectedAdjacents);
             expectedPackedAdjacents.replaceAll(Grid::indexToPacked);
-            ShortList actualAdjacentsPackedInt = grid
+            ShortList actualAdjacentsPackedInt = grid.toGridState()
                     .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
             assertIterableEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
                     "First true adjacents in PackedInt format should match expected values for first true cell "
@@ -801,16 +732,6 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)} method with a PackedInt
-     * output format to ensure it returns correct results after random clicks on the grid.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} and {@link Grid#click(long[])} methods, conversions between
-     * different value formats are functioning correctly, and that
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} is functioning
-     * correctly.
-     */
     @Test
     void testFindFirstTrueAdjacentsPackedInt() {
         Grid grid = createSolvedGrid13();
@@ -828,11 +749,12 @@ class GridTest {
                     Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
 
             // Test Index output format
-            ShortList actualAdjacentsIndex = grid.findFirstTrueAdjacents(Grid.ValueFormat.Index);
+            ShortList actualAdjacentsIndex = grid.toGridState()
+                    .findFirstTrueAdjacents(Grid.ValueFormat.Index);
             assertIterableEquals(expectedAdjacents, actualAdjacentsIndex,
                     "First true adjacents in Index format should match expected values for first true packed cell "
                             + firstTrueCell);
-            ShortList actualAdjacentsNoFormat = grid.findFirstTrueAdjacents();
+            ShortList actualAdjacentsNoFormat = grid.toGridState().findFirstTrueAdjacents();
             assertIterableEquals(actualAdjacentsIndex, actualAdjacentsNoFormat,
                     "The no format overload should match Index format for first true packed cell "
                             + firstTrueCell);
@@ -840,7 +762,7 @@ class GridTest {
             // Test PackedInt output format
             ShortList expectedPackedAdjacents = new ShortArrayList(expectedAdjacents);
             expectedPackedAdjacents.replaceAll(Grid::indexToPacked);
-            ShortList actualAdjacentsPackedInt = grid
+            ShortList actualAdjacentsPackedInt = grid.toGridState()
                     .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
             assertIterableEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
                     "First true adjacents in PackedInt format should match expected values for first true packed cell "
@@ -851,74 +773,54 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacentsAfter(short, Grid.ValueFormat, Grid.ValueFormat)}
-     * method to ensure that it throws a NullPointerException when provided with null formats.
-     */
     @Test
     void testFindFirstTrueAdjacentsAfterNull() {
         Grid grid = new Grid13();
 
         assertThrows(NullPointerException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, null, Grid.ValueFormat.Index);
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, null, Grid.ValueFormat.Index);
         }, "Expected NullPointerException for findFirstTrueAdjacentsAfter with null input format");
         assertThrows(NullPointerException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Index, null);
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Index, null);
         }, "Expected NullPointerException for findFirstTrueAdjacentsAfter with null output format");
         assertThrows(NullPointerException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, null, null);
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, null, null);
         }, "Expected NullPointerException for findFirstTrueAdjacentsAfter with both formats null");
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacentsAfter(short, Grid.ValueFormat, Grid.ValueFormat)}
-     * method to ensure that it throws the appropriate exceptions for invalid Bitmask input or
-     * output formats. If, in the future, we modify the method to accept Bitmask as an input or
-     * output format, these tests should be updated accordingly.
-     */
     void testFindFirstTrueAdjacentsAfterBitmask() {
         Grid grid = new Grid13();
 
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Index,
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Index,
                     Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Index input and Bitmask output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.PackedInt,
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.PackedInt,
                     Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with PackedInt input and Bitmask output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
                     Grid.ValueFormat.Index);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and Index output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
                     Grid.ValueFormat.PackedInt);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and PackedInt output");
         assertThrows(IllegalArgumentException.class, () -> {
-            grid.findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
+            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
                     Grid.ValueFormat.Bitmask);
         }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and Bitmask output");
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacentsAfter(short, Grid.ValueFormat, Grid.ValueFormat)}
-     * method with an Index input format to ensure it returns correct results after random clicks on
-     * the grid.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} method, conversions between different value formats are
-     * functioning correctly, and that the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)}
-     * method is functioning correctly.
-     */
     @Test
     void testFindFirstTrueAdjacentsAfterIndex() {
         Grid grid = new Grid13();
         short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
-        ShortList firstTrueAdjacentsIndexOutput = grid
+        ShortList firstTrueAdjacentsIndexOutput = grid.toGridState()
                 .findFirstTrueAdjacents(Grid.ValueFormat.Index);
-        ShortList firstTrueAdjacentsPackedIntOutput = grid
+        ShortList firstTrueAdjacentsPackedIntOutput = grid.toGridState()
                 .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
 
         ShortList adjacencyListIndexOutput = new ShortArrayList(firstTrueAdjacentsIndexOutput);
@@ -936,11 +838,12 @@ class GridTest {
             adjacencyListPackedIntOutput.removeIf(adjacent -> adjacent <= cellPackedInt);
             ShortList expectedAdjacentsPackedIntOutput = adjacencyListPackedIntOutput;
 
-            ShortList actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cell,
-                    Grid.ValueFormat.Index, Grid.ValueFormat.Index);
+            ShortList actualAdjacentsIndexOutput = grid.toGridState().findFirstTrueAdjacentsAfter(
+                    cell, Grid.ValueFormat.Index, Grid.ValueFormat.Index);
 
-            ShortList actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(cell,
-                    Grid.ValueFormat.Index, Grid.ValueFormat.PackedInt);
+            ShortList actualAdjacentsPackedIntOutput = grid.toGridState()
+                    .findFirstTrueAdjacentsAfter(cell, Grid.ValueFormat.Index,
+                            Grid.ValueFormat.PackedInt);
 
             if (expectedAdjacentsIndexOutput.isEmpty()) {
                 assertEquals(0, actualAdjacentsIndexOutput.size(), "First true adjacents after "
@@ -966,24 +869,14 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#findFirstTrueAdjacentsAfter(short, Grid.ValueFormat, Grid.ValueFormat)}
-     * method with a PackedInt input format to ensure it returns correct results after random clicks
-     * on the grid.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} method, conversions between different value formats are
-     * functioning correctly, and that the {@link Grid#findFirstTrueAdjacents(Grid.ValueFormat)}
-     * method is functioning correctly.
-     */
     @Test
     void testFindFirstTrueAdjacentsAfterPackedInt() {
         Grid grid = new Grid13();
         short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
-        ShortList firstTrueAdjacentsIndexOutput = grid
+        ShortList firstTrueAdjacentsIndexOutput = grid.toGridState()
                 .findFirstTrueAdjacents(Grid.ValueFormat.Index);
-        ShortList firstTrueAdjacentsPackedIntOutput = grid
+        ShortList firstTrueAdjacentsPackedIntOutput = grid.toGridState()
                 .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
 
         ShortList adjacencyListIndexOutput = new ShortArrayList(firstTrueAdjacentsIndexOutput);
@@ -1001,10 +894,11 @@ class GridTest {
             adjacencyListPackedIntOutput.removeIf(adjacent -> adjacent <= cellPackedInt);
             ShortList expectedAdjacentsPackedIntOutput = adjacencyListPackedIntOutput;
 
-            ShortList actualAdjacentsIndexOutput = grid.findFirstTrueAdjacentsAfter(cellPackedInt,
-                    Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
-            ShortList actualAdjacentsPackedIntOutput = grid.findFirstTrueAdjacentsAfter(
-                    cellPackedInt, Grid.ValueFormat.PackedInt, Grid.ValueFormat.PackedInt);
+            ShortList actualAdjacentsIndexOutput = grid.toGridState().findFirstTrueAdjacentsAfter(
+                    cellPackedInt, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Index);
+            ShortList actualAdjacentsPackedIntOutput = grid.toGridState()
+                    .findFirstTrueAdjacentsAfter(cellPackedInt, Grid.ValueFormat.PackedInt,
+                            Grid.ValueFormat.PackedInt);
 
             if (expectedAdjacentsIndexOutput.isEmpty()) {
                 assertEquals(0, actualAdjacentsIndexOutput.size(), "First true adjacents after "
@@ -1030,23 +924,12 @@ class GridTest {
         }
     }
 
-    /**
-     * Tests the {@link Grid#getTrueCount()} method to ensure it accurately reflects the number of
-     * true cells in the grid after various operations, including random clicks and solving the
-     * grid. This test also verifies consistency between {@link Grid#getTrueCount()} and
-     * {@link Grid#findTrueCells()}.
-     * 
-     * This method assumes that the grid's internal state is correctly updated by the
-     * {@link Grid#click(short[])} method and that the {@link Grid#isSolved()},
-     * {@link Grid#findTrueCells()}, and {@link Grid#findFirstTrueCell()} methods are functioning
-     * correctly.
-     */
     @Test
     void testGetTrueCount() {
         // Verify initial consistency between getTrueCount() and findTrueCells()
         Grid grid = new Grid13();
-        int initialCount = grid.getTrueCount();
-        ShortList initialTrueCells = grid.findTrueCells();
+        int initialCount = grid.toGridState().getTrueCount();
+        ShortList initialTrueCells = grid.toGridState().findTrueCells();
         assertEquals(initialTrueCells.size(), initialCount,
                 "Initial getTrueCount should match findTrueCells length");
 
@@ -1054,14 +937,14 @@ class GridTest {
         short[] clicks = generateRandomCombination(10);
         grid.click(clicks);
 
-        long[] state = grid.getGridState();
+        long[] state = grid.toGridState().toLongArray();
         int expectedCount = Long.bitCount(state[0]) + Long.bitCount(state[1]);
-        assertEquals(expectedCount, grid.getTrueCount(),
+        assertEquals(expectedCount, grid.toGridState().getTrueCount(),
                 "getTrueCount should equal bit count of grid state after clicks");
 
         // Ensure findTrueCells() reflects the same count
-        ShortList actualTrueCells = grid.findTrueCells();
-        assertEquals(actualTrueCells.size(), grid.getTrueCount(),
+        ShortList actualTrueCells = grid.toGridState().findTrueCells();
+        assertEquals(actualTrueCells.size(), grid.toGridState().getTrueCount(),
                 "findTrueCells length should match getTrueCount");
 
         // Verify solved case results in zero true count and no first true cell
@@ -1070,7 +953,8 @@ class GridTest {
             return; // This should not happen, but we exit the test if it does (so it is caught by
                     // the Grid13 tests)
         }
-        assertEquals(0, solvedGrid.getTrueCount(), "Solved grid should have zero true cells");
+        assertEquals(0, solvedGrid.toGridState().getTrueCount(),
+                "Solved grid should have zero true cells");
     }
 
     /**
@@ -1089,17 +973,20 @@ class GridTest {
         // Verify that the clone has the same state as the original
         assertTrue(clone instanceof Grid13,
                 "Cloned grid should be of the same type as the original");
-        assertArrayEquals(original.getGridState(), clone.getGridState(),
+        assertArrayEquals(original.toGridState().toLongArray(), clone.toGridState().toLongArray(),
                 "Cloned grid state should match the original's state");
-        assertEquals(original.getTrueCount(), clone.getTrueCount(),
+        assertEquals(original.toGridState().getTrueCount(), clone.toGridState().getTrueCount(),
                 "Cloned grid true count should match");
-        assertEquals(original.findFirstTrueCell(), clone.findFirstTrueCell(),
+        assertEquals(original.toGridState().findFirstTrueCell(),
+                clone.toGridState().findFirstTrueCell(),
                 "Cloned grid first true cell should match the original's");
 
         // Verify that the clone is a separate instance
         assertNotSame(original, clone, "Cloned grid should not be the same object as the original");
         clone.click(clicks);
-        assertFalse(Arrays.equals(original.getGridState(), clone.getGridState()),
+        assertFalse(
+                Arrays.equals(original.toGridState().toLongArray(),
+                        clone.toGridState().toLongArray()),
                 "Modifying the clone should not affect the original grid");
     }
 
@@ -1376,7 +1263,7 @@ class GridTest {
                 cellIndex++;
             }
         }
-        assertArrayEquals(grid.getGridState(), rebuiltState,
+        assertArrayEquals(grid.toGridState().toLongArray(), rebuiltState,
                 "The rebuilt grid state from the string representation should match the actual grid state");
     }
 
@@ -1477,10 +1364,12 @@ class GridTest {
     void test13InitialState() {
         Grid grid = new Grid13();
         long[] expectedState = {-6917317925703516160L, 8191L};
-        assertArrayEquals(expectedState, grid.getGridState(),
+        assertArrayEquals(expectedState, grid.toGridState().toLongArray(),
                 "Initial grid state should match the expected pre-computed state for Grid13");
-        assertEquals(32, grid.findFirstTrueCell(), "First true cell index should be 32 for Grid13");
-        assertEquals(30, grid.getTrueCount(), "True cells count should be 30 for Grid13");
+        assertEquals(32, grid.toGridState().findFirstTrueCell(),
+                "First true cell index should be 32 for Grid13");
+        assertEquals(30, grid.toGridState().getTrueCount(),
+                "True cells count should be 30 for Grid13");
     }
 
     /**
@@ -1493,20 +1382,20 @@ class GridTest {
         short[] singleClick = {clicks[0]};
 
         // Test for a single cell that clicking twice returns to the initial state
-        long[] initialState = grid.getGridState();
+        long[] initialState = grid.toGridState().toLongArray();
         grid.click(singleClick);
         grid.click(singleClick);
-        assertArrayEquals(initialState, grid.getGridState(),
+        assertArrayEquals(initialState, grid.toGridState().toLongArray(),
                 "Clicking the same cell twice should return to the initial state");
 
         // Test that clicking a combination of cells twice returns to the initial state
         // (and that individual clicks don't return the state)
         grid.click(clicks);
-        long[] afterFirstClicksState = grid.getGridState();
+        long[] afterFirstClicksState = grid.toGridState().toLongArray();
         grid.click(clicks);
-        assertFalse(Arrays.equals(afterFirstClicksState, grid.getGridState()),
+        assertFalse(Arrays.equals(afterFirstClicksState, grid.toGridState().toLongArray()),
                 "Clicking the same combination of cells once should change the state");
-        assertArrayEquals(initialState, grid.getGridState(),
+        assertArrayEquals(initialState, grid.toGridState().toLongArray(),
                 "Clicking the same combination of cells twice should return to the initial state");
     }
 
@@ -1525,7 +1414,7 @@ class GridTest {
         // Apply clicks to separate grids and verify resulting states are equal
         grid1.click(clicks1);
         grid2.click(clicks2);
-        assertArrayEquals(grid1.getGridState(), grid2.getGridState(),
+        assertArrayEquals(grid1.toGridState().toLongArray(), grid2.toGridState().toLongArray(),
                 "Grid state should be the same regardless of click order");
     }
 
@@ -1568,10 +1457,12 @@ class GridTest {
     void test22InitialState() {
         Grid grid = new Grid22();
         long[] expectedState = {3293960916490350006L, 15078939901952L};
-        assertArrayEquals(expectedState, grid.getGridState(),
+        assertArrayEquals(expectedState, grid.toGridState().toLongArray(),
                 "Initial grid state should match the expected pre-computed state for Grid22");
-        assertEquals(1, grid.findFirstTrueCell(), "First true cell index should be 1 for Grid22");
-        assertEquals(50, grid.getTrueCount(), "True cells count should be 50 for Grid22");
+        assertEquals(1, grid.toGridState().findFirstTrueCell(),
+                "First true cell index should be 1 for Grid22");
+        assertEquals(50, grid.toGridState().getTrueCount(),
+                "True cells count should be 50 for Grid22");
     }
 
     /**
@@ -1584,19 +1475,19 @@ class GridTest {
         short[] singleClick = {clicks[0]};
 
         // Test for a single cell that clicking twice returns to the initial state
-        long[] initialState = grid.getGridState();
+        long[] initialState = grid.toGridState().toLongArray();
         grid.click(singleClick);
         grid.click(singleClick);
-        assertArrayEquals(initialState, grid.getGridState(),
+        assertArrayEquals(initialState, grid.toGridState().toLongArray(),
                 "Clicking the same cell twice should return to the initial state");
 
         // Test that clicking a combination of cells twice returns to the initial state
         grid.click(clicks);
-        long[] afterFirstClicksState = grid.getGridState();
+        long[] afterFirstClicksState = grid.toGridState().toLongArray();
         grid.click(clicks);
-        assertFalse(Arrays.equals(afterFirstClicksState, grid.getGridState()),
+        assertFalse(Arrays.equals(afterFirstClicksState, grid.toGridState().toLongArray()),
                 "Clicking the same combination of cells once should change the state");
-        assertArrayEquals(initialState, grid.getGridState(),
+        assertArrayEquals(initialState, grid.toGridState().toLongArray(),
                 "Clicking the same combination of cells twice should return to the initial state");
     }
 
@@ -1614,7 +1505,7 @@ class GridTest {
         // Apply clicks to separate grids and verify resulting states are equal
         grid1.click(clicks1);
         grid2.click(clicks2);
-        assertArrayEquals(grid1.getGridState(), grid2.getGridState(),
+        assertArrayEquals(grid1.toGridState().toLongArray(), grid2.toGridState().toLongArray(),
                 "Grid state should be the same regardless of click order");
     }
 
@@ -1644,10 +1535,12 @@ class GridTest {
     void test35InitialState() {
         Grid grid = new Grid35();
         long[] expectedState = {45036546029518848L, 32L};
-        assertArrayEquals(expectedState, grid.getGridState(),
+        assertArrayEquals(expectedState, grid.toGridState().toLongArray(),
                 "Initial grid state should match the expected pre-computed state for Grid35");
-        assertEquals(39, grid.findFirstTrueCell(), "First true cell index should be 39 for Grid35");
-        assertEquals(4, grid.getTrueCount(), "True cells count should be 4 for Grid35");
+        assertEquals(39, grid.toGridState().findFirstTrueCell(),
+                "First true cell index should be 39 for Grid35");
+        assertEquals(4, grid.toGridState().getTrueCount(),
+                "True cells count should be 4 for Grid35");
     }
 
     /**
@@ -1660,19 +1553,19 @@ class GridTest {
         short[] singleClick = {clicks[0]};
 
         // Test for a single cell that clicking twice returns to the initial state
-        long[] initialState = grid.getGridState();
+        long[] initialState = grid.toGridState().toLongArray();
         grid.click(singleClick);
         grid.click(singleClick);
-        assertArrayEquals(initialState, grid.getGridState(),
+        assertArrayEquals(initialState, grid.toGridState().toLongArray(),
                 "Clicking the same cell twice should return to the initial state");
 
         // Test that clicking a combination of cells twice returns to the initial state
         grid.click(clicks);
-        long[] afterFirstClicksState = grid.getGridState();
+        long[] afterFirstClicksState = grid.toGridState().toLongArray();
         grid.click(clicks);
-        assertFalse(Arrays.equals(afterFirstClicksState, grid.getGridState()),
+        assertFalse(Arrays.equals(afterFirstClicksState, grid.toGridState().toLongArray()),
                 "Clicking the same combination of cells once should change the state");
-        assertArrayEquals(initialState, grid.getGridState(),
+        assertArrayEquals(initialState, grid.toGridState().toLongArray(),
                 "Clicking the same combination of cells twice should return to the initial state");
     }
 
@@ -1690,7 +1583,7 @@ class GridTest {
         // Apply clicks to separate grids and verify resulting states are equal
         grid1.click(clicks1);
         grid2.click(clicks2);
-        assertArrayEquals(grid1.getGridState(), grid2.getGridState(),
+        assertArrayEquals(grid1.toGridState().toLongArray(), grid2.toGridState().toLongArray(),
                 "Grid state should be the same regardless of click order");
     }
 }

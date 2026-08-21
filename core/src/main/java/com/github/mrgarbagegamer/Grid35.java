@@ -42,7 +42,7 @@ public class Grid35 extends Grid {
      * @threading Thread-safe; each instance is independent.
      * @memory Allocates a new {@code Grid35} instance.
      */
-    public Grid35() { super(45036546029518848L, 32L, 4, (short) 39); }
+    public Grid35() { super(45036546029518848L, 32L); }
 
     /**
      * Copy constructor for {@code Grid35}. Since this constructor does not limit the type of the

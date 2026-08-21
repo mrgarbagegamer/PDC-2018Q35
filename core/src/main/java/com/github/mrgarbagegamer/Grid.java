@@ -12,11 +12,8 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 
 // TODO: Add documentation to the new methods and modify existing Javadoc accordingly
 // TODO: Use byte collections instead of short collections for Index format
-/*
- * TODO: Consider creating a record (or immutable class) named GridState and moving all state-based
- * operations to that class to remove the need for defensive copying. Use of said class inside the
- * Grid to replace the long[] could be nice but would most likely reduce performance.
- */
+// TODO: Prefix all Grid field accesses with "this."
+// TODO: Reduce duplication between the Grid.click() implementations through delegation
 /**
  * A structure that represents the core hexagonal grid for a "Lights Out" style puzzle.
  *
@@ -277,63 +274,8 @@ public abstract class Grid {
 
     private long lowerState, upperState;
 
-    private final long initialLowerState;
-    private final long initialUpperState;
-    private final int initialTrueCellsCount;
-    private final short initialFirstTrueCell;
-    /**
-     * A cached count of the number of "on" ({@code true}) cells in the grid.
-     *
-     * <p>
-     * This value is updated lazily. It is only recalculated by methods like {@link #getTrueCount()}
-     * or {@link #findFirstTrueCell(ValueFormat)} when the {@link #recalculationNeeded} flag is
-     * {@code true}. This makes {@link #isSolved()} checks instantaneous in most cases.
-     * </p>
-     *
-     * @since 2025.07 - Bitmasked Grid State
-     * @performance {@code O(1)} accesses and {@code O(1)} {@link #getTrueCount() recalculations}.
-     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads
-     *            without external synchronization.
-     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
-     */
-    private int trueCellsCount = 0;
-    /**
-     * A cached index of the first "on" ({@code true}) cell in the grid, in
-     * {@link ValueFormat#Index} format.
-     *
-     * <p>
-     * This value is critical for pruning the search space in the {@link CombinationGeneratorTask},
-     * as any valid solution must interact with the first {@code true} cell. It is updated lazily
-     * whenever {@link #findFirstTrueCell()} is called and {@link #recalculationNeeded} is
-     * {@code true}. A value of {@code -1} indicates no cells are {@code true}, provided that
-     * {@code recalculationNeeded} is {@code false}.
-     * </p>
-     *
-     * @since 2025.07 - First True Cell Caching
-     * @performance {@code O(1)} access and {@code O(1)} {@link #findFirstTrueCell()
-     *              recalculations}.
-     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads
-     *            without external synchronization.
-     * @memory Fixed memory footprint of 2 bytes as a primitive {@code short}.
-     */
-    private short firstTrueCell = -1;
-    /**
-     * A dirty flag indicating that the grid state has been modified and cached values are stale.
-     *
-     * <p>
-     * This flag is set to {@code true} by any {@code click} operation. It signals to accessor
-     * methods like {@link #getTrueCount()} and {@link #findFirstTrueCell()} that they must
-     * recompute the {@link #trueCellsCount} and {@link #firstTrueCell} caches before returning a
-     * value. It is reset to {@code false} after the caches are updated.
-     * </p>
-     * 
-     * @since 2025.07 - Bitmasked Grid State
-     * @performance {@code O(1)} access.
-     * @threading Not thread-safe. Instances of {@code Grid} must not be shared between threads
-     *            without external synchronization.
-     * @memory Fixed memory footprint of 1 byte as a primitive {@code boolean}.
-     */
-    private boolean recalculationNeeded = false;
+    // TODO: Consider using a GridState to house the initial state variables
+    private final long initialLowerState, initialUpperState;
 
     /**
      * Pre-computed {@link ValueFormat#Bitmask bitmasks} representing the result of clicking each
@@ -395,6 +337,7 @@ public abstract class Grid {
      * @performance {@code O(1)} lookup time.
      * @threading Thread-safe as a {@code static final} constant after class initialization.
      */
+    // TODO: Consider a different structure for better immutability
     private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_CELLS][NUM_CELLS]; // Index
                                                                                           // format
     /**
@@ -414,11 +357,13 @@ public abstract class Grid {
      * @performance {@code O(1)} lookup time.
      * @threading Thread-safe as a {@code static final} constant after class initialization.
      */
+    // TODO: Consider using a Short2ShortMap for greater flexibility and potential immutability
     private static final short[] PACKED_TO_INDEX_CACHE = new short[(NUM_ROWS - 1) * 100
             + EVEN_NUM_COLS];
 
     // We don't necessarily need to worry too much about how optimized this block
     // is, since it's only run once at startup.
+    // TODO: Break this static initializer into a few methods for better organization
     static {
         // 1. Populate the packed-to-index lookup cache first:
         for (short cell = 0; cell < NUM_CELLS; cell++) {
@@ -516,7 +461,7 @@ public abstract class Grid {
         switch (inputFormat) {
             case Bitmask -> throw new IllegalArgumentException(
                     "Bitmask format is not supported for representing a single cell.");
-            case Index -> cell = indexToPacked((short) cell);
+            case Index -> cell = indexToPacked(cell);
             case PackedInt -> {} // Already in PackedInt format, no conversion needed
             case null -> throw new NullPointerException("Input format cannot be null.");
         }
@@ -629,32 +574,6 @@ public abstract class Grid {
         return findAdjacents(cell, ValueFormat.Index);
     }
 
-    /**
-     * Converts a cell from {@link ValueFormat#PackedInt} to {@link ValueFormat#Index} format using
-     * a pre-computed cache.
-     *
-     * <p>
-     * This method leverages the {@link #PACKED_TO_INDEX_CACHE} for {@code O(1)} lookups.
-     * </p>
-     *
-     * <h3>Optimization Rationale</h3>
-     * <p>
-     * The cache is partially populated during {@code static} initialization to avoid a full
-     * pre-computation of all possible {@code PackedInt} values, which would increase startup time
-     * for a conversion that is not frequently used in performance-critical paths. A TODO comment
-     * indicates a potential future optimization to fully pre-compute the cache, which would further
-     * reduce method size and improve JIT inlining chances.
-     * </p>
-     *
-     * @param packed The cell in {@link ValueFormat#PackedInt} format.
-     * @return The cell in {@link ValueFormat#Index} format.
-     * @throws IllegalArgumentException if the input {@code packed} value is out of bounds.
-     * @see #PACKED_TO_INDEX_CACHE
-     * @since 2025.07 - Format Support
-     * @performance {@code O(1)} lookup.
-     * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
-     * @memory Does not allocate.
-     */
     public static final short packedToIndex(short packed) {
         checkArgument(packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length,
                 "packed must be in range [0, %s], but was %s", PACKED_TO_INDEX_CACHE.length - 1,
@@ -714,20 +633,6 @@ public abstract class Grid {
         this.initialUpperState = initialUpperState;
         this.lowerState = initialLowerState;
         this.upperState = initialUpperState;
-        this.initialFirstTrueCell = findFirstTrueCell();
-        this.initialTrueCellsCount = getTrueCount();
-    }
-
-    protected Grid(long initialLowerState, long initialUpperState, int initialTrueCellsCount,
-            short initialFirstTrueCell) {
-        this.initialLowerState = initialLowerState;
-        this.initialUpperState = initialUpperState;
-        this.lowerState = initialLowerState;
-        this.upperState = initialUpperState;
-        this.initialFirstTrueCell = initialFirstTrueCell;
-        this.initialTrueCellsCount = initialTrueCellsCount;
-        this.firstTrueCell = initialFirstTrueCell;
-        this.trueCellsCount = initialTrueCellsCount;
     }
 
     protected Grid(Grid other) {
@@ -735,11 +640,6 @@ public abstract class Grid {
         this.upperState = other.upperState;
         this.initialLowerState = other.initialLowerState;
         this.initialUpperState = other.initialUpperState;
-        this.initialFirstTrueCell = other.initialFirstTrueCell;
-        this.initialTrueCellsCount = other.initialTrueCellsCount;
-        this.trueCellsCount = other.trueCellsCount;
-        this.firstTrueCell = other.firstTrueCell;
-        this.recalculationNeeded = other.recalculationNeeded;
     }
 
     /**
@@ -764,239 +664,8 @@ public abstract class Grid {
 
     // TODO: Update Javadocs
     public final void initialize() {
-        setGridState(initialLowerState, initialUpperState, initialTrueCellsCount,
-                initialFirstTrueCell);
-    }
-
-    // TODO: Remove this method.
-    protected final void setBit(int index) {
-        int longIndex = index / 64;
-        int bitPosition = index % 64;
-
-        if (longIndex == 0)
-            this.lowerState |= (1L << bitPosition);
-        else if (longIndex == 1)
-            this.upperState |= (1L << bitPosition);
-        else
-            throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
-
-        this.trueCellsCount++;
-    }
-
-    // TODO: Remove this method
-    protected final void clearBit(int index) {
-        int longIndex = index / 64;
-        int bitPosition = index % 64;
-
-        if (longIndex == 0)
-            this.lowerState &= ~(1L << bitPosition);
-        else if (longIndex == 1)
-            this.upperState &= ~(1L << bitPosition);
-        else
-            throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
-
-        this.trueCellsCount--;
-    }
-
-    protected final boolean getBit(int index) { // TODO: Consider removing this method
-        int longIndex = index / 64;
-        int bitPosition = index % 64;
-        return switch (longIndex) {
-            case 0 -> (lowerState & (1L << bitPosition)) != 0;
-            case 1 -> (upperState & (1L << bitPosition)) != 0;
-            default -> throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
-        };
-    }
-
-    /**
-     * Sets the entire grid bitmask to the specified values. This method can be used by subclasses
-     * to initialize the grid to a specific state, bypassing individual bit manipulations and
-     * ensuring the consistency of related fields.
-     * 
-     * <p>
-     * This overload allows setting the grid state along with the {@link #trueCellsCount} and
-     * {@link #firstTrueCell} in one operation, useful when the complete state is known upfront.
-     * </p>
-     * 
-     * @param lowerState     The first {@code long} representing bits 0-63 of the grid.
-     * @param upperState     The second {@code long} representing bits 64-108 of the grid.
-     * @param trueCellsCount The total number of {@code true} cells in the grid.
-     * @param firstTrueCell  The index of the first {@code true} cell in the grid.
-     * @see #setGridState(long, long)
-     * @since 2026.01 - Grid Encapsulation Improvements
-     * @performance {@code O(1)} assignment operations.
-     * @threading Not thread-safe; modifies instance state.
-     * @memory Does not allocate.
-     */
-    protected final void setGridState(long lowerState, long upperState, int trueCellsCount,
-            short firstTrueCell) {
-        this.lowerState = lowerState;
-        this.upperState = upperState;
-        this.trueCellsCount = trueCellsCount;
-        this.firstTrueCell = firstTrueCell;
-        this.recalculationNeeded = false; // State is now consistent
-    }
-
-    /**
-     * Sets the entire grid bitmask to the specified values. This method can be used by subclasses
-     * to initialize the grid to a specific state, bypassing individual bit manipulations.
-     * 
-     * <p>
-     * This overload only sets the grid state and marks the grid as needing recalculation of
-     * {@link #trueCellsCount} and {@link #firstTrueCell}. It is useful when one knows the state
-     * they want to set, but doesn't have the derived values readily available.
-     * </p>
-     * 
-     * @param lowerState The first {@code long} representing bits 0-63 of the grid.
-     * @param upperState The second {@code long} representing bits 64-108 of the grid.
-     * @see #setGridState(long, long, int, short)
-     * @since 2026.01 - Grid Encapsulation Improvements
-     * @performance {@code O(1)} assignment operations.
-     * @threading Not thread-safe; modifies instance state.
-     * @memory Does not allocate.
-     */
-    protected final void setGridState(long lowerState, long upperState) {
-        this.lowerState = lowerState;
-        this.upperState = upperState;
-        this.recalculationNeeded = true; // Mark for recalculation
-    }
-
-    public final ShortList findTrueCells(ValueFormat format) {
-        ShortList trueCellsList = new ShortArrayList(this.getTrueCount());
-
-        for (short i = 0; i < NUM_CELLS; i++)
-            if (getBit(i))
-                trueCellsList.add(i);
-
-        switch (format) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing true cells (since that's just the Grid).");
-            case Index -> {}
-            case PackedInt -> trueCellsList.replaceAll(Grid::indexToPacked);
-            case null -> throw new NullPointerException("Format cannot be null.");
-        }
-
-        return new ShortImmutableList(trueCellsList);
-    }
-
-    public final ShortList findTrueCells() { return this.findTrueCells(ValueFormat.Index); }
-
-    /**
-     * Scans the grid and returns the first {@code true} cell in the requested {@link ValueFormat
-     * format}.
-     *
-     * <p>
-     * This method is crucial for optimizing the solution search. A core property of the puzzle is
-     * that any valid solution must interact with the first {@code true} cell in the initial grid
-     * state. This method provides a fast way to identify that cell, enabling early pruning of
-     * invalid combinations.
-     * </p>
-     *
-     * <h3>Algorithm Details</h3>
-     * <p>
-     * The method employs highly optimized {@link Long#numberOfTrailingZeros(long)} and
-     * {@link Long#bitCount(long)} intrinsics to efficiently determine the first {@code true} bit
-     * and the total count of {@code true} bits in the grid state.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method implements a lazy recalculation strategy for {@link #firstTrueCell} and
-     * {@link #trueCellsCount}. These values are only recomputed if the {@link #recalculationNeeded}
-     * flag is {@code true}, ensuring {@code O(1)} performance in most cases. If no {@code true}
-     * cells exist, it short-circuits to return -1 immediately.
-     * </p>
-     *
-     * @param format The desired output format ({@link ValueFormat#Index} or
-     *               {@link ValueFormat#PackedInt}).
-     * @return The first {@code true} cell in the specified format, or -1 if no {@code true} cell is
-     *         found.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used, as it is not
-     *                                  suitable for single-cell representation.
-     * @throws NullPointerException     if {@code format} is {@code null}.
-     * @see #click(short[])
-     * @see #findTrueCells(ValueFormat)
-     * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity due to lazy evaluation and highly optimized intrinsics.
-     * @threading Not thread-safe due to lazy evaluation of mutable cached fields.
-     * @algorithm Uses {@link Long#numberOfTrailingZeros(long)} and {@link Long#bitCount(long)}
-     *            intrinsics.
-     * @memory Does not allocate.
-     */
-    public final short findFirstTrueCell(ValueFormat format) {
-        if (!recalculationNeeded && trueCellsCount == 0) {
-            return -1;
-        }
-
-        if (recalculationNeeded) {
-            // Find first true cell using bit operations
-            if (lowerState != 0L) {
-                firstTrueCell = (short) Long.numberOfTrailingZeros(lowerState);
-            } else if (upperState != 0L) {
-                firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(upperState));
-            } else {
-                firstTrueCell = -1;
-            }
-
-            // Recalculate true cells count
-            this.trueCellsCount = Long.bitCount(this.lowerState) + Long.bitCount(this.upperState);
-
-            recalculationNeeded = false;
-        }
-
-        if (firstTrueCell == -1)
-            return -1;
-
-        return switch (format) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
-            case Index -> firstTrueCell;
-            case PackedInt -> indexToPacked(firstTrueCell);
-            case null -> throw new NullPointerException("Format cannot be null.");
-        };
-    }
-
-    /**
-     * Scans the grid and returns the first {@code true} cell in {@link ValueFormat#Index Index}
-     * format.
-     *
-     * <p>
-     * This is a convenience overload of {@link #findFirstTrueCell(ValueFormat)} that strips the
-     * format conversion, providing a simpler API for the most common use case where the generator
-     * requires the index.
-     * </p>
-     *
-     * @return The first {@code true} cell in {@link ValueFormat#Index} format, or -1 if no
-     *         {@code true} cell is found.
-     * @see #findTrueCells()
-     * @since 2025.04 - Adjacency Optimizations
-     * @performance {@code O(1)} complexity due to lazy evaluation and optimized intrinsics.
-     * @threading Not thread-safe due to lazy evaluation of mutable cached fields.
-     * @algorithm Uses {@link Long#numberOfTrailingZeros(long)} and {@link Long#bitCount(long)}
-     *            intrinsics.
-     * @memory Does not allocate.
-     */
-    public final short findFirstTrueCell() {
-        if (!recalculationNeeded && trueCellsCount == 0) {
-            return -1;
-        }
-
-        if (recalculationNeeded) {
-            // Find first true cell using bit operations
-            if (lowerState != 0L) {
-                firstTrueCell = (short) Long.numberOfTrailingZeros(lowerState);
-            } else if (upperState != 0L) {
-                firstTrueCell = (short) (64 + Long.numberOfTrailingZeros(upperState));
-            } else {
-                firstTrueCell = -1;
-            }
-
-            // Recalculate true cells count
-            trueCellsCount = Long.bitCount(lowerState) + Long.bitCount(upperState);
-
-            recalculationNeeded = false;
-        }
-        return firstTrueCell;
+        this.lowerState = this.initialLowerState;
+        this.upperState = this.initialUpperState;
     }
 
     /**
@@ -1007,13 +676,6 @@ public abstract class Grid {
      * A click toggles the state of its adjacent cells (excluding itself). This operation is
      * performed by XORing the grid state with a pre-computed {@link #ADJACENCY_MASKS adjacency
      * mask} corresponding to the clicked cell.
-     * </p>
-     *
-     * <p>
-     * The {@link #recalculationNeeded} flag is set to {@code true} to ensure that subsequent calls
-     * to {@link #findFirstTrueCell(ValueFormat)} or {@link #getTrueCount()} will recompute the
-     * cached {@link #firstTrueCell} and {@link #trueCellsCount} values. This lazy evaluation avoids
-     * unnecessary recalculations on every click.
      * </p>
      *
      * <h3>Performance Considerations</h3>
@@ -1058,11 +720,6 @@ public abstract class Grid {
      * directly applies the pre-computed adjacency mask to the grid state using bitwise XOR.
      * </p>
      *
-     * <p>
-     * The {@link #recalculationNeeded} flag is set to {@code true} to trigger lazy recomputation of
-     * {@link #firstTrueCell} and {@link #trueCellsCount}.
-     * </p>
-     *
      * <h3>Performance Considerations</h3>
      * <p>
      * This method is {@code O(1)} in complexity. It is declared {@code final} to encourage JIT
@@ -1090,9 +747,6 @@ public abstract class Grid {
         // XOR the grid state with the pre-computed adjacency mask
         this.lowerState ^= ADJACENCY_MASKS[cell][0];
         this.upperState ^= ADJACENCY_MASKS[cell][1];
-
-        // Mark for recalculation of first true cell and count
-        this.recalculationNeeded = true;
     }
 
     /**
@@ -1124,9 +778,6 @@ public abstract class Grid {
         // XOR the grid state with the pre-computed adjacency mask
         this.lowerState ^= ADJACENCY_MASKS[cell][0];
         this.upperState ^= ADJACENCY_MASKS[cell][1];
-
-        // Mark for recalculation of first true cell and count
-        this.recalculationNeeded = true;
     }
 
     /**
@@ -1136,11 +787,6 @@ public abstract class Grid {
      * This method provides a direct way to modify the grid state by XORing it with an external
      * bitmask. It is intended for advanced scenarios where the caller has already calculated the
      * cumulative effect of one or more clicks as a bitmask.
-     * </p>
-     *
-     * <p>
-     * The {@link #recalculationNeeded} flag is set to {@code true} to trigger lazy recomputation of
-     * {@link #firstTrueCell} and {@link #trueCellsCount}.
      * </p>
      *
      * @param bitmask The bitmask (a {@code long[2]} array) representing the changes to apply to the
@@ -1158,9 +804,6 @@ public abstract class Grid {
         }
         this.lowerState ^= bitmask[0];
         this.upperState ^= bitmask[1];
-
-        // Mark for recalculation of first true cell
-        this.recalculationNeeded = true;
     }
 
     /**
@@ -1171,11 +814,6 @@ public abstract class Grid {
      * iteratively applying their corresponding {@link #ADJACENCY_MASKS} to the grid state using
      * bitwise XOR operations. This is the primary method for applying click combinations in bulk,
      * particularly within {@link TestClickCombination monkeys}.
-     * </p>
-     *
-     * <p>
-     * The {@link #recalculationNeeded} flag is set to {@code true} once after all clicks are
-     * applied, ensuring lazy recomputation of {@link #firstTrueCell} and {@link #trueCellsCount}.
      * </p>
      *
      * <h3>Performance Considerations</h3>
@@ -1201,7 +839,6 @@ public abstract class Grid {
             this.lowerState ^= ADJACENCY_MASKS[cell][0];
             this.upperState ^= ADJACENCY_MASKS[cell][1];
         }
-        this.recalculationNeeded = true;
     }
 
     /**
@@ -1212,11 +849,6 @@ public abstract class Grid {
      * applied after processing a sequence of prefix clicks. This is particularly useful in
      * scenarios where a {@link WorkBatch.WorkItem WorkItem} is tested, and a final click needs to
      * be applied to complete the combination.
-     * </p>
-     * 
-     * <p>
-     * The {@link #recalculationNeeded} flag is set to {@code true} once after all clicks are
-     * applied, ensuring lazy recomputation of {@link #firstTrueCell} and {@link #trueCellsCount}.
      * </p>
      * 
      * <h3>Performance Considerations</h3>
@@ -1250,100 +882,13 @@ public abstract class Grid {
         }
         this.lowerState ^= ADJACENCY_MASKS[finalClick][0];
         this.upperState ^= ADJACENCY_MASKS[finalClick][1];
-        this.recalculationNeeded = true;
     }
 
-    public final ShortList findFirstTrueAdjacents(ValueFormat format) {
-        mustNotBeNull(format, "format");
-        checkArgument(format != ValueFormat.Bitmask,
-                "Bitmask format is not supported for this operation.");
-
-        short firstTrueCell = findFirstTrueCell(format);
-        if (firstTrueCell == -1)
-            return ShortList.of();
-
-        return findAdjacents(firstTrueCell, format);
-    }
-
-    public final ShortList findFirstTrueAdjacents() {
-        return findFirstTrueAdjacents(ValueFormat.Index);
-    }
-
-    public final ShortList findFirstTrueAdjacentsAfter(short cell, ValueFormat inputFormat,
-            ValueFormat outputFormat) {
-        mustNotBeNull(inputFormat, "inputFormat");
-        mustNotBeNull(outputFormat, "outputFormat");
-        checkArgument(inputFormat != ValueFormat.Bitmask,
-                "Bitmask is not a supported input format");
-        checkArgument(outputFormat != ValueFormat.Bitmask,
-                "Bitmask is not a supported output format");
-
-        ShortList firstTrueAdjacents = findFirstTrueAdjacents(inputFormat);
-        if (firstTrueAdjacents.isEmpty())
-            return ShortList.of();
-
-        // Binary search to find the index of the first adjacent cell greater than 'cell'
-        int index = -1;
-        int low = 0, high = firstTrueAdjacents.size() - 1;
-        while (low <= high) {
-            int mid = (low + high) / 2;
-            if (firstTrueAdjacents.getShort(mid) > cell) {
-                index = mid; // Found a candidate, but keep searching left for the first one
-                high = mid - 1;
-            } else {
-                low = mid + 1; // Search right
-            }
-        }
-
-        // If no adjacent cell greater than 'cell' is found, return null
-        if (index == -1)
-            return ShortList.of();
-
-        // If the index is found, return the sublist starting from that index
-        ShortList subList = firstTrueAdjacents.subList(index, firstTrueAdjacents.size());
-
-        // Convert the result to the desired output format
-        if (outputFormat == inputFormat) {
-            return subList; // No conversion or re-wrapping needed
-        } else {
-            ShortList result = new ShortArrayList(subList);
-            if (outputFormat == ValueFormat.PackedInt && inputFormat == ValueFormat.Index)
-                result.replaceAll(Grid::indexToPacked);
-            else if (outputFormat == ValueFormat.Index && inputFormat == ValueFormat.PackedInt)
-                result.replaceAll(Grid::packedToIndex);
-            return result;
-        }
-    }
-
-    public final boolean isSolved() { return this.lowerState == 0 && this.upperState == 0; }
+    public final boolean isSolved() { return this.lowerState == 0L && this.upperState == 0L; }
 
     /**
-     * Returns the count of {@code true} cells in the grid.
-     *
-     * <p>
-     * This method implements a lazy evaluation strategy. If the grid state has been modified
-     * (indicated by {@link #recalculationNeeded}), it recalculates the count using highly optimized
-     * bitwise operations ({@link Long#bitCount(long)}); otherwise, it returns the cached
-     * {@link #trueCellsCount}.
-     * </p>
-     *
-     * @return The number of {@code true} cells in the grid.
-     * @since 2025.03 - Dynamic True Cell Count Tracking
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe due to lazy evaluation of a mutable field.
-     * @memory Does not allocate.
-     */
-    public final int getTrueCount() {
-        if (recalculationNeeded) {
-            trueCellsCount = Long.bitCount(this.lowerState) + Long.bitCount(this.upperState);
-            recalculationNeeded = false;
-        }
-        return trueCellsCount;
-    }
-
-    /**
-     * Determines if a prospective click on a {@code clickCell} can affect or create a new
-     * {@link #findFirstTrueCell() first true cell} in the grid.
+     * Determines if a prospective click on a {@code clickCell} can affect or create a new first
+     * true cell in the grid.
      *
      * <p>
      * This method is a crucial pruning helper for the {@link CombinationGeneratorTask generator}.
@@ -1372,7 +917,6 @@ public abstract class Grid {
      * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
      * @throws NullPointerException     if {@code format} is {@code null}.
      * @see #areAdjacent(short, short, ValueFormat)
-     * @see #findFirstTrueCell(ValueFormat)
      * @since 2025.07 - Format and Adjacency Optimizations
      * @performance {@code O(1)} comparisons and method call.
      * @threading Thread-safe; relies only on immutable static data and input parameters.
@@ -1452,24 +996,9 @@ public abstract class Grid {
         return areAdjacent(cellA, cellB, ValueFormat.Index);
     }
 
-    /**
-     * Returns a copy of the current grid state as a {@code long[2]} bitmask.
-     *
-     * <p>
-     * This method provides direct access to a snapshot of the grid's internal state. While it
-     * involves an allocation, it is useful for debugging, logging, or scenarios requiring immutable
-     * copies of the grid state without exposing the internal array directly.
-     * </p>
-     *
-     * @return A copy of the current grid state as a {@code long[2]} bitmask.
-     * @see #click(long[])
-     * @see ValueFormat#Bitmask
-     * @since 2025.07 - Bitmasked Grid State
-     * @performance {@code O(1)} complexity (fixed-size array copy).
-     * @threading The returned array is thread-safe as it is a new, independent copy.
-     * @memory Allocates a new {@code long[2]} array.
-     */
-    public final long[] getGridState() { return new long[] {this.lowerState, this.upperState}; }
+    public final GridState toGridState() { return new GridState(this.lowerState, this.upperState); }
+
+    public static Grid withInitial(GridState state) { return builder().from(state).build(); }
 
     public static final ShortList invertCombination(ShortList clicks) {
         final ShortList inverted = new ShortArrayList(NUM_CELLS - clicks.size());
@@ -1540,6 +1069,15 @@ public abstract class Grid {
                 sb.append(System.lineSeparator());
         }
         return sb.toString();
+    }
+
+    private boolean getBit(int index) {
+        int bitPosition = index % 64;
+        return switch ((index / 64)) {
+            case 0 -> (lowerState & (1L << bitPosition)) != 0;
+            case 1 -> (upperState & (1L << bitPosition)) != 0;
+            default -> throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
+        };
     }
 
     @Override
@@ -1629,6 +1167,11 @@ public abstract class Grid {
                     bitmask.length);
 
             return setInitialState(bitmask[0], bitmask[1]);
+        }
+
+        public Builder from(GridState state) {
+            mustNotBeNull(state, "state");
+            return setInitialState(state.lowerState(), state.upperState());
         }
 
         public Builder toggle(short cell) {

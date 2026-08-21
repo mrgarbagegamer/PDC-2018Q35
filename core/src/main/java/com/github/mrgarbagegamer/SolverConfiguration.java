@@ -22,7 +22,7 @@ public final class SolverConfiguration {
     private final int batchSize;
     private final int taskPoolSize;
     private final int queueSize;
-    private final Grid baseGrid;
+    private final GridState baseGridState;
 
     private SolverConfiguration(Builder builder) {
         this.numClicks = builder.numClicks;
@@ -30,14 +30,14 @@ public final class SolverConfiguration {
         this.batchSize = mustBePositive(builder.batchSize, "batchSize");
         this.taskPoolSize = mustBePositive(builder.taskPoolSize, "taskPoolSize");
         this.queueSize = mustBePositive(builder.queueSize, "queueSize");
-        this.baseGrid = mustNotBeNull(builder.baseGrid, "baseGrid").copy();
+        this.baseGridState = mustNotBeNull(builder.baseGridState, "baseGridState");
     }
 
     public static Builder builder() { return new Builder(); }
 
     public static SolverConfiguration forPuzzle(int numClicks, int numThreads, int puzzleNumber) {
         return builder().numClicks(numClicks).numThreads(numThreads)
-                .baseGrid(createGridForPuzzle(puzzleNumber)).build();
+                .baseGridState(createGridForPuzzle(puzzleNumber).toGridState()).build();
     }
 
     public static SolverConfiguration forPuzzle(int numClicks, int numThreads) {
@@ -72,29 +72,29 @@ public final class SolverConfiguration {
 
     public int queueSize() { return this.queueSize; }
 
-    public Grid baseGrid() { return this.baseGrid.copy(); }
+    public GridState baseGridState() { return this.baseGridState; }
 
-    boolean getUseDualMasks() { return this.baseGrid().getTrueCount() > 64; }
+    boolean getUseDualMasks() { return this.baseGridState.getTrueCount() > 64; }
 
     LongList getTrueCellMasksLower() {
-        ShortList trueCells = this.baseGrid().findTrueCells();
+        ShortList trueCells = this.baseGridState.findTrueCells();
         return generateTrueCellMasks(trueCells.size() > 64 ? trueCells.subList(0, 64) : trueCells);
     }
 
     LongList getTrueCellMasksUpper() {
-        ShortList trueCells = this.baseGrid().findTrueCells();
+        ShortList trueCells = this.baseGridState.findTrueCells();
         return trueCells.size() > 64
                 ? generateTrueCellMasks(trueCells.subList(64, trueCells.size()))
                 : LongList.of();
     }
 
-    long getExpectedMaskLower() { return (1L << this.baseGrid().getTrueCount()) - 1; }
+    long getExpectedMaskLower() { return (1L << this.baseGridState.getTrueCount()) - 1; }
 
     long getExpectedMaskUpper() {
-        return (1L << (Math.max(this.baseGrid().getTrueCount(), 64) - 64)) - 1;
+        return (1L << (Math.max(this.baseGridState.getTrueCount(), 64) - 64)) - 1;
     }
 
-    ShortList getOddClickIndices() { return this.baseGrid().findFirstTrueAdjacents(); }
+    ShortList getOddClickIndices() { return this.baseGridState.findFirstTrueAdjacents(); }
 
     ShortList getEvenClickIndices() { return Grid.invertCombination(this.getOddClickIndices()); }
 
@@ -113,7 +113,7 @@ public final class SolverConfiguration {
         if (obj instanceof SolverConfiguration other)
             return this.numClicks == other.numClicks && this.numThreads == other.numThreads
                     && this.batchSize == other.batchSize && this.taskPoolSize == other.taskPoolSize
-                    && this.queueSize == other.queueSize && this.baseGrid.equals(other.baseGrid);
+                    && this.queueSize == other.queueSize && this.baseGridState.equals(other.baseGridState);
         return false;
     }
 
@@ -124,7 +124,7 @@ public final class SolverConfiguration {
         result = 31 * result + this.batchSize;
         result = 31 * result + this.taskPoolSize;
         result = 31 * result + this.queueSize;
-        result = 31 * result + this.baseGrid.hashCode();
+        result = 31 * result + this.baseGridState.hashCode();
         return result;
     }
 
@@ -133,13 +133,13 @@ public final class SolverConfiguration {
         return MoreObjects.toStringHelper(this).add("numClicks", numClicks)
                 .add("numThreads", numThreads).add("batchSize", batchSize)
                 .add("taskPoolSize", taskPoolSize).add("queueSize", queueSize)
-                .add("baseGrid", baseGrid).toString();
+                .add("baseGridState", baseGridState).toString();
     }
 
     public static class Builder {
         private int numClicks = 17;
         private int numThreads = Math.max(Runtime.getRuntime().availableProcessors(), 2);
-        private Grid baseGrid = new Grid35();
+        private GridState baseGridState = new Grid35().toGridState();
         private int batchSize = 256;
         private int taskPoolSize = 128;
         private int queueSize = 16;
@@ -175,11 +175,13 @@ public final class SolverConfiguration {
             return this;
         }
 
-        public Builder baseGrid(Grid baseGrid) {
-            // TODO: Look at using another mechanism for copying the base grid to avoid reliance on
-            // an abstract method.
-            this.baseGrid = mustNotBeNull(baseGrid, "baseGrid").copy();
+        public Builder baseGridState(GridState baseGridState) {
+            this.baseGridState = mustNotBeNull(baseGridState, "baseGridState");
             return this;
+        }
+
+        public Builder baseGrid(Grid baseGrid) {
+            return baseGridState(mustNotBeNull(baseGrid, "baseGrid").toGridState());
         }
 
         public SolverConfiguration build() {

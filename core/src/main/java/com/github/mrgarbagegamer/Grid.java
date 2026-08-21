@@ -12,7 +12,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 
 // TODO: Add documentation to the new methods and modify existing Javadoc accordingly
 // TODO: Use byte collections instead of short collections for Index format
-// TODO: Prefix all Grid field accesses with "this."
 // TODO: Reduce duplication between the Grid.click() implementations through delegation
 /**
  * A structure that represents the core hexagonal grid for a "Lights Out" style puzzle.
@@ -396,6 +395,7 @@ public abstract class Grid {
         }
     }
 
+    // TODO: Make computeAdjacents() private (since it's not needed anywhere else).
     /**
      * Computes the hexagonally adjacent cells for a given cell, supporting flexible input and
      * output formats.
@@ -561,7 +561,6 @@ public abstract class Grid {
             case PackedInt -> mutableList.replaceAll(Grid::indexToPacked);
             case null -> throw new NullPointerException("Output format cannot be null");
         }
-        ;
 
         return new ShortImmutableList(mutableList);
     }
@@ -705,8 +704,8 @@ public abstract class Grid {
         switch (format) {
             case Bitmask -> throw new IllegalArgumentException(
                     "Unsupported format: Bitmask must be a long[] of length 1 or 2.");
-            case PackedInt -> click(packedToIndex(cell));
-            case Index -> click(cell);
+            case PackedInt -> this.click(packedToIndex(cell));
+            case Index -> this.click(cell);
             case null -> throw new NullPointerException("Format cannot be null.");
         }
     }
@@ -780,6 +779,7 @@ public abstract class Grid {
         this.upperState ^= ADJACENCY_MASKS[cell][1];
     }
 
+    // TODO: Delete this method.
     /**
      * Applies a pre-computed bitmask to the grid state.
      *
@@ -1063,7 +1063,7 @@ public abstract class Grid {
             int cols = (row % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS;
             for (int col = 0; col < cols; col++) {
                 int bitIdx = packedToIndex((short) (row * 100 + col));
-                sb.append(getBit(bitIdx) ? "1 " : "0 ");
+                sb.append(this.getBit(bitIdx) ? "1 " : "0 ");
             }
             if (row < NUM_ROWS - 1)
                 sb.append(System.lineSeparator());
@@ -1074,8 +1074,8 @@ public abstract class Grid {
     private boolean getBit(int index) {
         int bitPosition = index % 64;
         return switch ((index / 64)) {
-            case 0 -> (lowerState & (1L << bitPosition)) != 0;
-            case 1 -> (upperState & (1L << bitPosition)) != 0;
+            case 0 -> (this.lowerState & (1L << bitPosition)) != 0;
+            case 1 -> (this.upperState & (1L << bitPosition)) != 0;
             default -> throw new IndexOutOfBoundsException("Index " + index + " is out of bounds");
         };
     }
@@ -1109,6 +1109,7 @@ public abstract class Grid {
     public static Builder builder() { return new Builder(); }
 
     public static final class Builder {
+        // TODO: Replace "state0" and "state1" with "lowerState" and "upperState" respectively.
         private long initialState0 = 0L;
         private long initialState1 = 0L;
 
@@ -1132,25 +1133,25 @@ public abstract class Grid {
         }
 
         public Builder click(short cell1, short cell2) {
-            click(cell1);
-            click(cell2);
+            this.click(cell1);
+            this.click(cell2);
             return this;
         }
 
         public Builder click(short cell1, short cell2, short cell3) {
-            click(cell1);
-            click(cell2);
-            click(cell3);
+            this.click(cell1);
+            this.click(cell2);
+            this.click(cell3);
             return this;
         }
 
         public Builder click(short cell1, short cell2, short cell3, short... cells) {
-            click(cell1);
-            click(cell2);
-            click(cell3);
+            this.click(cell1);
+            this.click(cell2);
+            this.click(cell3);
 
             for (short cell : cells) {
-                click(cell);
+                this.click(cell);
             }
             return this;
         }
@@ -1158,7 +1159,7 @@ public abstract class Grid {
         public Builder from(Grid other) {
             mustNotBeNull(other, "other");
 
-            return setInitialState(other.lowerState, other.upperState);
+            return this.setInitialState(other.lowerState, other.upperState);
         }
 
         public Builder from(long[] bitmask) {
@@ -1166,12 +1167,12 @@ public abstract class Grid {
             checkArgument(bitmask.length == 2, "bitmask must be of length 2, was %s",
                     bitmask.length);
 
-            return setInitialState(bitmask[0], bitmask[1]);
+            return this.setInitialState(bitmask[0], bitmask[1]);
         }
 
         public Builder from(GridState state) {
             mustNotBeNull(state, "state");
-            return setInitialState(state.lowerState(), state.upperState());
+            return this.setInitialState(state.lowerState(), state.upperState());
         }
 
         public Builder toggle(short cell) {
@@ -1187,30 +1188,30 @@ public abstract class Grid {
         }
 
         public Builder toggle(short cell1, short cell2) {
-            toggle(cell1);
-            toggle(cell2);
+            this.toggle(cell1);
+            this.toggle(cell2);
             return this;
         }
 
         public Builder toggle(short cell1, short cell2, short cell3) {
-            toggle(cell1);
-            toggle(cell2);
-            toggle(cell3);
+            this.toggle(cell1);
+            this.toggle(cell2);
+            this.toggle(cell3);
             return this;
         }
 
         public Builder toggle(short cell1, short cell2, short cell3, short... cells) {
-            toggle(cell1);
-            toggle(cell2);
-            toggle(cell3);
+            this.toggle(cell1);
+            this.toggle(cell2);
+            this.toggle(cell3);
 
             for (short cell : cells) {
-                toggle(cell);
+                this.toggle(cell);
             }
             return this;
         }
 
-        public Builder clear() { return setInitialState(0L, 0L); }
+        public Builder clear() { return this.setInitialState(0L, 0L); }
 
         public Grid build() { return new CustomGrid(this); }
     }

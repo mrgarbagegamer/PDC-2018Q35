@@ -12,7 +12,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 
 // TODO: Add documentation to the new methods and modify existing Javadoc accordingly
 // TODO: Use byte collections instead of short collections for Index format
-// TODO: Reduce duplication between the Grid.click() implementations through delegation
 /**
  * A structure that represents the core hexagonal grid for a "Lights Out" style puzzle.
  *
@@ -667,221 +666,39 @@ public abstract class Grid {
         this.upperState = this.initialUpperState;
     }
 
-    /**
-     * Simulates a click on the {@code Grid} at the specified cell, supporting
-     * {@link ValueFormat#Index} or {@link ValueFormat#PackedInt} formats.
-     *
-     * <p>
-     * A click toggles the state of its adjacent cells (excluding itself). This operation is
-     * performed by XORing the grid state with a pre-computed {@link #ADJACENCY_MASKS adjacency
-     * mask} corresponding to the clicked cell.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method achieves {@code O(1)} complexity due to the direct bitwise XOR operations on the
-     * grid state using pre-computed masks. While the grid spans 109 cells, requiring two
-     * {@code long} values for the bitmask, the implementation avoids conditional branching based on
-     * cell position for simplicity and consistent performance.
-     * </p>
-     *
-     * @param cell   The cell to click, in the specified {@code format}.
-     * @param format The {@link ValueFormat} of the input {@code cell} (Index or PackedInt).
-     * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used, as it is not
-     *                                        suitable for single-cell representation.
-     * @throws ArrayIndexOutOfBoundsException if the {@code cell} is out of bounds (implicitly
-     *                                        checked by array accesses).
-     * @see #click(short[])
-     * @since 2025.07 - Format Support
-     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations.
-     *             Single-click operations are no longer on the hot path.
-     * @performance {@code O(1)} complexity due to bitwise operations and pre-computed masks.
-     * @threading Not thread-safe; modifies the instance's grid state.
-     * @memory Does not allocate.
-     */
-    @Deprecated
-    public final void click(short cell, ValueFormat format) {
-        switch (format) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Unsupported format: Bitmask must be a long[] of length 1 or 2.");
-            case PackedInt -> this.click(packedToIndex(cell));
-            case Index -> this.click(cell);
-            case null -> throw new NullPointerException("Format cannot be null.");
-        }
-    }
-
-    /**
-     * Simulates a click on the {@code Grid} at the specified cell, assuming
-     * {@link ValueFormat#Index} format.
-     *
-     * <p>
-     * This is a highly optimized, {@code final} method designed for performance-critical paths. It
-     * directly applies the pre-computed adjacency mask to the grid state using bitwise XOR.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method is {@code O(1)} in complexity. It is declared {@code final} to encourage JIT
-     * inlining and avoids any format-checking overhead by requiring the {@link ValueFormat#Index}
-     * format. This method has largely been superseded by {@link #click(short[])} for bulk
-     * operations in {@link TestClickCombination}, as single-click operations are no longer the
-     * primary hot path.
-     * </p>
-     *
-     * @param cell The cell to click, in {@link ValueFormat#Index} format (0-108).
-     * @throws ArrayIndexOutOfBoundsException if the {@code cell} is out of bounds (implicitly
-     *                                        checked by array accesses).
-     * @see #areAdjacent(short, short, ValueFormat)
-     * @see #click(short, ValueFormat)
-     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
-     * @since 2025.07 - Inlining Improvements
-     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations.
-     *             Single-click operations are no longer on the hot path.
-     * @performance {@code O(1)} retrieval and bitwise operations.
-     * @threading Not thread-safe; modifies the instance's grid state.
-     * @memory Does not allocate.
-     */
-    @Deprecated
     public final void click(short cell) {
-        // XOR the grid state with the pre-computed adjacency mask
+        // TODO: Consider adding a bounds check on cell
         this.lowerState ^= ADJACENCY_MASKS[cell][0];
         this.upperState ^= ADJACENCY_MASKS[cell][1];
     }
 
-    /**
-     * Simulates a click on the {@code Grid} at the specified row and column.
-     *
-     * <p>
-     * This is a convenience {@code final} method that converts the row and column into a
-     * {@link ValueFormat#PackedInt} value, then converts it to {@link ValueFormat#Index} format,
-     * before delegating to the core {@link #click(short)} method.
-     * </p>
-     *
-     * @param row The row of the cell to click.
-     * @param col The column of the cell to click.
-     * @throws ArrayIndexOutOfBoundsException if the cell is out of bounds (implicitly checked by
-     *                                        array accesses).
-     * @see #click(short, ValueFormat)
-     * @since 2025.03 - Initial Creation
-     * @deprecated As of 2025.07, replaced by {@link #click(short[])} for bulk operations.
-     *             Single-click operations are no longer on the hot path.
-     * @performance {@code O(1)} complexity.
-     * @threading Not thread-safe; modifies the instance's grid state.
-     * @memory Does not allocate.
-     */
-    @Deprecated
-    public final void click(short row, short col) {
-        // Convert packed int to index format first
-        short cell = packedToIndex((short) (row * 100 + col));
+    public final void click(short cell, ValueFormat format) {
+        short index = switch (format) {
+            case Bitmask -> throw new IllegalArgumentException(
+                    "Bitmask format is not supported for single-cell operations");
+            case PackedInt -> packedToIndex(cell);
+            case Index -> cell;
+            case null -> throw new NullPointerException("format must not be null");
+        };
 
-        // XOR the grid state with the pre-computed adjacency mask
-        this.lowerState ^= ADJACENCY_MASKS[cell][0];
-        this.upperState ^= ADJACENCY_MASKS[cell][1];
+        this.click(index);
     }
 
-    // TODO: Delete this method.
-    /**
-     * Applies a pre-computed bitmask to the grid state.
-     *
-     * <p>
-     * This method provides a direct way to modify the grid state by XORing it with an external
-     * bitmask. It is intended for advanced scenarios where the caller has already calculated the
-     * cumulative effect of one or more clicks as a bitmask.
-     * </p>
-     *
-     * @param bitmask The bitmask (a {@code long[2]} array) representing the changes to apply to the
-     *                grid.
-     * @throws IllegalArgumentException if the {@code bitmask} array is not of length 2.
-     * @see #click(short[])
-     * @since 2025.07 - Click Format Support
-     * @performance {@code O(1)} bitwise operations.
-     * @threading Not thread-safe; modifies the instance's grid state.
-     * @memory Does not allocate.
-     */
-    public final void click(long[] bitmask) {
-        if (bitmask.length != 2) {
-            throw new IllegalArgumentException("Bitmask must be of length 2.");
-        }
+    public final void click(short[] cells) {
+        for (short cell : cells)
+            this.click(cell);
+    }
+
+    public final void click(short[] prefix, short finalClick) {
+        this.click(prefix);
+        this.click(finalClick);
+    }
+
+    // TODO: Delete this method completely after restructuring GridTest
+    final void click(long[] bitmask) {
+        checkArgument(bitmask.length == 2, "bitmask must be of length 2, was %s", bitmask.length);
         this.lowerState ^= bitmask[0];
         this.upperState ^= bitmask[1];
-    }
-
-    /**
-     * Simulates clicks on multiple cells in the {@code Grid}.
-     *
-     * <p>
-     * This method efficiently processes an array of cells (in {@link ValueFormat#Index} format) by
-     * iteratively applying their corresponding {@link #ADJACENCY_MASKS} to the grid state using
-     * bitwise XOR operations. This is the primary method for applying click combinations in bulk,
-     * particularly within {@link TestClickCombination monkeys}.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method is a hot-path operation with {@code O(cells.length)} complexity. It is declared
-     * {@code final} to encourage JIT inlining and assumes valid input to minimize branching and
-     * checks within the loop. We avoid unrolling the loop to delegate the responsibility to the JIT
-     * compiler. Vectorization is also not applicable here, due to the non-predictable array
-     * accesses.
-     * </p>
-     *
-     * @param cells An array of cells (in {@link ValueFormat#Index} format) to click.
-     * @throws ArrayIndexOutOfBoundsException if any cell in the array is out of bounds.
-     * @throws NullPointerException           if the {@code cells} array is {@code null}.
-     * @see #click(short)
-     * @since 2025.07 - Bulk Clicks
-     * @performance {@code O(cells.length)} for iterating over {@code cells}.
-     * @threading Not thread-safe; modifies the instance's grid state.
-     * @memory Does not allocate.
-     */
-    public final void click(short[] cells) {
-        for (short cell : cells) {
-            this.lowerState ^= ADJACENCY_MASKS[cell][0];
-            this.upperState ^= ADJACENCY_MASKS[cell][1];
-        }
-    }
-
-    /**
-     * Simulates clicks on multiple cells in the {@code Grid}, with a distinct final click.
-     * 
-     * <p>
-     * This method extends the bulk click functionality by allowing a separate final click to be
-     * applied after processing a sequence of prefix clicks. This is particularly useful in
-     * scenarios where a {@link WorkBatch.WorkItem WorkItem} is tested, and a final click needs to
-     * be applied to complete the combination.
-     * </p>
-     * 
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method is a hot-path operation with {@code O(prefix.length + 1)} complexity. It is
-     * declared {@code final} to encourage JIT inlining and assumes valid input to minimize
-     * branching and checks within the loop. We avoid unrolling the loop to delegate the
-     * responsibility to the JIT compiler. Vectorization is also not applicable here, due to the
-     * non-predictable array accesses.
-     * </p>
-     * 
-     * @param prefix     An array of cells (in {@link ValueFormat#Index} format) to click before the
-     *                   final click.
-     * @param finalClick The final cell (in {@link ValueFormat#Index} format) to click after the
-     *                   {@code prefix}.
-     * @throws ArrayIndexOutOfBoundsException if any {@code cell} in the array or the
-     *                                        {@code finalClick} is out of bounds.
-     * @throws NullPointerException           if the {@code prefix} array is {@code null}.
-     * @see #click(short)
-     * @see #click(short[])
-     * @since 2025.11 - Avoid Arraycopy in WorkItem Processing
-     * @performance {@code O(prefix.length + 1)} for iterating over {@code prefix} and applying the
-     *              final click.
-     * @threading Not thread-safe; modifies the instance's grid state.
-     * @memory Does not allocate.
-     */
-    public final void click(short[] prefix, short finalClick) {
-        for (short cell : prefix) {
-            this.lowerState ^= ADJACENCY_MASKS[cell][0];
-            this.upperState ^= ADJACENCY_MASKS[cell][1];
-        }
-        this.lowerState ^= ADJACENCY_MASKS[finalClick][0];
-        this.upperState ^= ADJACENCY_MASKS[finalClick][1];
     }
 
     public final boolean isSolved() { return this.lowerState == 0L && this.upperState == 0L; }

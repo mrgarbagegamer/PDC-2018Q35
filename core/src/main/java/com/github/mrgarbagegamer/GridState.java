@@ -1,12 +1,14 @@
 package com.github.mrgarbagegamer;
 
+import static com.github.mrgarbagegamer.Grid.ValueFormat.bitmaskFormatNotSupportedException;
+import static com.github.mrgarbagegamer.Grid.ValueFormat.indexListToPackedList;
+import static com.github.mrgarbagegamer.Grid.ValueFormat.packedListToIndexList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
-import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
 // TODO: Javadoc
 public record GridState(long lowerState, long upperState) {
@@ -14,25 +16,6 @@ public record GridState(long lowerState, long upperState) {
     public GridState {
         checkArgument((upperState >>> 45) == 0, "upperState must be a 45-bit value, but was: %s",
                 upperState);
-    }
-
-    private static IllegalArgumentException bitmaskFormatNotSupportedException(String operation) {
-        return new IllegalArgumentException(
-                "Bitmask format is not supported for " + operation + ".");
-    }
-
-    private static ShortList replaceAllSafely(ShortList list, ShortUnaryOperator operator) {
-        ShortList result = new ShortArrayList(list);
-        result.replaceAll(operator);
-        return new ShortImmutableList(result);
-    }
-
-    private static ShortList indexListToPackedList(ShortList indexList) {
-        return replaceAllSafely(indexList, Grid::indexToPacked);
-    }
-
-    private static ShortList packedListToIndexList(ShortList packedList) {
-        return replaceAllSafely(packedList, Grid::packedToIndex);
     }
 
     public long[] toLongArray() { return new long[] {this.lowerState, this.upperState}; }

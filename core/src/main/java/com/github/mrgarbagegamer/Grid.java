@@ -9,6 +9,7 @@ import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
 import it.unimi.dsi.fastutil.shorts.ShortList;
+import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
 // TODO: Add documentation to the new methods and modify existing Javadoc accordingly
 // TODO: Use byte collections instead of short collections for Index format
@@ -187,7 +188,25 @@ public abstract class Grid {
          * @threading Thread-safe as an immutable {@code enum}.
          * @memory Minimal memory overhead as a singleton per enum constant.
          */
-        Bitmask
+        Bitmask;
+
+        static IllegalArgumentException bitmaskFormatNotSupportedException(String operation) {
+            return new IllegalArgumentException("Bitmask format is not supported for " + operation);
+        }
+
+        static ShortList replaceAllSafely(ShortList list, ShortUnaryOperator operator) {
+            ShortList result = new ShortArrayList(list);
+            result.replaceAll(operator);
+            return new ShortImmutableList(result);
+        }
+
+        static ShortList indexListToPackedList(ShortList indexList) {
+            return replaceAllSafely(indexList, Grid::indexToPacked);
+        }
+
+        static ShortList packedListToIndexList(ShortList packedList) {
+            return replaceAllSafely(packedList, Grid::packedToIndex);
+        }
     }
 
     /**

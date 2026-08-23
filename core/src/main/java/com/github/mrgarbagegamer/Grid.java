@@ -802,7 +802,7 @@ public abstract class Grid {
     }
 
     private static final class CustomGrid extends Grid {
-        private CustomGrid(Builder builder) { super(builder.initialState0, builder.initialState1); }
+        private CustomGrid(Builder builder) { super(builder.lowerState, builder.upperState); }
 
         private CustomGrid(Grid other) { super(other); }
 
@@ -813,26 +813,25 @@ public abstract class Grid {
     public static Builder builder() { return new Builder(); }
 
     public static final class Builder {
-        // TODO: Replace "state0" and "state1" with "lowerState" and "upperState" respectively.
-        private long initialState0 = 0L;
-        private long initialState1 = 0L;
+        private long lowerState = 0L;
+        private long upperState = 0L;
 
         private Builder() {}
 
-        public Builder setInitialState(long state0, long state1) {
-            checkArgument(((state1 >>> 45) == 0L),
-                    "state1 mask %s has bits set at or above index 45",
-                    Long.toBinaryString(state1));
+        public Builder setInitialState(long lowerState, long upperState) {
+            checkArgument(((upperState >>> 45) == 0L),
+                    "upperState mask %s has bits set at or above index 45",
+                    Long.toBinaryString(upperState));
 
-            this.initialState0 = state0;
-            this.initialState1 = state1;
+            this.lowerState = lowerState;
+            this.upperState = upperState;
             return this;
         }
 
         public Builder click(short cell) {
             checkIndex(cell);
-            this.initialState0 ^= ADJACENCY_MASKS[cell][0];
-            this.initialState1 ^= ADJACENCY_MASKS[cell][1];
+            this.lowerState ^= ADJACENCY_MASKS[cell][0];
+            this.upperState ^= ADJACENCY_MASKS[cell][1];
             return this;
         }
 
@@ -882,11 +881,10 @@ public abstract class Grid {
         public Builder toggle(short cell) {
             checkIndex(cell);
 
-            if (cell < 64) {
-                initialState0 ^= (1L << cell);
-            } else {
-                initialState1 ^= (1L << (cell - 64));
-            }
+            if (cell < 64)
+                this.lowerState ^= (1L << cell);
+            else
+                this.upperState ^= (1L << (cell - 64));
 
             return this;
         }

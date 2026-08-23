@@ -13,7 +13,6 @@ import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
 // TODO: Add documentation to the new methods and modify existing Javadoc accordingly
 // TODO: Use byte collections instead of short collections for Index format
-// TODO: Update overloaded methods to use delegation and pull formatting into the format methods
 /**
  * A structure that represents the core hexagonal grid for a "Lights Out" style puzzle.
  *
@@ -474,6 +473,12 @@ public abstract class Grid {
         return computeAdjacents(cell, ValueFormat.Index);
     }
 
+    public static final ShortList findAdjacents(short cell) {
+        checkArgument(cell >= 0 && cell < NUM_CELLS, "cell must be in range [0, %s], but was %s",
+                NUM_CELLS - 1, cell);
+        return ShortList.of(adjacencyArray[cell].clone());
+    }
+
     public static final ShortList findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         final short index = switch (inputFormat) {
@@ -481,28 +486,22 @@ public abstract class Grid {
                     "Bitmask format is not supported for representing a single cell");
             case PackedInt -> packedToIndex(cell);
             case Index -> cell;
-            case null -> throw new NullPointerException("Input format cannot be null");
+            case null -> throw new NullPointerException("inputFormat must not be null");
         };
 
-        final ShortList mutableList = new ShortArrayList(adjacencyArray[index]);
+        final ShortList outputList = findAdjacents(index);
 
-        switch (outputFormat) {
+        return switch (outputFormat) {
             case Bitmask -> throw new IllegalArgumentException(
                     "Bitmask format is not supported for representing a single cell");
-            case Index -> {}
-            case PackedInt -> mutableList.replaceAll(Grid::indexToPacked);
-            case null -> throw new NullPointerException("Output format cannot be null");
-        }
-
-        return new ShortImmutableList(mutableList);
+            case Index -> outputList;
+            case PackedInt -> ValueFormat.indexListToPackedList(outputList);
+            case null -> throw new NullPointerException("outputFormat must not be null");
+        };
     }
 
     public static final ShortList findAdjacents(short cell, ValueFormat format) {
         return findAdjacents(cell, format, format);
-    }
-
-    public static final ShortList findAdjacents(short cell) {
-        return findAdjacents(cell, ValueFormat.Index);
     }
 
     public static final short packedToIndex(short packed) {
@@ -686,64 +685,19 @@ public abstract class Grid {
         return Grid.areAdjacent(firstTrueCell, clickCell, format);
     }
 
-    /**
-     * Determines if two cells are adjacent to each other in the grid.
-     *
-     * <p>
-     * This method leverages the pre-computed {@link #ADJACENCY_CACHE} for {@code O(1)} lookups,
-     * providing a highly efficient way to check adjacency. Adjacency is critical for the puzzle's
-     * mechanics, as clicks only affect neighboring cells.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The core lookup in {@link #ADJACENCY_CACHE} is extremely fast. The primary performance
-     * consideration is the overhead of format conversion if {@link ValueFormat#PackedInt} is used.
-     * For optimal performance in hot paths, it is recommended to use {@link ValueFormat#Index}
-     * directly.
-     * </p>
-     *
-     * @param cellA  The first cell to check.
-     * @param cellB  The second cell to check.
-     * @param format The {@link ValueFormat} of both input cells ({@link ValueFormat#Index} or
-     *               {@link ValueFormat#PackedInt}).
-     * @return {@code true} if the cells are adjacent, {@code false} otherwise.
-     * @throws IllegalArgumentException       if {@link ValueFormat#Bitmask} is used for any format.
-     * @throws NullPointerException           if {@code format} is {@code null}.
-     * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds.
-     * @see #areAdjacent(short, short)
-     * @see #canAffectFirstTrueCell(short, short, ValueFormat)
-     * @since 2025.07 - Index Format Usage
-     * @performance {@code O(1)} lookup in the cache, plus conversion overhead if applicable.
-     * @threading Thread-safe; accesses immutable, pre-computed {@code static} data.
-     * @memory Does not allocate.
-     */
+    public static final boolean areAdjacent(short cellA, short cellB) {
+        // TODO: Add a bounds check on cellA and cellB
+        return ADJACENCY_CACHE[cellA][cellB];
+    }
+
     public static final boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
-        // Convert both cells to index format if necessary
         return switch (format) {
             case Bitmask -> throw new IllegalArgumentException(
                     "Bitmask format is not supported for representing a single cell.");
-            case PackedInt -> ADJACENCY_CACHE[packedToIndex(cellA)][packedToIndex(cellB)];
-            case Index -> ADJACENCY_CACHE[cellA][cellB];
+            case PackedInt -> areAdjacent(packedToIndex(cellA), packedToIndex(cellB));
+            case Index -> areAdjacent(cellA, cellB);
             case null -> throw new NullPointerException("Format cannot be null.");
         };
-    }
-
-    /**
-     * Convenience overload for {@link #areAdjacent(short, short, ValueFormat)} that assumes
-     * {@link ValueFormat#Index} for both input cells.
-     *
-     * @param cellA The first cell to check, in {@link ValueFormat#Index} format.
-     * @param cellB The second cell to check, in {@link ValueFormat#Index} format.
-     * @return {@code true} if the cells are adjacent, {@code false} otherwise.
-     * @throws ArrayIndexOutOfBoundsException if either cell is out of bounds.
-     * @since 2025.06 - Odd Adjacency Pruning
-     * @performance {@code O(1)} lookup.
-     * @threading Thread-safe.
-     * @memory Does not allocate.
-     */
-    public static final boolean areAdjacent(short cellA, short cellB) {
-        return areAdjacent(cellA, cellB, ValueFormat.Index);
     }
 
     public final GridState toGridState() { return new GridState(this.lowerState, this.upperState); }

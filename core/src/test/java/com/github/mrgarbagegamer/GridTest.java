@@ -152,38 +152,6 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#computeAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure
-     * that they throw the appropriate exceptions for invalid Bitmask input & output formats. If, in
-     * the future, we modify the methods to accept Bitmask as an output format, these tests should
-     * be updated accordingly.
-     */
-    @Test
-    void testComputeAdjacentsBitmask() {
-        // Dual format overload
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.computeAdjacents((short) 0, Grid.ValueFormat.Index, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for dual format overload with Index and Bitmask");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.computeAdjacents((short) 0, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for dual format overload with PackedInt and Bitmask");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.computeAdjacents((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.Index);
-        }, "Expected IllegalArgumentException for dual format overload with Bitmask and Index");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.computeAdjacents((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.PackedInt);
-        }, "Expected IllegalArgumentException for dual format overload with Bitmask and PackedInt");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.computeAdjacents((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for dual format overload with Bitmask and Bitmask");
-
-        // Single format overload
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.computeAdjacents((short) 0, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for single format overload with Bitmask");
-    }
-
-    /**
      * Tests the {@link Grid#computeAdjacents(short)},
      * {@link Grid#computeAdjacents(short, Grid.ValueFormat)}, and
      * {@link Grid#computeAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with an
@@ -290,38 +258,6 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#findAdjacents(short, Grid.ValueFormat)} and
-     * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods to ensure that
-     * they throw the appropriate exceptions for invalid Bitmask input & output formats. If, in the
-     * future, we modify the methods to accept Bitmask as an output format, these tests should be
-     * updated accordingly.
-     */
-    @Test
-    void testFindAdjacentsBitmask() {
-        // Dual format overload
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.findAdjacents((short) 0, Grid.ValueFormat.Index, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for dual format overload with Index and Bitmask");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.findAdjacents((short) 0, Grid.ValueFormat.PackedInt, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for dual format overload with PackedInt and Bitmask");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.findAdjacents((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.Index);
-        }, "Expected IllegalArgumentException for dual format overload with Bitmask and Index");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.findAdjacents((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.PackedInt);
-        }, "Expected IllegalArgumentException for dual format overload with Bitmask and PackedInt");
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.findAdjacents((short) 0, Grid.ValueFormat.Bitmask, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for dual format overload with Bitmask and Bitmask");
-
-        // Single format overload
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.findAdjacents((short) 0, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for single format overload with Bitmask");
-    }
-
-    /**
      * Tests the {@link Grid#findAdjacents(short)},
      * {@link Grid#findAdjacents(short, Grid.ValueFormat)}, and
      * {@link Grid#findAdjacents(short, Grid.ValueFormat, Grid.ValueFormat)} methods with an Index
@@ -416,14 +352,6 @@ class GridTest {
     }
 
     @Test
-    void testFindTrueCellsBitmask() {
-        Grid grid = new Grid13();
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findTrueCells(Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for findTrueCells with Bitmask format");
-    }
-
-    @Test
     void testFindTrueCellsIndex() {
         // We need to be able to test the index format specifically, handling true cell counts from
         // 1 to NUM_CELLS
@@ -509,14 +437,6 @@ class GridTest {
         assertThrows(NullPointerException.class, () -> {
             grid.toGridState().findFirstTrueCell(null);
         }, "Expected NullPointerException for findFirstTrueCell with null format");
-    }
-
-    @Test
-    void testFirstTrueCellBitmask() {
-        Grid grid = new Grid13();
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findFirstTrueCell(Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for findFirstTrueCell with Bitmask format");
     }
 
     @Test
@@ -684,15 +604,6 @@ class GridTest {
     }
 
     @Test
-    void testFindFirstTrueAdjacentsBitmask() {
-        Grid grid = new Grid13();
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findFirstTrueAdjacents(Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for findFirstTrueAdjacents with Bitmask format");
-    }
-
-    @Test
     void testFindFirstTrueAdjacentsIndex() {
         Grid grid = createSolvedGrid13();
 
@@ -786,32 +697,6 @@ class GridTest {
         assertThrows(NullPointerException.class, () -> {
             grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, null, null);
         }, "Expected NullPointerException for findFirstTrueAdjacentsAfter with both formats null");
-    }
-
-    @Test
-    void testFindFirstTrueAdjacentsAfterBitmask() {
-        Grid grid = new Grid13();
-
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Index,
-                    Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Index input and Bitmask output");
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.PackedInt,
-                    Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with PackedInt input and Bitmask output");
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
-                    Grid.ValueFormat.Index);
-        }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and Index output");
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
-                    Grid.ValueFormat.PackedInt);
-        }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and PackedInt output");
-        assertThrows(IllegalArgumentException.class, () -> {
-            grid.toGridState().findFirstTrueAdjacentsAfter((short) 0, Grid.ValueFormat.Bitmask,
-                    Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for findFirstTrueAdjacentsAfter with Bitmask input and Bitmask output");
     }
 
     @Test
@@ -1003,19 +888,6 @@ class GridTest {
     }
 
     /**
-     * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method to
-     * ensure it throws the appropriate exception for invalid Bitmask input format. If, in the
-     * future, we modify the method to accept Bitmask as an input format, this test should be
-     * updated accordingly.
-     */
-    @Test
-    void testCanAffectFirstTrueCellBitmask() {
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.canAffectFirstTrueCell((short) 0, (short) 0, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for Bitmask format");
-    }
-
-    /**
      * Tests the {@link Grid#canAffectFirstTrueCell(short, short, Grid.ValueFormat)} method with an
      * Index input format to ensure it correctly determines whether a click can affect the first
      * true cell based on various scenarios. This test covers edge cases, including the absence of
@@ -1164,18 +1036,6 @@ class GridTest {
         assertThrows(NullPointerException.class, () -> {
             Grid.areAdjacent((short) 0, (short) 0, null);
         }, "Expected NullPointerException for null input format");
-    }
-
-    /**
-     * Tests the {@link Grid#areAdjacent(short, short, Grid.ValueFormat)} method to ensure it throws
-     * the appropriate exception for invalid Bitmask input format. If, in the future, we modify the
-     * method to accept Bitmask as an input format, this test should be updated accordingly.
-     */
-    @Test
-    void testAreAdjacentBitmask() {
-        assertThrows(IllegalArgumentException.class, () -> {
-            Grid.areAdjacent((short) 0, (short) 0, Grid.ValueFormat.Bitmask);
-        }, "Expected IllegalArgumentException for Bitmask input format");
     }
 
     /**

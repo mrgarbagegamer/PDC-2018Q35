@@ -149,8 +149,8 @@ public abstract class Grid {
          * <p>
          * This is the primary format used in many performance-critical code paths, such as in
          * caches and generator tasks. It offers a compact and efficient way to iterate over cells
-         * and is the native format for most internal data structures (along with {@link #Bitmask}).
-         * However, it is less intuitive for humans to read compared to {@link #PackedInt}.
+         * and is the native format for most internal data structures. However, it is less intuitive
+         * for humans to read compared to {@link #PackedInt}.
          * </p>
          *
          * @see #indexToPacked(short)
@@ -160,38 +160,7 @@ public abstract class Grid {
          * @threading Thread-safe as an immutable {@code enum}.
          * @memory Minimal memory overhead as a singleton per enum constant.
          */
-        Index,
-        /*
-         * TODO: Consider removing Bitmask entirely, as it only leads to an exception for
-         * unsupported format.
-         */
-        /**
-         * A format representing the entire grid state as a bitmask. This format is not used to
-         * identify individual cells but is included for completeness.
-         *
-         * <p>
-         * The grid state is stored internally as a bitmask of two longs. This {@code enum} value
-         * signifies operations or data related to this internal representation, such as the
-         * {@link #click(long[])} method. Methods that accept or return a single cell value will
-         * typically throw an {@link IllegalArgumentException} if this format is specified.
-         * </p>
-         *
-         * @see #gridState
-         * @see #clearBit(int)
-         * @see #click(long[])
-         * @see #getBit(int)
-         * @see #getGridState()
-         * @see #setBit(int)
-         * @since 2025.07 - {@code ValueFormat} Enum Introduction
-         * @performance {@code O(1)} access time.
-         * @threading Thread-safe as an immutable {@code enum}.
-         * @memory Minimal memory overhead as a singleton per enum constant.
-         */
-        Bitmask;
-
-        static IllegalArgumentException bitmaskFormatNotSupportedException(String operation) {
-            return new IllegalArgumentException("Bitmask format is not supported for " + operation);
-        }
+        Index;
 
         static ShortList replaceAllSafely(ShortList list, ShortUnaryOperator operator) {
             ShortList result = new ShortArrayList(list);
@@ -295,8 +264,7 @@ public abstract class Grid {
     private final long initialLowerState, initialUpperState;
 
     /**
-     * Pre-computed {@link ValueFormat#Bitmask bitmasks} representing the result of clicking each
-     * cell.
+     * Pre-computed bitmasks representing the result of clicking each cell.
      *
      * <p>
      * Each entry {@code ADJACENCY_MASKS[i]} is a {@code long[2]} bitmask where the set bits
@@ -420,8 +388,6 @@ public abstract class Grid {
 
         // We need to handle different formats for adjacency
         switch (inputFormat) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
             case Index -> cell = indexToPacked(cell);
             case PackedInt -> {} // Already in PackedInt format, no conversion needed
             case null -> throw new NullPointerException("Input format cannot be null.");
@@ -455,8 +421,6 @@ public abstract class Grid {
         });
 
         switch (outputFormat) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
             case Index -> affectedPieces.replaceAll(Grid::packedToIndex);
             case PackedInt -> {} // Already in PackedInt format, no conversion needed
             case null -> throw new NullPointerException("Output format cannot be null.");
@@ -482,8 +446,6 @@ public abstract class Grid {
     public static final ShortList findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         final short index = switch (inputFormat) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell");
             case PackedInt -> packedToIndex(cell);
             case Index -> cell;
             case null -> throw new NullPointerException("inputFormat must not be null");
@@ -492,8 +454,6 @@ public abstract class Grid {
         final ShortList outputList = findAdjacents(index);
 
         return switch (outputFormat) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell");
             case Index -> outputList;
             case PackedInt -> ValueFormat.indexListToPackedList(outputList);
             case null -> throw new NullPointerException("outputFormat must not be null");
@@ -606,8 +566,6 @@ public abstract class Grid {
 
     public final void click(short cell, ValueFormat format) {
         short index = switch (format) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for single-cell operations");
             case PackedInt -> packedToIndex(cell);
             case Index -> cell;
             case null -> throw new NullPointerException("format must not be null");
@@ -663,8 +621,7 @@ public abstract class Grid {
      *                      {@code clickCell}.
      * @return {@code true} if the click can affect or create a new {@code first true cell},
      *         {@code false} otherwise.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
-     * @throws NullPointerException     if {@code format} is {@code null}.
+     * @throws NullPointerException if {@code format} is {@code null}.
      * @see #areAdjacent(short, short, ValueFormat)
      * @since 2025.07 - Format and Adjacency Optimizations
      * @performance {@code O(1)} comparisons and method call.
@@ -674,8 +631,6 @@ public abstract class Grid {
     public static final boolean canAffectFirstTrueCell(short firstTrueCell, short clickCell,
             ValueFormat format) {
         mustNotBeNull(format, "format");
-        checkArgument(format != ValueFormat.Bitmask,
-                "Bitmask format is not supported for this operation.");
 
         if (firstTrueCell == -1)
             return true; // No true cells, any click can create one
@@ -692,8 +647,6 @@ public abstract class Grid {
 
     public static final boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         return switch (format) {
-            case Bitmask -> throw new IllegalArgumentException(
-                    "Bitmask format is not supported for representing a single cell.");
             case PackedInt -> areAdjacent(packedToIndex(cellA), packedToIndex(cellB));
             case Index -> areAdjacent(cellA, cellB);
             case null -> throw new NullPointerException("Format cannot be null.");

@@ -1,6 +1,5 @@
 package com.github.mrgarbagegamer;
 
-import static com.github.mrgarbagegamer.Grid.ValueFormat.bitmaskFormatNotSupportedException;
 import static com.github.mrgarbagegamer.Grid.ValueFormat.indexListToPackedList;
 import static com.github.mrgarbagegamer.Grid.ValueFormat.packedListToIndexList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
@@ -38,8 +37,6 @@ public record GridState(long lowerState, long upperState) {
 
     public short findFirstTrueCell(Grid.ValueFormat format) {
         mustNotBeNull(format, "format");
-        if (format == Grid.ValueFormat.Bitmask)
-            throw bitmaskFormatNotSupportedException("findFirstTrueCell");
 
         short cell = this.findFirstTrueCell();
 
@@ -73,13 +70,11 @@ public record GridState(long lowerState, long upperState) {
 
     public ShortList findTrueCells(Grid.ValueFormat format) {
         mustNotBeNull(format, "format");
-        if (format == Grid.ValueFormat.Bitmask)
-            throw bitmaskFormatNotSupportedException("findTrueCells");
-        else if (format == Grid.ValueFormat.Index)
+
+        if (format == Grid.ValueFormat.Index)
             return this.findTrueCells();
-        else {
+        else
             return indexListToPackedList(this.findTrueCells());
-        }
     }
 
     public ShortList findFirstTrueAdjacents(Grid.ValueFormat format) {
@@ -94,8 +89,6 @@ public record GridState(long lowerState, long upperState) {
     public ShortList findFirstTrueAdjacentsAfter(short cell, Grid.ValueFormat inputFormat,
             Grid.ValueFormat outputFormat) {
         mustNotBeNull(outputFormat, "outputFormat");
-        checkArgument(outputFormat != Grid.ValueFormat.Bitmask,
-                "Bitmask is not a supported output format");
 
         ShortList firstTrueAdjacents = this.findFirstTrueAdjacents(inputFormat);
 

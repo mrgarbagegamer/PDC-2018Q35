@@ -101,8 +101,6 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      *
      * @param list   The {@code short[]} representing the combination.
      * @param format The initial {@link Grid.ValueFormat} of the combination.
-     * @throws IllegalArgumentException if the provided format is {@link Grid.ValueFormat#Bitmask},
-     *                                  which is not supported for logging.
      * @since 2025.05 - CombinationMessage Introduction
      * @performance {@code O(1)} assignments.
      * @memory Does not allocate (except for a new {@code CombinationMessage} instance); reuses the
@@ -110,10 +108,6 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      */
     public CombinationMessage(short[] list, Grid.ValueFormat format) {
         // TODO: Consider adding the status to the message so it can be passed directly.
-        if (format == Grid.ValueFormat.Bitmask) {
-            throw new IllegalArgumentException(
-                    "Cannot create CombinationMessage with Bitmask format at the moment. Use Index or PackedInt instead.");
-        }
         this.list = list;
         this.format = mustNotBeNull(format, "format");
     }
@@ -133,8 +127,6 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      * </p>
      *
      * @param outputFormat The target {@link Grid.ValueFormat} for the conversion.
-     * @throws IllegalArgumentException if conversion to {@link Grid.ValueFormat#Bitmask} is
-     *                                  attempted.
      * @see Grid#indexToPacked(short)
      * @see Grid#packedToIndex(short)
      * @since 2025.07 - Cell Format Support
@@ -246,19 +238,13 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      *
      * @param outputFormat The desired {@link Grid.ValueFormat} for the returned array.
      * @return The {@code short[]} combination in the specified format.
-     * @throws IllegalArgumentException if conversion to {@link Grid.ValueFormat#Bitmask} is
-     *                                  attempted.
      * @since 2025.05 - CombinationMessage Introduction
      * @performance {@code O(list.length)} if conversion is needed; {@code O(1)} otherwise.
      * @threading Thread-safe, unless conversion is triggered.
      * @memory Does not allocate; returns the internal array, converting in-place if needed.
      */
     public short[] getCombination(Grid.ValueFormat outputFormat) {
-        if (outputFormat == Grid.ValueFormat.Bitmask) {
-            // TODO: Look at making this possible, either by using an array of int bitmasks or
-            // making the return type a long[]
-            throw new IllegalArgumentException("Cannot convert to Bitmask format.");
-        } else if (outputFormat != format) {
+        if (outputFormat != format) {
             convertTo(outputFormat); // Convert to the requested format if needed
         }
         return list; // Return the combination in the requested format

@@ -12,6 +12,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 
 // TODO: Add documentation to the new methods and modify existing Javadoc accordingly
 // TODO: Use byte collections instead of short collections for Index format
+// TODO: Update overloaded methods to use delegation and pull formatting into the format methods
 /**
  * A structure that represents the core hexagonal grid for a "Lights Out" style puzzle.
  *
@@ -394,65 +395,8 @@ public abstract class Grid {
         }
     }
 
-    // TODO: Make computeAdjacents() private (since it's not needed anywhere else).
-    /**
-     * Computes the hexagonally adjacent cells for a given cell, supporting flexible input and
-     * output formats.
-     *
-     * <p>
-     * This method is primarily used during the {@code static} initialization block to build the
-     * {@link #adjacencyArray} and {@link #ADJACENCY_MASKS}. It handles the complex adjacency rules
-     * of a hexagonal grid, which vary based on a cell's row and column parity, unlike a simple
-     * rectangular grid.
-     * </p>
-     *
-     * <h3>Algorithm Details</h3>
-     * <p>
-     * Adjacency calculations are performed using the {@link ValueFormat#PackedInt} format
-     * internally due to its straightforward arithmetic for determining relative positions. The
-     * algorithm dynamically adds potential neighbors based on the cell's row parity (even or odd).
-     * </p>
-     * <ul>
-     * <li><b>Even Rows:</b> Cells {@code (row-1, col-1)}, {@code (row-1, col)},
-     * {@code (row, col-1)}, {@code (row, col+1)}, {@code (row+1, col-1)},
-     * {@code (row+1, col)}.</li>
-     * <li><b>Odd Rows:</b> Cells {@code (row-1, col)}, {@code (row-1, col+1)},
-     * {@code (row, col-1)}, {@code (row, col+1)}, {@code (row+1, col)},
-     * {@code (row+1, col+1)}.</li>
-     * </ul>
-     * <p>
-     * After identifying potential neighbors, the method filters out any cells that fall outside the
-     * grid boundaries.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * The method's complexity is {@code O(1)} because the number of potential neighbors is small
-     * and constant (at most 6). It uses FastUtil's {@link ShortArrayList} to efficiently store
-     * results without boxing overhead. While format conversions add minor overhead, this is
-     * acceptable as the method's primary use case is during the one-time {@code static}
-     * initialization.
-     * </p>
-     *
-     * @param cell         The cell for which to find adjacents, in the specified
-     *                     {@code inputFormat}.
-     * @param inputFormat  The {@link ValueFormat} of the input {@code cell}.
-     * @param outputFormat The {@link ValueFormat} in which the adjacent cells should be returned.
-     * @return A {@link ShortList} of adjacent cells in the specified {@code outputFormat}.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used for
-     *                                  {@code inputFormat} or {@code outputFormat}, as it is not
-     *                                  suitable for single-cell representation.
-     * @throws NullPointerException     if {@code inputFormat} or {@code outputFormat} is
-     *                                  {@code null}.
-     * @see #findAdjacents(short, ValueFormat, ValueFormat)
-     * @see ShortArrayList#ShortArrayList(int)
-     * @see ShortList
-     * @since 2025.07 - Format Support
-     * @performance {@code O(1)} complexity due to constant number of potential neighbors.
-     * @threading Thread-safe; does not modify instance state.
-     * @memory Allocates a new {@code ShortArrayList} of capacity 6 for the result.
-     */
-    public static final ShortList computeAdjacents(short cell, ValueFormat inputFormat,
+    // TODO: Make this private after refactoring GridTest
+    static final ShortList computeAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         ShortList affectedPieces = new ShortArrayList(6);
 
@@ -503,41 +447,11 @@ public abstract class Grid {
         return affectedPieces;
     }
 
-    /**
-     * Convenience overload for {@link #computeAdjacents(short, ValueFormat, ValueFormat)} that
-     * assumes the input and output formats are the same.
-     *
-     * @param cell   The cell for which to find adjacents.
-     * @param format The {@link ValueFormat} for both the input cell and the output adjacent cells.
-     * @return A {@link ShortList} of adjacent cells in the specified {@code format}.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is used.
-     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
-     * @since 2025.07 - Format Support
-     * @performance Delegates to the main implementation; {@code O(1)} complexity.
-     * @threading Thread-safe; delegates to a
-     *            {@link #computeAdjacents(short, ValueFormat, ValueFormat) thread-safe method}.
-     * @memory Allocates a new {@code ShortArrayList} with a capacity of 6 for the result.
-     */
-    public static final ShortList computeAdjacents(short cell, ValueFormat format) {
+    static final ShortList computeAdjacents(short cell, ValueFormat format) {
         return computeAdjacents(cell, format, format);
     }
 
-    /**
-     * Convenience overload for {@link #computeAdjacents(short, ValueFormat)} that assumes
-     * {@link ValueFormat#Index} for both input and output.
-     *
-     * @param cell The cell for which to find adjacents, in {@link ValueFormat#Index} format.
-     * @return A {@link ShortList} of adjacent cells in {@link ValueFormat#Index} format.
-     * @throws IllegalArgumentException if {@link ValueFormat#Bitmask} is implicitly used (though
-     *                                  unlikely with this overload).
-     * @see #computeAdjacents(short, ValueFormat, ValueFormat)
-     * @since 2025.07 - Format Support
-     * @performance Delegates to the main implementation; {@code O(1)} complexity.
-     * @threading Thread-safe; delegates to a {@link #computeAdjacents(short, ValueFormat)
-     *            thread-safe method}.
-     * @memory Allocates a new {@link ShortArrayList} with a capacity of 6 for the result.
-     */
-    public static final ShortList computeAdjacents(short cell) {
+    static final ShortList computeAdjacents(short cell) {
         return computeAdjacents(cell, ValueFormat.Index);
     }
 

@@ -80,8 +80,8 @@ import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
  * that require iteration.</li>
  * <li>{@link #ADJACENCY_CACHE}: A boolean matrix for {@code O(1)} adjacency checks between any two
  * cells.</li>
- * <li>{@link #PACKED_TO_INDEX_CACHE}: A lookup table for fast conversion from human-readable
- * {@link ValueFormat#PackedInt} to the internal {@link ValueFormat#Index}.</li>
+ * <li>{@link ValueFormat#PACKED_TO_INDEX_CACHE}: A lookup table for fast conversion from
+ * human-readable {@link ValueFormat#PackedInt} to the internal {@link ValueFormat#Index}.</li>
  * </ul>
  * This pre-computation offloads complex calculations from the performance-critical runtime paths.
  *
@@ -162,6 +162,68 @@ public abstract class Grid {
          */
         Index;
 
+        // TODO: Consider marking this private/package-private
+        /**
+         * Pre-computed offsets for the starting index of each row in the flattened grid.
+         *
+         * <p>
+         * This array is used to accelerate the conversion from {@link PackedInt} to {@link Index}
+         * by providing an {@code O(1)} lookup for the base index of any given row. For example,
+         * {@code ROW_OFFSETS[2]} gives the index of the first cell in row 2.
+         * </p>
+         *
+         * @see Grid#EVEN_NUM_COLS
+         * @see Grid#NUM_ROWS
+         * @see Grid#ODD_NUM_COLS
+         * @since 2025.06 - {@link java.util.BitSet BitSet} Grid State
+         * @performance {@code O(1)} access time.
+         * @threading Thread-safe as a {@code static final} constant.
+         * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
+         */
+        public static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
+                (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
+
+        // TODO: Consider using a Short2ShortMap for greater flexibility and potential immutability
+        private static final short[] PACKED_TO_INDEX_CACHE = generatePackedToIndexCache();
+
+        private static short[] generatePackedToIndexCache() {
+            final short[] cache = new short[(Grid.NUM_ROWS - 1) * 100 + Grid.EVEN_NUM_COLS];
+
+            for (short index = 0; index < NUM_CELLS; index++) {
+                short packed = indexToPacked(index);
+                cache[packed] = index;
+            }
+
+            return cache;
+        }
+
+        public static short packedToIndex(short packed) {
+            checkArgument(packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length,
+                    "packed must be in range [0, %s], but was %s", PACKED_TO_INDEX_CACHE.length - 1,
+                    packed);
+            return PACKED_TO_INDEX_CACHE[packed];
+        }
+
+        public static short indexToPacked(short index) {
+            checkArgument(index >= 0 && index < NUM_CELLS,
+                    "index must be in range [0, %s], but was %s", NUM_CELLS - 1, index);
+
+            if (index < ROW_OFFSETS.getShort(1))
+                return (short) (0 * 100 + index);
+            if (index < ROW_OFFSETS.getShort(2))
+                return (short) (1 * 100 + (index - ROW_OFFSETS.getShort(1)));
+            if (index < ROW_OFFSETS.getShort(3))
+                return (short) (2 * 100 + (index - ROW_OFFSETS.getShort(2)));
+            if (index < ROW_OFFSETS.getShort(4))
+                return (short) (3 * 100 + (index - ROW_OFFSETS.getShort(3)));
+            if (index < ROW_OFFSETS.getShort(5))
+                return (short) (4 * 100 + (index - ROW_OFFSETS.getShort(4)));
+            if (index < ROW_OFFSETS.getShort(6))
+                return (short) (5 * 100 + (index - ROW_OFFSETS.getShort(5)));
+            else
+                return (short) (6 * 100 + (index - ROW_OFFSETS.getShort(6)));
+        }
+
         static ShortList replaceAllSafely(ShortList list, ShortUnaryOperator operator) {
             ShortList result = new ShortArrayList(list);
             result.replaceAll(operator);
@@ -183,7 +245,7 @@ public abstract class Grid {
      * @see #EVEN_NUM_COLS
      * @see #NUM_CELLS
      * @see #ODD_NUM_COLS
-     * @see #ROW_OFFSETS
+     * @see ValueFormat#ROW_OFFSETS
      * @since 2025.03 - Grid Definition
      * @performance {@code O(1)} access time.
      * @threading Thread-safe as a {@code static final} constant.
@@ -196,7 +258,7 @@ public abstract class Grid {
      * @see #EVEN_NUM_COLS
      * @see #NUM_CELLS
      * @see #NUM_ROWS
-     * @see #ROW_OFFSETS
+     * @see ValueFormat#ROW_OFFSETS
      * @since 2025.03 - Grid Definition
      * @performance {@code O(1)} access time.
      * @threading Thread-safe as a {@code static final} constant.
@@ -209,34 +271,13 @@ public abstract class Grid {
      * @see #NUM_CELLS
      * @see #NUM_ROWS
      * @see #ODD_NUM_COLS
-     * @see #ROW_OFFSETS
+     * @see ValueFormat#ROW_OFFSETS
      * @since 2025.03 - Grid Definition
      * @performance {@code O(1)} access time.
      * @threading Thread-safe as a {@code static final} constant.
      * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
      */
     public static final int EVEN_NUM_COLS = 16;
-    /**
-     * Pre-computed offsets for the starting index of each row in the flattened grid.
-     *
-     * <p>
-     * This array is used to accelerate the conversion from {@link ValueFormat#PackedInt} to
-     * {@link ValueFormat#Index} by providing an {@code O(1)} lookup for the base index of any given
-     * row. For example, {@code ROW_OFFSETS[2]} gives the index of the first cell in row 2.
-     * </p>
-     *
-     * @see #EVEN_NUM_COLS
-     * @see #NUM_ROWS
-     * @see #ODD_NUM_COLS
-     * @see #computePackedToIndex(short)
-     * @see ValueFormat
-     * @since 2025.06 - {@link java.util.BitSet BitSet} Grid State
-     * @performance {@code O(1)} access time.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
-     */
-    public static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
-            (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
     /**
      * The total number of cells in the grid.
      *
@@ -249,7 +290,7 @@ public abstract class Grid {
      * 
      * @see #gridState
      * @see #NUM_ROWS
-     * @see #ROW_OFFSETS
+     * @see ValueFormat#ROW_OFFSETS
      * @see #trueCellsCount
      * @since 2025.04 - Static Block Initialization
      * @performance {@code O(1)} access time.
@@ -325,36 +366,11 @@ public abstract class Grid {
     // TODO: Consider a different structure for better immutability
     private static final boolean[][] ADJACENCY_CACHE = new boolean[NUM_CELLS][NUM_CELLS]; // Index
                                                                                           // format
-    /**
-     * A pre-computed lookup table to accelerate {@link #packedToIndex(short) conversion} from
-     * {@link ValueFormat#PackedInt} to {@link ValueFormat#Index}.
-     *
-     * <p>
-     * The index of the array corresponds to a {@code PackedInt} value, and the element at that
-     * index is the corresponding {@code Index} value. This provides an {@code O(1)} conversion,
-     * avoiding the arithmetic typically required.
-     * </p>
-     *
-     * @see #NUM_CELLS
-     * @see #computePackedToIndex(short)
-     * @see ValueFormat
-     * @since 2025.06 - {@code PackedInt} to {@code Index} Precomputation
-     * @performance {@code O(1)} lookup time.
-     * @threading Thread-safe as a {@code static final} constant after class initialization.
-     */
-    // TODO: Consider using a Short2ShortMap for greater flexibility and potential immutability
-    private static final short[] PACKED_TO_INDEX_CACHE = new short[(NUM_ROWS - 1) * 100
-            + EVEN_NUM_COLS];
 
     // We don't necessarily need to worry too much about how optimized this block
     // is, since it's only run once at startup.
     // TODO: Break this static initializer into a few methods for better organization
     static {
-        // 1. Populate the packed-to-index lookup cache first:
-        for (short cell = 0; cell < NUM_CELLS; cell++) {
-            PACKED_TO_INDEX_CACHE[indexToPacked(cell)] = cell;
-        }
-
         for (short cell = 0; cell < NUM_CELLS; cell++) {
             ShortList adjSet = computeAdjacents(cell, ValueFormat.Index, ValueFormat.Index);
             short[] adjArr = new short[adjSet.size()];
@@ -464,58 +480,14 @@ public abstract class Grid {
         return findAdjacents(cell, format, format);
     }
 
+    // TODO: Remove this method after updating callers to use ValueFormat.packedToIndex(short)
     public static final short packedToIndex(short packed) {
-        checkArgument(packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length,
-                "packed must be in range [0, %s], but was %s", PACKED_TO_INDEX_CACHE.length - 1,
-                packed);
-        return PACKED_TO_INDEX_CACHE[packed];
+        return ValueFormat.packedToIndex(packed);
     }
 
-    /**
-     * Converts a cell from {@link ValueFormat#Index} to {@link ValueFormat#PackedInt} format.
-     *
-     * <p>
-     * This method uses a series of conditional checks to determine the correct row and column for
-     * the given {@code Index}, leveraging the grid's alternating row lengths. It constructs the
-     * {@code PackedInt} value by combining the calculated row and column.
-     * </p>
-     *
-     * <h3>Performance Considerations</h3>
-     * <p>
-     * This method is {@code O(1)} in complexity due to the fixed number of comparisons. It is
-     * declared {@code final} to encourage JIT inlining, as it is a pure function with no side
-     * effects. While a cache could be implemented (similar to {@link #packedToIndex(short)}), it is
-     * not deemed necessary given that this conversion is not frequently called in
-     * performance-critical paths.
-     * </p>
-     *
-     * @param index The cell in {@link ValueFormat#Index} format.
-     * @return The cell in {@link ValueFormat#PackedInt} format.
-     * @throws IllegalArgumentException if the input {@code index} is out of bounds (0-108).
-     * @since 2025.07 - Format Support
-     * @performance {@code O(1)} comparisons and computation.
-     * @threading Thread-safe; does not modify instance state.
-     * @memory Does not allocate.
-     */
+    // TODO: Remove this method after updating callers to use ValueFormat.indexToPacked(short)
     public static final short indexToPacked(short index) {
-        if (index < 0 || index >= NUM_CELLS) {
-            throw new IllegalArgumentException("Invalid index: " + index);
-        }
-
-        if (index < ROW_OFFSETS.getShort(1))
-            return (short) (0 * 100 + index);
-        if (index < ROW_OFFSETS.getShort(2))
-            return (short) (1 * 100 + (index - ROW_OFFSETS.getShort(1)));
-        if (index < ROW_OFFSETS.getShort(3))
-            return (short) (2 * 100 + (index - ROW_OFFSETS.getShort(2)));
-        if (index < ROW_OFFSETS.getShort(4))
-            return (short) (3 * 100 + (index - ROW_OFFSETS.getShort(3)));
-        if (index < ROW_OFFSETS.getShort(5))
-            return (short) (4 * 100 + (index - ROW_OFFSETS.getShort(4)));
-        if (index < ROW_OFFSETS.getShort(6))
-            return (short) (5 * 100 + (index - ROW_OFFSETS.getShort(5)));
-        else
-            return (short) (6 * 100 + (index - ROW_OFFSETS.getShort(6)));
+        return ValueFormat.indexToPacked(index);
     }
 
     protected Grid(long initialLowerState, long initialUpperState) {

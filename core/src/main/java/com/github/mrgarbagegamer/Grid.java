@@ -162,25 +162,7 @@ public abstract class Grid {
          */
         Index;
 
-        // TODO: Consider marking this private/package-private
-        /**
-         * Pre-computed offsets for the starting index of each row in the flattened grid.
-         *
-         * <p>
-         * This array is used to accelerate the conversion from {@link PackedInt} to {@link Index}
-         * by providing an {@code O(1)} lookup for the base index of any given row. For example,
-         * {@code ROW_OFFSETS[2]} gives the index of the first cell in row 2.
-         * </p>
-         *
-         * @see Grid#EVEN_NUM_COLS
-         * @see Grid#NUM_ROWS
-         * @see Grid#ODD_NUM_COLS
-         * @since 2025.06 - {@link java.util.BitSet BitSet} Grid State
-         * @performance {@code O(1)} access time.
-         * @threading Thread-safe as a {@code static final} constant.
-         * @memory Fixed memory footprint of 14 bytes (7 shorts) as a {@code short[]}.
-         */
-        public static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
+        private static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
                 (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
 
         // TODO: Consider using a Short2ShortMap for greater flexibility and potential immutability

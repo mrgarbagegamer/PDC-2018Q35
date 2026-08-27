@@ -231,11 +231,11 @@ public abstract class Grid {
         }
 
         static ShortList indexListToPackedList(ShortList indexList) {
-            return replaceAllSafely(indexList, Grid::indexToPacked);
+            return replaceAllSafely(indexList, ValueFormat::indexToPacked);
         }
 
         static ShortList packedListToIndexList(ShortList packedList) {
-            return replaceAllSafely(packedList, Grid::packedToIndex);
+            return replaceAllSafely(packedList, ValueFormat::packedToIndex);
         }
     }
 
@@ -404,7 +404,7 @@ public abstract class Grid {
 
         // We need to handle different formats for adjacency
         switch (inputFormat) {
-            case Index -> cell = indexToPacked(cell);
+            case Index -> cell = ValueFormat.indexToPacked(cell);
             case PackedInt -> {} // Already in PackedInt format, no conversion needed
             case null -> throw new NullPointerException("Input format cannot be null.");
         }
@@ -437,7 +437,7 @@ public abstract class Grid {
         });
 
         switch (outputFormat) {
-            case Index -> affectedPieces.replaceAll(Grid::packedToIndex);
+            case Index -> affectedPieces.replaceAll(ValueFormat::packedToIndex);
             case PackedInt -> {} // Already in PackedInt format, no conversion needed
             case null -> throw new NullPointerException("Output format cannot be null.");
         }
@@ -462,7 +462,7 @@ public abstract class Grid {
     public static final ShortList findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         final short index = switch (inputFormat) {
-            case PackedInt -> packedToIndex(cell);
+            case PackedInt -> ValueFormat.packedToIndex(cell);
             case Index -> cell;
             case null -> throw new NullPointerException("inputFormat must not be null");
         };
@@ -478,16 +478,6 @@ public abstract class Grid {
 
     public static final ShortList findAdjacents(short cell, ValueFormat format) {
         return findAdjacents(cell, format, format);
-    }
-
-    // TODO: Remove this method after updating callers to use ValueFormat.packedToIndex(short)
-    public static final short packedToIndex(short packed) {
-        return ValueFormat.packedToIndex(packed);
-    }
-
-    // TODO: Remove this method after updating callers to use ValueFormat.indexToPacked(short)
-    public static final short indexToPacked(short index) {
-        return ValueFormat.indexToPacked(index);
     }
 
     protected Grid(long initialLowerState, long initialUpperState) {
@@ -538,7 +528,7 @@ public abstract class Grid {
 
     public final void click(short cell, ValueFormat format) {
         short index = switch (format) {
-            case PackedInt -> packedToIndex(cell);
+            case PackedInt -> ValueFormat.packedToIndex(cell);
             case Index -> cell;
             case null -> throw new NullPointerException("format must not be null");
         };
@@ -619,7 +609,8 @@ public abstract class Grid {
 
     public static final boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         return switch (format) {
-            case PackedInt -> areAdjacent(packedToIndex(cellA), packedToIndex(cellB));
+            case PackedInt -> areAdjacent(ValueFormat.packedToIndex(cellA),
+                    ValueFormat.packedToIndex(cellB));
             case Index -> areAdjacent(cellA, cellB);
             case null -> throw new NullPointerException("Format cannot be null.");
         };
@@ -691,7 +682,7 @@ public abstract class Grid {
                 sb.append(" ");
             int cols = (row % 2 == 0) ? EVEN_NUM_COLS : ODD_NUM_COLS;
             for (int col = 0; col < cols; col++) {
-                int bitIdx = packedToIndex((short) (row * 100 + col));
+                int bitIdx = ValueFormat.packedToIndex((short) (row * 100 + col));
                 sb.append(this.getBit(bitIdx) ? "1 " : "0 ");
             }
             if (row < NUM_ROWS - 1)

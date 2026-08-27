@@ -5,6 +5,8 @@ import static com.github.mrgarbagegamer.Grid.ValueFormat.packedListToIndexList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.github.mrgarbagegamer.Grid.ValueFormat;
+
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortList;
@@ -45,7 +47,7 @@ public record GridState(long lowerState, long upperState) {
         } else if (format == Grid.ValueFormat.Index) {
             return cell;
         } else {
-            return Grid.indexToPacked(cell);
+            return ValueFormat.indexToPacked(cell);
         }
     }
 

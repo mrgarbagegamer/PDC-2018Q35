@@ -6,6 +6,7 @@ import java.util.Random;
 
 import com.github.mrgarbagegamer.Grid;
 // import com.github.mrgarbagegamer.WorkBatch.Parity;
+import com.github.mrgarbagegamer.Grid.ValueFormat;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
@@ -317,7 +318,7 @@ public class TestingUtils {
      * @param packedCell The cell to apply in PackedInt format.
      */
     public static void applyToBitmaskPackedInt(long[] bitmask, short packedCell) {
-        applyToBitmask(bitmask, Grid.packedToIndex(packedCell));
+        applyToBitmask(bitmask, ValueFormat.packedToIndex(packedCell));
     }
 
     /**
@@ -375,7 +376,7 @@ public class TestingUtils {
     public static short[] convertIndexToPackedInt(short[] indexArray) {
         short[] packedArray = new short[indexArray.length];
         for (int i = 0; i < indexArray.length; i++) {
-            packedArray[i] = Grid.indexToPacked(indexArray[i]);
+            packedArray[i] = ValueFormat.indexToPacked(indexArray[i]);
         }
         return packedArray;
     }

@@ -7,6 +7,8 @@ import org.apache.logging.log4j.message.Message;
 import org.apache.logging.log4j.util.StringBuilderFormattable;
 import org.jspecify.annotations.Nullable;
 
+import com.github.mrgarbagegamer.Grid.ValueFormat;
+
 // TODO: Update Javadoc
 // TODO: Investigate reuse strategies to avoid allocating a new CombinationMessage for each log
 // event.
@@ -143,14 +145,14 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
             case Index -> {
                 if (format == Grid.ValueFormat.PackedInt) {
                     for (int i = 0; i < list.length; i++)
-                        list[i] = Grid.packedToIndex(list[i]);
+                        list[i] = Grid.ValueFormat.packedToIndex(list[i]);
                     format = Grid.ValueFormat.Index; // Update format to index
                 }
             }
             case PackedInt -> {
                 if (format == Grid.ValueFormat.Index) {
                     for (int i = 0; i < list.length; i++)
-                        list[i] = Grid.indexToPacked(list[i]);
+                        list[i] = ValueFormat.indexToPacked(list[i]);
                     format = Grid.ValueFormat.PackedInt; // Update format to packed int
                 }
             }

@@ -20,6 +20,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import com.github.mrgarbagegamer.Grid.ValueFormat;
 import com.google.common.base.Splitter;
 
 import it.unimi.dsi.fastutil.shorts.ShortAVLTreeSet;
@@ -54,74 +55,52 @@ class GridTest {
         return grid;
     }
 
-    /**
-     * Tests the {@link Grid#packedToIndex(short)} method to ensure it throws an exception if
-     * provided with an invalid packed value.
-     */
     @Test
     void testPackedToIndexInvalid() {
         assertThrows(IllegalArgumentException.class, () -> {
-            Grid.packedToIndex((short) -1);
+            ValueFormat.packedToIndex((short) -1);
         }, "Expected IllegalArgumentException for packed value -1");
         assertThrows(IllegalArgumentException.class, () -> {
-            Grid.packedToIndex((short) (Grid.NUM_ROWS * 100 + Grid.EVEN_NUM_COLS));
+            ValueFormat.packedToIndex((short) (Grid.NUM_ROWS * 100 + Grid.EVEN_NUM_COLS));
         }, "Expected IllegalArgumentException for packed value equal to NUM_CELLS");
     }
 
-    /**
-     * Tests the {@link Grid#packedToIndex(short)} method for all valid packed integer inputs. Each
-     * packed integer is converted to its corresponding index, and the result is verified against
-     * the expected index value.
-     */
     @Test
     void testPackedToIndex() {
         for (int idx = 0; idx < validPackedInts.size(); idx++) {
             short packed = validPackedInts.getShort(idx);
             short expectedIndex = (short) idx;
-            short actualIndex = Grid.packedToIndex(packed);
+            short actualIndex = ValueFormat.packedToIndex(packed);
             assertEquals(expectedIndex, actualIndex,
                     "Packed to Index conversion failed for packed value: " + packed);
         }
     }
 
-    /**
-     * Tests the {@link Grid#indexToPacked(short)} method to ensure it throws an exception if
-     * provided with an invalid index.
-     */
     @Test
     void testIndexToPackedInvalid() {
         assertThrows(IllegalArgumentException.class, () -> {
-            Grid.indexToPacked((short) -1);
+            ValueFormat.indexToPacked((short) -1);
         }, "Expected IllegalArgumentException for index -1");
         assertThrows(IllegalArgumentException.class, () -> {
-            Grid.indexToPacked((short) Grid.NUM_CELLS);
+            ValueFormat.indexToPacked((short) Grid.NUM_CELLS);
         }, "Expected IllegalArgumentException for index equal to NUM_CELLS");
     }
 
-    /**
-     * Tests the {@link Grid#indexToPacked(short)} method for all valid index inputs. Each Index is
-     * converted to its corresponding PackedInt value, and the result is verified against the
-     * expected PackedInt value.
-     */
     @Test
     void testIndexToPacked() {
         for (int idx = 0; idx < validPackedInts.size(); idx++) {
             short expectedPacked = validPackedInts.getShort(idx);
             short index = (short) idx;
-            short actualPacked = Grid.indexToPacked(index);
+            short actualPacked = ValueFormat.indexToPacked(index);
             assertEquals(expectedPacked, actualPacked,
                     "Index to Packed conversion failed for index: " + index);
         }
     }
 
-    /**
-     * Tests the conversion methods {@link Grid#indexToPacked(short)} and
-     * {@link Grid#packedToIndex(short)} to ensure they are inverses of each other.
-     */
     @Test
     void testConversionRoundtrip() {
         for (short index = 0; index < Grid.NUM_CELLS; index++) {
-            assertEquals(index, Grid.packedToIndex(Grid.indexToPacked(index)),
+            assertEquals(index, ValueFormat.packedToIndex(ValueFormat.indexToPacked(index)),
                     "Conversion from index to packed and back for index " + index
                             + "should yield the original index");
         }
@@ -631,7 +610,7 @@ class GridTest {
 
             // Test PackedInt output format
             ShortList expectedPackedAdjacents = new ShortArrayList(expectedAdjacents);
-            expectedPackedAdjacents.replaceAll(Grid::indexToPacked);
+            expectedPackedAdjacents.replaceAll(ValueFormat::indexToPacked);
             ShortList actualAdjacentsPackedInt = grid.toGridState()
                     .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
             assertIterableEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
@@ -672,7 +651,7 @@ class GridTest {
 
             // Test PackedInt output format
             ShortList expectedPackedAdjacents = new ShortArrayList(expectedAdjacents);
-            expectedPackedAdjacents.replaceAll(Grid::indexToPacked);
+            expectedPackedAdjacents.replaceAll(ValueFormat::indexToPacked);
             ShortList actualAdjacentsPackedInt = grid.toGridState()
                     .findFirstTrueAdjacents(Grid.ValueFormat.PackedInt);
             assertIterableEquals(expectedPackedAdjacents, actualAdjacentsPackedInt,
@@ -716,7 +695,7 @@ class GridTest {
         for (short cell = 0; cell < Grid.NUM_CELLS; cell++) {
             // Test for each combination of input and output formats
             final short cellIndex = cell;
-            final short cellPackedInt = Grid.indexToPacked(cell);
+            final short cellPackedInt = ValueFormat.indexToPacked(cell);
 
             adjacencyListIndexOutput.removeIf(adjacent -> adjacent <= cellIndex);
             ShortList expectedAdjacentsIndexOutput = adjacencyListIndexOutput;
@@ -772,7 +751,7 @@ class GridTest {
         for (short cell : validPackedInts) {
             // Test for each combination of input and output formats
             final short cellPackedInt = cell;
-            final short cellIndex = Grid.packedToIndex(cell);
+            final short cellIndex = ValueFormat.packedToIndex(cell);
 
             adjacencyListIndexOutput.removeIf(adjacent -> adjacent <= cellIndex);
             ShortList expectedAdjacentsIndexOutput = adjacencyListIndexOutput;

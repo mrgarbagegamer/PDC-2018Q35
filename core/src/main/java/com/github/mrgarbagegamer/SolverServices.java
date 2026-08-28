@@ -130,6 +130,6 @@ public final class SolverServices {
 
     private static void defaultSolutionHandling(short[] winningCombination, Logger logger) {
         logger.info("Found the solution as the following click combination: {}",
-                new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
+                new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.INDEX));
     }
 }

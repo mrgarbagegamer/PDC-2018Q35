@@ -115,7 +115,7 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
     }
 
     public CombinationMessage(short[] list) {
-        this(list, Grid.ValueFormat.Index); // Default to Index format
+        this(list, Grid.ValueFormat.INDEX); // Default to Index format
     }
 
     /**
@@ -142,18 +142,18 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
         }
 
         switch (outputFormat) {
-            case Index -> {
-                if (format == Grid.ValueFormat.PackedInt) {
+            case INDEX -> {
+                if (format == Grid.ValueFormat.PACKED) {
                     for (int i = 0; i < list.length; i++)
                         list[i] = Grid.ValueFormat.packedToIndex(list[i]);
-                    format = Grid.ValueFormat.Index; // Update format to index
+                    format = Grid.ValueFormat.INDEX; // Update format to index
                 }
             }
-            case PackedInt -> {
-                if (format == Grid.ValueFormat.Index) {
+            case PACKED -> {
+                if (format == Grid.ValueFormat.INDEX) {
                     for (int i = 0; i < list.length; i++)
                         list[i] = ValueFormat.indexToPacked(list[i]);
-                    format = Grid.ValueFormat.PackedInt; // Update format to packed int
+                    format = Grid.ValueFormat.PACKED; // Update format to packed int
                 }
             }
             default -> throw new IllegalArgumentException(
@@ -166,8 +166,8 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
      *
      * <p>
      * This is the core method for garbage-free logging. It ensures the combination is in a readable
-     * {@link Grid.ValueFormat#PackedInt} format and appends it to the buffer. Values are
-     * zero-padded for better readability.
+     * {@link Grid.ValueFormat#PACKED} format and appends it to the buffer. Values are zero-padded
+     * for better readability.
      * </p>
      *
      * @param buffer The {@code StringBuilder} to which the formatted message will be appended.
@@ -183,9 +183,9 @@ public class CombinationMessage implements Message, StringBuilderFormattable {
     public void formatTo(@Nullable StringBuilder buffer) {
         StringBuilder checkedBuffer = mustNotBeNull(buffer, "buffer");
 
-        if (format != Grid.ValueFormat.PackedInt) {
-            convertTo(Grid.ValueFormat.PackedInt); // Ensure the format is PackedInt for
-                                                   // human-readable output
+        if (format != Grid.ValueFormat.PACKED) {
+            convertTo(Grid.ValueFormat.PACKED); // Ensure the format is PackedInt for
+                                                // human-readable output
         }
         checkedBuffer.append('[');
         for (int i = 0, size = list.length; i < size; i++) {

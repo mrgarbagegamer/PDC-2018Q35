@@ -227,7 +227,7 @@ public class TestClickCombination extends Thread {
                             final short[] failedCombination = buildCombination(prefix, finalClick);
 
                             this.logger.debug("Tried and failed: {}", new CombinationMessage(
-                                    failedCombination, Grid.ValueFormat.Index));
+                                    failedCombination, Grid.ValueFormat.INDEX));
                             failedCount = 0;
                         }
                     }

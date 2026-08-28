@@ -74,7 +74,7 @@ public class TestingUtils {
             (short) 615);
 
     /**
-     * Generates a random combination of unique shorts in {@link Grid.ValueFormat#Index Index
+     * Generates a random combination of unique shorts in {@link Grid.ValueFormat#INDEX Index
      * format} within the grid range.
      * 
      * @param numClicks  The number of unique shorts to generate.
@@ -264,7 +264,7 @@ public class TestingUtils {
     }
 
     /**
-     * Generates a random combination of unique shorts in {@link Grid.ValueFormat#PackedInt
+     * Generates a random combination of unique shorts in {@link Grid.ValueFormat#PACKED
      * PackedInt format} within the grid range.
      * 
      * @param numClicks  The number of unique shorts to generate.

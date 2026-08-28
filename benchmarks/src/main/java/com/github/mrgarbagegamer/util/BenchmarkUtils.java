@@ -45,7 +45,7 @@ public class BenchmarkUtils {
             (short) 108);
 
     /**
-     * Generates a random combination of unique shorts in {@link Grid.ValueFormat#Index Index
+     * Generates a random combination of unique shorts in {@link Grid.ValueFormat#INDEX Index
      * format} within the grid range.
      * 
      * @param numClicks  The number of unique shorts to generate.

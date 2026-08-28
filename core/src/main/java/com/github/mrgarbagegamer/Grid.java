@@ -81,7 +81,7 @@ import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
  * <li>{@link #ADJACENCY_CACHE}: A boolean matrix for {@code O(1)} adjacency checks between any two
  * cells.</li>
  * <li>{@link ValueFormat#PACKED_TO_INDEX_CACHE}: A lookup table for fast conversion from
- * human-readable {@link ValueFormat#PackedInt} to the internal {@link ValueFormat#Index}.</li>
+ * human-readable {@link ValueFormat#PACKED} to the internal {@link ValueFormat#INDEX}.</li>
  * </ul>
  * This pre-computation offloads complex calculations from the performance-critical runtime paths.
  *
@@ -129,9 +129,7 @@ public abstract class Grid {
          * <p>
          * For example, the cell at row 3, column 5 is represented as {@code 305}. This format is
          * intuitive and simplifies adjacency arithmetic, but it is not as memory-efficient as
-         * {@link #Index}. It is primarily used for debugging, configuration, and initial adjacency
-         * calculations during static initialization. While cell identifiers are stored as
-         * {@code short}s, the "PackedInt" name is retained for historical consistency.
+         * {@link #INDEX}.
          * </p>
          *
          * @see #indexToPacked(short)
@@ -141,7 +139,7 @@ public abstract class Grid {
          * @threading Thread-safe as an immutable {@code enum}.
          * @memory Minimal memory overhead as a singleton per enum constant.
          */
-        PackedInt,
+        PACKED,
         /**
          * A zero-based index from {@code 0} to {@code 108}, representing a cell's position in the
          * flattened grid.
@@ -150,7 +148,7 @@ public abstract class Grid {
          * This is the primary format used in many performance-critical code paths, such as in
          * caches and generator tasks. It offers a compact and efficient way to iterate over cells
          * and is the native format for most internal data structures. However, it is less intuitive
-         * for humans to read compared to {@link #PackedInt}.
+         * for humans to read compared to {@link #PACKED}.
          * </p>
          *
          * @see #indexToPacked(short)
@@ -160,7 +158,7 @@ public abstract class Grid {
          * @threading Thread-safe as an immutable {@code enum}.
          * @memory Minimal memory overhead as a singleton per enum constant.
          */
-        Index;
+        INDEX;
 
         private static final ShortImmutableList ROW_OFFSETS = ShortImmutableList.of((short) 0,
                 (short) 16, (short) 31, (short) 47, (short) 62, (short) 78, (short) 93);
@@ -316,7 +314,7 @@ public abstract class Grid {
      *
      * <p>
      * Each entry {@code adjacencyArray[i]} contains a {@code short[]} listing the neighbors of cell
-     * {@code i} in {@link ValueFormat#Index} format. This structure provides {@code O(1)} lookups
+     * {@code i} in {@link ValueFormat#INDEX} format. This structure provides {@code O(1)} lookups
      * for the {@link #findAdjacents(short, ValueFormat, ValueFormat)} method and serves as a legacy
      * alternative to the bitmask-based approach, used in parts of the code that require iterating
      * over neighbors.
@@ -354,7 +352,7 @@ public abstract class Grid {
     // TODO: Break this static initializer into a few methods for better organization
     static {
         for (short cell = 0; cell < NUM_CELLS; cell++) {
-            ShortList adjSet = computeAdjacents(cell, ValueFormat.Index, ValueFormat.Index);
+            ShortList adjSet = computeAdjacents(cell, ValueFormat.INDEX, ValueFormat.INDEX);
             short[] adjArr = new short[adjSet.size()];
             int idx = 0;
 
@@ -386,8 +384,8 @@ public abstract class Grid {
 
         // We need to handle different formats for adjacency
         switch (inputFormat) {
-            case Index -> cell = ValueFormat.indexToPacked(cell);
-            case PackedInt -> {} // Already in PackedInt format, no conversion needed
+            case INDEX -> cell = ValueFormat.indexToPacked(cell);
+            case PACKED -> {} // Already in PackedInt format, no conversion needed
             case null -> throw new NullPointerException("Input format cannot be null.");
         }
 
@@ -419,8 +417,8 @@ public abstract class Grid {
         });
 
         switch (outputFormat) {
-            case Index -> affectedPieces.replaceAll(ValueFormat::packedToIndex);
-            case PackedInt -> {} // Already in PackedInt format, no conversion needed
+            case INDEX -> affectedPieces.replaceAll(ValueFormat::packedToIndex);
+            case PACKED -> {} // Already in PackedInt format, no conversion needed
             case null -> throw new NullPointerException("Output format cannot be null.");
         }
 
@@ -432,7 +430,7 @@ public abstract class Grid {
     }
 
     static final ShortList computeAdjacents(short cell) {
-        return computeAdjacents(cell, ValueFormat.Index);
+        return computeAdjacents(cell, ValueFormat.INDEX);
     }
 
     public static final ShortList findAdjacents(short cell) {
@@ -444,16 +442,16 @@ public abstract class Grid {
     public static final ShortList findAdjacents(short cell, ValueFormat inputFormat,
             ValueFormat outputFormat) {
         final short index = switch (inputFormat) {
-            case PackedInt -> ValueFormat.packedToIndex(cell);
-            case Index -> cell;
+            case PACKED -> ValueFormat.packedToIndex(cell);
+            case INDEX -> cell;
             case null -> throw new NullPointerException("inputFormat must not be null");
         };
 
         final ShortList outputList = findAdjacents(index);
 
         return switch (outputFormat) {
-            case Index -> outputList;
-            case PackedInt -> ValueFormat.indexListToPackedList(outputList);
+            case INDEX -> outputList;
+            case PACKED -> ValueFormat.indexListToPackedList(outputList);
             case null -> throw new NullPointerException("outputFormat must not be null");
         };
     }
@@ -510,8 +508,8 @@ public abstract class Grid {
 
     public final void click(short cell, ValueFormat format) {
         short index = switch (format) {
-            case PackedInt -> ValueFormat.packedToIndex(cell);
-            case Index -> cell;
+            case PACKED -> ValueFormat.packedToIndex(cell);
+            case INDEX -> cell;
             case null -> throw new NullPointerException("format must not be null");
         };
 
@@ -591,9 +589,9 @@ public abstract class Grid {
 
     public static final boolean areAdjacent(short cellA, short cellB, ValueFormat format) {
         return switch (format) {
-            case PackedInt -> areAdjacent(ValueFormat.packedToIndex(cellA),
+            case PACKED -> areAdjacent(ValueFormat.packedToIndex(cellA),
                     ValueFormat.packedToIndex(cellB));
-            case Index -> areAdjacent(cellA, cellB);
+            case INDEX -> areAdjacent(cellA, cellB);
             case null -> throw new NullPointerException("Format cannot be null.");
         };
     }
@@ -617,10 +615,10 @@ public abstract class Grid {
      * Inverts a given combination of clicks, returning the complement set of clicks (i.e., all
      * cells not included in the original combination).
      * 
-     * @param clicks An array of clicked cells in {@link ValueFormat#Index} format.
+     * @param clicks An array of clicked cells in {@link ValueFormat#INDEX} format.
      * @return A new array containing the inverted combination of clicks.
      * @throws NullPointerException if the {@code clicks} array is {@code null}.
-     * @see ValueFormat#Index
+     * @see ValueFormat#INDEX
      * @since 2025.12 - Global Configuration Refactor
      * @performance {@code O(NUM_CELLS)} due to iteration over all cells.
      * @threading Thread-safe; does not modify any instance state.
@@ -647,8 +645,8 @@ public abstract class Grid {
      * @see #getBit(int)
      * @see #indexToPacked(short)
      * @see #packedToIndex(short)
-     * @see ValueFormat#Index
-     * @see ValueFormat#PackedInt
+     * @see ValueFormat#INDEX
+     * @see ValueFormat#PACKED
      * @see java.lang.StringBuilder
      * @see java.lang.System#lineSeparator()
      * @since 2025.11 - toString Method Addition

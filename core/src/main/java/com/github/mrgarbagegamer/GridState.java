@@ -44,7 +44,7 @@ public record GridState(long lowerState, long upperState) {
 
         if (cell == -1) {
             return -1;
-        } else if (format == Grid.ValueFormat.Index) {
+        } else if (format == Grid.ValueFormat.INDEX) {
             return cell;
         } else {
             return ValueFormat.indexToPacked(cell);
@@ -73,7 +73,7 @@ public record GridState(long lowerState, long upperState) {
     public ShortList findTrueCells(Grid.ValueFormat format) {
         mustNotBeNull(format, "format");
 
-        if (format == Grid.ValueFormat.Index)
+        if (format == Grid.ValueFormat.INDEX)
             return this.findTrueCells();
         else
             return indexListToPackedList(this.findTrueCells());
@@ -85,7 +85,7 @@ public record GridState(long lowerState, long upperState) {
     }
 
     public ShortList findFirstTrueAdjacents() {
-        return this.findFirstTrueAdjacents(Grid.ValueFormat.Index);
+        return this.findFirstTrueAdjacents(Grid.ValueFormat.INDEX);
     }
 
     public ShortList findFirstTrueAdjacentsAfter(short cell, Grid.ValueFormat inputFormat,
@@ -107,7 +107,7 @@ public record GridState(long lowerState, long upperState) {
         if (outputFormat == inputFormat) {
             return subList;
         } else {
-            if (outputFormat == Grid.ValueFormat.PackedInt && inputFormat == Grid.ValueFormat.Index)
+            if (outputFormat == Grid.ValueFormat.PACKED && inputFormat == Grid.ValueFormat.INDEX)
                 return indexListToPackedList(subList);
             else
                 return packedListToIndexList(subList);

@@ -150,7 +150,7 @@ public class Solver {
             // Display results as a click combination
             this.logger.info("{} - Found the solution as the following click combination: {}",
                     winningThread.getName(),
-                    new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.Index));
+                    new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.INDEX));
             this.logger.info("{} - {}", winningThread.getName(), elapsedFormatted);
 
             // Verify solution

@@ -24,12 +24,12 @@ final class ProgressTracker {
 
     long getForked() { return this.globalTasksForked.sum(); }
 
-    private double calculateProgressPercentage(long completed, long forked) {
+    private static double calculateProgressPercentage(long completed, long forked) {
         return forked == 0L ? 0.0 : (completed * 100.0) / forked;
     }
 
     double getProgressPercentage() {
-        return this.calculateProgressPercentage(this.getCompleted(), this.getForked());
+        return calculateProgressPercentage(getCompleted(), getForked());
     }
 
     String formatProgress() {
@@ -37,8 +37,8 @@ final class ProgressTracker {
         final long forked = this.getForked();
 
         // Use calculate instead of getProgressPercentage() so the percentage is accurate
-        return String.format("%.2f%% (%d / %d tasks)",
-                this.calculateProgressPercentage(completed, forked), completed, forked);
+        return String.format("%.3f%% (%d / %d tasks)",
+                calculateProgressPercentage(completed, forked), completed, forked);
     }
 
     void reset() {
@@ -52,7 +52,7 @@ final class ProgressTracker {
         final long forked = this.getForked();
 
         // Use calculate instead of getProgressPercentage() so the percentage is accurate
-        final double progressPercentage = this.calculateProgressPercentage(completed, forked);
+        final double progressPercentage = calculateProgressPercentage(completed, forked);
 
         return MoreObjects.toStringHelper(this).add("completed", completed).add("forked", forked)
                 .add("progressPercentage", progressPercentage).toString();

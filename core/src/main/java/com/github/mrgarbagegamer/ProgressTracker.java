@@ -9,15 +9,17 @@ final class ProgressTracker {
     private final LongAdder globalTasksForked = new LongAdder();
 
     void addCompleted(long count) {
-        if (count > 0) {
-            this.globalTasksCompleted.add(count);
+        if (count <= 0L) {
+            throw new IllegalArgumentException("count must be positive, was: " + count);
         }
+        this.globalTasksCompleted.add(count);
     }
 
     void addForked(long count) {
-        if (count > 0) {
-            this.globalTasksForked.add(count);
+        if (count <= 0L) {
+            throw new IllegalArgumentException("count must be positive, was: " + count);
         }
+        this.globalTasksForked.add(count);
     }
 
     long getCompleted() { return this.globalTasksCompleted.sum(); }

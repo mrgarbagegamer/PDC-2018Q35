@@ -41,11 +41,6 @@ final class ProgressTracker {
                 calculateProgressPercentage(completed, forked), completed, forked);
     }
 
-    void reset() {
-        this.globalTasksCompleted.reset();
-        this.globalTasksForked.reset();
-    }
-
     @Override
     public String toString() {
         final long completed = this.getCompleted();

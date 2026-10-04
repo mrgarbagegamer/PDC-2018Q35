@@ -9,6 +9,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.Logger;
 
+import com.google.common.annotations.VisibleForTesting;
+
 final class ProgressReporter implements AutoCloseable {
     private static final long LOGGING_PERIOD = 1L;
 
@@ -40,8 +42,8 @@ final class ProgressReporter implements AutoCloseable {
         return "ProgressReporter{executorStatus=" + this.executor.isShutdown() + "}";
     }
 
-    // TODO: Make this package-private if we need isolated unit testing of ProgressReporterTask
-    private static final class ProgressReporterTask implements Runnable {
+    @VisibleForTesting
+    static final class ProgressReporterTask implements Runnable {
         private final ProgressTracker tracker;
         private final Logger logger;
         private final SolverState solverState;

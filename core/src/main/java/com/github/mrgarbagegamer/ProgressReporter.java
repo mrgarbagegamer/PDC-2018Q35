@@ -39,7 +39,8 @@ final class ProgressReporter implements AutoCloseable {
 
     @Override
     public String toString() {
-        return "ProgressReporter{executorStatus=" + this.executor.isShutdown() + "}";
+        return "ProgressReporter{executorStatus="
+                + (this.executor.isShutdown() ? "SHUTDOWN" : "RUNNING") + "}";
     }
 
     @VisibleForTesting

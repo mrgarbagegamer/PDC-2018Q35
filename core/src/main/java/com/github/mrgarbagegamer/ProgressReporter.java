@@ -16,7 +16,9 @@ final class ProgressReporter implements AutoCloseable {
 
     private final ScheduledExecutorService executor;
 
-    private ProgressReporter(ScheduledExecutorService executor) { this.executor = executor; }
+    private ProgressReporter(ScheduledExecutorService executor) {
+        this.executor = mustNotBeNull(executor, "executor");
+    }
 
     private ScheduledFuture<?> scheduleTask(ProgressTracker tracker, Logger logger,
             SolverState state) {
@@ -25,6 +27,10 @@ final class ProgressReporter implements AutoCloseable {
     }
 
     static ProgressReporter start(ProgressTracker tracker, Logger logger, SolverState state) {
+        mustNotBeNull(tracker, "tracker");
+        mustNotBeNull(logger, "logger");
+        mustNotBeNull(state, "state");
+
         final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(
                 Thread.ofPlatform().name("Progress-Reporter").daemon().factory());
         final ProgressReporter reporter = new ProgressReporter(executor);

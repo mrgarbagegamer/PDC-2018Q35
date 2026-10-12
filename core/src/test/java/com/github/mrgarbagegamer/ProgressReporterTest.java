@@ -1,5 +1,6 @@
 package com.github.mrgarbagegamer;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -115,5 +116,82 @@ class ProgressReporterTest {
         }
     }
 
-    // TODO: Add tests for the ProgressReporter class itself
+    @Nested
+    class ReporterConstructionTests {
+        @Test
+        void givenNullTracker_whenStart_thenThrowsNPE() {
+            ProgressTracker tracker = null;
+            SolverState state = SolverStateBridge.createDefaultInstance();
+
+            assertThatNullPointerException()
+                    .isThrownBy(() -> ProgressReporter.start(tracker, logger, state));
+        }
+
+        @Test
+        void givenNullLogger_whenStart_thenThrowsNPE() {
+            ProgressTracker tracker = new ProgressTracker();
+            SolverState state = SolverStateBridge.createDefaultInstance();
+
+            assertThatNullPointerException()
+                    .isThrownBy(() -> ProgressReporter.start(tracker, null, state));
+        }
+
+        @Test
+        void givenNullSolverState_whenStart_thenThrowsNPE() {
+            ProgressTracker tracker = new ProgressTracker();
+            SolverState state = null;
+
+            assertThatNullPointerException()
+                    .isThrownBy(() -> ProgressReporter.start(tracker, logger, state));
+        }
+
+        @Test
+        void givenValidInputs_whenStart_thenSucceeds() {
+            ProgressTracker tracker = new ProgressTracker();
+            SolverState state = SolverStateBridge.createDefaultInstance();
+
+            // Ensure that we don't hold a handle to the reporter for too long.
+            try (ProgressReporter reporter = ProgressReporter.start(tracker, logger, state)) {
+                assertThat(reporter).isNotNull();
+            }
+        }
+    }
+
+    @Nested
+    class LifecycleTests {
+
+        @Test
+        void givenNewReporter_whenIsRunning_thenReturnsTrue() {
+            ProgressTracker tracker = new ProgressTracker();
+            SolverState state = SolverStateBridge.createDefaultInstance();
+
+            try (ProgressReporter reporter = ProgressReporter.start(tracker, logger, state)) {
+                assertThat(reporter.isRunning()).isTrue();
+            }
+        }
+
+        @Test
+        void givenClosedReporter_whenIsRunning_thenReturnsFalse() {
+            ProgressTracker tracker = new ProgressTracker();
+            SolverState state = SolverStateBridge.createDefaultInstance();
+            ProgressReporter reporter = ProgressReporter.start(tracker, logger, state);
+
+            reporter.close();
+
+            assertThat(reporter.isRunning()).isFalse();
+        }
+
+        // Smoke test for toString():
+
+        @Test
+        void givenNonNullReporter_whenToString_thenDoesNotThrow() {
+            ProgressTracker tracker = new ProgressTracker();
+            SolverState state = SolverStateBridge.createDefaultInstance();
+
+            try (ProgressReporter reporter = ProgressReporter.start(tracker, logger, state)) {
+                // Avoid asserting anything about the string to avoid brittle tests:
+                assertThat(reporter.toString()).isNotEmpty();
+            }
+        }
+    }
 }

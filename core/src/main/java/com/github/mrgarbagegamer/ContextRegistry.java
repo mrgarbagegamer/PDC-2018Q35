@@ -47,6 +47,7 @@ final class ContextRegistry {
                 } else {
                     logger.debug("{} has no pending batch to flush.", ctx.getName());
                 }
+                ctx.flushProgress();
             }
         }
     }

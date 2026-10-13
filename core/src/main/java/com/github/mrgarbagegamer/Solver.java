@@ -58,9 +58,11 @@ public class Solver {
                 Unbox.box(this.config.numClicks()), Unbox.box(this.config.numThreads()));
         logGrid(Grid.withInitial(this.config.baseGridState()), this.logger);
 
-        // Create the context registry and generator pool
         final ContextRegistry registry = ContextRegistry.newRegistry(this.config, this.services);
-        try (ForkJoinPool generatorPool = createGeneratorPool(registry)) {
+        final ProgressTracker tracker = new ProgressTracker();
+
+        try (ProgressReporter _ = ProgressReporter.start(tracker, this.logger, this.solverState);
+                ForkJoinPool generatorPool = createGeneratorPool(registry, tracker)) {
             // Create the monkeys
             final TestClickCombination[] monkeys = new TestClickCombination[this.config
                     .numMonkeys()];
@@ -72,6 +74,9 @@ public class Solver {
 
             generatorPool.execute(() -> {
                 try {
+                    // Record the root task itself in the progress tracker
+                    tracker.addForked(1);
+
                     // Create and execute the root task within the pool context.
                     CombinationGeneratorTask.createRootTask(this.config).invoke();
 
@@ -104,11 +109,11 @@ public class Solver {
         }
     }
 
-    private ForkJoinPool createGeneratorPool(ContextRegistry registry) {
+    private ForkJoinPool createGeneratorPool(ContextRegistry registry, ProgressTracker tracker) {
         final AtomicInteger threadCounter = new AtomicInteger(0);
         return new ForkJoinPool(this.config.numGenerators(),
                 pool -> new GeneratorThread(pool, this.config, this.services, this.queueStrategy,
-                        registry, threadCounter.getAndIncrement()),
+                        registry, threadCounter.getAndIncrement(), tracker),
                 null, false);
     }
 

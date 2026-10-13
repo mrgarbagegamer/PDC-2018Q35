@@ -10,11 +10,13 @@ class GeneratorThread extends ForkJoinWorkerThread {
     private final GeneratorContext context;
 
     GeneratorThread(ForkJoinPool pool, SolverConfiguration config, SolverServices services,
-            QueueStrategy queueStrategy, ContextRegistry registry, int generatorId) {
+            QueueStrategy queueStrategy, ContextRegistry registry, int generatorId,
+            ProgressTracker progressTracker) {
         super(mustNotBeNull(pool, "pool"));
         checkArgument(generatorId >= 0, "generatorId must not be negative, was %s", generatorId);
         this.setName("Generator-" + generatorId);
-        this.context = new GeneratorContext(generatorId, queueStrategy, registry, config, services);
+        this.context = new GeneratorContext(generatorId, queueStrategy, registry, config, services,
+                progressTracker);
     }
 
     GeneratorContext getContext() { return this.context; }

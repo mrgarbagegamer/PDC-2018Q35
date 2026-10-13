@@ -54,4 +54,6 @@ final class ProgressTracker {
         return MoreObjects.toStringHelper(this).add("completed", completed).add("forked", forked)
                 .add("progressPercentage", progressPercentage).toString();
     }
+
+    // TODO: Consider adding a method to print the completed task count after generator completion
 }

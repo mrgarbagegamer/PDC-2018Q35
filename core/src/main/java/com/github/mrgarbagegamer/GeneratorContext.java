@@ -24,9 +24,10 @@ class GeneratorContext {
     private final TaskPool<LeafTask> leafTaskPool;
     private final QueueStrategy queueStrategy;
     private @Nullable WorkBatch currentBatch = null;
+    private final GeneratorProgressContext progressContext;
 
     GeneratorContext(int generatorId, QueueStrategy queueStrategy, ContextRegistry registry,
-            SolverConfiguration config, SolverServices services) {
+            SolverConfiguration config, SolverServices services, ProgressTracker progressTracker) {
         this.config = mustNotBeNull(config, "config");
         this.services = mustNotBeNull(services, "services");
         this.generatorId = generatorId;
@@ -35,6 +36,8 @@ class GeneratorContext {
         this.intermediateTaskPool = new TaskPool<>(this.config.taskPoolSize());
         this.leafTaskPool = new TaskPool<>(this.config.taskPoolSize());
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
+        this.progressContext = new GeneratorProgressContext(
+                mustNotBeNull(progressTracker, "progressTracker"));
         mustNotBeNull(registry, "registry").registerContext(this);
         this.preallocateTaskPools();
     }
@@ -123,4 +126,10 @@ class GeneratorContext {
         }
         return success;
     }
+
+    void recordForked(long count) { this.progressContext.recordForked(count); }
+
+    void recordCompleted() { this.progressContext.recordCompleted(); }
+
+    void flushProgress() { this.progressContext.flush(); }
 }

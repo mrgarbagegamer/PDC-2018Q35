@@ -85,25 +85,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * @memory Fixed memory footprint with minimal allocations, except for logging.
  */
 public class TestClickCombination extends Thread {
-    /**
-     * A constant defining the frequency of logging for failed attempts.
-     *
-     * <p>
-     * To avoid overwhelming the logs and impacting performance, a debug entry for a failed
-     * combination is made only once per this many failures. This check applies only to combinations
-     * that have already passed the {@link #satisfiesOddAdjacency(long, long, short)} check.
-     * </p>
-     *
-     * @see #run()
-     * @see CombinationMessage
-     * @since 2025.05 - Logging Threshold Introduction
-     * @performance {@code O(1)} retrieval for checks.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
-     */
-    private static final int LOG_EVERY_N_FAILURES = 100_000;
 
-    private final Logger logger;
     private final QueueStrategy queueStrategy;
     private final int monkeyId;
     private final SolverState solverState;
@@ -125,7 +107,6 @@ public class TestClickCombination extends Thread {
 
         mustNotBeNull(config, "config");
         this.services = mustNotBeNull(services, "services");
-        this.logger = services.getLogger(TestClickCombination.class);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         this.solverState = mustNotBeNull(solverState, "solverState");
         this.puzzleGrid = Grid.withInitial(config.baseGridState());
@@ -189,7 +170,6 @@ public class TestClickCombination extends Thread {
      */
     @Override
     public void run() {
-        int failedCount = 0; // Count of failed attempts for logging
         while (!solverState.solutionFound()) {
             final WorkBatch workBatch = getWork();
 
@@ -220,16 +200,6 @@ public class TestClickCombination extends Thread {
                             return;
                         }
                         this.puzzleGrid.initialize(); // Reset for next test
-
-                        failedCount++;
-                        // TODO: Consider extracting this logging for easier compiler optimization
-                        if (failedCount == LOG_EVERY_N_FAILURES) {
-                            final short[] failedCombination = buildCombination(prefix, finalClick);
-
-                            this.logger.debug("Tried and failed: {}", new CombinationMessage(
-                                    failedCombination, Grid.ValueFormat.INDEX));
-                            failedCount = 0;
-                        }
                     }
                 }
             }
@@ -245,9 +215,11 @@ public class TestClickCombination extends Thread {
         final short[] winningCombination = buildCombination(prefix, finalClick);
         this.solverState.markSolutionFound(winningCombination.clone());
 
-        this.services.handleSolution(winningCombination, this.logger);
+        final Logger solutionLogger = this.services.getLogger(TestClickCombination.class);
 
-        this.logger.debug("Triggering generator pool shutdown...");
+        this.services.handleSolution(winningCombination, solutionLogger);
+
+        solutionLogger.debug("Triggering generator pool shutdown...");
         this.generatorPool.shutdownNow();
     }
 
@@ -258,7 +230,8 @@ public class TestClickCombination extends Thread {
             // termination conditions
             // Log the termination condition if we failed to get work due to solution found or all
             // queues empty
-            this.logger.debug("Termination condition was met during poll, shutting down");
+            this.services.getLogger(TestClickCombination.class)
+                    .debug("Termination condition was met during poll, shutting down");
         }
         return batch;
     }
@@ -330,7 +303,8 @@ public class TestClickCombination extends Thread {
             // termination conditions
             // Log the termination condition if we failed to recycle due to solution found or
             // shutdown
-            this.logger.debug("Termination condition was met during offer, shutting down");
+            this.services.getLogger(TestClickCombination.class)
+                    .debug("Termination condition was met during offer, shutting down");
         }
         return success;
     }

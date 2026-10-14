@@ -105,6 +105,8 @@ public class Solver {
                 for (TestClickCombination worker : monkeys)
                     if (worker != null) // Should always be true, but adding a check.
                         Uninterruptibles.joinUninterruptibly(worker);
+
+                this.logger.info("Generation complete: {}", tracker.formatCompleted());
             }
         }
     }

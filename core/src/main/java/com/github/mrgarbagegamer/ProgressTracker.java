@@ -55,5 +55,5 @@ final class ProgressTracker {
                 .add("progressPercentage", progressPercentage).toString();
     }
 
-    // TODO: Consider adding a method to print the completed task count after generator completion
+    String formatCompleted() { return this.getCompleted() + " tasks completed"; }
 }

@@ -190,4 +190,20 @@ class ProgressTrackerTest {
         // Avoid asserting anything about the string to avoid brittle tests:
         assertThat(tracker.toString()).isNotEmpty();
     }
+
+    @Test
+    void givenNoTasksCompleted_whenFormatCompleted_thenReturnsZeroCompletedTasks() {
+        ProgressTracker tracker = new ProgressTracker();
+
+        assertThat(tracker.formatCompleted()).contains("0");
+    }
+
+    @Test
+    void givenCompletedTasks_whenFormatCompleted_thenReturnsCorrectCompletedCount() {
+        ProgressTracker tracker = new ProgressTracker();
+
+        tracker.addCompleted(50L);
+
+        assertThat(tracker.formatCompleted()).contains("50");
+    }
 }

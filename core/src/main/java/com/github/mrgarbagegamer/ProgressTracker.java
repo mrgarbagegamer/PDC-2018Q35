@@ -39,8 +39,8 @@ final class ProgressTracker {
         final long forked = this.getForked();
 
         // Use calculate instead of getProgressPercentage() so the percentage is accurate
-        return String.format("%.3f%% (%d / %d tasks)",
-                calculateProgressPercentage(completed, forked), completed, forked);
+        return "%.3f%% (%d / %d tasks)".formatted(calculateProgressPercentage(completed, forked),
+                completed, forked);
     }
 
     @Override

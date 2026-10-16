@@ -108,7 +108,12 @@ public class Solver {
                     if (worker != null) // Should always be true, but adding a check.
                         Uninterruptibles.joinUninterruptibly(worker);
 
-                this.logger.info("Generation complete: {}", tracker.formatCompleted());
+                if (!this.solverState.solutionFound()) {
+                    this.logger.info("Generation complete: {}", tracker.formatCompleted());
+                } else {
+                    this.logger.info("Generation stopped after {} due to solution found",
+                            tracker.formatCompleted());
+                }
             }
         }
     }

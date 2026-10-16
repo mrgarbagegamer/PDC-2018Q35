@@ -86,6 +86,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  */
 public class TestClickCombination extends Thread {
 
+    private final Logger logger;
     private final QueueStrategy queueStrategy;
     private final int monkeyId;
     private final SolverState solverState;
@@ -107,6 +108,7 @@ public class TestClickCombination extends Thread {
 
         mustNotBeNull(config, "config");
         this.services = mustNotBeNull(services, "services");
+        this.logger = services.getLogger(TestClickCombination.class);
         this.queueStrategy = mustNotBeNull(queueStrategy, "queueStrategy");
         this.solverState = mustNotBeNull(solverState, "solverState");
         this.puzzleGrid = Grid.withInitial(config.baseGridState());
@@ -215,11 +217,9 @@ public class TestClickCombination extends Thread {
         final short[] winningCombination = buildCombination(prefix, finalClick);
         this.solverState.markSolutionFound(winningCombination.clone());
 
-        final Logger solutionLogger = this.services.getLogger(TestClickCombination.class);
+        this.services.handleSolution(winningCombination, this.logger);
 
-        this.services.handleSolution(winningCombination, solutionLogger);
-
-        solutionLogger.debug("Triggering generator pool shutdown...");
+        this.logger.debug("Triggering generator pool shutdown...");
         this.generatorPool.shutdownNow();
     }
 
@@ -230,8 +230,7 @@ public class TestClickCombination extends Thread {
             // termination conditions
             // Log the termination condition if we failed to get work due to solution found or all
             // queues empty
-            this.services.getLogger(TestClickCombination.class)
-                    .debug("Termination condition was met during poll, shutting down");
+            this.logger.debug("Termination condition was met during poll, shutting down");
         }
         return batch;
     }
@@ -303,8 +302,7 @@ public class TestClickCombination extends Thread {
             // termination conditions
             // Log the termination condition if we failed to recycle due to solution found or
             // shutdown
-            this.services.getLogger(TestClickCombination.class)
-                    .debug("Termination condition was met during offer, shutting down");
+            this.logger.debug("Termination condition was met during offer, shutting down");
         }
         return success;
     }

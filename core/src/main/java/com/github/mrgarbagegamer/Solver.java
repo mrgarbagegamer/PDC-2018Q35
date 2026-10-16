@@ -89,6 +89,8 @@ public class Solver {
                         registry.flushAllPendingBatches();
                     }
 
+                    registry.flushProgress();
+
                     // Mark generation as complete for the monkeys and count down completion latch.
                     this.solverState.markGenerationComplete();
                 }

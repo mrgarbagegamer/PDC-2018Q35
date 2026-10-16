@@ -116,6 +116,16 @@ class ProgressTrackerTest {
     }
 
     @Test
+    void givenCompletedCountGreaterThanForkedCount_whenGetProgressPercentage_thenClampsPercentage() {
+        ProgressTracker tracker = new ProgressTracker();
+
+        tracker.addCompleted(3L);
+        tracker.addForked(2L);
+
+        assertThat(tracker.getProgressPercentage()).isCloseTo(100.0, within(0.01));
+    }
+
+    @Test
     void givenConcurrentUpdates_whenAddCompletedAndAddForked_thenNoRaceConditionsOccur() {
         ProgressTracker tracker = new ProgressTracker();
         int threadCount = 8;

@@ -27,7 +27,7 @@ final class ProgressTracker {
     long getForked() { return this.globalTasksForked.sum(); }
 
     private static double calculateProgressPercentage(long completed, long forked) {
-        return forked == 0L ? 0.0 : ((double) completed / forked) * 100.0;
+        return forked == 0L ? 0.0 : Math.min(100.0, ((double) completed / forked) * 100.0);
     }
 
     double getProgressPercentage() {

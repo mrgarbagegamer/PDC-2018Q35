@@ -51,6 +51,12 @@ final class ContextRegistry {
         }
     }
 
+    synchronized void flushProgress() {
+        for (GeneratorContext ctx : contexts) {
+            ctx.flushProgress();
+        }
+    }
+
     int size() { return contexts.size(); }
 
     synchronized void clear() { contexts.clear(); }

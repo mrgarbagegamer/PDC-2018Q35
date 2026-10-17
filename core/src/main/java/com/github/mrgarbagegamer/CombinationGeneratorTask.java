@@ -65,6 +65,7 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
             this.computeTask(ctx);
         } finally {
             this.recycleSelf(ctx);
+            ctx.recordCompleted();
         }
     }
 
@@ -116,6 +117,7 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
                 subtask.init(this, i);
                 subtask.fork();
             }
+            ctx.recordForked(max);
         }
 
         private void forkIntermediates(GeneratorContext ctx, short max) {
@@ -124,6 +126,7 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
                 subtask.init(this, i);
                 subtask.fork();
             }
+            ctx.recordForked(max);
         }
     }
 
@@ -193,6 +196,8 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
                 subtask.init(this, i);
                 subtask.fork();
             }
+
+            recordForkedIfPresent(ctx, start, max);
         }
 
         private void forkIntermediates(GeneratorContext ctx, short start) {
@@ -202,6 +207,14 @@ public sealed abstract class CombinationGeneratorTask extends RecursiveAction {
                 subtask.init(this, i);
                 subtask.fork();
             }
+
+            recordForkedIfPresent(ctx, start, max);
+        }
+
+        private static void recordForkedIfPresent(GeneratorContext ctx, short start, short max) {
+            final int count = max - start;
+            if (count > 0)
+                ctx.recordForked(count);
         }
 
         private boolean constraintCheck(int startIdx) {

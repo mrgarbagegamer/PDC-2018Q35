@@ -85,23 +85,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
  * @memory Fixed memory footprint with minimal allocations, except for logging.
  */
 public class TestClickCombination extends Thread {
-    /**
-     * A constant defining the frequency of logging for failed attempts.
-     *
-     * <p>
-     * To avoid overwhelming the logs and impacting performance, a debug entry for a failed
-     * combination is made only once per this many failures. This check applies only to combinations
-     * that have already passed the {@link #satisfiesOddAdjacency(long, long, short)} check.
-     * </p>
-     *
-     * @see #run()
-     * @see CombinationMessage
-     * @since 2025.05 - Logging Threshold Introduction
-     * @performance {@code O(1)} retrieval for checks.
-     * @threading Thread-safe as a {@code static final} constant.
-     * @memory Fixed memory footprint of 4 bytes as a primitive {@code int}.
-     */
-    private static final int LOG_EVERY_N_FAILURES = 100_000;
 
     private final Logger logger;
     private final QueueStrategy queueStrategy;
@@ -189,7 +172,6 @@ public class TestClickCombination extends Thread {
      */
     @Override
     public void run() {
-        int failedCount = 0; // Count of failed attempts for logging
         while (!solverState.solutionFound()) {
             final WorkBatch workBatch = getWork();
 
@@ -220,16 +202,6 @@ public class TestClickCombination extends Thread {
                             return;
                         }
                         this.puzzleGrid.initialize(); // Reset for next test
-
-                        failedCount++;
-                        // TODO: Consider extracting this logging for easier compiler optimization
-                        if (failedCount == LOG_EVERY_N_FAILURES) {
-                            final short[] failedCombination = buildCombination(prefix, finalClick);
-
-                            this.logger.debug("Tried and failed: {}", new CombinationMessage(
-                                    failedCombination, Grid.ValueFormat.INDEX));
-                            failedCount = 0;
-                        }
                     }
                 }
             }

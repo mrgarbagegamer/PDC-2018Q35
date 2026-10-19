@@ -1,22 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="WARN">
-    <Properties>
-        <Property name="logPattern">%d{DEFAULT} [%t] %-5level - %msg%n</Property>
-    </Properties>
-
-    <!-- Use AsyncLoggerContextSelector for asynchronous logging -->
-    <Loggers>
-        <Logger name="com.github.mrgarbagegamer" level="debug" additivity="false">
-            <AppenderRef ref="Console" />
-        </Logger>
-        <Root level="debug">
-            <AppenderRef ref="Console" />
-        </Root>
-    </Loggers>
+<Configuration xmlns="https://logging.apache.org/xml/ns"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://logging.apache.org/xml/ns https://logging.apache.org/xml/ns/log4j-config-2.xsd">
 
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
-            <PatternLayout pattern="${logPattern}" />
+            <PatternLayout pattern="%d{DEFAULT} [%t] %-5level - %msg%n" />
         </Console>
     </Appenders>
+
+    <Loggers>
+        <Root level="DEBUG">
+            <AppenderRef ref="Console" />
+        </Root>
+    </Loggers>
 </Configuration>

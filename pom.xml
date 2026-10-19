@@ -21,7 +21,6 @@
         <junit.version>6.0.3</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <log4j.version>2.25.2</log4j.version>
-        <lmax-disruptor.version>4.0.0</lmax-disruptor.version>
         <mockito.version>5.23.0</mockito.version>
         <fastutil.version>8.5.16</fastutil.version>
         <jctools.version>4.0.5</jctools.version>

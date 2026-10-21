@@ -1,7 +1,7 @@
 package com.github.mrgarbagegamer;
 
-import static com.github.mrgarbagegamer.Grid.ValueFormat.indexListToPackedList;
-import static com.github.mrgarbagegamer.Grid.ValueFormat.packedListToIndexList;
+import static com.github.mrgarbagegamer.Grid.ValueFormat.indexCollectionToPackedList;
+import static com.github.mrgarbagegamer.Grid.ValueFormat.packedCollectionToIndexList;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
@@ -76,7 +76,7 @@ public record GridState(long lowerState, long upperState) {
         if (format == Grid.ValueFormat.INDEX)
             return this.findTrueCells();
         else
-            return indexListToPackedList(this.findTrueCells());
+            return indexCollectionToPackedList(this.findTrueCells());
     }
 
     public ShortList findFirstTrueAdjacents(Grid.ValueFormat format) {
@@ -108,9 +108,9 @@ public record GridState(long lowerState, long upperState) {
             return subList;
         } else {
             if (outputFormat == Grid.ValueFormat.PACKED && inputFormat == Grid.ValueFormat.INDEX)
-                return indexListToPackedList(subList);
+                return indexCollectionToPackedList(subList);
             else
-                return packedListToIndexList(subList);
+                return packedCollectionToIndexList(subList);
         }
     }
 

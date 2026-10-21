@@ -4,6 +4,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
+import java.util.Collection;
 
 import org.jspecify.annotations.Nullable;
 
@@ -217,18 +218,19 @@ public abstract class Grid {
                 return (short) (6 * 100 + (index - ROW_OFFSETS.getShort(6)));
         }
 
-        static ShortList replaceAllSafely(ShortList list, ShortUnaryOperator operator) {
-            ShortList result = new ShortArrayList(list);
+        private static ShortList replaceAllSafely(Collection<? extends Short> collection,
+                ShortUnaryOperator operator) {
+            ShortList result = new ShortArrayList(collection);
             result.replaceAll(operator);
             return new ShortImmutableList(result);
         }
 
-        static ShortList indexListToPackedList(ShortList indexList) {
-            return replaceAllSafely(indexList, ValueFormat::indexToPacked);
+        static ShortList indexCollectionToPackedList(Collection<? extends Short> indices) {
+            return replaceAllSafely(indices, ValueFormat::indexToPacked);
         }
 
-        static ShortList packedListToIndexList(ShortList packedList) {
-            return replaceAllSafely(packedList, ValueFormat::packedToIndex);
+        static ShortList packedCollectionToIndexList(Collection<? extends Short> packedValues) {
+            return replaceAllSafely(packedValues, ValueFormat::packedToIndex);
         }
     }
 
@@ -464,7 +466,7 @@ public abstract class Grid {
 
         return switch (outputFormat) {
             case INDEX -> outputList;
-            case PACKED -> ValueFormat.indexListToPackedList(outputList);
+            case PACKED -> ValueFormat.indexCollectionToPackedList(outputList);
             case null -> throw new NullPointerException("outputFormat must not be null");
         };
     }
@@ -705,9 +707,10 @@ public abstract class Grid {
         return 31 * Long.hashCode(this.lowerState) + Long.hashCode(this.upperState);
     }
 
-    private static void checkIndex(short index) {
+    static short checkGridIndex(short index) {
         checkArgument(index >= 0 && index < Grid.NUM_CELLS, "index %s is out of bounds [0, %s]",
                 index, Grid.NUM_CELLS - 1);
+        return index;
     }
 
     private static final class CustomGrid extends Grid {
@@ -738,7 +741,7 @@ public abstract class Grid {
         }
 
         public Builder click(short cell) {
-            checkIndex(cell);
+            checkGridIndex(cell);
             this.lowerState ^= ADJACENCY_MASKS[cell][0];
             this.upperState ^= ADJACENCY_MASKS[cell][1];
             return this;
@@ -788,7 +791,7 @@ public abstract class Grid {
         }
 
         public Builder toggle(short cell) {
-            checkIndex(cell);
+            checkGridIndex(cell);
 
             if (cell < 64)
                 this.lowerState ^= (1L << cell);

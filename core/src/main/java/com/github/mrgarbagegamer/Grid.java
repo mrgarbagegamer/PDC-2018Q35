@@ -3,6 +3,8 @@ package com.github.mrgarbagegamer;
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.Arrays;
+
 import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
@@ -169,6 +171,8 @@ public abstract class Grid {
         private static short[] generatePackedToIndexCache() {
             final short[] cache = new short[(Grid.NUM_ROWS - 1) * 100 + Grid.EVEN_NUM_COLS];
 
+            Arrays.fill(cache, (short) -1); // Fill with -1 to indicate invalid packed values
+
             for (short index = 0; index < NUM_CELLS; index++) {
                 short packed = indexToPacked(index);
                 cache[packed] = index;
@@ -181,7 +185,16 @@ public abstract class Grid {
             checkArgument(packed >= 0 && packed < PACKED_TO_INDEX_CACHE.length,
                     "packed must be in range [0, %s], but was %s", PACKED_TO_INDEX_CACHE.length - 1,
                     packed);
-            return PACKED_TO_INDEX_CACHE[packed];
+
+            // Check that the packed value has a valid index mapping:
+            short index = PACKED_TO_INDEX_CACHE[packed];
+
+            if (index == -1) {
+                throw new IllegalArgumentException(
+                        "packed value %d does not correspond to a valid cell".formatted(packed));
+            }
+
+            return index;
         }
 
         public static short indexToPacked(short index) {

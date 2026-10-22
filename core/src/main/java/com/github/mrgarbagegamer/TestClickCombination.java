@@ -215,7 +215,8 @@ public class TestClickCombination extends Thread {
 
     private void solutionHook(final short[] prefix, final short finalClick) {
         final short[] winningCombination = buildCombination(prefix, finalClick);
-        this.solverState.markSolutionFound(winningCombination.clone());
+        this.solverState.markSolutionFound(
+                ClickCombination.fromArray(Grid.ValueFormat.INDEX, winningCombination));
 
         this.services.handleSolution(winningCombination, this.logger);
 

@@ -25,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.github.mrgarbagegamer.ClickCombination;
 import com.github.mrgarbagegamer.SolverState;
 import com.github.mrgarbagegamer.SolverStateBridge;
 import com.github.mrgarbagegamer.WorkBatch;
@@ -34,7 +35,7 @@ public class ContinuationPredicatesTest {
     private static SolverState createState(boolean solutionFound, boolean generationComplete) {
         SolverState state = SolverStateBridge.createDefaultInstance();
         if (solutionFound) {
-            state.markSolutionFound(new short[2]);
+            state.markSolutionFound(ClickCombination.EMPTY);
         }
         if (generationComplete) {
             state.markGenerationComplete();

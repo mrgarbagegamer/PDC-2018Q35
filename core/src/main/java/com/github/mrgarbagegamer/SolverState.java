@@ -25,8 +25,8 @@ public final class SolverState {
      * 
      * <p>
      * This is set by the first thread (probably a {@link TestClickCombination monkey}) to call
-     * {@link #markSolutionFound(short[])} and is used for logging purposes at the end of the
-     * solver's execution (e.g. to log which thread found the solution). This field is marked as
+     * {@link #markSolutionFound(ClickCombination)} and is used for logging purposes at the end of
+     * the solver's execution (e.g. to log which thread found the solution). This field is marked as
      * {@code volatile} to ensure that once a thread sets this field, all other threads will see the
      * updated value immediately, allowing for accurate logging of the winning thread even if other
      * threads are still running or have already completed their tasks.
@@ -47,10 +47,11 @@ public final class SolverState {
      * 
      * <p>
      * This flag is set to {@code true} by the first thread (always a {@link TestClickCombination
-     * monkey}) to call {@link #markSolutionFound(short[])}, and is used to signal to all threads
-     * that a solution has been found, allowing them to stop processing further combinations. It is
-     * recommended that threads check this flag periodically during their processing to allow for a
-     * timely shutdown once a solution is found. A {@code volatile boolean} is used instead of an
+     * monkey}) to call {@link #markSolutionFound(ClickCombination)}, and is used to signal to all
+     * threads that a solution has been found, allowing them to stop processing further
+     * combinations. It is recommended that threads check this flag periodically during their
+     * processing to allow for a timely shutdown once a solution is found. A
+     * {@code volatile boolean} is used instead of an
      * {@link java.util.concurrent.atomic.AtomicBoolean AtomicBoolean} for simplicity and to
      * minimize overhead, as updates to this flag are {@code synchronized} and based on the first
      * thread to find a solution.
@@ -72,38 +73,14 @@ public final class SolverState {
         this.start = this.instantSource.instant();
     }
 
-    /**
-     * Marks that a solution has been found by the {@link Thread#currentThread() current thread} and
-     * records the winning combination. This method uses double-checked locking to ensure that only
-     * the first thread to find a solution can set the {@code solutionFound} flag and update the
-     * related fields, preventing race conditions.
-     * 
-     * <p>
-     * Note that a defensive copy of the {@code combination} array is not made here, as it is
-     * assumed that the caller will not modify the array after passing it to this method. If there
-     * is a possibility of the caller modifying the array, a defensive copy should be made to ensure
-     * thread safety and data integrity.
-     * </p>
-     *
-     * @param combination the combination that solved the puzzle, in {@link Grid.ValueFormat#INDEX}
-     *                    format
-     * @see #getWinningThread()
-     * @see #getWinningCombination()
-     * @see #solutionFound()
-     * @since 2026.02 - Queue Injection Refactor
-     * @performance {@code O(1)} for checking the flag, acquiring the lock, and setting fields.
-     * @threading Thread-safe. Uses double-checked locking on {@code volatile} fields.
-     * @memory Does not allocate.
-     */
-    public void markSolutionFound(short[] combination) {
-        mustNotBeNull(combination, "combination");
+    public void markSolutionFound(ClickCombination solution) {
+        mustNotBeNull(solution, "solution");
         if (!this.solutionFound) {
             synchronized (this) {
                 if (!this.solutionFound) {
                     // Set the time first to ensure accurate timing
                     this.end = this.instantSource.instant();
-                    this.winningCombination = ClickCombination.fromArray(Grid.ValueFormat.INDEX,
-                            combination);
+                    this.winningCombination = solution;
                     this.winningThread = Thread.currentThread();
                     this.solutionFound = true;
                 }

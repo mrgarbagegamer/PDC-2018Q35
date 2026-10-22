@@ -76,7 +76,7 @@ class ProgressReporterTest {
             tracker.addForked(10L);
 
             SolverState state = SolverStateBridge.createDefaultInstance();
-            state.markSolutionFound(new short[] {1, 2});
+            state.markSolutionFound(ClickCombination.EMPTY);
 
             var task = new ProgressReporter.ProgressReporterTask(tracker, logger, state);
 

@@ -541,6 +541,14 @@ public abstract class Grid {
         this.click(finalClick);
     }
 
+    public final void click(ClickCombination combination) {
+        mustNotBeNull(combination, "combination");
+
+        for (ShortIterator it = combination.toShortList(ValueFormat.INDEX).iterator(); it
+                .hasNext();)
+            this.click(it.nextShort());
+    }
+
     // TODO: Delete this method completely after restructuring GridTest
     final void click(long[] bitmask) {
         checkArgument(bitmask.length == 2, "bitmask must be of length 2, was %s", bitmask.length);

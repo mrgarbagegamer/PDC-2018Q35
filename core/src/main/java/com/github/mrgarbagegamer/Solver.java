@@ -10,7 +10,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
-import com.github.mrgarbagegamer.Grid.ValueFormat;
 import com.google.common.util.concurrent.Uninterruptibles;
 
 // TODO: Add Javadoc
@@ -170,7 +169,7 @@ public class Solver {
 
             // Verify solution
             final Grid puzzleGrid = Grid.withInitial(this.config.baseGridState());
-            puzzleGrid.click(winningCombination.toShortList(ValueFormat.INDEX).toShortArray());
+            puzzleGrid.click(winningCombination);
             logGrid(puzzleGrid, this.logger);
         }
 

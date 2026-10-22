@@ -6,7 +6,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
-import it.unimi.dsi.fastutil.ints.IntIterators;
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
@@ -45,6 +44,12 @@ public record ClickCombination(long lowerMask, long upperMask) {
         return new ClickCombination(lowerMask, upperMask);
     }
 
+    private static ClickCombination fromFormatAndIterator(Grid.ValueFormat format,
+            ShortIterator iterator) {
+        return format == Grid.ValueFormat.INDEX ? fromIterator(iterator, Grid::checkGridIndex)
+                : fromIterator(iterator, Grid.ValueFormat::packedToIndex);
+    }
+
     public static ClickCombination fromCollection(Grid.ValueFormat format,
             Collection<? extends Short> combination) {
         mustNotBeNull(format, "format");
@@ -57,8 +62,7 @@ public record ClickCombination(long lowerMask, long upperMask) {
         // Wrap the collection's iterator in a ShortIterator to avoid unnecessary boxing/unboxing
         ShortIterator iterator = ShortIterators.asShortIterator(combination.iterator());
 
-        return format == Grid.ValueFormat.INDEX ? fromIterator(iterator, Grid::checkGridIndex)
-                : fromIterator(iterator, Grid.ValueFormat::packedToIndex);
+        return fromFormatAndIterator(format, iterator);
     }
 
     public static ClickCombination fromArray(Grid.ValueFormat format, short... combination) {
@@ -72,24 +76,7 @@ public record ClickCombination(long lowerMask, long upperMask) {
         // Wrap the array in a ShortIterator to avoid unnecessary boxing/unboxing
         ShortIterator iterator = ShortIterators.wrap(combination);
 
-        return format == Grid.ValueFormat.INDEX ? fromIterator(iterator, Grid::checkGridIndex)
-                : fromIterator(iterator, Grid.ValueFormat::packedToIndex);
-    }
-
-    public static ClickCombination fromArray(Grid.ValueFormat format, int... combination) {
-        mustNotBeNull(format, "format");
-        mustNotBeNull(combination, "combination");
-
-        if (combination.length == 0) {
-            return EMPTY;
-        }
-
-        // Wrap the array in a PrimitiveIterator.OfInt and narrow it to a ShortIterator to avoid
-        // unnecessary boxing/unboxing:
-        ShortIterator iterator = ShortIterators.narrow(IntIterators.wrap(combination));
-
-        return format == Grid.ValueFormat.INDEX ? fromIterator(iterator, Grid::checkGridIndex)
-                : fromIterator(iterator, Grid.ValueFormat::packedToIndex);
+        return fromFormatAndIterator(format, iterator);
     }
 
     public ClickCombination inverted() {

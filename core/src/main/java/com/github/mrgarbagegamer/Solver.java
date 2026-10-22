@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.util.Unbox;
 
+import com.github.mrgarbagegamer.Grid.ValueFormat;
 import com.google.common.util.concurrent.Uninterruptibles;
 
 // TODO: Add Javadoc
@@ -154,7 +155,7 @@ public class Solver {
                     Unbox.box(this.config.numClicks()));
             this.logger.info(elapsedFormatted);
         } else {
-            final short[] winningCombination = this.solverState.getWinningCombination()
+            final ClickCombination winningCombination = this.solverState.getWinningCombination()
                     .orElseThrow(() -> new IllegalStateException(
                             "Solver marked as complete but recorded no winning combination"));
             final Thread winningThread = this.solverState.getWinningThread()
@@ -164,12 +165,12 @@ public class Solver {
             // Display results as a click combination
             this.logger.info("{} - Found the solution as the following click combination: {}",
                     winningThread.getName(),
-                    new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.INDEX));
+                    winningCombination.toFormattedString(Grid.ValueFormat.PACKED));
             this.logger.info("{} - {}", winningThread.getName(), elapsedFormatted);
 
             // Verify solution
             final Grid puzzleGrid = Grid.withInitial(this.config.baseGridState());
-            puzzleGrid.click(winningCombination);
+            puzzleGrid.click(winningCombination.toShortList(ValueFormat.INDEX).toShortArray());
             logGrid(puzzleGrid, this.logger);
         }
 

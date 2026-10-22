@@ -214,11 +214,12 @@ public class TestClickCombination extends Thread {
     }
 
     private void solutionHook(final short[] prefix, final short finalClick) {
-        final short[] winningCombination = buildCombination(prefix, finalClick);
-        this.solverState.markSolutionFound(
-                ClickCombination.fromArray(Grid.ValueFormat.INDEX, winningCombination));
+        final ClickCombination solution = ClickCombination
+                .fromArrayAndFinalClick(Grid.ValueFormat.INDEX, prefix, finalClick);
 
-        this.services.handleSolution(winningCombination, this.logger);
+        this.solverState.markSolutionFound(solution);
+
+        this.services.handleSolution(solution, this.logger);
 
         this.logger.debug("Triggering generator pool shutdown...");
         this.generatorPool.shutdownNow();
@@ -234,13 +235,6 @@ public class TestClickCombination extends Thread {
             this.logger.debug("Termination condition was met during poll, shutting down");
         }
         return batch;
-    }
-
-    private static short[] buildCombination(short[] prefix, short finalClick) {
-        final short[] combination = new short[prefix.length + 1];
-        System.arraycopy(prefix, 0, combination, 0, prefix.length);
-        combination[prefix.length] = finalClick;
-        return combination;
     }
 
     private final long buildParityMaskLower(short[] combination) {

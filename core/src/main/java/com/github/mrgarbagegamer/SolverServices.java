@@ -19,7 +19,7 @@ import com.google.common.base.MoreObjects;
 // TODO: Add Javadocs
 public final class SolverServices {
 
-    private final BiConsumer<short[], Logger> solutionHandler;
+    private final BiConsumer<ClickCombination, Logger> solutionHandler;
     private final Function<Class<?>, Logger> loggerFunction;
     private final IntFunction<Queue<GeneratorContext>> registryQueueFunction;
     private final BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory;
@@ -39,8 +39,8 @@ public final class SolverServices {
 
     public static Builder builder() { return new Builder(); }
 
-    void handleSolution(short[] winningCombination, Logger logger) {
-        this.solutionHandler.accept(mustNotBeNull(winningCombination, "winningCombination"),
+    void handleSolution(ClickCombination solution, Logger logger) {
+        this.solutionHandler.accept(mustNotBeNull(solution, "solution"),
                 mustNotBeNull(logger, "logger"));
     }
 
@@ -91,13 +91,13 @@ public final class SolverServices {
     }
 
     public static class Builder {
-        private BiConsumer<short[], Logger> solutionHandler = SolverServices::defaultSolutionHandling;
+        private BiConsumer<ClickCombination, Logger> solutionHandler = SolverServices::defaultSolutionHandling;
         private Function<Class<?>, Logger> loggerFunction = LogManager::getLogger;
         private IntFunction<Queue<GeneratorContext>> registryQueueFunction = _ -> new ConcurrentLinkedQueue<>();
         private BiFunction<SolverConfiguration, SolverState, QueueStrategy> queueStrategyFactory = JCToolsQueueStrategy::multiSingle;
         private InstantSource instantSource = InstantSource.system();
 
-        public Builder solutionHandler(BiConsumer<short[], Logger> solutionHandler) {
+        public Builder solutionHandler(BiConsumer<ClickCombination, Logger> solutionHandler) {
             this.solutionHandler = mustNotBeNull(solutionHandler, "solutionHandler");
             return this;
         }
@@ -128,8 +128,8 @@ public final class SolverServices {
         public SolverServices build() { return new SolverServices(this); }
     }
 
-    private static void defaultSolutionHandling(short[] winningCombination, Logger logger) {
+    private static void defaultSolutionHandling(ClickCombination solution, Logger logger) {
         logger.info("Found the solution as the following click combination: {}",
-                new CombinationMessage(winningCombination.clone(), Grid.ValueFormat.INDEX));
+                solution.toFormattedString(Grid.ValueFormat.PACKED));
     }
 }

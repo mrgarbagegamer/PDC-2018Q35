@@ -79,6 +79,22 @@ public record ClickCombination(long lowerMask, long upperMask) {
         return fromFormatAndIterator(format, iterator);
     }
 
+    public static ClickCombination fromArrayAndFinalClick(Grid.ValueFormat format, short[] prefix,
+            short finalClick) {
+        mustNotBeNull(format, "format");
+        mustNotBeNull(prefix, "prefix");
+
+        // Wrap the array in a ShortIterator to avoid unnecessary boxing/unboxing
+        ShortIterator iterator = ShortIterators.wrap(prefix);
+
+        // Create a new ShortIterator that appends the final click to the end of the original
+        // combination
+        ShortIterator combinedIterator = ShortIterators.concat(iterator,
+                ShortIterators.singleton(finalClick));
+
+        return fromFormatAndIterator(format, combinedIterator);
+    }
+
     public ClickCombination inverted() {
         // Mask with the lower 45 bits set to 1 to ensure the upperMask remains a 45-bit value
         return new ClickCombination(~this.lowerMask, ~this.upperMask & ((1L << 45) - 1));

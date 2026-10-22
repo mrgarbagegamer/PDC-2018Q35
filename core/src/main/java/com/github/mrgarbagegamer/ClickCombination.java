@@ -103,7 +103,13 @@ public record ClickCombination(long lowerMask, long upperMask) {
     private int length() { return Long.bitCount(this.lowerMask) + Long.bitCount(this.upperMask); }
 
     private ShortList toShortList() {
-        ShortList result = new ShortArrayList(this.length());
+        int length = this.length();
+        
+        if (length == 0) {
+            return ShortList.of();
+        }
+
+        ShortList result = new ShortArrayList(length);
 
         long lowerCopy = this.lowerMask;
         long upperCopy = this.upperMask;

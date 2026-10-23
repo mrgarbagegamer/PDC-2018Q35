@@ -120,56 +120,6 @@ public class TestClickCombination extends Thread {
         this.generatorPool = mustNotBeNull(generatorPool, "generatorPool");
     }
 
-    /**
-     * The main execution loop for the monkey thread.
-     *
-     * <p>
-     * This loop continuously fetches and processes {@link WorkBatch} objects until a solution is
-     * found or all work is complete.
-     * </p>
-     *
-     * <h3>Algorithm</h3>
-     * <p>
-     * The logic has been updated to process {@link WorkBatch.WorkItem} ranges instead of individual
-     * combinations, significantly improving efficiency.
-     * </p>
-     * <ol>
-     * <li>Attempt to {@link #getWork() get a work batch}.</li>
-     * <li>If no work is found, check for termination conditions and {@link Thread#sleep(long) sleep
-     * briefly} before retrying.</li>
-     * <li>If a batch is acquired, iterate through each {@link WorkBatch.WorkItem} in it.</li>
-     * <li>For each {@code WorkItem}, compute the parity maskS for its prefix <strong>once</strong>
-     * using {@link #buildParityMaskLower(short[])} and {@link #buildParityMaskUpper(short[])}.</li>
-     * <li>Iterate through the range of final clicks defined by the {@code WorkItem}.</li>
-     * <li>For each potential full combination, perform the hyper-efficient
-     * {@link #satisfiesOddAdjacency(long, long, short)} check using the pre-computed prefix
-     * mask.</li>
-     * <li>If the check passes, apply the full combination to the local {@link #puzzleGrid}.</li>
-     * <li>If the grid {@link Grid#isSolved() is solved}, log the solution, trigger a global
-     * shutdown, and terminate.</li>
-     * <li>If not solved, {@link Grid#initialize() reset} the grid and continue to the next
-     * combination.</li>
-     * <li>After the batch is exhausted, recycle it to the shared pool and repeat the loop.</li>
-     * </ol>
-     *
-     * <h3>Performance &amp; Future Optimizations</h3>
-     * <p>
-     * The loop is structured to be JIT-friendly. A key future optimization would be a more direct
-     * cancellation mechanism. Instead of polling the {@code solutionFound} flag, a direct interrupt
-     * or signal to all worker threads would be more efficient. Additionally, the logging of failed
-     * combinations currently requires cloning an array and creating a {@link CombinationMessage},
-     * which could be optimized to be allocation-free.
-     * </p>
-     *
-     * @since 2025.04 - Monkey Thread Introduction
-     * @performance Roughly {@code O(WorkBatch.BATCH_SIZE * (prefixLength + finalClicks.length))}
-     *              per batch. The innermost check is a highly-efficient {@code O(1)} operation.
-     * @threading Thread-safe; independent state per thread, shared access to concurrent structures.
-     * @algorithm Continuously pulls batches, iterates through {@link WorkBatch.WorkItem} ranges,
-     *            performs optimized {@link #satisfiesOddAdjacency(long, long, short)} checks, tests
-     *            valid combinations on the grid, and handles success or recycling.
-     * @memory Does not allocate in the hot path, except for logging.
-     */
     @Override
     public void run() {
         while (!solverState.solutionFound()) {

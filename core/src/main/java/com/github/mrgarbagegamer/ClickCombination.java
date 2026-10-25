@@ -50,8 +50,10 @@ public record ClickCombination(long lowerMask, long upperMask) {
 
     private static ClickCombination fromFormatAndIterator(Grid.ValueFormat format,
             ShortIterator iterator) {
-        return format == Grid.ValueFormat.INDEX ? fromIterator(iterator, Grid::checkGridIndex)
-                : fromIterator(iterator, Grid.ValueFormat::packedToIndex);
+        return switch (format) {
+            case INDEX -> fromIterator(iterator, Grid::checkGridIndex);
+            case PACKED -> fromIterator(iterator, Grid.ValueFormat::packedToIndex);
+        };
     }
 
     public static ClickCombination fromCollection(Grid.ValueFormat format,
@@ -135,11 +137,10 @@ public record ClickCombination(long lowerMask, long upperMask) {
 
         ShortList indexList = this.toShortList();
 
-        if (format == Grid.ValueFormat.INDEX) {
-            return indexList;
-        } else {
-            return Grid.ValueFormat.indexCollectionToPackedList(indexList);
-        }
+        return switch (format) {
+            case INDEX -> indexList;
+            case PACKED -> Grid.ValueFormat.indexCollectionToPackedList(indexList);
+        };
     }
 
     private String generateFormattedString(Grid.ValueFormat format, CharSequence prefix,

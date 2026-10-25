@@ -80,6 +80,26 @@ class ClickCombinationTest {
                 () -> ClickCombination.fromCollection(Grid.ValueFormat.PACKED, combination));
     }
 
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 66})
+    void givenDuplicateIndexInCombination_whenFromCollection_thenThrowsIAE(short duplicateIndex) {
+        ShortList combination = ShortList.of(duplicateIndex, (short) 65, duplicateIndex);
+
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> ClickCombination.fromCollection(Grid.ValueFormat.INDEX, combination));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 404})
+    void givenDuplicatePackedValueInCombination_whenFromCollection_thenThrowsIAE(
+            short duplicatePackedValue) {
+        ShortList combination = ShortList.of(duplicatePackedValue, (short) 403,
+                duplicatePackedValue);
+
+        assertThatIllegalArgumentException().isThrownBy(
+                () -> ClickCombination.fromCollection(Grid.ValueFormat.PACKED, combination));
+    }
+
     @Test
     void givenValidCombination_whenFromCollectionWithIndexFormat_thenReturnsCorrectClickCombination() {
         ShortList combination = ShortList.of((short) 1, (short) 65, (short) 0);
@@ -143,6 +163,25 @@ class ClickCombinationTest {
     void givenInvalidPackedValueInCombination_whenFromArray_thenThrowsIAE(
             short invalidPackedValue) {
         short[] combination = new short[] {invalidPackedValue};
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> ClickCombination.fromArray(Grid.ValueFormat.PACKED, combination));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 66})
+    void givenDuplicateIndexInCombination_whenFromArray_thenThrowsIAE(short duplicateIndex) {
+        short[] combination = new short[] {duplicateIndex, 65, duplicateIndex};
+
+        assertThatIllegalArgumentException()
+                .isThrownBy(() -> ClickCombination.fromArray(Grid.ValueFormat.INDEX, combination));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 404})
+    void givenDuplicatePackedValueInCombination_whenFromArray_thenThrowsIAE(
+            short duplicatePackedValue) {
+        short[] combination = new short[] {duplicatePackedValue, 403, duplicatePackedValue};
 
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> ClickCombination.fromArray(Grid.ValueFormat.PACKED, combination));
@@ -227,6 +266,49 @@ class ClickCombinationTest {
             short invalidPackedValue) {
         short[] prefix = new short[] {0};
         short finalClick = invalidPackedValue;
+
+        assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
+                .fromArrayAndFinalClick(Grid.ValueFormat.PACKED, prefix, finalClick));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 66})
+    void givenDuplicateIndexInPrefix_whenFromArrayAndFinalClick_thenThrowsIAE(
+            short duplicateIndex) {
+        short[] prefix = new short[] {duplicateIndex, 65, duplicateIndex};
+        short finalClick = 0;
+
+        assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
+                .fromArrayAndFinalClick(Grid.ValueFormat.INDEX, prefix, finalClick));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 66})
+    void givenDuplicateIndexAsFinalClick_whenFromArrayAndFinalClick_thenThrowsIAE(
+            short duplicateIndex) {
+        short[] prefix = new short[] {duplicateIndex, 65};
+        short finalClick = duplicateIndex;
+
+        assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
+                .fromArrayAndFinalClick(Grid.ValueFormat.INDEX, prefix, finalClick));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 404})
+    void givenDuplicatePackedValueInPrefix_whenFromArrayAndFinalClick_thenThrowsIAE(
+            short duplicatePackedValue) {
+        short[] prefix = new short[] {duplicatePackedValue, 403, duplicatePackedValue};
+        short finalClick = 0;
+
+        assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
+                .fromArrayAndFinalClick(Grid.ValueFormat.PACKED, prefix, finalClick));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {1, 404})
+    void givenDuplicatePackedValueAsFinalClick_whenFromArrayAndFinalClick_thenThrowsIAE() {
+        short[] prefix = new short[] {1, 403};
+        short finalClick = 1;
 
         assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
                 .fromArrayAndFinalClick(Grid.ValueFormat.PACKED, prefix, finalClick));

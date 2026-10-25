@@ -39,9 +39,13 @@ public record ClickCombination(long lowerMask, long upperMask) {
             short index = toIndexConverter.apply(iterator.nextShort());
 
             if (index < LOWER_BITS) {
-                lowerMask |= (1L << index);
+                long bit = 1L << index;
+                checkArgument((lowerMask & bit) == 0L, "Duplicate click of cell index: %s", index);
+                lowerMask |= bit;
             } else {
-                upperMask |= (1L << (index - LOWER_BITS));
+                long bit = 1L << (index - LOWER_BITS);
+                checkArgument((upperMask & bit) == 0L, "Duplicate click of cell index: %s", index);
+                upperMask |= bit;
             }
         }
 

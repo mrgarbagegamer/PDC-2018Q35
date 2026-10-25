@@ -264,14 +264,12 @@ class ClickCombinationTest {
     void givenEmptyCombination_whenInverted_thenReturnsFullCombination() {
         ClickCombination invertedCombination = ClickCombination.EMPTY.inverted();
 
-        assertThat(invertedCombination).isEqualTo(new ClickCombination(-1L, (1L << 45) - 1));
+        assertThat(invertedCombination).isEqualTo(ClickCombination.FULL);
     }
 
     @Test
     void givenFullCombination_whenInverted_thenReturnsEmptyCombination() {
-        ClickCombination fullCombination = new ClickCombination(-1L, (1L << 45) - 1);
-
-        ClickCombination invertedCombination = fullCombination.inverted();
+        ClickCombination invertedCombination = ClickCombination.FULL.inverted();
 
         assertThat(invertedCombination).isEqualTo(ClickCombination.EMPTY);
     }

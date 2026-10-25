@@ -6,6 +6,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
+import com.google.errorprone.annotations.Immutable;
+
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
@@ -14,6 +16,7 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
 // TODO: Javadoc
+@Immutable
 public record ClickCombination(long lowerMask, long upperMask) {
     private static final int LOWER_BITS = Long.SIZE;
     private static final int UPPER_BITS = Grid.NUM_CELLS - LOWER_BITS; // 45

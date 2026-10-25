@@ -14,7 +14,6 @@ import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
 // TODO: Javadoc
-// TODO: Unit tests
 public record ClickCombination(long lowerMask, long upperMask) {
     public static final ClickCombination EMPTY = new ClickCombination(0L, 0L);
 

@@ -2,6 +2,8 @@ package com.github.mrgarbagegamer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatList;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
@@ -24,9 +26,7 @@ class ClickCombinationTest {
 
     @Test
     void givenValidUpperMask_whenConstructed_thenDoesNotThrow() {
-        ClickCombination combination = new ClickCombination(0L, (1L << 45) - 1);
-
-        assertThat(combination).isNotNull();
+        assertThatNoException().isThrownBy(() -> new ClickCombination(0L, (1L << 45) - 1));
     }
 
     @Test
@@ -300,31 +300,29 @@ class ClickCombinationTest {
     @ParameterizedTest
     @EnumSource(Grid.ValueFormat.class)
     void givenEmptyCombination_whenToShortList_thenReturnsEmptyList(Grid.ValueFormat format) {
-        List<Short> result = ClickCombination.EMPTY.toShortList(format);
+        ShortList result = ClickCombination.EMPTY.toShortList(format);
 
-        assertThat(result).isEmpty();
+        assertThatList(result).isEmpty();
     }
 
     @Test
     void givenCombinationWithSomeClicks_whenToShortListWithIndexFormat_thenReturnsCorrectList() {
-        ShortList input = ShortList.of((short) 0, (short) 1, (short) 65);
-        ClickCombination combination = ClickCombination.fromCollection(Grid.ValueFormat.INDEX,
-                input);
+        ClickCombination combination = ClickCombination.fromArray(Grid.ValueFormat.INDEX, (short) 0,
+                (short) 1, (short) 65);
 
-        List<Short> result = combination.toShortList(Grid.ValueFormat.INDEX);
+        ShortList result = combination.toShortList(Grid.ValueFormat.INDEX);
 
-        assertThat(result).isEqualTo(input);
+        assertThatList(result).containsExactly((short) 0, (short) 1, (short) 65);
     }
 
     @Test
     void givenCombinationWithSomeClicks_whenToShortListWithPackedFormat_thenReturnsCorrectList() {
-        ShortList input = ShortList.of((short) 0, (short) 1, (short) 403);
-        ClickCombination combination = ClickCombination.fromCollection(Grid.ValueFormat.PACKED,
-                input);
+        ClickCombination combination = ClickCombination.fromArray(Grid.ValueFormat.PACKED,
+                (short) 0, (short) 1, (short) 403);
 
-        List<Short> result = combination.toShortList(Grid.ValueFormat.PACKED);
+        ShortList result = combination.toShortList(Grid.ValueFormat.PACKED);
 
-        assertThat(result).isEqualTo(input);
+        assertThatList(result).containsExactly((short) 0, (short) 1, (short) 403);
     }
 
     // Smoke tests for toFormattedString():
@@ -347,7 +345,7 @@ class ClickCombinationTest {
 
     @Test
     void givenNonEmptyCombination_whenToFormattedString_thenReturnsNonEmptyString() {
-        ClickCombination combination = new ClickCombination(0b101L, 0b100L);
+        ClickCombination combination = new ClickCombination(0b11L, 0b10L);
 
         String result = combination.toFormattedString(Grid.ValueFormat.INDEX);
 

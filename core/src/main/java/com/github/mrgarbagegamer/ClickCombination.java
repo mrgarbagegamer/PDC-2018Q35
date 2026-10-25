@@ -103,7 +103,7 @@ public record ClickCombination(long lowerMask, long upperMask) {
 
     private ShortList toShortList() {
         int length = this.length();
-        
+
         if (length == 0) {
             return ShortList.of();
         }
@@ -138,8 +138,18 @@ public record ClickCombination(long lowerMask, long upperMask) {
         }
     }
 
-    public String toFormattedString(Grid.ValueFormat format) {
+    private String generateFormattedString(Grid.ValueFormat format, CharSequence prefix,
+            CharSequence suffix) {
         return this.toShortList(format).intStream().mapToObj("%03d"::formatted)
-                .collect(Collectors.joining(", ", "[", "]"));
+                .collect(Collectors.joining(", ", prefix, suffix));
+    }
+
+    public String toFormattedString(Grid.ValueFormat format) {
+        return generateFormattedString(format, "[", "]");
+    }
+
+    @Override
+    public String toString() {
+        return generateFormattedString(Grid.ValueFormat.PACKED, "ClickCombination{", "}");
     }
 }

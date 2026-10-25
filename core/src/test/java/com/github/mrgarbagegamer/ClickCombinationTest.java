@@ -351,4 +351,15 @@ class ClickCombinationTest {
 
         assertThat(result).isNotEmpty();
     }
+
+    // Smoke test for toString():
+
+    @Test
+    void givenNonNullCombination_whenToString_thenReturnsNonEmptyString() {
+        ClickCombination combination = new ClickCombination(0b11L, 0b10L);
+
+        String result = combination.toString();
+
+        assertThat(result).isNotEmpty();
+    }
 }

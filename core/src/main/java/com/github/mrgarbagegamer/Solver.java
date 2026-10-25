@@ -1,6 +1,7 @@
 package com.github.mrgarbagegamer;
 
 import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import java.time.Duration;
 import java.util.concurrent.ForkJoinPool;
@@ -157,6 +158,11 @@ public class Solver {
             final ClickCombination winningCombination = this.solverState.getWinningCombination()
                     .orElseThrow(() -> new IllegalStateException(
                             "Solver marked as complete but recorded no winning combination"));
+
+            checkState(winningCombination.size() == this.config.numClicks(),
+                    "Winning combination size (%s) does not match expected number of clicks (%s)",
+                    winningCombination.size(), this.config.numClicks());
+
             final Thread winningThread = this.solverState.getWinningThread()
                     .orElseThrow(() -> new IllegalStateException(
                             "Solver marked as complete but recorded no winning thread"));

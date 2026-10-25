@@ -371,6 +371,31 @@ class ClickCombinationTest {
     }
 
     @Test
+    void givenEmptyCombination_whenSize_thenReturnsZero() {
+        assertThat(ClickCombination.EMPTY.size()).isZero();
+    }
+
+    @Test
+    void givenFullCombination_whenSize_thenReturnsNumCells() {
+        assertThat(ClickCombination.FULL.size()).isEqualTo(Grid.NUM_CELLS);
+    }
+
+    @Test
+    void givenCombinationWithSomeClicks_whenSize_thenReturnsCorrectCount() {
+        ClickCombination combination = new ClickCombination(0b11L, 0b10L);
+
+        assertThat(combination.size()).isEqualTo(3);
+    }
+
+    @Test
+    void givenInvertedCombination_whenSize_thenReturnsNumCellsMinusOriginalCount() {
+        ClickCombination combination = new ClickCombination(0b11L, 0b10L);
+        ClickCombination invertedCombination = combination.inverted();
+
+        assertThat(invertedCombination.size()).isEqualTo(Grid.NUM_CELLS - combination.size());
+    }
+
+    @Test
     void givenNullFormat_whenToShortList_thenThrowsNPE() {
         ClickCombination combination = new ClickCombination(0L, 0L);
 

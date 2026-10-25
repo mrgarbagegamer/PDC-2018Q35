@@ -109,10 +109,10 @@ public record ClickCombination(long lowerMask, long upperMask) {
         return new ClickCombination(~this.lowerMask, ~this.upperMask & UPPER_MAX_VALUE);
     }
 
-    private int length() { return Long.bitCount(this.lowerMask) + Long.bitCount(this.upperMask); }
+    public int size() { return Long.bitCount(this.lowerMask) + Long.bitCount(this.upperMask); }
 
     private ShortList toShortList() {
-        int length = this.length();
+        int length = this.size();
 
         if (length == 0) {
             return ShortList.of();

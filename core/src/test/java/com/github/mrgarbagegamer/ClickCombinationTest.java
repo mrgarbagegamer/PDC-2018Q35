@@ -16,7 +16,18 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import it.unimi.dsi.fastutil.shorts.ShortList;
-
+// TODO: Add unit tests for INDEX/PACKED equivalence
+/*
+ * TODO: Potentially add unit tests to verify immutability of ClickCombination (e.g., that updating
+ * the returned ShortList from toShortList() or the passed ShortList/array to
+ * fromCollection()/fromArray() does not affect the ClickCombination instance)
+ */
+// TODO: Consider testing the specific format of the strings returned by toFormattedString() and
+// toString(), but this may be too implementation-specific
+// TODO: Add a unit test for an empty array passed into fromArrayAndFinalClick()
+// TODO: Consider adding equals()/hashCode() unit tests, but they are already covered by the
+// record's default implementations
+// TODO: Add an empty line to the end of the file for consistency
 class ClickCombinationTest {
 
     @Test
@@ -339,6 +350,51 @@ class ClickCombinationTest {
         assertSoftly(softly -> {
             softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(0b11L);
             softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(0b10L);
+        });
+    }
+
+    // General tests for boundary indices (63/64 for INDEX, 401/402 for PACKED) and the last cell
+    // index (108 for INDEX, 615 for PACKED):
+
+    @Test
+    void givenBoundaryIndices_whenFromArrayWithIndexFormat_thenReturnsCorrectClickCombination() {
+        ClickCombination result = ClickCombination.fromArray(Grid.ValueFormat.INDEX, (short) 63,
+                (short) 64);
+
+        assertSoftly(softly -> {
+            softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(1L << 63);
+            softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void givenBoundaryIndices_whenFromArrayWithPackedFormat_thenReturnsCorrectClickCombination() {
+        ClickCombination result = ClickCombination.fromArray(Grid.ValueFormat.PACKED, (short) 401,
+                (short) 402);
+
+        assertSoftly(softly -> {
+            softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(1L << 63);
+            softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(1L);
+        });
+    }
+
+    @Test
+    void givenLastCellIndex_whenFromArrayWithIndexFormat_thenReturnsCorrectClickCombination() {
+        ClickCombination result = ClickCombination.fromArray(Grid.ValueFormat.INDEX, (short) 108);
+
+        assertSoftly(softly -> {
+            softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(0L);
+            softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(1L << 44);
+        });
+    }
+
+    @Test
+    void givenLastCellIndex_whenFromArrayWithPackedFormat_thenReturnsCorrectClickCombination() {
+        ClickCombination result = ClickCombination.fromArray(Grid.ValueFormat.PACKED, (short) 615);
+
+        assertSoftly(softly -> {
+            softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(0L);
+            softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(1L << 44);
         });
     }
 

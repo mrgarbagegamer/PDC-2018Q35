@@ -111,6 +111,8 @@ public record ClickCombination(long lowerMask, long upperMask) {
 
     public int size() { return Long.bitCount(this.lowerMask) + Long.bitCount(this.upperMask); }
 
+    public boolean isEmpty() { return this.lowerMask == 0L && this.upperMask == 0L; }
+
     private ShortList toShortList() {
         int length = this.size();
 

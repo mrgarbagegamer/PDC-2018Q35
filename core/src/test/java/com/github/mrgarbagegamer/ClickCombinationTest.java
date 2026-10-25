@@ -396,6 +396,30 @@ class ClickCombinationTest {
     }
 
     @Test
+    void givenEmptyCombination_whenIsEmpty_thenReturnsTrue() {
+        assertThat(ClickCombination.EMPTY.isEmpty()).isTrue();
+    }
+
+    @Test
+    void givenFullCombination_whenIsEmpty_thenReturnsFalse() {
+        assertThat(ClickCombination.FULL.isEmpty()).isFalse();
+    }
+
+    @Test
+    void givenCombinationWithSomeClicksInLowerMaskOnly_whenIsEmpty_thenReturnsFalse() {
+        ClickCombination combination = new ClickCombination(0b1L, 0L);
+
+        assertThat(combination.isEmpty()).isFalse();
+    }
+
+    @Test
+    void givenCombinationWithSomeClicksInUpperMaskOnly_whenIsEmpty_thenReturnsFalse() {
+        ClickCombination combination = new ClickCombination(0L, 0b1L);
+
+        assertThat(combination.isEmpty()).isFalse();
+    }
+
+    @Test
     void givenNullFormat_whenToShortList_thenThrowsNPE() {
         ClickCombination combination = new ClickCombination(0L, 0L);
 

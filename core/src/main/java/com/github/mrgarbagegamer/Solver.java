@@ -163,7 +163,7 @@ public class Solver {
 
             // Display results as a click combination
             this.logger.info("{} - Found the solution: {}", winningThread.getName(),
-                    winningCombination);
+                    winningCombination.toFormattedString(Grid.ValueFormat.PACKED));
             this.logger.info("{} - {}", winningThread.getName(), elapsedFormatted);
 
             // Verify solution

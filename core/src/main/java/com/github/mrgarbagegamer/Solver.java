@@ -162,9 +162,8 @@ public class Solver {
                             "Solver marked as complete but recorded no winning thread"));
 
             // Display results as a click combination
-            this.logger.info("{} - Found the solution as the following click combination: {}",
-                    winningThread.getName(),
-                    winningCombination.toFormattedString(Grid.ValueFormat.PACKED));
+            this.logger.info("{} - Found the solution: {}", winningThread.getName(),
+                    winningCombination);
             this.logger.info("{} - {}", winningThread.getName(), elapsedFormatted);
 
             // Verify solution

@@ -129,7 +129,6 @@ public final class SolverServices {
     }
 
     private static void defaultSolutionHandling(ClickCombination solution, Logger logger) {
-        logger.info("Found the solution as the following click combination: {}",
-                solution.toFormattedString(Grid.ValueFormat.PACKED));
+        logger.info("Found the solution: {}", solution);
     }
 }

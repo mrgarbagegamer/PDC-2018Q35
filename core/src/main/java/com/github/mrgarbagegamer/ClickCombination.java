@@ -15,11 +15,16 @@ import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
 // TODO: Javadoc
 public record ClickCombination(long lowerMask, long upperMask) {
+    private static final int LOWER_BITS = Long.SIZE;
+    private static final int UPPER_BITS = Grid.NUM_CELLS - LOWER_BITS; // 45
+    private static final long UPPER_MAX_VALUE = (1L << UPPER_BITS) - 1; // 2^45 - 1
+
     public static final ClickCombination EMPTY = new ClickCombination(0L, 0L);
+    public static final ClickCombination FULL = new ClickCombination(-1L, UPPER_MAX_VALUE);
 
     public ClickCombination {
-        checkArgument((upperMask >>> 45) == 0, "upperMask must be a 45-bit value, but was: %s",
-                upperMask);
+        checkArgument((upperMask & ~UPPER_MAX_VALUE) == 0L,
+                "upperMask must be a %s-bit value, but was: %s", UPPER_BITS, upperMask);
     }
 
     private static ClickCombination fromIterator(ShortIterator iterator,
@@ -33,10 +38,10 @@ public record ClickCombination(long lowerMask, long upperMask) {
         while (iterator.hasNext()) {
             short index = toIndexConverter.apply(iterator.nextShort());
 
-            if (index < 64) {
+            if (index < LOWER_BITS) {
                 lowerMask |= (1L << index);
             } else {
-                upperMask |= (1L << (index - 64));
+                upperMask |= (1L << (index - LOWER_BITS));
             }
         }
 
@@ -95,8 +100,7 @@ public record ClickCombination(long lowerMask, long upperMask) {
     }
 
     public ClickCombination inverted() {
-        // Mask with the lower 45 bits set to 1 to ensure the upperMask remains a 45-bit value
-        return new ClickCombination(~this.lowerMask, ~this.upperMask & ((1L << 45) - 1));
+        return new ClickCombination(~this.lowerMask, ~this.upperMask & UPPER_MAX_VALUE);
     }
 
     private int length() { return Long.bitCount(this.lowerMask) + Long.bitCount(this.upperMask); }
@@ -119,7 +123,7 @@ public record ClickCombination(long lowerMask, long upperMask) {
         }
 
         while (upperCopy != 0L) {
-            result.add((short) (64 + Long.numberOfTrailingZeros(upperCopy)));
+            result.add((short) (LOWER_BITS + Long.numberOfTrailingZeros(upperCopy)));
             upperCopy &= (upperCopy - 1);
         }
 

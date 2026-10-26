@@ -16,18 +16,10 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import it.unimi.dsi.fastutil.shorts.ShortList;
-// TODO: Add unit tests for INDEX/PACKED equivalence
-/*
- * TODO: Potentially add unit tests to verify immutability of ClickCombination (e.g., that updating
- * the returned ShortList from toShortList() or the passed ShortList/array to
- * fromCollection()/fromArray() does not affect the ClickCombination instance)
- */
-// TODO: Consider testing the specific format of the strings returned by toFormattedString() and
-// toString(), but this may be too implementation-specific
+
 // TODO: Add a unit test for an empty array passed into fromArrayAndFinalClick()
 // TODO: Consider adding equals()/hashCode() unit tests, but they are already covered by the
 // record's default implementations
-// TODO: Add an empty line to the end of the file for consistency
 class ClickCombinationTest {
 
     @Test
@@ -510,8 +502,6 @@ class ClickCombinationTest {
         assertThatList(result).containsExactly((short) 0, (short) 1, (short) 403);
     }
 
-    // Smoke tests for toFormattedString():
-
     @Test
     void givenNullFormat_whenToFormattedString_thenThrowsNPE() {
         ClickCombination combination = ClickCombination.EMPTY;
@@ -519,29 +509,43 @@ class ClickCombinationTest {
         assertThatNullPointerException().isThrownBy(() -> combination.toFormattedString(null));
     }
 
-    @Test
-    void givenEmptyCombination_whenToFormattedString_thenReturnsNonNullString() {
+    @ParameterizedTest
+    @EnumSource(Grid.ValueFormat.class)
+    void givenEmptyCombination_whenToFormattedString_thenReturnsEmptyBrackets(
+            Grid.ValueFormat format) {
         ClickCombination combination = ClickCombination.EMPTY;
 
-        String result = combination.toFormattedString(Grid.ValueFormat.INDEX);
+        String result = combination.toFormattedString(format);
 
-        assertThat(result).isNotNull();
+        assertThat(result).isEqualTo("[]");
     }
 
     @Test
-    void givenNonEmptyCombination_whenToFormattedString_thenReturnsNonEmptyString() {
-        ClickCombination combination = new ClickCombination(0b11L, 0b10L);
+    void givenNonEmptyCombination_whenToFormattedStringWithIndexFormat_thenReturnsFormattedString() {
+        ClickCombination combination = ClickCombination.fromArray(Grid.ValueFormat.INDEX, (short) 0,
+                (short) 1, (short) 65);
 
         String result = combination.toFormattedString(Grid.ValueFormat.INDEX);
 
-        assertThat(result).isNotEmpty();
+        assertThat(result).isEqualTo("[000, 001, 065]");
+    }
+
+    @Test
+    void givenNonEmptyCombination_whenToFormattedStringWithPackedFormat_thenReturnsFormattedString() {
+        ClickCombination combination = ClickCombination.fromArray(Grid.ValueFormat.PACKED,
+                (short) 0, (short) 1, (short) 403);
+
+        String result = combination.toFormattedString(Grid.ValueFormat.PACKED);
+
+        assertThat(result).isEqualTo("[000, 001, 403]");
     }
 
     // Smoke test for toString():
 
     @Test
     void givenNonNullCombination_whenToString_thenReturnsNonEmptyString() {
-        ClickCombination combination = new ClickCombination(0b11L, 0b10L);
+        ClickCombination combination = ClickCombination.fromArray(Grid.ValueFormat.INDEX, (short) 0,
+                (short) 1, (short) 65);
 
         String result = combination.toString();
 

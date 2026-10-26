@@ -17,9 +17,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import it.unimi.dsi.fastutil.shorts.ShortList;
 
-// TODO: Add a unit test for an empty array passed into fromArrayAndFinalClick()
-// TODO: Consider adding equals()/hashCode() unit tests, but they are already covered by the
-// record's default implementations
 class ClickCombinationTest {
 
     @Test
@@ -253,6 +250,14 @@ class ClickCombinationTest {
     }
 
     @ParameterizedTest
+    @ValueSource(shorts = {-1, 110})
+    void givenEmptyPrefixAndInvalidFinalClick_whenFromArrayAndFinalClickWithIndexFormat_thenThrowsIAE(
+            short invalidIndex) {
+        assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
+                .fromArrayAndFinalClick(Grid.ValueFormat.INDEX, new short[0], invalidIndex));
+    }
+
+    @ParameterizedTest
     @ValueSource(shorts = {-1, 710, 16, 64, 118})
     void givenInvalidPackedValueInPrefix_whenFromArrayAndFinalClick_thenThrowsIAE(
             short invalidPackedValue) {
@@ -272,6 +277,14 @@ class ClickCombinationTest {
 
         assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
                 .fromArrayAndFinalClick(Grid.ValueFormat.PACKED, prefix, finalClick));
+    }
+
+    @ParameterizedTest
+    @ValueSource(shorts = {-1, 710, 16, 64, 118})
+    void givenEmptyPrefixAndInvalidFinalClick_whenFromArrayAndFinalClickWithPackedFormat_thenThrowsIAE(
+            short invalidPackedValue) {
+        assertThatIllegalArgumentException().isThrownBy(() -> ClickCombination
+                .fromArrayAndFinalClick(Grid.ValueFormat.PACKED, new short[0], invalidPackedValue));
     }
 
     @ParameterizedTest
@@ -332,6 +345,20 @@ class ClickCombinationTest {
     }
 
     @Test
+    void givenEmptyPrefixAndValidFinalClick_whenFromArrayAndFinalClickWithIndexFormat_thenReturnsCorrectClickCombination() {
+        short[] prefix = new short[0];
+        short finalClick = 65;
+
+        ClickCombination result = ClickCombination.fromArrayAndFinalClick(Grid.ValueFormat.INDEX,
+                prefix, finalClick);
+
+        assertSoftly(softly -> {
+            softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(0L);
+            softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(0b10L);
+        });
+    }
+
+    @Test
     void givenValidPrefixAndFinalClick_whenFromArrayAndFinalClickWithPackedFormat_thenReturnsCorrectClickCombination() {
         short[] prefix = new short[] {0, 1};
         short finalClick = 403;
@@ -341,6 +368,20 @@ class ClickCombinationTest {
 
         assertSoftly(softly -> {
             softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(0b11L);
+            softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(0b10L);
+        });
+    }
+
+    @Test
+    void givenEmptyPrefixAndValidFinalClick_whenFromArrayAndFinalClickWithPackedFormat_thenReturnsCorrectClickCombination() {
+        short[] prefix = new short[0];
+        short finalClick = 403;
+
+        ClickCombination result = ClickCombination.fromArrayAndFinalClick(Grid.ValueFormat.PACKED,
+                prefix, finalClick);
+
+        assertSoftly(softly -> {
+            softly.assertThat(result.lowerMask()).as("check lower mask").isEqualTo(0L);
             softly.assertThat(result.upperMask()).as("check upper mask").isEqualTo(0b10L);
         });
     }

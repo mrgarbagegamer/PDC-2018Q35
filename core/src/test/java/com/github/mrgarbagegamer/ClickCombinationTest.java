@@ -30,81 +30,81 @@ class ClickCombinationTest {
     }
 
     @Test
-    void givenNullFormat_whenFromCollection_thenThrowsNPE() {
+    void givenNullFormat_whenFromIterable_thenThrowsNPE() {
         ShortList combination = ShortList.of();
 
         assertThatNullPointerException()
-                .isThrownBy(() -> ClickCombination.fromCollection(null, combination));
+                .isThrownBy(() -> ClickCombination.fromIterable(null, combination));
     }
 
     @Test
-    void givenNullCombination_whenFromCollection_thenThrowsNPE() {
+    void givenNullCombination_whenFromIterable_thenThrowsNPE() {
         assertThatNullPointerException()
-                .isThrownBy(() -> ClickCombination.fromCollection(Grid.ValueFormat.INDEX, null));
+                .isThrownBy(() -> ClickCombination.fromIterable(Grid.ValueFormat.INDEX, null));
     }
 
     @Test
-    void givenEmptyCombination_whenFromCollection_thenReturnsEmpty() {
+    void givenEmptyCombination_whenFromIterable_thenReturnsEmpty() {
         ShortList combination = ShortList.of();
 
-        ClickCombination result = ClickCombination.fromCollection(Grid.ValueFormat.INDEX,
+        ClickCombination result = ClickCombination.fromIterable(Grid.ValueFormat.INDEX,
                 combination);
 
         assertThat(result).isEqualTo(ClickCombination.EMPTY);
     }
 
     @Test
-    void givenNullClickInBoxedCombination_whenFromCollection_thenThrowsNPE() {
+    void givenNullClickInBoxedCombination_whenFromIterable_thenThrowsNPE() {
         List<Short> combination = Arrays.asList(null, (short) 1);
 
         assertThatNullPointerException().isThrownBy(
-                () -> ClickCombination.fromCollection(Grid.ValueFormat.INDEX, combination));
+                () -> ClickCombination.fromIterable(Grid.ValueFormat.INDEX, combination));
     }
 
     @ParameterizedTest
     @ValueSource(shorts = {-1, 110})
-    void givenInvalidIndexInCombination_whenFromCollection_thenThrowsIAE(short invalidIndex) {
+    void givenInvalidIndexInCombination_whenFromIterable_thenThrowsIAE(short invalidIndex) {
         ShortList combination = ShortList.of(invalidIndex);
 
         assertThatIllegalArgumentException().isThrownBy(
-                () -> ClickCombination.fromCollection(Grid.ValueFormat.INDEX, combination));
+                () -> ClickCombination.fromIterable(Grid.ValueFormat.INDEX, combination));
     }
 
     @ParameterizedTest
     @ValueSource(shorts = {-1, 710, 16, 64, 118})
-    void givenInvalidPackedValueInCombination_whenFromCollection_thenThrowsIAE(
+    void givenInvalidPackedValueInCombination_whenFromIterable_thenThrowsIAE(
             short invalidPackedValue) {
         ShortList combination = ShortList.of(invalidPackedValue);
 
         assertThatIllegalArgumentException().isThrownBy(
-                () -> ClickCombination.fromCollection(Grid.ValueFormat.PACKED, combination));
+                () -> ClickCombination.fromIterable(Grid.ValueFormat.PACKED, combination));
     }
 
     @ParameterizedTest
     @ValueSource(shorts = {1, 66})
-    void givenDuplicateIndexInCombination_whenFromCollection_thenThrowsIAE(short duplicateIndex) {
+    void givenDuplicateIndexInCombination_whenFromIterable_thenThrowsIAE(short duplicateIndex) {
         ShortList combination = ShortList.of(duplicateIndex, (short) 65, duplicateIndex);
 
         assertThatIllegalArgumentException().isThrownBy(
-                () -> ClickCombination.fromCollection(Grid.ValueFormat.INDEX, combination));
+                () -> ClickCombination.fromIterable(Grid.ValueFormat.INDEX, combination));
     }
 
     @ParameterizedTest
     @ValueSource(shorts = {1, 404})
-    void givenDuplicatePackedValueInCombination_whenFromCollection_thenThrowsIAE(
+    void givenDuplicatePackedValueInCombination_whenFromIterable_thenThrowsIAE(
             short duplicatePackedValue) {
         ShortList combination = ShortList.of(duplicatePackedValue, (short) 403,
                 duplicatePackedValue);
 
         assertThatIllegalArgumentException().isThrownBy(
-                () -> ClickCombination.fromCollection(Grid.ValueFormat.PACKED, combination));
+                () -> ClickCombination.fromIterable(Grid.ValueFormat.PACKED, combination));
     }
 
     @Test
-    void givenValidCombination_whenFromCollectionWithIndexFormat_thenReturnsCorrectClickCombination() {
+    void givenValidCombination_whenFromIterableWithIndexFormat_thenReturnsCorrectClickCombination() {
         ShortList combination = ShortList.of((short) 1, (short) 65, (short) 0);
 
-        ClickCombination result = ClickCombination.fromCollection(Grid.ValueFormat.INDEX,
+        ClickCombination result = ClickCombination.fromIterable(Grid.ValueFormat.INDEX,
                 combination);
 
         assertSoftly(softly -> {
@@ -114,10 +114,10 @@ class ClickCombinationTest {
     }
 
     @Test
-    void givenValidCombination_whenFromCollectionWithPackedFormat_thenReturnsCorrectClickCombination() {
+    void givenValidCombination_whenFromIterableWithPackedFormat_thenReturnsCorrectClickCombination() {
         ShortList combination = ShortList.of((short) 1, (short) 403, (short) 0);
 
-        ClickCombination result = ClickCombination.fromCollection(Grid.ValueFormat.PACKED,
+        ClickCombination result = ClickCombination.fromIterable(Grid.ValueFormat.PACKED,
                 combination);
 
         assertSoftly(softly -> {

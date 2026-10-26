@@ -4,6 +4,7 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.stream.Collectors;
 
 import com.google.errorprone.annotations.Immutable;
@@ -63,19 +64,23 @@ public record ClickCombination(long lowerMask, long upperMask) {
         };
     }
 
-    public static ClickCombination fromCollection(Grid.ValueFormat format,
-            Collection<? extends Short> combination) {
+    public static ClickCombination fromIterable(Grid.ValueFormat format,
+            Iterable<? extends Short> combination) {
         mustNotBeNull(format, "format");
         mustNotBeNull(combination, "combination");
 
-        if (combination.isEmpty()) {
+        if (combination instanceof Collection<?> c && c.isEmpty()) {
             return EMPTY;
         }
 
-        // Wrap the collection's iterator in a ShortIterator to avoid unnecessary boxing/unboxing
-        ShortIterator iterator = ShortIterators.asShortIterator(combination.iterator());
+        Iterator<? extends Short> iterator = combination.iterator();
 
-        return fromFormatAndIterator(format, iterator);
+        if (!iterator.hasNext()) {
+            return EMPTY;
+        }
+
+        // Wrap the iterator in a ShortIterator (if needed) to avoid unnecessary boxing/unboxing
+        return fromFormatAndIterator(format, ShortIterators.asShortIterator(iterator));
     }
 
     public static ClickCombination fromArray(Grid.ValueFormat format, short... combination) {

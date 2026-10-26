@@ -4,13 +4,13 @@ import static com.github.mrgarbagegamer.internal.ValidationUtils.mustNotBeNull;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.Arrays;
-import java.util.Collection;
 
 import org.jspecify.annotations.Nullable;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortImmutableList;
 import it.unimi.dsi.fastutil.shorts.ShortIterator;
+import it.unimi.dsi.fastutil.shorts.ShortIterators;
 import it.unimi.dsi.fastutil.shorts.ShortList;
 import it.unimi.dsi.fastutil.shorts.ShortUnaryOperator;
 
@@ -218,18 +218,19 @@ public abstract class Grid {
                 return (short) (6 * 100 + (index - ROW_OFFSETS.getShort(6)));
         }
 
-        private static ShortList replaceAllSafely(Collection<? extends Short> collection,
+        private static ShortList replaceAllSafely(Iterable<? extends Short> iterable,
                 ShortUnaryOperator operator) {
-            ShortList result = new ShortArrayList(collection);
+            ShortList result = ShortIterators
+                    .pour(ShortIterators.asShortIterator(iterable.iterator()));
             result.replaceAll(operator);
             return new ShortImmutableList(result);
         }
 
-        static ShortList indexCollectionToPackedList(Collection<? extends Short> indices) {
+        static ShortList indexIterableToPackedList(Iterable<? extends Short> indices) {
             return replaceAllSafely(indices, ValueFormat::indexToPacked);
         }
 
-        static ShortList packedCollectionToIndexList(Collection<? extends Short> packedValues) {
+        static ShortList packedIterableToPackedList(Iterable<? extends Short> packedValues) {
             return replaceAllSafely(packedValues, ValueFormat::packedToIndex);
         }
     }
@@ -466,7 +467,7 @@ public abstract class Grid {
 
         return switch (outputFormat) {
             case INDEX -> outputList;
-            case PACKED -> ValueFormat.indexCollectionToPackedList(outputList);
+            case PACKED -> ValueFormat.indexIterableToPackedList(outputList);
             case null -> throw new NullPointerException("outputFormat must not be null");
         };
     }

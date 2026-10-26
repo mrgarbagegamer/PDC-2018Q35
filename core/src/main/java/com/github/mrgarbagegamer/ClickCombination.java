@@ -153,7 +153,7 @@ public record ClickCombination(long lowerMask, long upperMask) {
 
         return switch (format) {
             case INDEX -> indexList;
-            case PACKED -> Grid.ValueFormat.indexCollectionToPackedList(indexList);
+            case PACKED -> Grid.ValueFormat.indexIterableToPackedList(indexList);
         };
     }
 

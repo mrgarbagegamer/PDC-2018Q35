@@ -65,15 +65,15 @@ public record ClickCombination(long lowerMask, long upperMask) {
     }
 
     public static ClickCombination fromIterable(Grid.ValueFormat format,
-            Iterable<? extends Short> combination) {
+            Iterable<? extends Short> iterable) {
         mustNotBeNull(format, "format");
-        mustNotBeNull(combination, "combination");
+        mustNotBeNull(iterable, "iterable");
 
-        if (combination instanceof Collection<?> c && c.isEmpty()) {
+        if (iterable instanceof Collection<?> c && c.isEmpty()) {
             return EMPTY;
         }
 
-        Iterator<? extends Short> iterator = combination.iterator();
+        Iterator<? extends Short> iterator = iterable.iterator();
 
         if (!iterator.hasNext()) {
             return EMPTY;

@@ -80,7 +80,6 @@ public record ClickCombination(long lowerMask, long upperMask) {
      *                  64 cells
      * @param upperMask the upper 45 bits of the click combination, representing clicks in the
      *                  remaining cells
-     * @return a new {@code ClickCombination} instance
      * @throws IllegalArgumentException if {@code upperMask} is not a 45-bit value
      */
     public ClickCombination {

@@ -155,7 +155,7 @@ public class Solver {
                     Unbox.box(this.config.numClicks()));
             this.logger.info(elapsedFormatted);
         } else {
-            final ClickCombination winningCombination = this.solverState.getWinningCombination()
+            final ClickCombination winningCombination = this.solverState.getSolution()
                     .orElseThrow(() -> new IllegalStateException(
                             "Solver marked as complete but recorded no winning combination"));
 

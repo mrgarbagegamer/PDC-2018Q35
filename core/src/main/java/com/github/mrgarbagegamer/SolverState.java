@@ -40,7 +40,7 @@ public final class SolverState {
      */
     private volatile @Nullable Thread winningThread;
 
-    private volatile @Nullable ClickCombination winningCombination;
+    private volatile @Nullable ClickCombination solution;
 
     /**
      * A flag indicating whether a solution has been found by any thread.
@@ -73,6 +73,7 @@ public final class SolverState {
         this.start = this.instantSource.instant();
     }
 
+    // TODO: Add Javadocs
     public void markSolutionFound(ClickCombination solution) {
         mustNotBeNull(solution, "solution");
         if (!this.solutionFound) {
@@ -80,7 +81,7 @@ public final class SolverState {
                 if (!this.solutionFound) {
                     // Set the time first to ensure accurate timing
                     this.end = this.instantSource.instant();
-                    this.winningCombination = solution;
+                    this.solution = solution;
                     this.winningThread = Thread.currentThread();
                     this.solutionFound = true;
                 }
@@ -126,7 +127,7 @@ public final class SolverState {
      * {@return the {@link Thread} that found the solution, or {@code null} if no solution has been
      * found}
      * 
-     * @see #getWinningCombination()
+     * @see #getSolution()
      * @see #markSolutionFound(short[])
      * @see #solutionFound()
      * @since 2026.02 - Queue Injection Refactor
@@ -138,9 +139,7 @@ public final class SolverState {
         return Optional.ofNullable(this.winningThread);
     }
 
-    public Optional<ClickCombination> getWinningCombination() {
-        return Optional.ofNullable(this.winningCombination);
-    }
+    public Optional<ClickCombination> getSolution() { return Optional.ofNullable(this.solution); }
 
     /**
      * {@return {@code true} if a solution has been found by any thread, {@code false} otherwise}

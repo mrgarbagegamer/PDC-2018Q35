@@ -73,7 +73,15 @@ public final class SolverState {
         this.start = this.instantSource.instant();
     }
 
-    // TODO: Add Javadocs
+    /**
+     * Marks the solver state as having found a solution, recording the {@linkplain #getSolution()
+     * solution} and the {@linkplain #getWinningThread() thread} that found it. This method is
+     * thread-safe and ensures that only the first thread to find a solution will set the state. Any
+     * subsequent calls to this method will be ignored, and the state will remain unchanged.
+     * 
+     * @param solution the non-{@code null} solution that was found
+     * @throws NullPointerException if {@code solution} is {@code null}
+     */
     public void markSolutionFound(ClickCombination solution) {
         mustNotBeNull(solution, "solution");
         if (!this.solutionFound) {
@@ -124,11 +132,11 @@ public final class SolverState {
     }
 
     /**
-     * {@return the {@link Thread} that found the solution, or {@code null} if no solution has been
-     * found}
+     * {@return an {@link Optional} containing the {@link Thread} that found the solution, or an
+     * empty {@code Optional} if no solution has been found}
      * 
      * @see #getSolution()
-     * @see #markSolutionFound(short[])
+     * @see #markSolutionFound(ClickCombination)
      * @see #solutionFound()
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} field access.
@@ -139,12 +147,22 @@ public final class SolverState {
         return Optional.ofNullable(this.winningThread);
     }
 
-    public Optional<ClickCombination> getSolution() { return Optional.ofNullable(this.solution); }
+    /**
+     * {@return an {@link Optional} containing the solution if one has been found, or an empty
+     * {@code Optional} if no solution has been found}
+     * 
+     * @see #getWinningThread()
+     * @see #markSolutionFound(ClickCombination)
+     * @see #solutionFound()
+     */
+    public Optional<ClickCombination> getSolution() {
+        return Optional.ofNullable(this.solution);
+    }
 
     /**
      * {@return {@code true} if a solution has been found by any thread, {@code false} otherwise}
      * 
-     * @see #markSolutionFound(short[])
+     * @see #markSolutionFound(ClickCombination)
      * @since 2026.02 - Queue Injection Refactor
      * @performance {@code O(1)} field access.
      * @threading Thread-safe read of a {@code volatile boolean}.
